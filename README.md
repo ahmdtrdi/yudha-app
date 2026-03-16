@@ -8,7 +8,7 @@ YUDHA App is a gamified learning platform focused on CPNS, BUMN, and kedinasan p
 yudha-app/
 |- apps/
 |  |- mobile/         # Flutter mobile client (Android/iOS)
-|  |- backend-api/    # NestJS app backend (auth, profile, leaderboard, content)
+|  |- backend-api/    # NestJS app backend (auth, profile, leaderboard, content, rag-api, agentic ai)
 |  |- backend-game/   # NestJS realtime game backend (matchmaking, PvP battle state)
 |- contracts/         # Shared API and socket event contracts
 |- infra/             # Deployment and infrastructure configuration
