@@ -1,4 +1,5 @@
-# YUDHA App
+# YUDHA App (Your Ultimate Digital Hiring Arena)
+
 
 YUDHA App is a gamified learning platform focused on CPNS, BUMN, and kedinasan preparation. The product combines competitive quiz battles, structured practice, and performance tracking to turn exam preparation into an engaging mobile-first experience.
 
