@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Web Royale</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ═══════════════ MENU SCREEN -->
+<div id="menu-screen" class="screen active">
+  <div class="menu-particles" id="menu-particles"></div>
+  <div class="menu-content">
+    <div class="menu-logo">
+      <div class="logo-crown">👑</div>
+      <h1 class="logo-title">WEB ROYALE</h1>
+      <p class="logo-sub">Quiz Battle Arena</p>
+    </div>
+    <div class="menu-buttons">
+      <button class="menu-btn btn-bot" id="btn-vs-bot">
+        <span class="menu-btn-icon">🤖</span>
+        <span class="menu-btn-body"><strong>VS Bot</strong><small>Battle the AI</small></span>
+        <span class="menu-btn-arrow">▶</span>
+      </button>
+      <button class="menu-btn btn-player" id="btn-vs-player">
+        <span class="menu-btn-icon">🌐</span>
+        <span class="menu-btn-body"><strong>VS Player</strong><small>Challenge a friend online</small></span>
+        <span class="menu-btn-arrow">▶</span>
+      </button>
+    </div>
+    <div class="menu-tips">
+      <div class="tip-item">⚡ Answer fast</div>
+      <div class="tip-dot">•</div>
+      <div class="tip-item">💥 Deal damage</div>
+      <div class="tip-dot">•</div>
+      <div class="tip-item">🏆 Destroy towers</div>
+    </div>
+    <div class="menu-categories">
+      <span class="cat-tag cat-math">📐 Math</span>
+      <span class="cat-tag cat-sci">🔬 Science</span>
+      <span class="cat-tag cat-logic">🧠 Logic</span>
+      <span class="cat-tag cat-gen">🌍 General</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MULTIPLAYER SCREEN -->
+<div id="mp-screen" class="screen">
+  <div class="mp-bg"></div>
+  <div class="mp-content">
+    <button class="back-btn" id="btn-back-mp">← Back</button>
+    <div class="mp-header">
+      <h2>🌐 VS Player</h2>
+      <p>Connect with a friend in real-time</p>
+    </div>
+    <div class="mp-panels">
+      <div class="mp-panel">
+        <div class="mp-panel-icon">🏠</div>
+        <h3>Create Room</h3>
+        <p>Host the battle, share code</p>
+        <button class="mp-btn" id="btn-create-room">Create Room</button>
+        <div id="room-code-wrap" hidden>
+          <div class="room-code-label">Your Room Code</div>
+          <div class="room-code-value" id="room-code-text">------</div>
+          <div class="room-code-tap">Tap code to copy</div>
+          <div class="room-status" id="room-status">
+            <span class="sdot"></span> Waiting for opponent…
+          </div>
+        </div>
+      </div>
+      <div class="mp-divider"><span>OR</span></div>
+      <div class="mp-panel">
+        <div class="mp-panel-icon">🔗</div>
+        <h3>Join Room</h3>
+        <p>Enter friend's room code</p>
+        <input type="text" id="join-code-input" class="mp-input" placeholder="Enter code…" maxlength="6" autocomplete="off" />
+        <button class="mp-btn" id="btn-join-room">Join Room</button>
+        <div class="room-status" id="join-status"></div>
+      </div>
+    </div>
+    <div class="mp-footnote">📡 Direct peer-to-peer · No server needed</div>
+  </div>
+</div>
+
+<!-- ═══════════════ GAME WRAPPER -->
+<div id="game-wrapper" class="screen">
+
+  <div id="toast-container"></div>
+
+  <!-- TOP HUD -->
+  <div id="top-hud">
+    <div id="enemy-deck"></div>
+    <div id="enemy-info-row">
+      <img src="assets/red_avatar.png" class="hud-avatar" alt="enemy" />
+      <div class="hud-hp-wrap">
+        <div class="hud-name" id="enemy-label">Enemy</div>
+        <div class="hud-hp-track">
+          <div class="hud-hp-fill enemy" id="hud-hp-enemy-main"></div>
+          <div class="hud-hp-shine"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARENA -->
+  <div id="arena-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="combo-badge" class="hidden">
+      <div class="combo-val" id="combo-val">2×</div>
+      <div class="combo-lbl">COMBO!</div>
+    </div>
+
+    <div id="power-badge" class="hidden">
+      <div class="power-icon">⚡</div>
+      <div class="power-lbl">POWER ROUND!</div>
+      <div class="power-sub">Answer in 5s = 2× damage</div>
+    </div>
+
+    <div id="tower-layer">
+      <div class="tower-slot t-enemy-main">
+        <img id="tower-img-enemy-main" src="assets/red_maintower.png" class="tower-img tower-main" alt="" />
+        <div class="t-hp-bar wide"><div class="t-hp-fill" id="hp-enemy-main"></div></div>
+        <div class="t-hp-text" id="hp-enemy-main-text">3000</div>
+      </div>
+      <div class="tower-slot t-enemy-ml">
+        <img id="tower-img-enemy-miniLeft" src="assets/red_minitower.png" class="tower-img tower-mini" alt="" />
+        <div class="t-hp-bar"><div class="t-hp-fill" id="hp-enemy-miniLeft"></div></div>
+        <div class="t-hp-text" id="hp-enemy-miniLeft-text">1500</div>
+      </div>
+      <div class="tower-slot t-enemy-mr">
+        <img id="tower-img-enemy-miniRight" src="assets/red_minitower.png" class="tower-img tower-mini" alt="" />
+        <div class="t-hp-bar"><div class="t-hp-fill" id="hp-enemy-miniRight"></div></div>
+        <div class="t-hp-text" id="hp-enemy-miniRight-text">1500</div>
+      </div>
+      <div class="tower-slot t-player-main">
+        <img id="tower-img-player-main" src="assets/blue_maintower.png" class="tower-img tower-main" alt="" />
+        <div class="t-hp-bar wide"><div class="t-hp-fill player" id="hp-player-main"></div></div>
+        <div class="t-hp-text" id="hp-player-main-text">3000</div>
+      </div>
+      <div class="tower-slot t-player-ml">
+        <img id="tower-img-player-miniLeft" src="assets/blue_minitower.png" class="tower-img tower-mini" alt="" />
+        <div class="t-hp-bar"><div class="t-hp-fill player" id="hp-player-miniLeft"></div></div>
+        <div class="t-hp-text" id="hp-player-miniLeft-text">1500</div>
+      </div>
+      <div class="tower-slot t-player-mr">
+        <img id="tower-img-player-miniRight" src="assets/blue_minitower.png" class="tower-img tower-mini" alt="" />
+        <div class="t-hp-bar"><div class="t-hp-fill player" id="hp-player-miniRight"></div></div>
+        <div class="t-hp-text" id="hp-player-miniRight-text">1500</div>
+      </div>
+    </div>
+
+    <!-- Question modal -->
+    <div id="question-modal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <div class="modal-header-left">
+            <span class="modal-cat-badge" id="modal-cat-badge">Math</span>
+            <span class="modal-title">⚔ Answer to Act!</span>
+          </div>
+          <div class="timer-ring-wrap">
+            <svg width="48" height="48" viewBox="0 0 48 48">
+              <circle class="timer-bg" cx="24" cy="24" r="20"/>
+              <circle id="timer-ring" cx="24" cy="24" r="20"
+                      stroke-dasharray="125.66" stroke-dashoffset="0"/>
+            </svg>
+            <div id="timer-text">10</div>
+          </div>
+        </div>
+        <div id="modal-question">Loading…</div>
+        <div id="modal-options"></div>
+        <div class="answer-feedback" id="answer-feedback"></div>
+        <div id="power-hint" class="power-hint hidden">⚡ Power Round – answer in 5s for 2× damage!</div>
+        <button id="modal-cancel">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Game over -->
+    <div id="gameover-overlay">
+      <div class="go-content">
+        <div id="go-emoji">🏆</div>
+        <div id="gameover-title">VICTORY!</div>
+        <div id="gameover-msg">You destroyed the enemy base!</div>
+        <div id="gameover-stats"></div>
+        <div class="go-btns">
+          <button id="restart-btn">▶ Play Again</button>
+          <button id="menu-btn-go">🏠 Menu</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM HUD -->
+  <div id="bottom-hud">
+    <div id="player-info-row">
+      <img src="assets/blue_avatar.png" class="hud-avatar" alt="you" />
+      <div class="hud-hp-wrap">
+        <div class="hud-name" id="player-label">You</div>
+        <div class="hud-hp-track">
+          <div class="hud-hp-fill player" id="hud-hp-player-main"></div>
+          <div class="hud-hp-shine"></div>
+        </div>
+      </div>
+      <div class="streak-wrap" id="streak-wrap" style="display:none">
+        <span class="streak-fire">🔥</span>
+        <span class="streak-num" id="streak-num">0</span>
+      </div>
+    </div>
+    <div id="deck"></div>
+  </div>
+
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/questions.js"></script>
+<script src="js/multiplayer.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
+</body>
+</html>
