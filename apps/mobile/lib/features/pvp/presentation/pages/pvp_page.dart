@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
+import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/pvp/application/battle_controller.dart';
 import 'package:yudha_mobile/features/pvp/application/battle_providers.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
@@ -49,6 +52,7 @@ class PvpPage extends ConsumerWidget {
               Expanded(
                 child: _buildBattleContent(
                   context: context,
+                  ref: ref,
                   state: state,
                   controller: controller,
                 ),
@@ -62,6 +66,7 @@ class PvpPage extends ConsumerWidget {
 
   Widget _buildBattleContent({
     required BuildContext context,
+    required WidgetRef ref,
     required BattleState state,
     required BattleController controller,
   }) {
@@ -79,6 +84,15 @@ class PvpPage extends ConsumerWidget {
     if (state.phase == BattlePhase.finished) {
       return _ResultSection(
         state: state,
+        onClaimReward: () {
+          ref
+              .read(playerProgressProvider.notifier)
+              .applyBattleResult(
+                outcome: state.outcome,
+                ratingDelta: state.ratingDelta,
+              );
+          controller.markRewardClaimed();
+        },
         onReplay: controller.startBattle,
         onReset: controller.resetBattle,
       );
@@ -698,11 +712,13 @@ class _TowerNode extends StatelessWidget {
 class _ResultSection extends StatelessWidget {
   const _ResultSection({
     required this.state,
+    required this.onClaimReward,
     required this.onReplay,
     required this.onReset,
   });
 
   final BattleState state;
+  final VoidCallback onClaimReward;
   final VoidCallback onReplay;
   final VoidCallback onReset;
 
@@ -736,6 +752,11 @@ class _ResultSection extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text('Perubahan point: $ratingText'),
+                const SizedBox(height: 6),
+                if (state.rewardClaimed)
+                  const _StatusBanner(
+                    text: 'Reward sudah diklaim dan progres diperbarui.',
+                  ),
                 const SizedBox(height: 8),
                 Text(
                   'Skor akhir: ${state.playerPoints} vs ${state.opponentPoints}',
@@ -743,11 +764,33 @@ class _ResultSection extends StatelessWidget {
                 const SizedBox(height: 16),
                 Wrap(
                   spacing: 10,
+                  runSpacing: 8,
                   children: <Widget>[
+                    FilledButton.icon(
+                      onPressed: state.rewardClaimed
+                          ? null
+                          : () {
+                              onClaimReward();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Reward claimed: $ratingText'),
+                                ),
+                              );
+                            },
+                      icon: const Icon(Icons.workspace_premium_outlined),
+                      label: Text(
+                        state.rewardClaimed ? 'Reward Claimed' : 'Claim Reward',
+                      ),
+                    ),
                     FilledButton.icon(
                       onPressed: onReplay,
                       icon: const Icon(Icons.replay),
                       label: const Text('Main Lagi'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => context.go(AppRoutes.leaderboard),
+                      icon: const Icon(Icons.emoji_events_outlined),
+                      label: const Text('Leaderboard'),
                     ),
                     OutlinedButton(
                       onPressed: onReset,
