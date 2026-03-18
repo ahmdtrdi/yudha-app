@@ -58,3 +58,43 @@
 - Dark theme exists but the app is fixed to light mode for now; adaptive theme mode can be added later.
 - Feature pages are structural placeholders only; domain/data/application layers are still empty and need concrete implementation per feature sprint.
 - Tab selection currently maps by route prefix and assumes simple flat section paths; nested section routes may need explicit route metadata later.
+
+## 2026-03-18 - Implemented PvP core architecture (state machine + controller + mock adapters + UI)
+
+### The Change
+- Replaced PvP placeholder with a working battle flow in `apps/mobile`.
+- Added domain entities and enums for battle modeling:
+  - `battle_enums.dart`, `battle_question.dart`, `battle_session_seed.dart`, `battle_state.dart`
+- Added pure battle rule engine:
+  - `domain/services/battle_state_machine.dart`
+  - Handles damage/heal resolution, HP clamp, score updates, battle finish detection, and win/lose/draw point delta.
+- Added data adapters and contracts:
+  - `data/repositories/battle_repository.dart`
+  - `bot_battle_repository.dart`, `online_battle_repository.dart`
+  - `mock_question_bank.dart`
+- Added Riverpod application layer:
+  - `application/battle_controller.dart`
+  - `application/battle_providers.dart`
+  - Supports mode switching (bot/player), session start/reset, and answering questions.
+- Added PvP presentation components:
+  - `presentation/pages/pvp_page.dart` (pre-battle, in-battle, result states)
+  - `presentation/widgets/battle_health_panel.dart`
+  - `presentation/widgets/question_pick_card.dart`
+- Added tests:
+  - Unit: `test/unit/features/pvp/domain/services/battle_state_machine_test.dart`
+  - Widget: `test/widget/features/pvp/presentation/pages/pvp_page_test.dart`
+- Validation completed successfully:
+  - `dart format lib test`
+  - `flutter analyze`
+  - `flutter test`
+
+### The Reasoning
+- We split PvP into domain/application/data/presentation to keep battle rules testable and backend swap easy.
+- A pure state machine reduces UI-side logic complexity and enables deterministic unit tests for scoring/HP edge behavior.
+- Bot and online repositories share one interface so real socket integration can replace mock adapters without UI rewrite.
+- The page-level state transitions (pre-battle -> in-battle -> result) match the product flow while remaining easy to iterate.
+
+### The Tech Debt
+- `OnlineBattleRepository` is still a mock and does not yet consume real matchmaking/socket events.
+- Question set and opponent behavior are static; adaptive difficulty and server-authoritative validation are not implemented yet.
+- PvP UI has functional feedback but still needs stronger motion polish and richer battle effects for final demo quality.
