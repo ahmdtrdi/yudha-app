@@ -56,15 +56,19 @@ void main() {
     await tester.tap(find.text('Mulai Battle'));
     await tester.pumpAndSettle();
 
-    expect(find.text('2 + 2 = ?'), findsOneWidget);
-    expect(find.textContaining('Point Kamu'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('question-card-q1')),
+      findsOneWidget,
+    );
+    expect(find.text('BOT TEST'), findsOneWidget);
+    expect(find.text('Kamu'), findsOneWidget);
 
-    await tester.tap(find.text('Pilih Soal'));
+    await tester.tap(find.byKey(const ValueKey<String>('question-card-q1')));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('4'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Kamu Menang!'), findsOneWidget);
+    expect(find.text('VICTORY!'), findsOneWidget);
   });
 }

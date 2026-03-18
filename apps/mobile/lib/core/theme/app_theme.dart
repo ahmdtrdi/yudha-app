@@ -4,7 +4,7 @@ import 'package:yudha_mobile/core/theme/app_colors.dart';
 abstract final class AppTheme {
   static ThemeData get lightTheme {
     final ColorScheme colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.primary,
+      seedColor: AppColors.warriorNavy,
       brightness: Brightness.light,
     );
 
@@ -13,21 +13,21 @@ abstract final class AppTheme {
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.surfaceLight,
       appBarTheme: AppBarTheme(
-        backgroundColor: AppColors.surfaceLight,
-        foregroundColor: AppColors.textStrong,
+        backgroundColor: AppColors.warriorNavy,
+        foregroundColor: AppColors.scholarCream,
         elevation: 0,
         centerTitle: true,
       ),
       cardTheme: CardThemeData(
         color: Colors.white,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: colorScheme.outlineVariant),
         ),
       ),
@@ -36,7 +36,7 @@ abstract final class AppTheme {
 
   static ThemeData get darkTheme {
     final ColorScheme colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.primary,
+      seedColor: AppColors.warriorNavy,
       brightness: Brightness.dark,
     );
 
