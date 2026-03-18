@@ -10,20 +10,17 @@ exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
-const config_1 = require("@nestjs/config");
+const match_module_1 = require("./match/match.module");
 const supabase_module_1 = require("./supabase/supabase.module");
-const profile_module_1 = require("./profile/profile.module");
+const config_1 = require("@nestjs/config");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            config_1.ConfigModule.forRoot({
-                isGlobal: true,
-            }),
-            supabase_module_1.SupabaseModule,
-            profile_module_1.ProfileModule,
+            config_1.ConfigModule.forRoot({ isGlobal: true }),
+            match_module_1.MatchModule, supabase_module_1.SupabaseModule
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],
