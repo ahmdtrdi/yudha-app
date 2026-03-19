@@ -265,3 +265,141 @@
 - Pagination is implemented as hooks/button UX; infinite scroll and request cancellation are not added yet.
 - Result reward claiming is UI-driven; server-authoritative reward validation is still required for production fairness.
 - Lobby gamification widgets (rank/streak/top teaser quick actions) are intentionally deferred to the next branch.
+
+## 2026-03-18 - Lobby redesign v1 (60/40 command-center layout)
+
+### The Change
+- Replaced the old button-list lobby with a simplified command-center style in `apps/mobile/lib/features/lobby/presentation/pages/lobby_page.dart`.
+- Implemented new lobby structure:
+  - top utility icon actions (`Store`, `Profile`, `Settings` placeholder)
+  - single dominant center hero/progress card (avatar, tier, points, streak, winrate)
+  - roadmap card with simple node path (`Battle -> Practice -> Top 10`)
+  - one primary CTA (`Start Battle`)
+  - secondary CTAs (`Practice`, `Leaderboard`) and tertiary exploration action (`Interview`).
+- Wired progression display to shared `playerProgressProvider` to keep lobby and gamification values consistent.
+- Updated initial widget smoke test (`apps/mobile/test/widget_test.dart`) for new lobby structure and scroll-based CTA assertion.
+- Validation completed:
+  - `flutter analyze` (clean)
+  - `flutter test` (all passed)
+
+### The Reasoning
+- We intentionally narrowed lobby decisions to reduce UX confusion: one dominant action at center, supportive actions below.
+- The layout keeps 60/40 balance by combining clean information hierarchy (professional) with roadmap/hero affordances (game feel).
+- Bot/matchmaking toggles remain inside PvP flow, while lobby serves as a simple entry hub.
+
+### The Tech Debt
+- Current character in hero card is icon-based placeholder; final branded character art/animation is still pending.
+- Roadmap is currently static and not yet dynamically locked/unlocked by real mission progression state.
+- `Settings` action is placeholder only and should be connected when settings screen exists.
+
+## 2026-03-18 - Lobby v1 follow-up refinement (hero emphasis + daily quests)
+
+### The Change
+- Refined `apps/mobile/lib/features/lobby/presentation/pages/lobby_page.dart` based on UX feedback:
+  - removed roadmap block
+  - replaced with compact `Today's Quest` section containing two daily tasks (`Daily Question`, `Daily PvP`)
+  - moved `Interview Prep` action to top-left as requested
+  - enlarged hero card visual weight (bigger avatar, larger name, increased card height/padding) so lobby remains hero-focused.
+- Updated lobby smoke test text assertion in `apps/mobile/test/widget_test.dart` from `Roadmap` to `Today's Quest`.
+- Validation completed:
+  - `flutter analyze` (clean)
+  - `flutter test` (all passed)
+
+### The Reasoning
+- The previous roadmap section competed with hero priority and diluted the intended simple lobby focus.
+- Daily quest format better supports immediate session goals while keeping the section small and readable.
+- Top-left interview action preserves discoverability without competing with primary battle CTA.
+
+### The Tech Debt
+- Quest completion states are currently static UI and not yet connected to real completion flags.
+- Hero still uses icon placeholder instead of final branded character art/motion.
+
+## 2026-03-18 - Lobby no-scroll stabilization (compact viewport mode)
+
+### The Change
+- Refactored lobby body to remain non-scrollable while handling shorter viewport heights safely.
+- Added compact-mode responsiveness in `LobbyPage` using `LayoutBuilder` (`compact = maxHeight < 520`):
+  - tighter paddings/gaps
+  - smaller top controls
+  - smaller hero and quest density
+  - smaller button vertical spacing in compact state.
+- Preserved requested information hierarchy: hero-first + small daily quest + primary CTA.
+- Kept `test/widget_test.dart` assertion that lobby has no `Scrollable`.
+- Validation completed:
+  - `flutter analyze` (clean)
+  - `flutter test` (all passed)
+
+### The Reasoning
+- Previous no-scroll layout still overflowed on constrained test viewport.
+- Compact-mode sizing solves overflow without reintroducing scrolling behavior.
+
+### The Tech Debt
+- Compact breakpoints are currently hardcoded and may need design-token-level responsive constants later.
+
+## 2026-03-18 - Lobby layout correction pass (full-width CTA + center redistribution)
+
+### The Change
+- Fixed `Start Battle` CTA width to full container width.
+- Rebalanced lobby vertical composition to remove top-stacked feel:
+  - moved hero + quest into an `Expanded` center region
+  - hero card now fills available center space and centers its internal content
+  - removed previous spacer-driven large empty gap behavior.
+- Kept no-scroll behavior and compact viewport handling.
+- Revalidated with full analysis and tests.
+
+### The Reasoning
+- Previous no-scroll implementation left visual dead space and made center content feel collapsed.
+- Using a center `Expanded` region preserves hierarchy while making the hero visually dominant.
+
+### The Tech Debt
+- Final hero visual still uses placeholder icon and should be replaced with branded character art/motion.
+
+## 2026-03-18 - Lobby polish pass (balance and hierarchy tuning)
+
+### The Change
+- Tweaked `apps/mobile/lib/features/lobby/presentation/pages/lobby_page.dart` to improve visual balance from the latest UI review:
+  - set lobby page background to `AppColors.surfaceLight` to better match light-first design direction
+  - changed hero sizing strategy from unconstrained expansion to controlled dynamic height (`~40%` of available body height, clamped) so the card remains dominant without feeling stretched
+  - centered middle stack composition (hero + quest) to reduce top-heavy layout feel
+  - updated non-compact hero internals to use a single centered expanded region for avatar/name/tier so internal spacing feels intentional
+  - upgraded `Today's Quest` card surface with white background + subtle shadow for cleaner card separation.
+
+### The Reasoning
+- The previous layout technically fit the viewport, but visual weight was uneven: large blank hero areas and compressed lower sections reduced perceived quality.
+- Controlled hero height plus centered composition preserves the requested "hero-first" lobby while keeping no-scroll behavior stable.
+- Light card separation aligns better with the 60/40 professional-game balance in `FE-DESIGN.md`.
+
+### The Tech Debt
+- Current hero still uses icon placeholder instead of branded character art and motion treatment.
+- We were unable to re-run `dart/ flutter` commands from this shell session because they hang in this environment, so final validation should be re-run locally in your IDE terminal before merge.
+
+## 2026-03-19 - Lobby stabilization and hero hierarchy refinement
+
+### The Change
+- Fixed runtime zone mismatch in `apps/mobile/lib/app/bootstrap/app_bootstrap.dart`:
+  - moved `WidgetsFlutterBinding.ensureInitialized()` and `FlutterError.onError` setup into the same `runZonedGuarded` flow before `runApp`.
+- Stabilized hero layout in `apps/mobile/lib/features/lobby/presentation/pages/lobby_page.dart` to prevent vertical overflow on constrained Android viewports:
+  - added height-aware dense handling
+  - applied constraint-safe center scaling (`Expanded -> Center -> FittedBox(scaleDown) -> Column(mainAxisSize: min)`)
+  - added safer text constraints (`maxLines` + ellipsis) for risky rows.
+- Applied latest hero-only information hierarchy updates:
+  - removed top-right `Profile` icon from header actions
+  - added top-right streak metric chip beside `Store` (`Streak <n>`) and kept `Settings`
+  - in hero top pills, replaced redundant `Tier` pill with `Winrate`
+  - kept `Warrior Tier` text under player name as the only tier label
+  - added numeric progress metric under the hero progress bar (`<current> / 400`)
+  - removed bottom non-compact stat-chip row (streak/winrate), since those values are now surfaced in requested locations.
+- Updated compact hero chips to keep `Points` + `Winrate` only (streak moved to top header metric).
+
+### The Reasoning
+- Flutter binding initialization must happen in the same zone as `runApp`; separating them caused the runtime assertion.
+- Hero center content previously exceeded available height under certain emulator constraints; combined dense handling + scale-down guard ensures fit without adding scroll.
+- This reduces information duplication and makes the hero easier to scan:
+  - identity/tier stays in center
+  - winrate becomes quick top-left KPI
+  - streak is elevated to global top-right quick status near store.
+- Numeric progress text clarifies what the bar means at a glance.
+
+### The Tech Debt
+- Tier target denominator is currently hardcoded to `400`; should be sourced from progression config once backend/game balancing is finalized.
+- Hero density/scaling behavior now uses layered guards; later we should consolidate this into a single responsive token/spec to keep behavior predictable.

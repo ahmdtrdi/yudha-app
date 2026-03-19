@@ -9,18 +9,18 @@ typedef AppBuilder = Widget Function();
 
 abstract final class AppBootstrap {
   static void run(AppBuilder builder) {
-    WidgetsFlutterBinding.ensureInitialized();
-
-    FlutterError.onError = (FlutterErrorDetails details) {
-      FlutterError.presentError(details);
-      Zone.current.handleUncaughtError(
-        details.exception,
-        details.stack ?? StackTrace.current,
-      );
-    };
-
     runZonedGuarded<void>(
       () {
+        WidgetsFlutterBinding.ensureInitialized();
+
+        FlutterError.onError = (FlutterErrorDetails details) {
+          FlutterError.presentError(details);
+          Zone.current.handleUncaughtError(
+            details.exception,
+            details.stack ?? StackTrace.current,
+          );
+        };
+
         runApp(
           ProviderScope(
             observers: <ProviderObserver>[AppProviderObserver()],
