@@ -430,3 +430,30 @@
 - Practice data is still static mock data and not yet wired to backend topic/question endpoints.
 - Hint monetization actions are UI stubs only and need real ad/purchase integration.
 - Flutter tests in this shell timed out repeatedly; local verification should be re-run from IDE terminal before merge.
+
+## 2026-03-19 - Personal profile v1 (performance + settings)
+
+### The Change
+- Replaced placeholder profile page with a functional personal module in `apps/mobile/lib/features/profile/presentation/pages/profile_page.dart`:
+  - profile header with avatar placeholder and tier/points identity
+  - performance analytics cards (winrate, tier, total matches, best streak)
+  - rank trend indicator card (derived from `lastDelta`)
+  - settings panel with Bahasa labels: language selector (`ID`/`EN`), daily notification toggle, sound toggle, haptic toggle.
+- Added profile application/domain state layer:
+  - `domain/entities/profile_language.dart`
+  - `domain/entities/profile_settings.dart`
+  - `application/profile_settings_controller.dart`
+  - `application/profile_settings_providers.dart`
+- Added tests:
+  - unit: `test/unit/features/profile/application/profile_settings_controller_test.dart`
+  - widget: `test/widget/features/profile/presentation/pages/profile_page_test.dart`.
+
+### The Reasoning
+- Personal features need shared, testable settings state instead of local widget state to stay scalable for future backend persistence.
+- Performance cards are sourced from existing gamification progression state so profile reflects real in-app progress immediately.
+- Bahasa-first labels match current product language context while still allowing quick language switching UX.
+
+### The Tech Debt
+- Profile settings are still in-memory only and not persisted locally/remote.
+- Rank trend currently derives from `lastDelta` as a short-term proxy; historical trend data should come from backend analytics later.
+- Flutter test execution in this shell remains unstable/timeouts; local verification should be re-run in IDE terminal before merge.
