@@ -42,6 +42,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.6
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -65,6 +67,7 @@ flutter:
     - assets/game/
     - assets/icons/
     - assets/icons/navigation/
+    - assets/branding/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -91,3 +94,20 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/branding/app-icon.png
+  adaptive_icon_background: '#FFF6E9'
+  adaptive_icon_foreground: assets/branding/app-icon.png
+  min_sdk_android: 21
+
+flutter_native_splash:
+  color: '#FFF6E9'
+  image: assets/branding/logo-color.png
+  android: true
+  ios: true
+  web: false
+  android_gravity: center
+  ios_content_mode: center

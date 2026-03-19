@@ -5,6 +5,14 @@ import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
 class PlayerProgressController extends StateNotifier<PlayerProgress> {
   PlayerProgressController() : super(PlayerProgress.initial());
 
+  void setDisplayName(String displayName) {
+    final String trimmed = displayName.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+    state = state.copyWith(displayName: trimmed);
+  }
+
   void applyBattleResult({
     required BattleOutcome outcome,
     required int ratingDelta,

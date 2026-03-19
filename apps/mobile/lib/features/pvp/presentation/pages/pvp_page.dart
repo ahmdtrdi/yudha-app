@@ -69,6 +69,9 @@ class PvpPage extends ConsumerWidget {
     final BattleState state = ref.watch(battleControllerProvider);
     final BattleController controller =
         ref.read(battleControllerProvider.notifier);
+    final String playerDisplayName = ref.watch(
+      playerProgressProvider.select((progress) => progress.displayName),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -112,6 +115,7 @@ class PvpPage extends ConsumerWidget {
                   ref: ref,
                   state: state,
                   controller: controller,
+                  playerDisplayName: playerDisplayName,
                 ),
               ),
             ],
@@ -126,6 +130,7 @@ class PvpPage extends ConsumerWidget {
     required WidgetRef ref,
     required BattleState state,
     required BattleController controller,
+    required String playerDisplayName,
   }) {
     if (state.isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -134,6 +139,7 @@ class PvpPage extends ConsumerWidget {
     if (state.phase == BattlePhase.preBattle) {
       return _PreBattleSection(
         mode: state.mode,
+        playerDisplayName: playerDisplayName,
         onModeChanged: controller.setMode,
         onStart: controller.startBattle,
       );
@@ -150,11 +156,13 @@ class PvpPage extends ConsumerWidget {
         },
         onReplay: controller.startBattle,
         onReset: controller.resetBattle,
+        playerDisplayName: playerDisplayName,
       );
     }
 
     return _InBattleSection(
       state: state,
+      playerDisplayName: playerDisplayName,
       onPickQuestion: (BattleQuestion q) {
         // Simple bottom sheet to answer; this keeps battle flow usable.
         showModalBottomSheet<void>(
@@ -236,11 +244,13 @@ class PvpPage extends ConsumerWidget {
 class _PreBattleSection extends StatefulWidget {
   const _PreBattleSection({
     required this.mode,
+    required this.playerDisplayName,
     required this.onModeChanged,
     required this.onStart,
   });
 
   final BattleMode mode;
+  final String playerDisplayName;
   final ValueChanged<BattleMode> onModeChanged;
   final VoidCallback onStart;
 
@@ -402,7 +412,7 @@ class _PreBattleSectionState extends State<_PreBattleSection> {
           children: <Widget>[
             SizedBox(
               height: compact ? 290 : 340,
-              child: const _ArenaPreview(),
+              child: _ArenaPreview(playerName: widget.playerDisplayName),
             ),
             SizedBox(height: compact ? 14 : 18),
             Text(
@@ -483,10 +493,12 @@ class _PreBattleSectionState extends State<_PreBattleSection> {
 class _InBattleSection extends StatelessWidget {
   const _InBattleSection({
     required this.state,
+    required this.playerDisplayName,
     required this.onPickQuestion,
   });
 
   final BattleState state;
+  final String playerDisplayName;
   final ValueChanged<BattleQuestion> onPickQuestion;
 
   @override
@@ -512,7 +524,7 @@ class _InBattleSection extends StatelessWidget {
         const SizedBox(height: 6),
         _HudStrip(
           isEnemy: false,
-          playerName: 'Kamu',
+          playerName: playerDisplayName,
           hp: state.playerHp,
           points: state.playerPoints,
           questions: state.availableQuestions,
@@ -952,12 +964,14 @@ class _ResultSection extends StatelessWidget {
     required this.onClaimReward,
     required this.onReplay,
     required this.onReset,
+    required this.playerDisplayName,
   });
 
   final BattleState state;
   final VoidCallback onClaimReward;
   final VoidCallback onReplay;
   final VoidCallback onReset;
+  final String playerDisplayName;
 
   @override
   Widget build(BuildContext context) {
@@ -1056,7 +1070,7 @@ class _ResultSection extends StatelessWidget {
                     children: <Widget>[
                       Expanded(
                         child: _ScoreColumn(
-                          label: 'KAMU',
+                          label: playerDisplayName.toUpperCase(),
                           value: '${state.playerPoints}',
                           color: isVictory ? scoreAccent : const Color(0xFF9EB0D7),
                           compact: compact,
@@ -1294,6 +1308,8 @@ class _ScoreColumn extends StatelessWidget {
       children: <Widget>[
         Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: GoogleFonts.dmSans(
             color: color.withAlpha(220),
             fontSize: compact ? 12 : 14,
@@ -1490,10 +1506,13 @@ class _StatusBanner extends StatelessWidget {
 }
 
 class _ArenaPreview extends StatelessWidget {
-  const _ArenaPreview();
+  const _ArenaPreview({required this.playerName});
+
+  final String playerName;
 
   @override
   Widget build(BuildContext context) {
+    final String safePlayerName = playerName.trim().isEmpty ? 'Kamu' : playerName;
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFF5F7FC),
@@ -1514,7 +1533,7 @@ class _ArenaPreview extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
-                    const _AvatarBadge(label: 'Kamu', isEnemy: false),
+                    _AvatarBadge(label: safePlayerName, isEnemy: false),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 18,
@@ -1661,13 +1680,19 @@ class _AvatarBadge extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        Text(
-          label.toUpperCase(),
-          style: GoogleFonts.dmSans(
-            color: tint,
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-            letterSpacing: 0.2,
+        SizedBox(
+          width: 104,
+          child: Text(
+            label.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.dmSans(
+              color: tint,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              letterSpacing: 0.2,
+            ),
           ),
         ),
       ],

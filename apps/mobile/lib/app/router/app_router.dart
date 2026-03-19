@@ -5,15 +5,25 @@ import 'package:yudha_mobile/app/router/app_tab_shell.dart';
 import 'package:yudha_mobile/features/interview/presentation/pages/interview_page.dart';
 import 'package:yudha_mobile/features/leaderboard/presentation/pages/leaderboard_page.dart';
 import 'package:yudha_mobile/features/lobby/presentation/pages/lobby_page.dart';
+import 'package:yudha_mobile/features/onboarding/presentation/pages/splash_page.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_page.dart';
+import 'package:yudha_mobile/features/profile/presentation/pages/profile_onboarding_page.dart';
 import 'package:yudha_mobile/features/profile/presentation/pages/profile_page.dart';
 import 'package:yudha_mobile/features/pvp/presentation/pages/pvp_page.dart';
 import 'package:yudha_mobile/features/store/presentation/pages/store_page.dart';
 
 final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
   (Ref ref) => GoRouter(
-    initialLocation: AppRoutes.lobby,
+    initialLocation: AppRoutes.splash,
     routes: <RouteBase>[
+      GoRoute(
+        path: AppRoutes.splash,
+        builder: (context, state) => const SplashPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.profileSetup,
+        builder: (context, state) => const ProfileOnboardingPage(),
+      ),
       ShellRoute(
         builder: (context, state, child) {
           return AppTabShell(location: state.uri.path, child: child);
