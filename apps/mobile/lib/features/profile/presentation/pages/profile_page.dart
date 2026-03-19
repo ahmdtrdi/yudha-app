@@ -5,6 +5,7 @@ import 'package:yudha_mobile/features/gamification/application/player_progress_p
 import 'package:yudha_mobile/features/gamification/domain/entities/player_progress.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_language.dart';
+import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -37,7 +38,10 @@ class ProfilePage extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
-          _ProfileHeaderCard(progress: progress),
+          _ProfileHeaderCard(
+            progress: progress,
+            targetLabel: profileSettings.target?.label,
+          ),
           const SizedBox(height: 12),
           _SectionTitle(
             icon: Icons.bar_chart_rounded,
@@ -92,6 +96,46 @@ class ProfilePage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
+                const Text(
+                  'Target Belajar',
+                  style: TextStyle(
+                    color: AppColors.warriorNavy,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SegmentedButton<ProfileTarget>(
+                  emptySelectionAllowed: true,
+                  showSelectedIcon: false,
+                  segments: const <ButtonSegment<ProfileTarget>>[
+                    ButtonSegment<ProfileTarget>(
+                      value: ProfileTarget.cpns,
+                      label: Text('CPNS'),
+                    ),
+                    ButtonSegment<ProfileTarget>(
+                      value: ProfileTarget.bumn,
+                      label: Text('BUMN'),
+                    ),
+                  ],
+                  selected: profileSettings.target == null
+                      ? const <ProfileTarget>{}
+                      : <ProfileTarget>{profileSettings.target!},
+                  onSelectionChanged: (Set<ProfileTarget> selected) {
+                    if (selected.isEmpty) {
+                      return;
+                    }
+                    settingsController.setTarget(selected.first);
+                  },
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Target aktif: ${profileSettings.target?.label ?? '-'}',
+                  key: const Key('active-target-label'),
+                  style: const TextStyle(color: AppColors.textMuted),
+                ),
+                const SizedBox(height: 8),
+                const Divider(height: 18),
+                const SizedBox(height: 2),
                 const Text(
                   'Bahasa',
                   style: TextStyle(
@@ -152,9 +196,13 @@ class ProfilePage extends ConsumerWidget {
 }
 
 class _ProfileHeaderCard extends StatelessWidget {
-  const _ProfileHeaderCard({required this.progress});
+  const _ProfileHeaderCard({
+    required this.progress,
+    required this.targetLabel,
+  });
 
   final PlayerProgress progress;
+  final String? targetLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -215,6 +263,16 @@ class _ProfileHeaderCard extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                if (targetLabel != null) ...<Widget>[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Target: $targetLabel',
+                    style: TextStyle(
+                      color: AppColors.scholarCream.withAlpha(220),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

@@ -860,3 +860,100 @@
 
 ### The Tech Debt
 - Dialog logic is still inline in page file; extracting to a dedicated widget would further reduce state coupling.
+
+## 2026-03-19 - Onboarding step 1 (app icon config + splash loading route)
+
+### The Change
+- Added onboarding splash/loading page:
+  - `apps/mobile/lib/features/onboarding/presentation/pages/splash_page.dart`
+  - Shows centered brand logo, `YUDHA` title, loading copy, and progress spinner.
+  - Auto-redirects to lobby after `1.8s`.
+- Added routing support for splash-first launch:
+  - `apps/mobile/lib/app/router/app_routes.dart` adds `AppRoutes.splash`.
+  - `apps/mobile/lib/app/router/app_router.dart` sets splash as `initialLocation` and registers splash route outside tab shell.
+- Added launcher icon and native splash tooling config in `apps/mobile/pubspec.yaml`:
+  - `flutter_launcher_icons`
+  - `flutter_native_splash`
+  - Configured with `assets/branding/logo-color.png` and cream background.
+- Updated root widget test to reflect new startup flow:
+  - `apps/mobile/test/widget_test.dart` now asserts splash first, then lobby.
+
+### The Reasoning
+- We need a brand-first onboarding entry before feature screens, even in the current prototype stage.
+- Keeping splash route outside the tab shell avoids bottom-nav flashing during loading.
+- Using package-based icon/splash tooling is faster and safer than manual platform file edits for hackathon iteration.
+
+### The Tech Debt
+- Icon/splash generators still need to be executed locally (`flutter pub get`, `dart run flutter_launcher_icons`, `dart run flutter_native_splash:create`) because this shell cannot run Flutter/Dart binaries.
+- Splash duration is fixed (`1.8s`) and not yet tied to real app initialization/auth checks.
+
+## 2026-03-19 - Launcher icon asset swap to `app-icon.png`
+
+### The Change
+- Updated `apps/mobile/pubspec.yaml` launcher icon config:
+  - `image_path` -> `assets/branding/app-icon.png`
+  - `adaptive_icon_foreground` -> `assets/branding/app-icon.png`
+- Kept `adaptive_icon_background` and splash configuration unchanged.
+
+### The Reasoning
+- You added a dedicated icon asset and asked to use it as the app launcher icon source.
+- Keeping splash unchanged preserves the current onboarding look while isolating icon updates.
+
+### The Tech Debt
+- Icon generation still needs to be rerun locally (`flutter pub get` and `dart run flutter_launcher_icons`) to apply this swap into Android resources.
+
+## 2026-03-19 - First-time profile onboarding gate (name + target) and dynamic player naming
+
+### The Change
+- Added first-time profile identity flow:
+  - New route `AppRoutes.profileSetup` (`/profile-setup`).
+  - New page `apps/mobile/lib/features/profile/presentation/pages/profile_onboarding_page.dart` to collect:
+    - display name
+    - target belajar (`CPNS` or `BUMN`)
+- Updated splash routing logic in `apps/mobile/lib/features/onboarding/presentation/pages/splash_page.dart`:
+  - after splash delay, route to lobby if profile complete
+  - otherwise route to profile setup.
+- Extended profile state model:
+  - Added `ProfileTarget` enum (`cpns`, `bumn`).
+  - Added `displayName`, `target`, and `isProfileComplete` to `ProfileSettings`.
+  - Added `completeProfile`, `setDisplayName`, and `setTarget` in `ProfileSettingsController`.
+- Added progress sync hook:
+  - Added `setDisplayName` in `PlayerProgressController`.
+  - On profile setup submit, name is written to both profile settings and player progress state.
+- Replaced hardcoded `Kamu` player labels in PvP presentation with dynamic profile name:
+  - pre-battle arena avatar label
+  - in-battle player HUD
+  - result screen player score label.
+- Added target editing section in profile page:
+  - segmented control for `CPNS`/`BUMN`
+  - active target label and target in profile header card.
+- Updated tests to reflect new flow/state:
+  - root widget test now expects splash -> profile setup on first load
+  - profile page widget test adds target assertions
+  - profile settings controller unit test adds complete profile case.
+
+### The Reasoning
+- You asked for first-time personalization right after splash, then full app personalization based on name.
+- Gating setup from splash keeps the flow deterministic and avoids users reaching main tabs with anonymous placeholder identity.
+- Keeping target in profile settings (instead of battle domain) keeps exam-path preferences separate from game logic.
+
+### The Tech Debt
+- Identity state is currently in-memory only; app restart will ask setup again until persisted (e.g., local storage).
+- PvP battle engine status copy still contains hardcoded `Kamu` in domain-layer status messages; UI labels are already dynamic.
+- We still need a local format/analyze/test run in your machine because Flutter/Dart binaries are unavailable in this shell.
+
+## 2026-03-19 - Onboarding session consolidation summary
+
+### The Change
+- Consolidated overlapping onboarding notes into one mental grouping:
+  - `Onboarding step 1 (app icon config + splash loading route)`
+  - `Launcher icon asset swap to app-icon.png`
+- Kept distinct onboarding milestone separate:
+  - `First-time profile onboarding gate (name + target) and dynamic player naming`
+
+### The Reasoning
+- The two icon/splash entries describe the same implementation track (same files, same setup phase), with the second being a targeted asset correction.
+- The profile gate entry is structurally different (new route, state model changes, UX flow, and personalization propagation), so it should remain independent.
+
+### The Tech Debt
+- Current onboarding history is now easier to scan, but persistence work is still pending (`displayName` and `target` are not yet stored locally).

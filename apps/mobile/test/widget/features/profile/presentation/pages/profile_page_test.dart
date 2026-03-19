@@ -16,6 +16,7 @@ void main() {
     expect(find.text('Profil Personal'), findsOneWidget);
     expect(find.text('Analisis Performa'), findsOneWidget);
     expect(find.text('Pengaturan Profil'), findsOneWidget);
+    expect(find.text('Target aktif: -'), findsOneWidget);
     expect(find.text('Bahasa aktif: Bahasa Indonesia'), findsOneWidget);
   });
 
@@ -33,5 +34,19 @@ void main() {
 
     expect(find.text('Bahasa aktif: English'), findsOneWidget);
   });
-}
 
+  testWidgets('can switch active target label', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(home: ProfilePage()),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('BUMN'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Target aktif: BUMN'), findsOneWidget);
+  });
+}
