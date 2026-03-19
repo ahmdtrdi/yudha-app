@@ -494,3 +494,369 @@
 - Quest completion values are still static placeholders and should be wired to real daily progression state.
 - Settings action is still a placeholder snackbar.
 - Local formatting and analyze commands were inconsistent in this shell; run a final local pass before commit.
+
+## 2026-03-19 - PvP pre-battle polish (Indonesian copy + arena layout)
+
+### The Change
+- Rebuilt the pre-battle view in `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart` to mirror the provided Battle Arena mock:
+  - hero board with "Kamu" vs selected opponent badge and centered VS chip
+  - Indonesian copy throughout (PILIH LAWAN, BOT/PEMAIN, MASUK ARENA, info note)
+  - selection cards replace the old segmented control while still driving `BattleMode`
+  - info banner and primary CTA restyled to match reference.
+
+### The Reasoning
+- Aligns the PvP entry flow with the approved visual hierarchy and Bahasa-first UX while keeping existing controller hooks intact.
+
+### The Tech Debt
+- Need to re-run `dart format`/`flutter analyze` locally (commands time out here).
+
+## 2026-03-19 - PvP import recovery fix
+
+### The Change
+- Restored the missing `battle_state.dart` import in `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart` after the pre-battle rebuild.
+
+### The Reasoning
+- `BattleState` was used by the rebuilt page but not imported, which caused the hot-restart type errors.
+
+### The Tech Debt
+- The rebuilt PvP page still needs a full local analyze/format pass once the layout pass is stable.
+
+## 2026-03-19 - PvP arena visual refinement pass
+
+### The Change
+- Refined the pre-battle arena in `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart` based on UI review:
+  - removed the internal arena title
+  - added grid lines, corner brackets, center rings, and anchor markers so the arena feels designed rather than placeholder
+  - enlarged avatars and added pedestal bars beneath them
+  - restyled the top hint/toast and lower info strip into the same teal guidance language with dot indicator
+  - upgraded `MASUK ARENA` into an Orbitron CTA with arrow icon
+  - tightened the lower spacing so the CTA sits closer to the navbar.
+
+### The Reasoning
+- The previous pass had correct structure but weak visual hierarchy; this refinement makes the pre-battle scene carry the identity instead of relying on labels.
+- Matching the hint strip and toast styling reduces mixed UI language and makes the screen feel more intentional.
+
+### The Tech Debt
+- Still needs a final local `flutter analyze` and device QA pass after the visual tweaks.
+
+## 2026-03-19 - PvP in-battle arena restoration
+
+### The Change
+- Restored the gameplay arena portion in `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart` after the pre-battle rebuild:
+  - enemy/player HUD strips
+  - tower battlefield panel
+  - question card rail
+  - dark in-arena status banner styling
+  - tower HP bars and values.
+
+### The Reasoning
+- The previous recovery preserved pre-battle but accidentally replaced the actual battle arena with a temporary placeholder, which broke the intended game view.
+
+### The Tech Debt
+- PvP file now mixes two polish tracks (pre-battle and in-battle) in one page; later we should consider splitting arena sections into dedicated widgets/files for safer iteration.
+
+## 2026-03-19 - PvP result screen polish
+
+### The Change
+- Redesigned the finished-state result screen in `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart` to match the provided victory/defeat reference:
+  - large outcome badge and title (`VICTORY` / `DEFEAT` / `DRAW`)
+  - score comparison card
+  - compact lower metrics row
+  - rating change strip
+  - `CLAIM REWARD`, `Play Again`, and `Back to Lobby` actions
+  - dedicated claimed-reward banner state.
+
+### The Reasoning
+- The previous result state was functionally correct but visually much weaker than the pre-battle and arena screens.
+- This pass makes the post-battle moment feel like a proper payoff screen while still using real state that already exists in the battle model.
+
+### The Tech Debt
+- The battle state currently does not track granular stats like exact correct answers, total damage dealt, or total healed, so the lower metric row uses only stable values already present in state.
+- Final typography/spacing should still be validated on device after local format/analyze.
+
+## 2026-03-19 - Result screen behavior cleanup
+
+### The Change
+- Updated the finished-state behavior in `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart`:
+  - hid the top battle status/error banner once the match reaches finished state
+  - changed the lower reward strip label from `Rating change` to `EXP`
+  - removed result-screen scrolling by switching the finished layout to a bounded `LayoutBuilder` column.
+
+### The Reasoning
+- The result screen should feel like a dedicated payoff screen, not a continuation of the in-battle state with leftover notifications.
+
+### The Tech Debt
+- Final compact spacing still needs a quick device QA pass to confirm every element fits cleanly on shorter Android screens.
+
+## 2026-03-19 - Result screen overflow fit pass
+
+### The Change
+- Added compact and very-compact density handling in `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart` for finished-state layout:
+  - scaled down result badge size
+  - reduced vertical spacing and card paddings
+  - reduced score/metric typography sizes in compact view
+  - reduced action button heights and back-link spacing
+  - made claimed-reward banner compact-aware.
+
+### The Reasoning
+- This keeps the result page non-scrollable while preventing bottom overflow on short Android viewports.
+
+### The Tech Debt
+- Needs one local visual pass to ensure compact mode still matches the intended design proportions.
+
+## 2026-03-19 - Result screen spacing rebalance + CTA emphasis
+
+### The Change
+- Rebalanced the finished-state vertical flow in `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart` by replacing a fixed lower gap with flexible spacing (`Spacer`) to reduce dead space while keeping non-scroll behavior.
+- Promoted `CLAIM REWARD` to a stronger primary CTA using teal fill and white Orbitron label.
+- Kept `Play Again` as a secondary outlined action for clearer action hierarchy.
+
+### The Reasoning
+- The compact overflow fix removed clipping but left visual dead space at the bottom; flexible spacing keeps the layout filled more naturally across device heights.
+- Reward claim is the primary post-battle action, so it should have stronger visual weight than replay.
+
+### The Tech Debt
+- Final balancing should still be validated on both win/lose states and smaller Android emulator presets.
+
+## 2026-03-19 - PvP in-battle surrender action
+
+### The Change
+- Added an in-battle `Menyerah` button in `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart`.
+- Wired the button to existing battle controller surrender flow (`controller.surrenderBattle`) so players can end a match early from the arena state.
+- Kept the change incremental in the current PvP page structure (no file replacement).
+
+### The Reasoning
+- Surrender is a core battle control for UX and demo completeness, especially during bot testing and faster iteration loops.
+- Wiring through the controller preserves single-source state transitions (`inBattle -> finished`) and keeps UI logic minimal.
+
+### The Tech Debt
+- `surrenderBattle()` currently uses a fixed rating delta and does not yet apply mode-specific penalties/rules.
+- The new button uses a compact danger-outline style; final spacing and emphasis should be tuned in the next PvP visual polish pass.
+- `flutter analyze` timed out in this shell session, so local IDE-terminal verification is still needed.
+
+## 2026-03-19 - PvP in-battle status popup + duplicate message cleanup
+
+### The Change
+- Updated `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart` so in-battle status/error updates are now shown as temporary floating pop-up notifications (`SnackBar`, 3s) instead of persistent top banners.
+- Limited persistent `_StatusBanner` rendering to pre-battle only.
+- Removed redundant dynamic status source from the arena panel by keeping the arena hint text static (`Pilih kartu untuk menyerang atau heal.`).
+
+### The Reasoning
+- The same status message was being shown in multiple places during battle, which felt repetitive.
+- Temporary pop-up notifications preserve feedback but clear themselves after a few seconds, matching your requested behavior.
+
+### The Tech Debt
+- Notification style currently uses Material `SnackBar`; if we want stricter visual parity with the custom teal info strip, we can replace this with a bespoke in-app toast component.
+- Shell-based format/analyze remains unstable in this environment, so final local verification is still recommended before commit.
+
+## 2026-03-19 - PvP in-battle HUD and notif de-duplication tweaks
+
+### The Change
+- Updated `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart`:
+  - split right-side HUD metrics into two compact stacks with labels (`HP` under percentage and `PTS` under points)
+  - added a left circular marker to dark in-arena status banner style
+  - made arena hint message nullable and only visible while `answeredQuestionIds` is empty
+  - after any card is answered, the static `Pilih kartu untuk menyerang atau heal.` hint now disappears.
+
+### The Reasoning
+- This removes redundant simultaneous messaging between static arena hint and transient battle notifications.
+- Explicit `HP` and `PTS` labels improve readability of the compact HUD values.
+
+### The Tech Debt
+- HUD label sizing is tuned for current layout and should still be checked on very small screens.
+- If we want richer UX later, the initial hint can be animated/faded instead of conditionally removed.
+
+## 2026-03-19 - PvP arena UI parity between Bot and Player modes
+
+### The Change
+- Normalized PvP arena-facing labels in `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart` so Bot and Player modes share the same visual presentation.
+- Updated enemy labels to a neutral `Lawan` across:
+  - pre-battle arena preview enemy badge
+  - in-battle enemy HUD header
+  - result score card opponent column.
+- Simplified `_ArenaPreview` by removing mode-dependent label branching now that arena visuals are unified.
+
+### The Reasoning
+- You asked to keep arena UI consistent between bot and player paths; this removes mode-specific visual differences while still preserving mode selection controls.
+- Mode choice remains functional (Bot/Player cards), but arena composition now reads as one consistent battle template.
+
+### The Tech Debt
+- Online mode still behaves as mock battle data and room-key join flow is not yet wired; only UI parity was normalized in this pass.
+
+## 2026-03-19 - PvP app bar controls rework (result-only back + icon surrender confirm)
+
+### The Change
+- Updated `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart` app bar behavior:
+  - removed back arrow from pre-battle and in-battle screens
+  - added back arrow only on result state (`BattlePhase.finished`) and wired it to `controller.resetBattle` (back to pre-matchmaking flow)
+  - moved surrender control to top-right app bar as icon-only flag button during in-battle.
+- Added surrender confirmation dialog before applying `controller.surrenderBattle()`.
+- Removed old inline `Menyerah` row from `_InBattleSection`, allowing enemy HUD/deck region to sit fully at the top.
+
+### The Reasoning
+- This matches the requested interaction hierarchy: arena should stay clean and use compact top-bar controls.
+- Confirmation guard prevents accidental surrender taps while keeping the control accessible.
+
+### The Tech Debt
+- If needed later, dialog visual styling can be aligned further with the custom PvP theme instead of default AlertDialog look.
+
+## 2026-03-19 - PvP battlefield visual parity pass (checker field + larger towers + lane separation)
+
+### The Change
+- Updated `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart` arena rendering to better match `apps/games/js/game.js` field style:
+  - replaced plain gradient field with custom-painted battlefield (`_BattlefieldPainter`) using checker-like grass tiles
+  - added central dirt lanes and river treatment with foam highlights and river edge lines.
+- Repositioned tower alignments so enemy towers are clearly above the river and player towers below it.
+- Increased in-arena tower presence:
+  - larger tower sprite sizes
+  - added stone-like tower pads
+  - slightly larger HP bars/value text for readability.
+
+### The Reasoning
+- You requested parity with teammate’s arena visual language and clear side separation by river.
+- Previous tower coordinates made enemy mini towers sit too close to the river; new alignment restores top-vs-bottom battlefield readability.
+
+### The Tech Debt
+- River motion in Flutter is currently static visual styling; if needed we can add lightweight animation later for closer parity with the JS version.
+- Final pad/tower scaling should still be validated on multiple screen heights to avoid overlap with temporary status banner.
+
+## 2026-03-19 - PvP mini-tower river clearance tweak
+
+### The Change
+- Adjusted mini tower vertical positions in `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart`:
+  - enemy minis from `-0.36` to `-0.48`
+  - player minis from `0.36` to `0.48`
+- Kept current arena style and tower scale unchanged.
+
+### The Reasoning
+- The previous larger tower assets were still visually touching/crossing the river boundary line.
+- This spacing tweak increases side separation so enemy/player side control reads clearly.
+
+### The Tech Debt
+- Depending on target device aspect ratios, we may still need one more small per-breakpoint adjustment for perfect balance.
+
+## 2026-03-19 - PvP full tower formation separation from river
+
+### The Change
+- Updated all tower alignments in `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart` to move both mini and main towers farther from river center:
+  - enemy main: `-0.62 -> -0.70`
+  - enemy minis: `-0.48 -> -0.56`
+  - player main: `0.63 -> 0.71`
+  - player minis: `0.48 -> 0.56`
+
+### The Reasoning
+- You requested full formation separation (not minis only) so bases and towers stay clearly on their own side.
+
+### The Tech Debt
+- If we add larger tower FX later, we may need per-device responsive offsets to keep perfect spacing on short screens.
+
+## 2026-03-19 - PvP tower spacing pass #2 (further river separation)
+
+### The Change
+- Pushed tower formation farther from river again in `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart`:
+  - enemy main: `-0.70 -> -0.72`
+  - enemy minis: `-0.56 -> -0.62`
+  - player main: `0.71 -> 0.72`
+  - player minis: `0.56 -> 0.62`
+
+### The Reasoning
+- Follow-up spacing request to ensure bases no longer visually touch the river boundary line.
+
+### The Tech Debt
+- Final vertical offsets should still be quickly verified on a shorter-height emulator profile to confirm no clipping at top/bottom extremes.
+
+## 2026-03-19 - PvP player-room code flow in Flutter pre-battle
+
+### The Change
+- Implemented room-code UX in `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart` for `PEMAIN` mode, following `apps/games/index.html` multiplayer pattern:
+  - added `ROOM PLAYER` panel when online mode is selected
+  - added `Buat Room` action that generates a 6-char room code
+  - added room code input field (uppercase, max 6)
+  - shows generated code hint (`Kode dibuat: ...`).
+- Updated start-battle guard for online mode:
+  - `MASUK ARENA` now requires a valid room code (min 4 chars) before continuing
+  - shows floating warning snackbar if code is missing/invalid.
+- Converted `_PreBattleSection` from stateless to stateful to manage room-code UI state.
+
+### The Reasoning
+- You requested parity with teammate web flow where VS Player requires room-code input/join behavior.
+- This enables frontend validation and user flow now, while backend/socket room wiring can be integrated later.
+
+### The Tech Debt
+- Room code is UI/local state only; it is not yet sent to backend matchmaking/session APIs.
+- `Buat Room` currently generates local mock code and does not represent a real hosted room lifecycle.
+
+## 2026-03-19 - PvP player room-code moved to popup (overflow fix)
+
+### The Change
+- Refactored pre-battle online-room UX in `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart` to remove the inline room panel from the page body.
+- `MASUK ARENA` flow now behaves as requested:
+  - `BOT` mode starts directly
+  - `PEMAIN` mode opens a room-code popup dialog before starting.
+- Added room-code dialog actions:
+  - `Buat Room` (generate 6-char code)
+  - input/join code field (uppercase, max 6)
+  - validation (`min. 4` chars) before entering arena.
+- Updated info-strip copy for player mode to explain the popup flow.
+
+### The Reasoning
+- The inline room block caused severe vertical overflow on target device height.
+- Moving online-code flow into a dialog preserves the same pre-battle layout footprint as bot mode while keeping room behavior available.
+
+### The Tech Debt
+- Room code remains local/mock state and still needs real backend room lifecycle integration.
+- Dialog style currently uses standard AlertDialog; can be themed later for stronger PvP visual consistency.
+
+## 2026-03-19 - PvP room-code validation update (prototype + generated code)
+
+### The Change
+- Updated player room popup validation in `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart`:
+  - now accepts either fixed prototype code `1234`
+  - or generated `Buat Room` code from the same dialog.
+- Replaced dialog validation snackbar path with inline `errorText` inside the dialog input.
+- Added helper hint text in dialog describing valid code options.
+
+### The Reasoning
+- You requested `1234` to be one valid option while still supporting generated controller-style room code.
+- Inline dialog error feedback is safer and simpler than dispatching snackbar from popup flow.
+
+### The Tech Debt
+- Validation is still client-side mock logic; real room ownership/join checks should move to backend/game-service integration later.
+
+## 2026-03-19 - PvP explicit invalid-code messaging
+
+### The Change
+- Updated room popup invalid-code error text in `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart` to explicit `Code not found` messaging.
+
+### The Reasoning
+- Makes the failure mode clear and prevents ambiguous behavior when a wrong room code is entered.
+
+### The Tech Debt
+- Error copy is still hardcoded; can be localized later with i18n resources.
+
+## 2026-03-19 - PvP room-code validation tightened (remove 1234 bypass)
+
+### The Change
+- Removed fixed `1234` acceptance from player room popup validation in `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart`.
+- Updated dialog helper text and invalid-code message to reference generated room code only.
+
+### The Reasoning
+- You requested removing the prototype bypass so room entry follows one consistent flow.
+
+### The Tech Debt
+- Generated code is still local session state and not yet backend-authoritative.
+
+## 2026-03-19 - PvP room dialog lifecycle stabilization (back/error crash fix)
+
+### The Change
+- Refactored `_showRoomCodeDialog` in `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart`:
+  - removed temporary local dialog controller/dispose pattern
+  - reused persistent `_roomCodeController` from widget state
+  - wrapped dialog content in `SingleChildScrollView`.
+
+### The Reasoning
+- This reduces controller lifecycle race risk when dismissing dialog after invalid input and pressing back.
+- Scrollable dialog content prevents keyboard-related overflow when input/error text expands.
+
+### The Tech Debt
+- Dialog logic is still inline in page file; extracting to a dedicated widget would further reduce state coupling.

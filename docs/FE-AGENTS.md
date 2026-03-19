@@ -8,6 +8,7 @@ You are my junior developer. Every session should improve the codebase, not just
 - **Leverage:** Use battle-tested packages over custom implementations. Do not reinvent the wheel unless the wheel is broken.
 - **Readable:** Code must be self-documenting. Comments should explain *why*, not *what*.
 - **Safety:** If a refactor carries high risk of breaking functionality, flag it for user review rather than applying it silently.
+- **Patch, Don't Replace:** Treat existing files as the source of truth and only patch them incrementally, so the work stays intact while we iterate.
 
 ## 2. Persistent Context & Memory
 Since our context resets between sessions, we use files to track our brain.
