@@ -161,7 +161,11 @@ class MockPracticeRepository implements PracticeRepository {
           isCorrect: true,
         ),
         PracticeOption(id: 'c', label: 'Long and unfiltered', isCorrect: false),
-        PracticeOption(id: 'd', label: 'Highly technical only', isCorrect: false),
+        PracticeOption(
+          id: 'd',
+          label: 'Highly technical only',
+          isCorrect: false,
+        ),
       ],
     ),
     PracticeQuestion(
@@ -172,8 +176,16 @@ class MockPracticeRepository implements PracticeRepository {
       hint: 'It organizes responses to behavior-based prompts.',
       options: <PracticeOption>[
         PracticeOption(id: 'a', label: 'Behavioral questions', isCorrect: true),
-        PracticeOption(id: 'b', label: 'Salary negotiation only', isCorrect: false),
-        PracticeOption(id: 'c', label: 'Company history only', isCorrect: false),
+        PracticeOption(
+          id: 'b',
+          label: 'Salary negotiation only',
+          isCorrect: false,
+        ),
+        PracticeOption(
+          id: 'c',
+          label: 'Company history only',
+          isCorrect: false,
+        ),
         PracticeOption(id: 'd', label: 'Coding syntax only', isCorrect: false),
       ],
     ),
@@ -184,14 +196,26 @@ class MockPracticeRepository implements PracticeRepository {
       prompt: 'What is a strong closing move at interview end?',
       hint: 'Summarize fit and ask a thoughtful next-step question.',
       options: <PracticeOption>[
-        PracticeOption(id: 'a', label: 'Leave without questions', isCorrect: false),
-        PracticeOption(id: 'b', label: 'Ask about office snacks only', isCorrect: false),
+        PracticeOption(
+          id: 'a',
+          label: 'Leave without questions',
+          isCorrect: false,
+        ),
+        PracticeOption(
+          id: 'b',
+          label: 'Ask about office snacks only',
+          isCorrect: false,
+        ),
         PracticeOption(
           id: 'c',
           label: 'Reinforce fit and ask about next steps',
           isCorrect: true,
         ),
-        PracticeOption(id: 'd', label: 'Negotiate salary immediately', isCorrect: false),
+        PracticeOption(
+          id: 'd',
+          label: 'Negotiate salary immediately',
+          isCorrect: false,
+        ),
       ],
     ),
   ];
@@ -202,7 +226,9 @@ class MockPracticeRepository implements PracticeRepository {
   }
 
   @override
-  Future<List<PracticeQuestion>> fetchQuestions({required String topicId}) async {
+  Future<List<PracticeQuestion>> fetchQuestions({
+    required String topicId,
+  }) async {
     return _questions
         .where((PracticeQuestion question) => question.topicId == topicId)
         .toList(growable: false);
@@ -226,4 +252,3 @@ class MockPracticeRepository implements PracticeRepository {
     );
   }
 }
-

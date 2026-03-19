@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 
 abstract final class AppTheme {
@@ -8,15 +9,26 @@ abstract final class AppTheme {
       brightness: Brightness.light,
     );
 
+    final TextTheme baseText = GoogleFonts.dmSansTextTheme();
+
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.surfaceLight,
+      textTheme: baseText.apply(
+        bodyColor: AppColors.textStrong,
+        displayColor: AppColors.warriorNavy,
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.warriorNavy,
         foregroundColor: AppColors.scholarCream,
         elevation: 0,
         centerTitle: true,
+        titleTextStyle: GoogleFonts.orbitron(
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: AppColors.scholarCream,
+        ),
       ),
       cardTheme: CardThemeData(
         color: Colors.white,
@@ -44,6 +56,7 @@ abstract final class AppTheme {
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.surfaceDark,
+      textTheme: GoogleFonts.dmSansTextTheme(ThemeData.dark().textTheme),
       cardTheme: CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),

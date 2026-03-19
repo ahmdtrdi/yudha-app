@@ -67,7 +67,7 @@ class BattleController extends StateNotifier<BattleState> {
         ratingDelta: 0,
         rewardClaimed: false,
         isLoading: false,
-        statusMessage: 'Battle dimulai. Pilih soal untuk damage atau heal.',
+        statusMessage: 'Battle dimulai.',
         clearErrorMessage: true,
       );
     } catch (_) {
@@ -95,6 +95,21 @@ class BattleController extends StateNotifier<BattleState> {
       state: state,
       question: question,
       selectedOptionIndex: selectedOptionIndex,
+    );
+  }
+
+  void surrenderBattle() {
+    if (!state.isBattleActive || state.isLoading) {
+      return;
+    }
+
+    state = state.copyWith(
+      phase: BattlePhase.finished,
+      outcome: BattleOutcome.lose,
+      playerHp: 0,
+      ratingDelta: -12,
+      statusMessage: 'Kamu menyerah.',
+      clearErrorMessage: true,
     );
   }
 

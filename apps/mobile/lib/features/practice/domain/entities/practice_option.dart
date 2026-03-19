@@ -9,4 +9,3 @@ class PracticeOption {
   final String label;
   final bool isCorrect;
 }
-

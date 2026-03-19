@@ -21,4 +21,3 @@ class ProfileSettingsController extends StateNotifier<ProfileSettings> {
     state = state.copyWith(hapticsEnabled: value);
   }
 }
-

@@ -7,4 +7,3 @@ profileSettingsProvider =
     StateNotifierProvider<ProfileSettingsController, ProfileSettings>(
       (Ref ref) => ProfileSettingsController(),
     );
-
