@@ -403,3 +403,30 @@
 ### The Tech Debt
 - Tier target denominator is currently hardcoded to `400`; should be sourced from progression config once backend/game balancing is finalized.
 - Hero density/scaling behavior now uses layered guards; later we should consolidate this into a single responsive token/spec to keep behavior predictable.
+
+## 2026-03-19 - Practice session v1 (mock-backed FE flow)
+
+### The Change
+- Replaced placeholder `PracticePage` with a full practice experience in `apps/mobile/lib/features/practice/presentation/pages/practice_page.dart`:
+  - Question of the Day card with start action
+  - topic/category selector
+  - MCQ flow (`select option -> submit -> next`)
+  - hint unlock UX with monetization stub states (`locked`, `watch ad`, `buy`, `unlocked`)
+  - session summary card at completion.
+- Added full practice feature architecture:
+  - `domain/entities`: `practice_topic`, `practice_option`, `practice_question`, `practice_hint_state`
+  - `data/repositories`: `practice_repository`, `mock_practice_repository`
+  - `application`: `practice_state`, `practice_controller`, `practice_providers`.
+- Added tests:
+  - unit: `test/unit/features/practice/application/practice_controller_test.dart`
+  - widget: `test/widget/features/practice/presentation/pages/practice_page_test.dart`.
+
+### The Reasoning
+- We implemented mock-first but backend-ready contracts so FE logic can proceed now and repository can be swapped later without UI rewrite.
+- Riverpod controller/state keeps progression and hint logic deterministic, testable, and decoupled from widget rendering.
+- Question-of-the-day and hint-state flow are included now to cover core demo narrative, not only baseline question rendering.
+
+### The Tech Debt
+- Practice data is still static mock data and not yet wired to backend topic/question endpoints.
+- Hint monetization actions are UI stubs only and need real ad/purchase integration.
+- Flutter tests in this shell timed out repeatedly; local verification should be re-run from IDE terminal before merge.
