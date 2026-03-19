@@ -15,6 +15,7 @@ class BattleState {
     required this.availableQuestions,
     required this.answeredQuestionIds,
     required this.isLoading,
+    required this.rewardClaimed,
     this.statusMessage,
     this.errorMessage,
   });
@@ -33,6 +34,7 @@ class BattleState {
       availableQuestions: <BattleQuestion>[],
       answeredQuestionIds: <String>[],
       isLoading: false,
+      rewardClaimed: false,
       statusMessage: 'Pilih mode lalu mulai battle.',
     );
   }
@@ -49,6 +51,7 @@ class BattleState {
   final List<BattleQuestion> availableQuestions;
   final List<String> answeredQuestionIds;
   final bool isLoading;
+  final bool rewardClaimed;
   final String? statusMessage;
   final String? errorMessage;
 
@@ -68,6 +71,7 @@ class BattleState {
     List<BattleQuestion>? availableQuestions,
     List<String>? answeredQuestionIds,
     bool? isLoading,
+    bool? rewardClaimed,
     String? statusMessage,
     String? errorMessage,
     bool clearStatusMessage = false,
@@ -86,6 +90,7 @@ class BattleState {
       availableQuestions: availableQuestions ?? this.availableQuestions,
       answeredQuestionIds: answeredQuestionIds ?? this.answeredQuestionIds,
       isLoading: isLoading ?? this.isLoading,
+      rewardClaimed: rewardClaimed ?? this.rewardClaimed,
       statusMessage: clearStatusMessage
           ? null
           : statusMessage ?? this.statusMessage,

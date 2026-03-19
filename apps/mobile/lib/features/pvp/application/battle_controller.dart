@@ -33,6 +33,7 @@ class BattleController extends StateNotifier<BattleState> {
       ratingDelta: 0,
       availableQuestions: const <BattleQuestion>[],
       answeredQuestionIds: const <String>[],
+      rewardClaimed: false,
       statusMessage: 'Mode ${_modeLabel(mode)} dipilih. Tekan mulai battle.',
       clearErrorMessage: true,
     );
@@ -64,6 +65,7 @@ class BattleController extends StateNotifier<BattleState> {
         playerPoints: 0,
         opponentPoints: 0,
         ratingDelta: 0,
+        rewardClaimed: false,
         isLoading: false,
         statusMessage: 'Battle dimulai. Pilih soal untuk damage atau heal.',
         clearErrorMessage: true,
@@ -101,6 +103,14 @@ class BattleController extends StateNotifier<BattleState> {
       mode: state.mode,
       opponentName: state.mode == BattleMode.bot ? 'BOT YUDHA' : 'Player Match',
     );
+  }
+
+  void markRewardClaimed() {
+    if (!state.isBattleFinished || state.rewardClaimed) {
+      return;
+    }
+
+    state = state.copyWith(rewardClaimed: true);
   }
 
   BattleRepository _activeRepositoryForMode(BattleMode mode) {

@@ -225,3 +225,43 @@
 - Tower HP currently derives from player/opponent HP percentages, not independent per-tower game-state.
 - Online mode UI remains placeholder (no real socket/matchmaking wiring yet).
 - Deck card metadata (category/icon hierarchy, motion, hit feedback) needs a dedicated polishing pass.
+
+## 2026-03-18 - Gamification foundation (progression model + leaderboard module + PvP reward bridge)
+
+### The Change
+- Added new shared gamification progression state:
+  - `apps/mobile/lib/features/gamification/domain/entities/progress_tier.dart`
+  - `apps/mobile/lib/features/gamification/domain/entities/player_progress.dart`
+  - `apps/mobile/lib/features/gamification/application/player_progress_controller.dart`
+  - `apps/mobile/lib/features/gamification/application/player_progress_providers.dart`
+- Implemented full leaderboard module structure (mock-first, integration-ready):
+  - Domain entities for scope/query/entry/page payload.
+  - Repository contract + mock repository with pagination-ready `fetchPage`.
+  - Riverpod `LeaderboardController` + `LeaderboardState` with loading/success/empty/error + load-more hooks.
+- Replaced placeholder `LeaderboardPage` with real UI:
+  - progress summary card
+  - Global/Weekly scope filter
+  - loading / error / empty / success render states
+  - list tiles with rank, points, winrate, streak
+  - load-more action and refresh flow.
+- Bridged PvP result to gamification progression:
+  - Added `rewardClaimed` guard field in `BattleState`.
+  - Added `markRewardClaimed()` in `BattleController`.
+  - Result screen now includes `Claim Reward` and `Leaderboard` CTA; claim updates shared progression exactly once per match result state.
+- Added tests:
+  - Unit: `player_progress_controller_test.dart`
+  - Widget: `leaderboard_page_test.dart` covering loading/success/empty/error states.
+- Validation completed:
+  - `flutter analyze` (clean)
+  - `flutter test` (all passed)
+
+### The Reasoning
+- We separated a reusable progression source of truth first so leaderboard and post-match rewards can evolve without coupling game UI to raw values.
+- Leaderboard was built as mock-first but API-shaped (`query`, `page payload`, `hasMore`) to minimize rewrite cost when backend endpoints arrive.
+- Reward-claim is explicit and one-time per result state to prevent accidental repeated point inflation during replay/demo flow.
+
+### The Tech Debt
+- Weekly leaderboard currently uses empty mock data and needs real backend feed.
+- Pagination is implemented as hooks/button UX; infinite scroll and request cancellation are not added yet.
+- Result reward claiming is UI-driven; server-authoritative reward validation is still required for production fairness.
+- Lobby gamification widgets (rank/streak/top teaser quick actions) are intentionally deferred to the next branch.
