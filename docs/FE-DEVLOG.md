@@ -1,4 +1,4 @@
-# FE Development Log
+﻿# FE Development Log
 
 ## 2026-03-17 - Flutter architecture baseline setup (structure + Riverpod guardrails + tab shell)
 
@@ -457,3 +457,40 @@
 - Profile settings are still in-memory only and not persisted locally/remote.
 - Rank trend currently derives from `lastDelta` as a short-term proxy; historical trend data should come from backend analytics later.
 - Flutter test execution in this shell remains unstable/timeouts; local verification should be re-run in IDE terminal before merge.
+
+## 2026-03-19 - Bottom nav and icon system consolidation (session merge)
+
+### The Change
+- Consolidated multiple iterative nav passes into one final implementation:
+  - generated and wired spec-based SVG nav assets in `apps/mobile/assets/icons/navigation/`
+  - added `flutter_svg` and registered icon assets in `apps/mobile/pubspec.yaml`
+  - replaced default `NavigationBar` behavior with custom tab rendering in `apps/mobile/lib/app/router/app_tab_shell.dart`
+  - finalized active/inactive visual system: active navy tile for icon, always-visible labels, inactive tint, and light nav shell with subtle top shadow.
+- Kept route behavior stable (`context.go(route)`) across all tabs.
+
+### The Reasoning
+- We made several short visual iterations in one session; this merged record captures the final state without repeating intermediate styling experiments.
+- Custom tab rendering was required to match the approved icon hierarchy and active-state composition more precisely than stock `NavigationBar`.
+
+### The Tech Debt
+- Final spacing and icon stroke weight still need one device QA pass across target Android sizes.
+- Some local `flutter`/`dart` validations from this shell timed out; final verification should be re-run from IDE terminal before merge.
+
+## 2026-03-19 - Lobby hierarchy and hero refinements (session merge)
+
+### The Change
+- Consolidated lobby iterations into the final hierarchy in `apps/mobile/lib/features/lobby/presentation/pages/lobby_page.dart`:
+  - hero identity block, then `TODAY'S QUESTS`, then one `START BATTLE` primary CTA
+  - restored top utility row with streak on the left and settings on the right
+  - restored daily quest progress count badge and removed redundant labels
+  - removed decorative hero orbs and fixed a follow-up syntax issue from the refactor.
+- Moved Interview Prep access into practice flow via `apps/mobile/lib/features/practice/presentation/pages/practice_page.dart`.
+
+### The Reasoning
+- This keeps lobby focused and scannable while preserving key quick actions you asked to keep.
+- Merging these edits removes log noise from multiple small tweak entries in the same uncommitted session.
+
+### The Tech Debt
+- Quest completion values are still static placeholders and should be wired to real daily progression state.
+- Settings action is still a placeholder snackbar.
+- Local formatting and analyze commands were inconsistent in this shell; run a final local pass before commit.

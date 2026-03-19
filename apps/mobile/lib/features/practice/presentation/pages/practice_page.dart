@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/practice/application/practice_providers.dart';
 import 'package:yudha_mobile/features/practice/application/practice_state.dart';
@@ -26,7 +28,8 @@ class PracticePage extends ConsumerWidget {
           message: state.errorMessage ?? 'Failed to load practice session.',
           onRetry: controller.reload,
         ),
-        PracticeViewStatus.ready || PracticeViewStatus.completed => _PracticeBody(
+        PracticeViewStatus.ready ||
+        PracticeViewStatus.completed => _PracticeBody(
           state: state,
           onRefresh: controller.reload,
           onStartQuestionOfDay: controller.startQuestionOfDay,
@@ -90,6 +93,8 @@ class _PracticeBody extends StatelessWidget {
             onStart: onStartQuestionOfDay,
           ),
           const SizedBox(height: 12),
+          _InterviewPrepCard(onOpen: () => context.push(AppRoutes.interview)),
+          const SizedBox(height: 12),
           _TopicSelector(
             topics: state.topics,
             selectedTopicId: state.selectedTopicId,
@@ -137,8 +142,57 @@ class _PracticeBody extends StatelessWidget {
   }
 }
 
+class _InterviewPrepCard extends StatelessWidget {
+  const _InterviewPrepCard({required this.onOpen});
+
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.warriorNavy.withValues(alpha: 0.1)),
+      ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.warriorNavy.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.record_voice_over_rounded,
+              color: AppColors.warriorNavy,
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Interview Prep',
+              style: TextStyle(
+                color: AppColors.warriorNavy,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          TextButton(onPressed: onOpen, child: const Text('Open')),
+        ],
+      ),
+    );
+  }
+}
+
 class _QuestionOfDayCard extends StatelessWidget {
-  const _QuestionOfDayCard({required this.questionOfDay, required this.onStart});
+  const _QuestionOfDayCard({
+    required this.questionOfDay,
+    required this.onStart,
+  });
 
   final PracticeQuestion? questionOfDay;
   final VoidCallback onStart;
@@ -231,20 +285,24 @@ class _TopicSelector extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: topics.map((PracticeTopic topic) {
-              final bool isSelected = topic.id == selectedTopicId;
-              return ChoiceChip(
-                label: Text(topic.isLocked ? '${topic.name} (Locked)' : topic.name),
-                selected: isSelected,
-                onSelected: topic.isLocked
-                    ? null
-                    : (bool selected) {
-                        if (selected) {
-                          onTopicSelected(topic.id);
-                        }
-                      },
-              );
-            }).toList(growable: false),
+            children: topics
+                .map((PracticeTopic topic) {
+                  final bool isSelected = topic.id == selectedTopicId;
+                  return ChoiceChip(
+                    label: Text(
+                      topic.isLocked ? '${topic.name} (Locked)' : topic.name,
+                    ),
+                    selected: isSelected,
+                    onSelected: topic.isLocked
+                        ? null
+                        : (bool selected) {
+                            if (selected) {
+                              onTopicSelected(topic.id);
+                            }
+                          },
+                  );
+                })
+                .toList(growable: false),
           ),
         ],
       ),
@@ -331,7 +389,8 @@ class _QuestionCard extends StatelessWidget {
           ...question.options.map((PracticeOption option) {
             final bool isSelected = selectedOptionId == option.id;
             final bool showCorrect = isSubmitted && option.isCorrect;
-            final bool showIncorrect = isSubmitted && isSelected && !option.isCorrect;
+            final bool showIncorrect =
+                isSubmitted && isSelected && !option.isCorrect;
 
             Color borderColor = AppColors.warriorNavy.withAlpha(35);
             Color fillColor = Colors.white;
@@ -395,7 +454,9 @@ class _QuestionCard extends StatelessWidget {
                   ? 'Correct answer. Great work.'
                   : 'Not quite. Correct: ${correctOption?.label ?? '-'}',
               style: TextStyle(
-                color: selectedCorrectly ? AppColors.levelUpTeal : AppColors.fireGold,
+                color: selectedCorrectly
+                    ? AppColors.levelUpTeal
+                    : AppColors.fireGold,
                 fontWeight: FontWeight.w700,
               ),
             ),

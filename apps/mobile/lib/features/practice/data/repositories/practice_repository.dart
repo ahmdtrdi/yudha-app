@@ -8,4 +8,3 @@ abstract class PracticeRepository {
 
   Future<PracticeQuestion> fetchQuestionOfDay();
 }
-

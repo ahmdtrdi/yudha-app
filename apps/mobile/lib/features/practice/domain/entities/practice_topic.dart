@@ -11,4 +11,3 @@ class PracticeTopic {
   final String description;
   final bool isLocked;
 }
-

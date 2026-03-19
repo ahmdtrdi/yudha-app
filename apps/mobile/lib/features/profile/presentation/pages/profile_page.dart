@@ -48,11 +48,11 @@ class ProfilePage extends ConsumerWidget {
             children: <Widget>[
               _MetricCard(label: 'Winrate', value: '$winRatePercent%'),
               _MetricCard(label: 'Tier', value: progress.tier.label),
+              _MetricCard(label: 'Match', value: '${progress.matchesPlayed}'),
               _MetricCard(
-                label: 'Match',
-                value: '${progress.matchesPlayed}',
+                label: 'Best Streak',
+                value: '${progress.bestStreak}',
               ),
-              _MetricCard(label: 'Best Streak', value: '${progress.bestStreak}'),
             ],
           ),
           const SizedBox(height: 10),
@@ -80,10 +80,7 @@ class ProfilePage extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 14),
-          _SectionTitle(
-            icon: Icons.tune_rounded,
-            title: 'Pengaturan Profil',
-          ),
+          _SectionTitle(icon: Icons.tune_rounded, title: 'Pengaturan Profil'),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(12),
@@ -230,7 +227,10 @@ class _ProfileHeaderCard extends StatelessWidget {
                 ),
               );
             },
-            icon: const Icon(Icons.edit_outlined, color: AppColors.scholarCream),
+            icon: const Icon(
+              Icons.edit_outlined,
+              color: AppColors.scholarCream,
+            ),
           ),
         ],
       ),

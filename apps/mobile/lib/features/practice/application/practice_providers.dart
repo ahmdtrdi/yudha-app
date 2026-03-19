@@ -10,8 +10,6 @@ final Provider<PracticeRepository> practiceRepositoryProvider =
 final StateNotifierProvider<PracticeController, PracticeState>
 practiceControllerProvider =
     StateNotifierProvider<PracticeController, PracticeState>(
-      (Ref ref) => PracticeController(
-        repository: ref.watch(practiceRepositoryProvider),
-      ),
+      (Ref ref) =>
+          PracticeController(repository: ref.watch(practiceRepositoryProvider)),
     );
-

@@ -28,4 +28,3 @@ class PracticeQuestion {
     return null;
   }
 }
-

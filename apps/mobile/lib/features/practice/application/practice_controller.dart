@@ -26,7 +26,8 @@ class PracticeController extends StateNotifier<PracticeState> {
 
     try {
       final List<PracticeTopic> topics = await _repository.fetchTopics();
-      final PracticeQuestion questionOfDay = await _repository.fetchQuestionOfDay();
+      final PracticeQuestion questionOfDay = await _repository
+          .fetchQuestionOfDay();
 
       if (topics.isEmpty) {
         state = state.copyWith(
@@ -272,4 +273,3 @@ class PracticeController extends StateNotifier<PracticeState> {
     state = state.copyWith(hintState: PracticeHintState.locked);
   }
 }
-

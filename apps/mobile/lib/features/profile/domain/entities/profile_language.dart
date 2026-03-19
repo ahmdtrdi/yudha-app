@@ -7,4 +7,3 @@ enum ProfileLanguage {
   final String code;
   final String label;
 }
-
