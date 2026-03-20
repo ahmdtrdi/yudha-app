@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>YUDHA PvP</title>
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
+<style>
+/* ── RESET & FULL-SCREEN ── */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body {
+  width:100%; height:100%;
+  overflow:hidden;
+  background:#04060f;
+  font-family:'Chakra Petch', sans-serif;
+}
+
+/* ── LOADING SCREEN ── */
+#loading-screen {
+  position:fixed; inset:0; z-index:999;
+  background:linear-gradient(135deg,#090d1b 0%,#0a1628 50%,#0d0a20 100%);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  opacity:1; transition:opacity 0.6s ease;
+  overflow:hidden;
+}
+#loading-screen.fade-out { opacity:0; pointer-events:none; }
+#loading-screen.hidden   { display:none; }
+
+.loading-particles { position:absolute; inset:0; pointer-events:none; }
+.lp { position:absolute; border-radius:50%; animation:lpFloat linear infinite; opacity:0; }
+@keyframes lpFloat {
+  0%  { transform:translateY(0) scale(0); opacity:0; }
+  10% { opacity:0.8; }
+  90% { opacity:0.3; }
+  100%{ transform:translateY(-110vh) scale(1); opacity:0; }
+}
+.loading-content {
+  position:relative; z-index:2;
+  display:flex; flex-direction:column; align-items:center; gap:16px;
+  animation:loadContentIn 0.5s ease-out;
+}
+@keyframes loadContentIn { from{transform:scale(0.8) translateY(20px);opacity:0} to{transform:none;opacity:1} }
+.loading-swords { font-size:52px; animation:swordsClash 1.2s ease-in-out infinite; filter:drop-shadow(0 0 20px rgba(240,165,0,0.6)); }
+@keyframes swordsClash { 0%,100%{transform:scale(1) rotate(0deg)} 25%{transform:scale(1.15) rotate(-8deg)} 50%{transform:scale(0.95) rotate(5deg)} 75%{transform:scale(1.1) rotate(-3deg)} }
+.loading-title {
+  font-family:'Orbitron',sans-serif; font-size:22px; font-weight:900;
+  background:linear-gradient(135deg,#f0a500,#ffd060,#f0a500); background-size:200% auto;
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  animation:goldShimmer 2s linear infinite; letter-spacing:3px; text-transform:uppercase;
+}
+@keyframes goldShimmer { 0%{background-position:0% center} 100%{background-position:200% center} }
+.loading-sub { font-family:'Chakra Petch',sans-serif; font-size:12px; color:#7a90b8; letter-spacing:1px; text-transform:uppercase; }
+.loading-bar-wrap { width:220px; height:6px; background:rgba(255,255,255,0.08); border-radius:3px; overflow:hidden; }
+.loading-bar-fill {
+  height:100%; width:0%;
+  background:linear-gradient(90deg,#00c8ff,#a855f7,#f0a500); background-size:200% 100%;
+  border-radius:3px;
+  animation:loadBarFill 2s ease-in-out forwards, loadBarShimmer 1s linear infinite;
+}
+@keyframes loadBarFill { 0%{width:0%} 40%{width:60%} 70%{width:85%} 100%{width:100%} }
+@keyframes loadBarShimmer { 0%{background-position:0% 0} 100%{background-position:200% 0} }
+.loading-tips { display:flex; gap:8px; align-items:center; font-family:'Chakra Petch',sans-serif; font-size:10px; color:#7a90b8; opacity:0; animation:tipFadeIn 0.5s ease-out 0.8s forwards; }
+@keyframes tipFadeIn { to{opacity:1} }
+.loading-tips span { opacity:0.5; }
+
+/* ── PAUSE BUTTON ── */
+#pause-btn {
+  position:absolute; top:8px; right:8px; z-index:10;
+  width:36px; height:36px;
+  background:rgba(0,0,0,0.55);
+  border:1.5px solid rgba(255,255,255,0.2);
+  border-radius:50%; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:background 0.15s, transform 0.15s;
+  backdrop-filter:blur(4px);
+}
+#pause-btn:hover  { background:rgba(255,255,255,0.15); transform:scale(1.1); }
+#pause-btn:active { transform:scale(0.92); }
+#pause-btn svg { fill:white; width:18px; height:18px; }
+
+/* ── PAUSE OVERLAY ── */
+#pause-overlay {
+  position:absolute; inset:0; z-index:14;
+  background:rgba(0,0,0,0.72);
+  backdrop-filter:blur(10px);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  opacity:0; pointer-events:none;
+  transition:opacity 0.25s ease;
+}
+#pause-overlay.active { opacity:1; pointer-events:auto; }
+.pause-content {
+  display:flex; flex-direction:column; align-items:center; gap:16px;
+  padding:32px 28px; text-align:center;
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.12);
+  border-radius:24px;
+  animation:pauseIn 0.3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes pauseIn { from{transform:scale(0.8);opacity:0} to{transform:scale(1);opacity:1} }
+.pause-icon  { font-size:40px; filter:drop-shadow(0 0 14px rgba(255,210,63,0.5)); }
+.pause-title { font-family:'Orbitron',sans-serif; font-size:28px; font-weight:900; color:white; letter-spacing:2px; }
+.pause-sub   { font-size:13px; color:rgba(255,255,255,0.5); font-weight:600; }
+.pause-btns  { display:flex; flex-direction:column; gap:10px; width:100%; max-width:200px; }
+.pause-btn-resume {
+  border:none; border-radius:14px; cursor:pointer;
+  font-family:'Orbitron',sans-serif; font-size:15px; font-weight:700;
+  padding:14px 28px; letter-spacing:1px;
+  background:linear-gradient(135deg,#ffd23f,#e8a000); color:#1a0a00;
+  box-shadow:0 6px 22px rgba(255,200,0,0.4), 0 2px 0 rgba(0,0,0,0.3);
+  transition:transform 0.15s, box-shadow 0.15s;
+}
+.pause-btn-resume:hover  { transform:scale(1.05) translateY(-2px); box-shadow:0 10px 28px rgba(255,200,0,0.5); }
+.pause-btn-resume:active { transform:scale(0.97); }
+.pause-btn-exit {
+  border:1px solid rgba(255,80,80,0.4); border-radius:14px; cursor:pointer;
+  font-size:14px; font-weight:800;
+  padding:12px 28px;
+  background:rgba(255,60,60,0.15); color:#ff8888;
+  transition:background 0.15s, transform 0.15s;
+}
+.pause-btn-exit:hover  { background:rgba(255,60,60,0.3); transform:scale(1.03); }
+.pause-btn-exit:active { transform:scale(0.97); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ LOADING SCREEN ═══════════════ -->
+<div id="loading-screen">
+  <div class="loading-particles" id="loading-particles"></div>
+  <div class="loading-content">
+    <div class="loading-swords">⚔️</div>
+    <div class="loading-title">YUDHA PvP</div>
+    <div class="loading-sub" id="loading-sub-text">Memuat arena...</div>
+    <div class="loading-bar-wrap"><div class="loading-bar-fill" id="loading-bar"></div></div>
+    <div class="loading-tips">
+      <span>⚡</span> Jawab cepat
+      <span>💥</span> Deal damage
+      <span>🏆</span> Hancurkan tower
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MENU SCREEN ═══════════════ -->
+<div id="menu-screen" class="screen">
+  <div class="menu-particles" id="menu-particles"></div>
+  <div class="menu-content">
+    <div class="menu-logo">
+      <div class="logo-crown">👑</div>
+      <h1 class="logo-title">YUDHA PvP</h1>
+      <p class="logo-sub">Arena Pertempuran</p>
+    </div>
+    <div class="menu-buttons">
+      <button class="menu-btn btn-bot" id="btn-vs-bot">
+        <span class="menu-btn-icon">🤖</span>
+        <span class="menu-btn-body"><strong>VS Bot</strong><small>Lawan AI</small></span>
+        <span class="menu-btn-arrow">▶</span>
+      </button>
+      <button class="menu-btn btn-player" id="btn-vs-player">
+        <span class="menu-btn-icon">🌐</span>
+        <span class="menu-btn-body"><strong>VS Player</strong><small>Tantang teman online</small></span>
+        <span class="menu-btn-arrow">▶</span>
+      </button>
+      <button class="menu-btn btn-home" id="btn-back-home" onclick="window.parent.postMessage('closeArena','*')">
+        <span class="menu-btn-icon">🏠</span>
+        <span class="menu-btn-body"><strong>Kembali ke Halaman Utama</strong><small>Keluar dari arena</small></span>
+        <span class="menu-btn-arrow">←</span>
+      </button>
+    </div>
+    <div class="menu-tips">
+      <div class="tip-item">⚡ Jawab cepat</div>
+      <div class="tip-dot">•</div>
+      <div class="tip-item">💥 Deal damage</div>
+      <div class="tip-dot">•</div>
+      <div class="tip-item">🏆 Hancurkan tower</div>
+    </div>
+    <div class="menu-categories">
+      <span class="cat-tag cat-math">📐 Math</span>
+      <span class="cat-tag cat-sci">🔬 Science</span>
+      <span class="cat-tag cat-logic">🧠 Logic</span>
+      <span class="cat-tag cat-gen">🌍 General</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MULTIPLAYER SCREEN ═══════════════ -->
+<div id="mp-screen" class="screen">
+  <div class="mp-bg"></div>
+  <div class="mp-content">
+    <div class="mp-header">
+      <h2>🌐 VS Player</h2>
+      <p>Hubungkan dengan teman secara real-time</p>
+    </div>
+    <div class="mp-panels">
+      <div class="mp-panel">
+        <div class="mp-panel-icon">🏠</div>
+        <h3>Buat Room</h3>
+        <p>Jadi host, bagikan kode</p>
+        <button class="mp-btn" id="btn-create-room">Buat Room</button>
+        <div id="room-code-wrap" hidden>
+          <div class="room-code-label">Kode Room Kamu</div>
+          <div class="room-code-value" id="room-code-text">------</div>
+          <div class="room-code-tap">Tap untuk copy</div>
+          <div class="room-status" id="room-status"><span class="sdot"></span> Menunggu lawan…</div>
+        </div>
+      </div>
+      <div class="mp-divider"><span>ATAU</span></div>
+      <div class="mp-panel">
+        <div class="mp-panel-icon">🔗</div>
+        <h3>Join Room</h3>
+        <p>Masukkan kode teman</p>
+        <input type="text" id="join-code-input" class="mp-input" placeholder="Masukkan kode…" maxlength="6" autocomplete="off" />
+        <button class="mp-btn" id="btn-join-room">Join Room</button>
+        <div class="room-status" id="join-status"></div>
+      </div>
+    </div>
+    <div class="mp-footnote">📡 Peer-to-peer · Tanpa server</div>
+    <!-- Back to menu (within game, not to external lobby) -->
+    <button class="back-btn" id="btn-back-mp" style="margin-top:12px;">← Menu</button>
+  </div>
+</div>
+
+<!-- ═══════════════ GAME WRAPPER ═══════════════ -->
+<div id="game-wrapper" class="screen">
+
+  <div id="toast-container"></div>
+
+  <!-- ARENA (full-screen canvas + overlays) -->
+  <div id="arena-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- TOP HUD -->
+    <div id="top-hud">
+      <div id="enemy-profile-row">
+        <div class="profile-avatar-wrap enemy-side">
+          <img src="assets/red_avatar.png" class="profile-avatar" id="enemy-avatar-img" alt="enemy" />
+          <div class="profile-crown enemy-crown">👑</div>
+        </div>
+        <div class="profile-info">
+          <div class="profile-name-row">
+            <span class="profile-name" id="enemy-label">🤖 Bot</span>
+            <span class="profile-rank enemy-rank">S</span>
+          </div>
+          <div class="profile-hp-track">
+            <div class="profile-hp-fill enemy" id="hud-hp-enemy-main"></div>
+            <div class="profile-hp-shine"></div>
+          </div>
+          <div class="profile-hp-nums">
+            <span class="profile-hp-icon">❤️</span>
+            <span class="profile-hp-val" id="hud-hp-enemy-num">3000</span>
+          </div>
+        </div>
+      </div>
+      <div id="enemy-deck"></div>
+    </div>
+
+    <!-- COMBO / POWER BADGES -->
+    <div id="combo-badge" class="hidden">
+      <div class="combo-val" id="combo-val">2×</div>
+      <div class="combo-lbl">COMBO!</div>
+    </div>
+    <div id="power-badge" class="hidden">
+      <div class="power-icon">⚡</div>
+      <div class="power-lbl">POWER ROUND!</div>
+      <div class="power-sub">Jawab dalam 5d = 2× damage</div>
+    </div>
+
+    <!-- TOWERS -->
+    <div id="tower-layer">
+      <div class="tower-slot t-enemy-main">
+        <img id="tower-img-enemy-main" src="assets/red_maintower.png" class="tower-img tower-main" alt="" />
+        <div class="t-hp-bar wide"><div class="t-hp-fill" id="hp-enemy-main"></div></div>
+        <div class="t-hp-text" id="hp-enemy-main-text">3000</div>
+      </div>
+      <div class="tower-slot t-enemy-ml">
+        <img id="tower-img-enemy-miniLeft" src="assets/red_minitower.png" class="tower-img tower-mini" alt="" />
+        <div class="t-hp-bar"><div class="t-hp-fill" id="hp-enemy-miniLeft"></div></div>
+        <div class="t-hp-text" id="hp-enemy-miniLeft-text">1500</div>
+      </div>
+      <div class="tower-slot t-enemy-mr">
+        <img id="tower-img-enemy-miniRight" src="assets/red_minitower.png" class="tower-img tower-mini" alt="" />
+        <div class="t-hp-bar"><div class="t-hp-fill" id="hp-enemy-miniRight"></div></div>
+        <div class="t-hp-text" id="hp-enemy-miniRight-text">1500</div>
+      </div>
+      <div class="tower-slot t-player-main">
+        <img id="tower-img-player-main" src="assets/blue_maintower.png" class="tower-img tower-main" alt="" />
+        <div class="t-hp-bar wide"><div class="t-hp-fill player" id="hp-player-main"></div></div>
+        <div class="t-hp-text" id="hp-player-main-text">3000</div>
+      </div>
+      <div class="tower-slot t-player-ml">
+        <img id="tower-img-player-miniLeft" src="assets/blue_minitower.png" class="tower-img tower-mini" alt="" />
+        <div class="t-hp-bar"><div class="t-hp-fill player" id="hp-player-miniLeft"></div></div>
+        <div class="t-hp-text" id="hp-player-miniLeft-text">1500</div>
+      </div>
+      <div class="tower-slot t-player-mr">
+        <img id="tower-img-player-miniRight" src="assets/blue_minitower.png" class="tower-img tower-mini" alt="" />
+        <div class="t-hp-bar"><div class="t-hp-fill player" id="hp-player-miniRight"></div></div>
+        <div class="t-hp-text" id="hp-player-miniRight-text">1500</div>
+      </div>
+    </div>
+
+    <!-- QUESTION MODAL -->
+    <div id="question-modal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <div class="modal-header-left">
+            <span class="modal-cat-badge" id="modal-cat-badge">Numerik</span>
+            <span class="modal-title">⚔ Jawab untuk Serang!</span>
+          </div>
+          <div class="timer-ring-wrap">
+            <svg width="48" height="48" viewBox="0 0 48 48">
+              <circle class="timer-bg" cx="24" cy="24" r="20"/>
+              <circle id="timer-ring" cx="24" cy="24" r="20" stroke-dasharray="125.66" stroke-dashoffset="0"/>
+            </svg>
+            <div id="timer-text">10</div>
+          </div>
+        </div>
+        <div id="modal-question">Loading…</div>
+        <div id="modal-options"></div>
+        <div class="answer-feedback" id="answer-feedback"></div>
+        <div id="power-hint" class="power-hint hidden">⚡ Power Round – jawab dalam 5d untuk 2× damage!</div>
+        <button id="modal-cancel">Batal</button>
+      </div>
+    </div>
+
+    <!-- COUNTDOWN OVERLAY (created dynamically by ui.js, but slot reserved) -->
+
+    <!-- PAUSE BUTTON -->
+    <button id="pause-btn" title="Pause">
+      <svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+    </button>
+
+    <!-- PAUSE OVERLAY -->
+    <div id="pause-overlay">
+      <div class="pause-content">
+        <div class="pause-icon">⏸️</div>
+        <div class="pause-title">PAUSED</div>
+        <div class="pause-sub">Musuh tetap menyerang!</div>
+        <div class="pause-btns">
+          <button class="pause-btn-resume" id="pause-resume">▶ LANJUT</button>
+          <button class="pause-btn-exit" id="pause-exit">🚪 Keluar ke Menu</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAME OVER -->
+    <div id="gameover-overlay">
+      <div class="go-content">
+        <div id="go-emoji">🏆</div>
+        <div id="gameover-title">VICTORY!</div>
+        <div id="gameover-msg">Kamu menghancurkan base musuh!</div>
+        <div id="gameover-stats"></div>
+        <div class="go-btns">
+          <button id="restart-btn">▶ Main Lagi</button>
+          <button id="menu-btn-go">🏠 Menu</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM HUD -->
+    <div id="bottom-hud">
+      <div id="player-profile-row">
+        <div class="profile-avatar-wrap player-side">
+          <img src="assets/blue_avatar.png" class="profile-avatar" id="player-avatar-img" alt="you" />
+          <div class="profile-shield">🛡</div>
+        </div>
+        <div class="profile-info">
+          <div class="profile-name-row">
+            <span class="profile-name" id="player-label">👤 You</span>
+            <span class="profile-rank player-rank">A</span>
+          </div>
+          <div class="profile-hp-track">
+            <div class="profile-hp-fill player" id="hud-hp-player-main"></div>
+            <div class="profile-hp-shine"></div>
+          </div>
+          <div class="profile-hp-nums">
+            <span class="profile-hp-icon">💙</span>
+            <span class="profile-hp-val" id="hud-hp-player-num">3000</span>
+          </div>
+        </div>
+        <div class="streak-wrap" id="streak-wrap" style="display:none">
+          <span class="streak-fire">🔥</span>
+          <span class="streak-num" id="streak-num">0</span>
+        </div>
+      </div>
+      <div id="deck"></div>
+    </div>
+
+  </div><!-- /arena-container -->
+</div><!-- /game-wrapper -->
+
+<!-- GAME ENGINE -->
+<script src="js/config.js"></script>
+<script src="js/questions.js"></script>
+<script src="js/multiplayer.js"></script>
+<script src="js/attacks.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+
+<script>
+/* ── LOADING PARTICLES ── */
+function spawnLoadingParticles() {
+  const c = document.getElementById('loading-particles'); c.innerHTML = '';
+  const cols = ['#00c8ff','#a855f7','#f0a500','#00e676','#ff4444'];
+  for (let i = 0; i < 22; i++) {
+    const p = document.createElement('div'); p.className = 'lp';
+    const sz = 2 + Math.random() * 5, col = cols[Math.floor(Math.random() * cols.length)];
+    p.style.cssText = `width:${sz}px;height:${sz}px;background:${col};box-shadow:0 0 ${sz*3}px ${col};left:${Math.random()*100}%;bottom:${-Math.random()*50}px;animation-duration:${4+Math.random()*6}s;animation-delay:${Math.random()*3}s;`;
+    c.appendChild(p);
+  }
+}
+
+/* ── BOOT: show loading then reveal game menu ── */
+window.addEventListener('load', () => {
+
+  const ls = document.getElementById('loading-screen');
+  spawnLoadingParticles();
+
+  const msgs = ['Memuat arena...','Menyiapkan tower...','Menghubungkan engine...','Hampir siap...'];
+  let mi = 0;
+  const st = document.getElementById('loading-sub-text');
+  const iv = setInterval(() => { mi++; if (mi < msgs.length) st.textContent = msgs[mi]; }, 500);
+
+  setTimeout(() => {
+    clearInterval(iv); st.textContent = 'Siap! ⚔️';
+    setTimeout(() => {
+      ls.classList.add('fade-out');
+      // Show game menu
+      UI.showScreen('menu');
+      UI.initMenuParticles();
+      setTimeout(() => ls.classList.add('hidden'), 650);
+    }, 350);
+  }, 2000);
+
+  /* ── MENU BUTTONS ── */
+  document.getElementById('btn-vs-bot').addEventListener('click', () => {
+    try { Multiplayer.close(); } catch(e) {}
+    Game.init('bot');
+  });
+
+  document.getElementById('btn-vs-player').addEventListener('click', () => UI.showScreen('mp'));
+
+  document.getElementById('btn-back-mp').addEventListener('click', () => {
+    try { Multiplayer.close(); } catch(e) {}
+    // Reset room UI
+    const rcw = document.getElementById('room-code-wrap');
+    if (rcw) { rcw.setAttribute('hidden',''); rcw.style.display = ''; }
+    const bcr = document.getElementById('btn-create-room');
+    if (bcr) { bcr.disabled = false; bcr.textContent = 'Buat Room'; }
+    const bjr = document.getElementById('btn-join-room');
+    if (bjr) { bjr.disabled = false; bjr.textContent = 'Join Room'; }
+    document.getElementById('join-status').textContent = '';
+    UI.showScreen('menu');
+  });
+
+  /* ── MULTIPLAYER ROOM ── */
+  document.getElementById('btn-create-room').addEventListener('click', () => {
+    const btn = document.getElementById('btn-create-room');
+    btn.disabled = true; btn.textContent = 'Menghubungkan…';
+    Multiplayer.createRoom(
+      code => {
+        const rcw = document.getElementById('room-code-wrap');
+        rcw.removeAttribute('hidden'); rcw.style.display = 'flex';
+        document.getElementById('room-code-text').textContent = code;
+        btn.textContent = 'Menunggu…';
+      },
+      () => {
+        UI.toast('🟢','Lawan terhubung! Memulai…','correct',2500);
+        setTimeout(() => { Game.init('multiplayer'); Multiplayer.send({type:'game_start'}); }, 1200);
+      },
+      msg => { if (msg.type !== 'game_start') Game.onMultiplayerMessage(msg); },
+      () => {
+        UI.toastOpponentDisconnected();
+        if (document.getElementById('game-wrapper').classList.contains('active'))
+          setTimeout(() => Game.goToMenu(), 2000);
+      }
+    );
+  });
+
+  document.getElementById('room-code-text').addEventListener('click', () => {
+    navigator.clipboard.writeText(document.getElementById('room-code-text').textContent).catch(() => {});
+    UI.toast('📋','Kode disalin!','info',1500);
+  });
+
+  document.getElementById('btn-join-room').addEventListener('click', () => {
+    const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+    if (code.length < 4) { document.getElementById('join-status').textContent = '❌ Masukkan kode valid.'; return; }
+    const btn = document.getElementById('btn-join-room');
+    btn.disabled = true; btn.textContent = 'Menghubungkan…';
+    document.getElementById('join-status').innerHTML = '<span class="sdot"></span> Menghubungkan…';
+    Multiplayer.joinRoom(code,
+      () => {
+        document.getElementById('join-status').textContent = '✅ Terhubung! Memulai…';
+        UI.toast('🟢','Terhubung! Memulai…','correct',2000);
+        Multiplayer.send({type:'game_start'});
+        setTimeout(() => Game.init('multiplayer'), 1200);
+      },
+      msg => { if (msg.type !== 'game_start') Game.onMultiplayerMessage(msg); },
+      () => {
+        UI.toastOpponentDisconnected();
+        if (document.getElementById('game-wrapper').classList.contains('active'))
+          setTimeout(() => Game.goToMenu(), 2000);
+      }
+    );
+  });
+
+  document.getElementById('join-code-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('btn-join-room').click();
+  });
+  document.getElementById('join-code-input').addEventListener('input', e => {
+    e.target.value = e.target.value.toUpperCase();
+  });
+
+  /* ── PAUSE ── */
+  const pauseBtn = document.getElementById('pause-btn');
+  if (pauseBtn) pauseBtn.addEventListener('click', () => Game.togglePause());
+
+  const pauseResume = document.getElementById('pause-resume');
+  if (pauseResume) pauseResume.addEventListener('click', () => Game.resumeGame());
+
+  const pauseExit = document.getElementById('pause-exit');
+  if (pauseExit) pauseExit.addEventListener('click', () => {
+    Game.resumeGame();
+    Game.goToMenu();
+  });
+
+  /* ── Hide all screens initially (loading screen handles entry) ── */
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+});
+</script>
+</body>
+</html>
