@@ -93,11 +93,12 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Alpha'), findsOneWidget);
-    expect(find.text('Kamu'), findsOneWidget);
+    expect(find.text('Alpha'), findsWidgets);
+    expect(find.text('LEADERBOARD'), findsOneWidget);
+    expect(find.text('Kamu'), findsWidgets);
   });
 
-  testWidgets('renders empty state for weekly leaderboard', (
+  testWidgets('renders empty state for leaderboard', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -112,11 +113,9 @@ void main() {
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Weekly'));
-    await tester.pumpAndSettle();
 
     expect(
-      find.text('No weekly records yet. Play a match first.'),
+      find.text('Belum ada peringkat global.'),
       findsOneWidget,
     );
   });

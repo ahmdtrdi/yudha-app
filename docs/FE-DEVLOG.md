@@ -977,3 +977,32 @@
 - Authentication is purely in-memory UI mock logic; it does not persist across hot restarts or interact with a real auth backend yet.
 - Verification checks for email/password validity are purely checking for non-empty fields right now.
 - `LoginPage` redirects directly to `AppRoutes.lobby` without verifying `isProfileComplete` due to mock constraints; real server connection will need to restore this flow accurately.
+
+## 2026-03-20 - Leaderboard UI Polish (Hero & Podium Cards)
+
+### The Change
+- Completely rewrote `apps/mobile/lib/features/leaderboard/presentation/pages/leaderboard_page.dart`.
+- Added `_HeroRankCard` to display the current user's Rank, Tier, POIN, WINRATE, STREAK, and an XP progress bar, matching the new Navy app bar layout.
+- Extracted the top 3 leaderboard entries into a dedicated `_TopThreePodium` layout, with specialized styled cards (Rank 1 center gold, Rank 2 left grey-blue, Rank 3 right bronze).
+- Updated `_LeaderboardTile` to act as "Other Ranks" starting from index 3, adding a special green highlight background and "KAMU" badge for the current user.
+- Updated widget tests in `leaderboard_page_test.dart` to expect the new labels, checking for `Belum ada rekor minggu ini.` and the new podium item layout paths.
+
+### The Reasoning
+- Bringing the Rank page layout up to total visual parity with the provided high-fidelity design prototype `PAPAN PERINGKAT`.
+- Extracting the podium component physically forces the top 3 items to be visually distinct and correctly elevated visually from the standard `ListView` flow.
+
+### The Tech Debt
+- XP values in the hero card (`120 / 400`) are currently hardcoded mock data as we don't have level progression boundaries mapped in the state yet.
+- Top 3 Podium logic assumes the `entries` array is strictly sorted by points natively from the controller.
+
+## 2026-03-20 - Leaderboard Scope Simplification & Static Rank Fix
+
+### The Change
+- Removed the `_ScopeToggle` (Global/Weekly segment button) entirely from `LeaderboardPage` to make the leaderboard purely Universal.
+- Refactored `_normalizeEntries` in `LeaderboardController` to stop force-inserting the current user into the continuous array if their points haven't naturally beaten anyone in the loaded tier.
+- Updated `LeaderboardPage` to fallback to a sticky `...` icon and a detached `Kamu` rank tile at the bottom of the `ListView`.
+- Locked the "Kamu" fallback mock rank to precisely `#13` out of the global mocked database instead of using `entries.length + 1`.
+
+### The Reasoning
+- The Global/Weekly filter cluttered the UI when a purely Universal leaderboard better matches the high-fidelity mockups.
+- Statically fixing the mock rank to `#13` resolves the "rank bouncing" UX flaw. Previously, evaluating rank dynamically off the visible page array meant paginating the list caused the artificial rank to inexplicably jump (e.g., #9 to #17). The static sticky tile natively mimics a professional "1-20 ... my position" layout exactly.
