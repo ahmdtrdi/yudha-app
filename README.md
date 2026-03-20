@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>Your Ultimate Digital Hiring Arena</b><br/>
-  Gamified learning for CPNS, BUMN, and kedinasan preparation.
+  Gamified learning for CPNS and BUMN preparation.
 </p>
 
 <p align="center">
