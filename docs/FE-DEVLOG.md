@@ -1006,3 +1006,15 @@
 ### The Reasoning
 - The Global/Weekly filter cluttered the UI when a purely Universal leaderboard better matches the high-fidelity mockups.
 - Statically fixing the mock rank to `#13` resolves the "rank bouncing" UX flaw. Previously, evaluating rank dynamically off the visible page array meant paginating the list caused the artificial rank to inexplicably jump (e.g., #9 to #17). The static sticky tile natively mimics a professional "1-20 ... my position" layout exactly.
+
+## 2026-03-20 - Practice & Interview UI Polish
+
+### The Change
+- Refactored `practice_page.dart` into a pure Dashboard that renders CPNS grids (TWK/TIU/TKP) or BUMN grids (SOAL KEMAMPUAN + Interview Prep) dynamically bound to the user's `ProfileSettings.target`.
+- Isolated the active quiz execution flow into a dedicated `/practice/quiz` route (`practice_quiz_page.dart`), complete with "dashed-to-solid" hint mechanics, a custom animated progress AppBar, and stylized rounded option inputs.
+- Scrapped the `FeaturePlaceholderPage` in `interview_page.dart` to unleash a robust 3-state BUMN Interview Simulator (`ready -> recording -> processing`).
+- Built precision UI primitives for the Wawancara simulator: alternating `_ChatBubble` lists, an animated transforming Hero container (tracking "PERTANYAAN" to "JAWABAN"), and a dynamic `_buildBottomRecorderBar()` hot-swapping between the gold microphone, red simulated waveforms, and blue loading indicators.
+- Injected synthetic testing data across the components and bypassed infinite loop widget hooks with hard duration `pump` functions to verify navigation stability.
+
+### The Reasoning
+- Disentangling the generic challenge pickers from the intricate Quiz gameplay and Interview sessions aligns the UI with the final product's UX. Creating rigid mock state machines (like `InterviewState.recording`) immediately paves the way for the real backend audio stream integration without touching the UI scaffolding ever again.

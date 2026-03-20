@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/practice/application/practice_providers.dart';
 import 'package:yudha_mobile/features/practice/application/practice_state.dart';
-import 'package:yudha_mobile/features/practice/domain/entities/practice_hint_state.dart';
-import 'package:yudha_mobile/features/practice/domain/entities/practice_option.dart';
-import 'package:yudha_mobile/features/practice/domain/entities/practice_question.dart';
-import 'package:yudha_mobile/features/practice/domain/entities/practice_topic.dart';
+import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
+import 'package:yudha_mobile/features/gamification/domain/entities/player_progress.dart';
+import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
+import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
 class PracticePage extends ConsumerWidget {
   const PracticePage({super.key});
@@ -18,716 +19,625 @@ class PracticePage extends ConsumerWidget {
     final PracticeState state = ref.watch(practiceControllerProvider);
     final controller = ref.read(practiceControllerProvider.notifier);
 
+    final profileSettings = ref.watch(profileSettingsProvider);
+    final bool isCpns = profileSettings.target == ProfileTarget.cpns || profileSettings.target == null;
+
+    void openQuiz() async {
+      if (state.topics.isNotEmpty) {
+        await controller.selectTopic(state.topics.first.id);
+      }
+      if (context.mounted) {
+        context.push(AppRoutes.practiceQuiz);
+      }
+    }
+
+    void openDailyChallenge() async {
+      controller.startQuestionOfDay();
+      context.push(AppRoutes.practiceQuiz);
+    }
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Practice Session')),
-      body: switch (state.status) {
-        PracticeViewStatus.loading => const Center(
-          child: CircularProgressIndicator(),
-        ),
-        PracticeViewStatus.error => _ErrorState(
-          message: state.errorMessage ?? 'Failed to load practice session.',
-          onRetry: controller.reload,
-        ),
-        PracticeViewStatus.ready ||
-        PracticeViewStatus.completed => _PracticeBody(
-          state: state,
-          onRefresh: controller.reload,
-          onStartQuestionOfDay: controller.startQuestionOfDay,
-          onSelectTopic: controller.selectTopic,
-          onSelectOption: controller.selectOption,
-          onSubmit: controller.submitCurrentAnswer,
-          onNext: controller.nextQuestion,
-          onRestart: controller.restartSession,
-          onWatchAdHint: controller.setHintToWatchAd,
-          onBuyHint: controller.setHintToBuy,
-          onUnlockHint: controller.unlockHint,
-          onCancelHintUnlock: controller.resetHintState,
-        ),
-      },
-    );
-  }
-}
-
-class _PracticeBody extends StatelessWidget {
-  const _PracticeBody({
-    required this.state,
-    required this.onRefresh,
-    required this.onStartQuestionOfDay,
-    required this.onSelectTopic,
-    required this.onSelectOption,
-    required this.onSubmit,
-    required this.onNext,
-    required this.onRestart,
-    required this.onWatchAdHint,
-    required this.onBuyHint,
-    required this.onUnlockHint,
-    required this.onCancelHintUnlock,
-  });
-
-  final PracticeState state;
-  final Future<void> Function() onRefresh;
-  final VoidCallback onStartQuestionOfDay;
-  final Future<void> Function(String topicId) onSelectTopic;
-  final void Function(String optionId) onSelectOption;
-  final VoidCallback onSubmit;
-  final VoidCallback onNext;
-  final VoidCallback onRestart;
-  final VoidCallback onWatchAdHint;
-  final VoidCallback onBuyHint;
-  final VoidCallback onUnlockHint;
-  final VoidCallback onCancelHintUnlock;
-
-  @override
-  Widget build(BuildContext context) {
-    final PracticeQuestion? question = state.currentQuestion;
-    final bool hasQuestion = question != null;
-
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        children: <Widget>[
-          _QuestionOfDayCard(
-            questionOfDay: state.questionOfDay,
-            onStart: onStartQuestionOfDay,
+      backgroundColor: AppColors.scholarCream,
+      appBar: AppBar(
+        backgroundColor: AppColors.warriorNavy,
+        title: Text(
+          'LATIHAN',
+          style: GoogleFonts.orbitron(
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            color: Colors.white,
+            letterSpacing: 2.0,
           ),
-          const SizedBox(height: 12),
-          _InterviewPrepCard(onOpen: () => context.push(AppRoutes.interview)),
-          const SizedBox(height: 12),
-          _TopicSelector(
-            topics: state.topics,
-            selectedTopicId: state.selectedTopicId,
-            onTopicSelected: onSelectTopic,
-          ),
-          const SizedBox(height: 12),
-          if (hasQuestion)
-            _QuestionCard(
-              question: question,
-              index: state.currentQuestionIndex,
-              total: state.questions.length,
-              selectedOptionId: state.selectedOptionId,
-              isSubmitted: state.isCurrentQuestionSubmitted,
-              isCompleted: state.status == PracticeViewStatus.completed,
-              onOptionTap: onSelectOption,
-              onSubmit: onSubmit,
-              onNext: onNext,
-              onRestart: onRestart,
-            )
-          else
-            const _EmptyQuestionCard(),
-          if (hasQuestion) ...<Widget>[
-            const SizedBox(height: 12),
-            _HintCard(
-              hintState: state.hintState,
-              hintText: question.hint,
-              onWatchAdHint: onWatchAdHint,
-              onBuyHint: onBuyHint,
-              onUnlockHint: onUnlockHint,
-              onCancelHintUnlock: onCancelHintUnlock,
-            ),
-          ],
-          if (state.status == PracticeViewStatus.completed) ...<Widget>[
-            const SizedBox(height: 12),
-            _SummaryCard(
-              score: state.correctAnswers,
-              total: state.questions.length,
-              onRestart: onRestart,
-            ),
-          ],
-          const SizedBox(height: 20),
-        ],
-      ),
-    );
-  }
-}
-
-class _InterviewPrepCard extends StatelessWidget {
-  const _InterviewPrepCard({required this.onOpen});
-
-  final VoidCallback onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.warriorNavy.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.warriorNavy.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.record_voice_over_rounded,
-              color: AppColors.warriorNavy,
-            ),
-          ),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Text(
-              'Interview Prep',
-              style: TextStyle(
-                color: AppColors.warriorNavy,
-                fontWeight: FontWeight.w700,
+        ),
+        centerTitle: true,
+        actions: <Widget>[
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(20),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withAlpha(40)),
+              ),
+              child: Text(
+                isCpns ? 'CPNS' : 'BUMN',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
               ),
             ),
           ),
-          TextButton(onPressed: onOpen, child: const Text('Open')),
         ],
       ),
+      body: state.status == PracticeViewStatus.loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: controller.reload,
+              child: CustomScrollView(
+                slivers: <Widget>[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          _HeroChallengeCard(
+                            isCpns: isCpns,
+                            question: state.questionOfDay?.prompt ??
+                                'Memuat tantangan hari ini...',
+                            tags: state.questionOfDay?.topicName ??
+                                (isCpns ? 'TIU • Numerik' : 'Kepribadian • Integritas'),
+                            onStart: openDailyChallenge,
+                          ),
+                          const SizedBox(height: 24),
+                          _OverallProgress(
+                            label: isCpns ? 'Progress CPNS' : 'Progress BUMN',
+                            progressPercent: isCpns ? 28 : 52,
+                            color: isCpns
+                                ? AppColors.warriorNavy
+                                : AppColors.levelUpTeal,
+                          ),
+                          const SizedBox(height: 24),
+                          if (isCpns)
+                            _CpnsGrids(onTapTopic: openQuiz)
+                          else
+                            _BumnGrids(onTapTopic: openQuiz),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'TERAKHIR DIKERJAKAN',
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _RecentActivityTile(
+                            icon: Icons.article_outlined,
+                            title: isCpns ? 'TWK — Pancasila' : 'Verbal — Analogi',
+                            subtitle: '15 soal  ·  2 hari lalu',
+                            score: '80%',
+                            scoreColor: AppColors.levelUpTeal,
+                          ),
+                          const SizedBox(height: 8),
+                          _RecentActivityTile(
+                            icon: Icons.lightbulb_outline,
+                            title: isCpns ? 'TIU — Numerik' : 'Interview — Motivasi',
+                            subtitle:
+                                isCpns ? '20 soal  ·  3 hari lalu' : '5 pertanyaan  ·  2 hari lalu',
+                            score: isCpns ? '65%' : 'Selesai',
+                            scoreColor: isCpns
+                                ? AppColors.fireGold
+                                : AppColors.warriorNavy,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 }
 
-class _QuestionOfDayCard extends StatelessWidget {
-  const _QuestionOfDayCard({
-    required this.questionOfDay,
+class _HeroChallengeCard extends StatelessWidget {
+  const _HeroChallengeCard({
+    required this.isCpns,
+    required this.question,
+    required this.tags,
     required this.onStart,
   });
 
-  final PracticeQuestion? questionOfDay;
+  final bool isCpns;
+  final String question;
+  final String tags;
   final VoidCallback onStart;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: const LinearGradient(
-          colors: <Color>[Color(0xFF0E4AAE), AppColors.warriorNavy],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: isCpns ? AppColors.warriorNavy : AppColors.levelUpTeal,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: (isCpns ? AppColors.warriorNavy : AppColors.levelUpTeal)
+                .withAlpha(60),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            'Question of the Day',
-            style: TextStyle(
-              color: AppColors.scholarCream.withAlpha(235),
-              fontWeight: FontWeight.w700,
+            'TANTANGAN HARIAN',
+            style: GoogleFonts.orbitron(
+              color: Colors.white.withAlpha(200),
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 12),
           Text(
-            questionOfDay?.prompt ?? 'Daily challenge is preparing...',
+            question,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: AppColors.scholarCream,
+              color: Colors.white,
               fontSize: 16,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.bold,
+              height: 1.4,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Topic: ${questionOfDay?.topicName ?? '-'}',
-            style: TextStyle(
-              color: AppColors.scholarCream.withAlpha(220),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 10),
-          FilledButton.tonalIcon(
-            onPressed: questionOfDay == null ? null : onStart,
-            icon: const Icon(Icons.bolt),
-            label: const Text('Start Daily Challenge'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TopicSelector extends StatelessWidget {
-  const _TopicSelector({
-    required this.topics,
-    required this.selectedTopicId,
-    required this.onTopicSelected,
-  });
-
-  final List<PracticeTopic> topics;
-  final String? selectedTopicId;
-  final Future<void> Function(String topicId) onTopicSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.warriorNavy.withAlpha(45)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const Text(
-            'Choose Topic',
-            style: TextStyle(
-              color: AppColors.warriorNavy,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: topics
-                .map((PracticeTopic topic) {
-                  final bool isSelected = topic.id == selectedTopicId;
-                  return ChoiceChip(
-                    label: Text(
-                      topic.isLocked ? '${topic.name} (Locked)' : topic.name,
-                    ),
-                    selected: isSelected,
-                    onSelected: topic.isLocked
-                        ? null
-                        : (bool selected) {
-                            if (selected) {
-                              onTopicSelected(topic.id);
-                            }
-                          },
-                  );
-                })
-                .toList(growable: false),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuestionCard extends StatelessWidget {
-  const _QuestionCard({
-    required this.question,
-    required this.index,
-    required this.total,
-    required this.selectedOptionId,
-    required this.isSubmitted,
-    required this.isCompleted,
-    required this.onOptionTap,
-    required this.onSubmit,
-    required this.onNext,
-    required this.onRestart,
-  });
-
-  final PracticeQuestion question;
-  final int index;
-  final int total;
-  final String? selectedOptionId;
-  final bool isSubmitted;
-  final bool isCompleted;
-  final void Function(String optionId) onOptionTap;
-  final VoidCallback onSubmit;
-  final VoidCallback onNext;
-  final VoidCallback onRestart;
-
-  @override
-  Widget build(BuildContext context) {
-    final PracticeOption? correctOption = question.correctOption;
-    final bool isLast = index == total - 1;
-    final bool selectedCorrectly =
-        selectedOptionId != null &&
-        question.options.any(
-          (PracticeOption option) =>
-              option.id == selectedOptionId && option.isCorrect,
-        );
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.warriorNavy.withAlpha(45)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
+          const SizedBox(height: 16),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
               Text(
-                'Question ${index + 1} / $total',
-                style: const TextStyle(
-                  color: AppColors.warriorNavy,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              Text(
-                question.topicName,
+                tags,
                 style: TextStyle(
-                  color: AppColors.textMuted,
+                  color: Colors.white.withAlpha(200),
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            question.prompt,
-            style: const TextStyle(
-              color: AppColors.textStrong,
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ...question.options.map((PracticeOption option) {
-            final bool isSelected = selectedOptionId == option.id;
-            final bool showCorrect = isSubmitted && option.isCorrect;
-            final bool showIncorrect =
-                isSubmitted && isSelected && !option.isCorrect;
-
-            Color borderColor = AppColors.warriorNavy.withAlpha(35);
-            Color fillColor = Colors.white;
-
-            if (isSelected) {
-              borderColor = AppColors.warriorNavy;
-              fillColor = const Color(0xFFEFF4FF);
-            }
-            if (showCorrect) {
-              borderColor = AppColors.levelUpTeal;
-              fillColor = const Color(0xFFEAF8FA);
-            }
-            if (showIncorrect) {
-              borderColor = AppColors.fireGold;
-              fillColor = const Color(0xFFFFF4E9);
-            }
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: InkWell(
-                onTap: isSubmitted ? null : () => onOptionTap(option.id),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: onStart,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor:
+                  isCpns ? AppColors.warriorNavy : AppColors.levelUpTeal,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
-                child: Ink(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: fillColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: Row(
-                    children: <Widget>[
-                      Icon(
-                        isSelected
-                            ? Icons.radio_button_checked
-                            : Icons.radio_button_off,
-                        size: 18,
-                        color: isSelected
-                            ? AppColors.warriorNavy
-                            : AppColors.textMuted,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          option.label,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
-          if (isSubmitted) ...<Widget>[
-            const SizedBox(height: 4),
-            Text(
-              selectedCorrectly
-                  ? 'Correct answer. Great work.'
-                  : 'Not quite. Correct: ${correctOption?.label ?? '-'}',
-              style: TextStyle(
-                color: selectedCorrectly
-                    ? AppColors.levelUpTeal
-                    : AppColors.fireGold,
-                fontWeight: FontWeight.w700,
               ),
             ),
-          ],
-          const SizedBox(height: 12),
-          if (!isSubmitted)
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: selectedOptionId == null ? null : onSubmit,
-                child: const Text('Submit Answer'),
-              ),
-            )
-          else if (!isLast)
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: onNext,
-                child: const Text('Next Question'),
-              ),
-            )
-          else
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: isCompleted ? onRestart : onNext,
-                child: Text(isCompleted ? 'Restart Session' : 'Finish Session'),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HintCard extends StatelessWidget {
-  const _HintCard({
-    required this.hintState,
-    required this.hintText,
-    required this.onWatchAdHint,
-    required this.onBuyHint,
-    required this.onUnlockHint,
-    required this.onCancelHintUnlock,
-  });
-
-  final PracticeHintState hintState;
-  final String hintText;
-  final VoidCallback onWatchAdHint;
-  final VoidCallback onBuyHint;
-  final VoidCallback onUnlockHint;
-  final VoidCallback onCancelHintUnlock;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFCFBF8),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.warriorNavy.withAlpha(30)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const Text(
-            'Hint',
-            style: TextStyle(
-              color: AppColors.warriorNavy,
-              fontWeight: FontWeight.w700,
+            icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+            label: const Text(
+              'Mulai Tantangan',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
             ),
           ),
-          const SizedBox(height: 8),
-          switch (hintState) {
-            PracticeHintState.locked => Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const Text('Hint is locked. Choose unlock method:'),
-                const SizedBox(height: 8),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: onWatchAdHint,
-                        icon: const Icon(Icons.ondemand_video),
-                        label: const Text('Watch Ad'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: onBuyHint,
-                        icon: const Icon(Icons.shopping_cart_outlined),
-                        label: const Text('Buy Hint'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            PracticeHintState.watchAd => _PendingHintUnlock(
-              label: 'Ad reward pending. Complete ad to unlock this hint.',
-              actionLabel: 'Unlock Hint',
-              onUnlock: onUnlockHint,
-              onCancel: onCancelHintUnlock,
-            ),
-            PracticeHintState.buy => _PendingHintUnlock(
-              label: 'Purchase pending. Confirm purchase to unlock this hint.',
-              actionLabel: 'Unlock Hint',
-              onUnlock: onUnlockHint,
-              onCancel: onCancelHintUnlock,
-            ),
-            PracticeHintState.unlocked => Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEAF8FA),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.levelUpTeal.withAlpha(100)),
-              ),
-              child: Text(
-                hintText,
-                style: const TextStyle(
-                  color: AppColors.textStrong,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          },
         ],
       ),
     );
   }
 }
 
-class _PendingHintUnlock extends StatelessWidget {
-  const _PendingHintUnlock({
+class _OverallProgress extends StatelessWidget {
+  const _OverallProgress({
     required this.label,
-    required this.actionLabel,
-    required this.onUnlock,
-    required this.onCancel,
+    required this.progressPercent,
+    required this.color,
   });
 
   final String label;
-  final String actionLabel;
-  final VoidCallback onUnlock;
-  final VoidCallback onCancel;
+  final int progressPercent;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(label),
-        const SizedBox(height: 8),
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
-            Expanded(
-              child: FilledButton(
-                onPressed: onUnlock,
-                child: Text(actionLabel),
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.warriorNavy,
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
               ),
             ),
-            const SizedBox(width: 8),
-            TextButton(onPressed: onCancel, child: const Text('Cancel')),
+            Text(
+              '$progressPercent%',
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
+            ),
           ],
+        ),
+        const SizedBox(height: 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: progressPercent / 100,
+            backgroundColor: AppColors.warriorNavy.withAlpha(20),
+            color: color,
+            minHeight: 6,
+          ),
         ),
       ],
     );
   }
 }
 
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
+class _CpnsGrids extends StatelessWidget {
+  const _CpnsGrids({required this.onTapTopic});
+  final VoidCallback onTapTopic;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        _CategorySection(
+          title: 'TWK — WAWASAN KEBANGSAAN',
+          items: <_GridItemData>[
+            _GridItemData('TWK', 'Pancasila', 'Nilai & implementasi', '30'),
+            _GridItemData('TWK', 'UUD 1945', 'Pasal & amandemen', '25'),
+            _GridItemData('TWK', 'NKRI', 'Sejarah & wawasan', '20'),
+            _GridItemData('TWK', 'Bhinneka T.I.', 'Keberagaman', '30'),
+          ],
+          onTap: onTapTopic,
+        ),
+        const SizedBox(height: 24),
+        _CategorySection(
+          title: 'TIU — INTELEGENSIA UMUM',
+          items: <_GridItemData>[
+            _GridItemData('TIU', 'Verbal', 'Analogi & silogisme', '40'),
+            _GridItemData('TIU', 'Numerik', 'Deret & aritmatika', '40'),
+            _GridItemData('TIU', 'Figural', 'Pola & rotasi', '20'),
+            _GridItemData('TIU', 'Logika', 'Deduktif & induktif', '35'),
+          ],
+          onTap: onTapTopic,
+        ),
+        const SizedBox(height: 24),
+        _CategorySection(
+          title: 'TKP — KARAKTERISTIK PRIBADI',
+          items: <_GridItemData>[
+            _GridItemData('TKP', 'Pelayanan Publik', 'Etika & integritas', '35'),
+            _GridItemData('TKP', 'Sosial Budaya', 'Adaptasi & toleransi', '30'),
+            _GridItemData('TKP', 'Teknologi', 'Digital & inovasi', '25'),
+            _GridItemData('TKP', 'Profesionalisme', 'Etos & disiplin', '30'),
+          ],
+          onTap: onTapTopic,
+        ),
+      ],
+    );
+  }
+}
+
+class _BumnGrids extends StatelessWidget {
+  const _BumnGrids({required this.onTapTopic});
+  final VoidCallback onTapTopic;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        _CategorySection(
+          title: 'SOAL KEMAMPUAN',
+          items: <_GridItemData>[
+            _GridItemData('Verbal', 'Verbal', 'Analogi & sinonim', '30'),
+            _GridItemData('Numerik', 'Numerik', 'Dasar & hitung', '25'),
+            _GridItemData('Logika', 'Logika', 'Penalaran & pola', '30'),
+            _GridItemData('Keprib.', 'Kepribadian', 'Sikap & nilai kerja', '20'),
+          ],
+          onTap: onTapTopic,
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          'INTERVIEW PREP',
+          style: TextStyle(
+            color: AppColors.textMuted,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 12),
+        InkWell(
+          onTap: () => context.push(AppRoutes.interview),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.warriorNavy.withAlpha(20)),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: AppColors.warriorNavy.withAlpha(5),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.levelUpTeal.withAlpha(20),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.record_voice_over_rounded,
+                    color: AppColors.levelUpTeal,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const Text(
+                        'Simulasi Wawancara',
+                        style: TextStyle(
+                          color: AppColors.textStrong,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '15 skenario · BUMN',
+                        style: TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: AppColors.textMuted.withAlpha(100),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GridItemData {
+  _GridItemData(this.badge, this.title, this.subtitle, this.count);
+  final String badge;
+  final String title;
+  final String subtitle;
+  final String count;
+}
+
+class _CategorySection extends StatelessWidget {
+  const _CategorySection({required this.title, required this.items, required this.onTap});
+
+  final String title;
+  final List<_GridItemData> items;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.textMuted,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 12),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 1.45,
+          ),
+          itemCount: items.length,
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.warriorNavy.withAlpha(20)),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: AppColors.warriorNavy.withAlpha(5),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: <Widget>[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.warriorNavy.withAlpha(15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            item.badge,
+                            style: GoogleFonts.orbitron(
+                              color: AppColors.warriorNavy,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${item.count} soal',
+                          style: TextStyle(
+                            color: AppColors.textMuted.withAlpha(120),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          item.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.warriorNavy,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          item.subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppColors.warriorNavy.withAlpha(150),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _RecentActivityTile extends StatelessWidget {
+  const _RecentActivityTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
     required this.score,
-    required this.total,
-    required this.onRestart,
+    required this.scoreColor,
   });
 
-  final int score;
-  final int total;
-  final VoidCallback onRestart;
-
-  @override
-  Widget build(BuildContext context) {
-    final int percentage = total == 0 ? 0 : ((score / total) * 100).round();
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.levelUpTeal.withAlpha(120)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const Text(
-            'Session Complete',
-            style: TextStyle(
-              color: AppColors.warriorNavy,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Score: $score / $total ($percentage%)',
-            style: const TextStyle(
-              color: AppColors.textStrong,
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: onRestart,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Retry Topic'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, required this.onRetry});
-
-  final String message;
-  final Future<void> Function() onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            const Icon(
-              Icons.warning_amber_rounded,
-              color: AppColors.fireGold,
-              size: 32,
-            ),
-            const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyQuestionCard extends StatelessWidget {
-  const _EmptyQuestionCard();
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String score;
+  final Color scoreColor;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.warriorNavy.withAlpha(30)),
+        border: Border.all(color: AppColors.warriorNavy.withAlpha(20)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: AppColors.warriorNavy.withAlpha(5),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: const Text(
-        'No practice questions available right now.',
-        style: TextStyle(fontWeight: FontWeight.w600),
+      child: Row(
+        children: <Widget>[
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.scholarCream,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: AppColors.warriorNavy, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.textStrong,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            score,
+            style: TextStyle(
+              color: scoreColor,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }
