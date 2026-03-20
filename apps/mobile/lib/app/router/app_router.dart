@@ -11,6 +11,7 @@ import 'package:yudha_mobile/features/profile/presentation/pages/profile_onboard
 import 'package:yudha_mobile/features/profile/presentation/pages/profile_page.dart';
 import 'package:yudha_mobile/features/pvp/presentation/pages/pvp_page.dart';
 import 'package:yudha_mobile/features/store/presentation/pages/store_page.dart';
+import 'package:yudha_mobile/features/auth/presentation/pages/login_page.dart';
 
 final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
   (Ref ref) => GoRouter(
@@ -19,6 +20,10 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
       GoRoute(
         path: AppRoutes.splash,
         builder: (context, state) => const SplashPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.login,
+        builder: (context, state) => const LoginPage(),
       ),
       GoRoute(
         path: AppRoutes.profileSetup,
