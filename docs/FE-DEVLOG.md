@@ -1,4 +1,4 @@
-﻿# FE Development Log
+# FE Development Log
 
 ## 2026-03-17 - Flutter architecture baseline setup (structure + Riverpod guardrails + tab shell)
 
@@ -957,3 +957,23 @@
 
 ### The Tech Debt
 - Current onboarding history is now easier to scan, but persistence work is still pending (`displayName` and `target` are not yet stored locally).
+
+## 2026-03-20 - Authentication UI (Login and Sign Up Parity)
+
+### The Change
+- Added a mocked `authProvider` in `lib/features/auth/application/auth_providers.dart` to simulate UI authentication state.
+- Created `LoginPage` (`/login`) allowing users to enter Email and Password.
+- Repurposed `ProfileOnboardingPage` (`/profile-setup`) into an explicit Sign Up flow by adding Email and Password fields before the Name and Target inputs.
+- Updated `SplashPage` routing: now redirects unauthenticated users to `/login` immediately.
+- Updated widget tests to reflect the new Splash -> Login default path.
+- Configured "Login" button to bypass profile completion checks temporarily for mockup UI testing.
+
+### The Reasoning
+- We needed basic authentication UI flows (Login and Sign Up) to prepare for real backend/Firebase wiring.
+- Converting the existing Profile Onboarding directly into a Sign Up page reduces the number of separate steps a user must take during account creation. 
+- A simple mock `authProvider` prevents blocking UI work while the backend auth service is built.
+
+### The Tech Debt
+- Authentication is purely in-memory UI mock logic; it does not persist across hot restarts or interact with a real auth backend yet.
+- Verification checks for email/password validity are purely checking for non-empty fields right now.
+- `LoginPage` redirects directly to `AppRoutes.lobby` without verifying `isProfileComplete` due to mock constraints; real server connection will need to restore this flow accurately.

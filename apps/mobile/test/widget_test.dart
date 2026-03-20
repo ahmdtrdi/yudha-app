@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:yudha_mobile/app/app_root.dart';
 
 void main() {
-  testWidgets('shows splash then navigates to first-time profile setup', (WidgetTester tester) async {
+  testWidgets('shows splash then navigates to login page for unauthenticated users', (WidgetTester tester) async {
     await tester.pumpWidget(const ProviderScope(child: AppRoot()));
 
     expect(find.text('Menyiapkan arena belajarmu...'), findsOneWidget);
@@ -11,7 +11,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1900));
     await tester.pumpAndSettle();
 
-    expect(find.text('Siapa nama kamu?'), findsOneWidget);
-    expect(find.text('Target belajar'), findsOneWidget);
+    expect(find.text('Selamat Datang'), findsOneWidget);
+    expect(find.text('Masuk ke arena belajar YUDHA.'), findsOneWidget);
   });
 }

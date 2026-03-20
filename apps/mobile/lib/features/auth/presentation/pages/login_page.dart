@@ -5,59 +5,44 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
-import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
-import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
-class ProfileOnboardingPage extends ConsumerStatefulWidget {
-  const ProfileOnboardingPage({super.key});
+class LoginPage extends ConsumerStatefulWidget {
+  const LoginPage({super.key});
 
   @override
-  ConsumerState<ProfileOnboardingPage> createState() =>
-      _ProfileOnboardingPageState();
+  ConsumerState<LoginPage> createState() => _LoginPageState();
 }
 
-class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
+class _LoginPageState extends ConsumerState<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _nameController = TextEditingController();
-  ProfileTarget? _selectedTarget;
   String? _emailError;
   String? _passwordError;
-  String? _nameError;
-  String? _targetError;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _nameController.dispose();
     super.dispose();
   }
 
   void _submit() {
-    final String email = _emailController.text.trim();
-    final String password = _passwordController.text.trim();
-    final String name = _nameController.text.trim();
-    final ProfileTarget? target = _selectedTarget;
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
 
     setState(() {
       _emailError = email.isEmpty ? 'Email wajib diisi.' : null;
       _passwordError = password.isEmpty ? 'Password wajib diisi.' : null;
-      _nameError = name.isEmpty ? 'Nama wajib diisi.' : null;
-      _targetError = target == null ? 'Pilih target belajar.' : null;
     });
 
-    if (_emailError != null || _passwordError != null || _nameError != null || _targetError != null || target == null) {
-      return;
-    }
+    if (_emailError != null || _passwordError != null) return;
 
-    ref.read(authProvider.notifier).signUp(email, password, name, target);
-    ref
-        .read(profileSettingsProvider.notifier)
-        .completeProfile(displayName: name, target: target);
-    ref.read(playerProgressProvider.notifier).setDisplayName(name);
-
+    // Simulate login
+    ref.read(authProvider.notifier).login(email, password);
+    
+    // For mockup purposes: after login, we assume their profile is complete and go straight to lobby.
+    // (If we use the old check, it forces you to Sign Up because the local state is empty!)
     context.go(AppRoutes.lobby);
   }
 
@@ -72,7 +57,7 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 430),
               child: Container(
-                padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+                padding: const EdgeInsets.fromLTRB(18, 24, 18, 18),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
@@ -82,9 +67,9 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
+                  children: [
                     Text(
-                      'Daftar Akun Baru',
+                      'Selamat Datang',
                       style: GoogleFonts.orbitron(
                         color: AppColors.warriorNavy,
                         fontSize: 22,
@@ -93,14 +78,14 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Buat akun dan lengkapi profil sebelum masuk arena.',
+                      'Masuk ke arena belajar YUDHA.',
                       style: GoogleFonts.dmSans(
                         color: AppColors.textMuted,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     TextField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
@@ -118,7 +103,7 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
                     TextField(
                       controller: _passwordController,
                       obscureText: true,
-                      textInputAction: TextInputAction.next,
+                      textInputAction: TextInputAction.done,
                       onChanged: (_) {
                         if (_passwordError != null) setState(() => _passwordError = null);
                       },
@@ -128,69 +113,7 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
                         errorText: _passwordError,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _nameController,
-                      textInputAction: TextInputAction.done,
-                      onChanged: (_) {
-                        if (_nameError != null) {
-                          setState(() {
-                            _nameError = null;
-                          });
-                        }
-                      },
-                      decoration: InputDecoration(
-                        labelText: 'Nama',
-                        hintText: 'Contoh: Ahmad',
-                        errorText: _nameError,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      'Target belajar',
-                      style: GoogleFonts.dmSans(
-                        color: AppColors.warriorNavy,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SegmentedButton<ProfileTarget>(
-                      emptySelectionAllowed: true,
-                      showSelectedIcon: false,
-                      segments: const <ButtonSegment<ProfileTarget>>[
-                        ButtonSegment<ProfileTarget>(
-                          value: ProfileTarget.cpns,
-                          label: Text('CPNS'),
-                        ),
-                        ButtonSegment<ProfileTarget>(
-                          value: ProfileTarget.bumn,
-                          label: Text('BUMN'),
-                        ),
-                      ],
-                      selected: _selectedTarget == null
-                          ? const <ProfileTarget>{}
-                          : <ProfileTarget>{_selectedTarget!},
-                      onSelectionChanged: (Set<ProfileTarget> selected) {
-                        setState(() {
-                          _selectedTarget =
-                              selected.isEmpty ? null : selected.first;
-                          _targetError = null;
-                        });
-                      },
-                    ),
-                    if (_targetError != null) ...<Widget>[
-                      const SizedBox(height: 6),
-                      Text(
-                        _targetError!,
-                        style: GoogleFonts.dmSans(
-                          color: const Color(0xFFB03030),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 28),
                     SizedBox(
                       height: 52,
                       child: FilledButton(
@@ -202,7 +125,7 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
                           ),
                         ),
                         child: Text(
-                          'Daftar & Lanjut',
+                          'Masuk',
                           style: GoogleFonts.orbitron(
                             fontSize: 15,
                             fontWeight: FontWeight.w800,
@@ -213,9 +136,9 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
                     ),
                     const SizedBox(height: 16),
                     TextButton(
-                      onPressed: () => context.go(AppRoutes.login),
+                      onPressed: () => context.go(AppRoutes.profileSetup),
                       child: Text(
-                        'Sudah punya akun? Masuk',
+                        'Belum punya akun? Daftar',
                         style: GoogleFonts.dmSans(
                           color: AppColors.warriorNavy,
                           fontWeight: FontWeight.w700,

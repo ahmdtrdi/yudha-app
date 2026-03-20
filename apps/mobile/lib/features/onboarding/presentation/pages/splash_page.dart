@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
+import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 
 class SplashPage extends ConsumerStatefulWidget {
@@ -25,6 +26,13 @@ class _SplashPageState extends ConsumerState<SplashPage> {
       if (!mounted) {
         return;
       }
+      final bool isAuthenticated = ref.read(authProvider);
+      
+      if (!isAuthenticated) {
+        context.go(AppRoutes.login);
+        return;
+      }
+
       final bool isProfileComplete =
           ref.read(profileSettingsProvider).isProfileComplete;
       context.go(
