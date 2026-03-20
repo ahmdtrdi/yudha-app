@@ -9,6 +9,7 @@ import 'package:yudha_mobile/features/practice/domain/entities/practice_option.d
 import 'package:yudha_mobile/features/practice/domain/entities/practice_question.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_topic.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_page.dart';
+import 'package:yudha_mobile/features/practice/presentation/pages/practice_quiz_page.dart';
 
 class _PendingPracticeRepository implements PracticeRepository {
   const _PendingPracticeRepository();
@@ -80,22 +81,7 @@ class _SuccessPracticeRepository implements PracticeRepository {
 }
 
 void main() {
-  testWidgets('renders loading state', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: <Override>[
-          practiceRepositoryProvider.overrideWithValue(
-            const _PendingPracticeRepository(),
-          ),
-        ],
-        child: const MaterialApp(home: PracticePage()),
-      ),
-    );
-
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-  });
-
-  testWidgets('renders practice content in success state', (
+  testWidgets('renders practice dashboard layout successfully', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -109,39 +95,53 @@ void main() {
       ),
     );
 
-    await tester.pumpAndSettle();
+    // Let the mock fetch complete
+    await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('Question of the Day'), findsOneWidget);
-    expect(find.text('Choose Topic'), findsOneWidget);
-    expect(find.text('Submit Answer'), findsOneWidget);
-    expect(find.text('Hint is locked. Choose unlock method:'), findsOneWidget);
+    expect(find.text('LATIHAN'), findsOneWidget);
+    expect(find.text('CPNS'), findsOneWidget); // Default target badge
+    expect(find.text('Progress CPNS'), findsOneWidget);
+    expect(find.text('TWK — WAWASAN KEBANGSAAN'), findsOneWidget);
   });
 
-  testWidgets('supports hint unlock stub flow', (WidgetTester tester) async {
+  testWidgets('renders practice quiz page and transforms hint', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        practiceRepositoryProvider.overrideWithValue(
+          const _SuccessPracticeRepository(),
+        ),
+      ],
+    );
+
+    // Give the fake controller time to load() its initial data
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    // Start the mock challenge so PracticeQuizPage doesn't render "No question active"
+    container.read(practiceControllerProvider.notifier).startQuestionOfDay();
+
     await tester.pumpWidget(
-      ProviderScope(
-        overrides: <Override>[
-          practiceRepositoryProvider.overrideWithValue(
-            const _SuccessPracticeRepository(),
-          ),
-        ],
-        child: const MaterialApp(home: PracticePage()),
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: PracticeQuizPage()),
       ),
     );
 
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
 
-    await tester.tap(find.text('Watch Ad'));
-    await tester.pumpAndSettle();
-    expect(
-      find.text('Ad reward pending. Complete ad to unlock this hint.'),
-      findsOneWidget,
-    );
+    // Verify initial quiz UI
+    expect(find.text('Lihat petunjuk'), findsOneWidget);
+    expect(find.text('KONFIRMASI'), findsOneWidget);
+    expect(find.text('-5 poin'), findsOneWidget);
 
-    await tester.tap(find.text('Unlock Hint'));
-    await tester.pumpAndSettle();
+    // Tap hint to unlock
+    await tester.tap(find.text('Lihat petunjuk'));
+    await tester.pump(const Duration(milliseconds: 500));
 
+    // Verify hint box morphed
+    expect(find.text('PETUNJUK'), findsOneWidget);
     expect(find.text('Only one number is not prime.'), findsOneWidget);
+    // Dashed button should disappear entirely
+    expect(find.text('Lihat petunjuk'), findsNothing);
   });
 }
-

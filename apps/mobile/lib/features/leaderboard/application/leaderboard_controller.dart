@@ -109,16 +109,23 @@ class LeaderboardController extends StateNotifier<LeaderboardState> {
         .toList(growable: true);
 
     if (state.scope == LeaderboardScope.global) {
-      mutable.add(
-        LeaderboardEntry(
-          playerId: _currentProgress.playerId,
-          playerName: _currentProgress.displayName,
-          points: _currentProgress.totalPoints,
-          winRate: _currentProgress.winRate,
-          streak: _currentProgress.streak,
-          isCurrentUser: true,
-        ),
+      final int insertIndex = mutable.indexWhere(
+        (e) => _currentProgress.totalPoints >= e.points,
       );
+
+      if (insertIndex != -1) {
+        mutable.insert(
+          insertIndex,
+          LeaderboardEntry(
+            playerId: _currentProgress.playerId,
+            playerName: _currentProgress.displayName,
+            points: _currentProgress.totalPoints,
+            winRate: _currentProgress.winRate,
+            streak: _currentProgress.streak,
+            isCurrentUser: true,
+          ),
+        );
+      }
     }
 
     mutable.sort((LeaderboardEntry a, LeaderboardEntry b) {
