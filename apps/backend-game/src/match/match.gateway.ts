@@ -1,77 +1,118 @@
 import {
-  WebSocketGateway,
-  WebSocketServer,
+  ConnectedSocket,
+  MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
   SubscribeMessage,
-  MessageBody,
-  ConnectedSocket,
+  WebSocketGateway,
+  WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { SupabaseService } from '../supabase/supabase.service'; // Assuming you share this module
+import { CLIENT_MATCH_EVENTS } from '../../../../contracts/match.events';
+import type {
+  JoinQueuePayload,
+  OpenCardPayload,
+  PlayCardPayload,
+  SurrenderPayload,
+} from '../../../../contracts/match.payloads';
+import { SupabaseService } from '../supabase/supabase.service';
+import { MatchService, type MatchServiceResult } from './match.service';
 
-// We open the socket server on a specific namespace, e.g., /match
 @WebSocketGateway({ namespace: '/match', cors: true })
 export class MatchGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  // Keep track of who is online: Map<SocketId, PlayerId>
-  private connectedPlayers = new Map<string, string>();
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly matchService: MatchService,
+  ) {}
 
-  constructor(private readonly supabaseService: SupabaseService) {}
-
-  // 1. A player tries to connect their Flutter app to the arena
   async handleConnection(client: Socket) {
     try {
-      // 1. Try to get the token from Flutter's auth payload
       let token = client.handshake.auth?.token;
-
-      // 2. Fallback for Postman: Try to get it from the standard Authorization header
       if (!token && client.handshake.headers.authorization) {
         token = client.handshake.headers.authorization.split(' ')[1];
       }
-
-      // If STILL no token, kick them out
       if (!token) throw new Error('No token provided');
 
       const supabase = this.supabaseService.getClient();
-      const { data: { user }, error } = await supabase.auth.getUser(token);
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser(token);
 
       if (error || !user) throw new Error('Invalid token');
 
-      // Success! Let them in
-      this.connectedPlayers.set(client.id, user.id);
-      console.log(`🟢 Player Connected: ${user.id} (Socket: ${client.id})`);
-
+      this.matchService.registerSocket(client.id, user.id);
       client.emit('connection_success', { message: 'Welcome to the Arena!' });
-
     } catch (error) {
-      console.log(`🔴 Connection Rejected: ${error.message}`);
-      client.disconnect(); 
+      const message = error instanceof Error ? error.message : 'Connection rejected';
+      client.emit('error', { message });
+      client.disconnect();
     }
   }
 
-  // 3. A player closes the app or loses internet
   handleDisconnect(client: Socket) {
-    const playerId = this.connectedPlayers.get(client.id);
-    if (playerId) {
-      console.log(`🔴 Player Disconnected: ${playerId}`);
-      this.connectedPlayers.delete(client.id);
-      
-      // TODO: If they are in a match, auto-forfeit them!
+    this.emitAll(this.matchService.handleDisconnect(client.id));
+  }
+
+  @SubscribeMessage('ping_server')
+  handlePing(@ConnectedSocket() client: Socket, @MessageBody() payload: unknown) {
+    const playerId = this.matchService.getUserIdForSocket(client.id);
+    client.emit('pong_client', {
+      message: `Hello player ${playerId}, I received your data!`,
+      yourData: payload,
+    });
+  }
+
+  @SubscribeMessage(CLIENT_MATCH_EVENTS.joinQueue)
+  handleJoinQueue(@ConnectedSocket() client: Socket, @MessageBody() payload?: JoinQueuePayload) {
+    const userId = this.requireUser(client);
+    if (!userId) return;
+    this.emitAll(this.matchService.handleJoinQueue(userId, client.id, payload));
+  }
+
+  @SubscribeMessage(CLIENT_MATCH_EVENTS.cancelQueue)
+  handleCancelQueue(@ConnectedSocket() client: Socket) {
+    const userId = this.requireUser(client);
+    if (!userId) return;
+    this.emitAll(this.matchService.handleCancelQueue(userId, client.id));
+  }
+
+  @SubscribeMessage(CLIENT_MATCH_EVENTS.openCard)
+  handleOpenCard(@ConnectedSocket() client: Socket, @MessageBody() payload: OpenCardPayload) {
+    const userId = this.requireUser(client);
+    if (!userId) return;
+    this.emitAll(this.matchService.handleOpenCard(userId, client.id, payload));
+  }
+
+  @SubscribeMessage(CLIENT_MATCH_EVENTS.playCard)
+  handlePlayCard(@ConnectedSocket() client: Socket, @MessageBody() payload: PlayCardPayload) {
+    const userId = this.requireUser(client);
+    if (!userId) return;
+    this.emitAll(this.matchService.handlePlayCard(userId, client.id, payload));
+  }
+
+  @SubscribeMessage(CLIENT_MATCH_EVENTS.surrender)
+  handleSurrender(@ConnectedSocket() client: Socket, @MessageBody() payload: SurrenderPayload) {
+    const userId = this.requireUser(client);
+    if (!userId) return;
+    this.emitAll(this.matchService.handleSurrender(userId, client.id, payload));
+  }
+
+  private emitAll(result: MatchServiceResult): void {
+    for (const emit of result.emits) {
+      this.server.to(emit.socketId).emit(emit.event, emit.payload);
     }
   }
 
-  // 4. A test event to make sure Flutter can talk to NestJS
-  @SubscribeMessage('ping_server')
-  handlePing(@ConnectedSocket() client: Socket, @MessageBody() payload: any) {
-    const playerId = this.connectedPlayers.get(client.id);
-    
-    // Send a message back ONLY to the player who pinged
-    client.emit('pong_client', { 
-      message: `Hello player ${playerId}, I received your data!`,
-      yourData: payload 
-    });
+  private requireUser(client: Socket): string | undefined {
+    const userId = this.matchService.getUserIdForSocket(client.id);
+    if (!userId) {
+      client.emit('error', { message: 'Socket is not authenticated.' });
+      return undefined;
+    }
+    return userId;
   }
 }
