@@ -1,25 +1,21 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:yudha_mobile/app/config/app_config.dart';
 import 'package:yudha_mobile/features/interview/data/repositories/interview_repository.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_message.dart';
 
 class InterviewApiConfig {
   const InterviewApiConfig({
-    this.baseUrl = const String.fromEnvironment(
-      'YUDHA_API_BASE_URL',
-      defaultValue: 'http://10.0.2.2:3000',
-    ),
-    this.accessToken = const String.fromEnvironment(
-      'YUDHA_SUPABASE_ACCESS_TOKEN',
-    ),
+    this.baseUrl = AppConfig.apiBaseUrl,
+    this.accessToken,
   });
 
   final String baseUrl;
-  final String accessToken;
+  final String? accessToken;
 
-  bool get hasAccessToken => accessToken.trim().isNotEmpty;
+  bool get hasAccessToken => accessToken?.trim().isNotEmpty ?? false;
 }
 
 class BackendInterviewRepository implements InterviewRepository {
@@ -106,9 +102,7 @@ class BackendInterviewRepository implements InterviewRepository {
   ) async {
     if (!_config.hasAccessToken) {
       throw const InterviewApiException(
-        'Interview AI needs a Supabase access token. Run with '
-        '--dart-define=YUDHA_SUPABASE_ACCESS_TOKEN=<token> until mobile auth '
-        'is wired.',
+        'Interview AI membutuhkan sesi login Supabase. Silakan masuk ulang.',
       );
     }
 

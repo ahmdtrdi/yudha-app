@@ -26,18 +26,17 @@ class _SplashPageState extends ConsumerState<SplashPage> {
       if (!mounted) {
         return;
       }
-      final bool isAuthenticated = ref.read(authProvider);
-      
+      final bool isAuthenticated = ref.read(isAuthenticatedProvider);
+
       if (!isAuthenticated) {
         context.go(AppRoutes.login);
         return;
       }
 
-      final bool isProfileComplete =
-          ref.read(profileSettingsProvider).isProfileComplete;
-      context.go(
-        isProfileComplete ? AppRoutes.lobby : AppRoutes.profileSetup,
-      );
+      final bool isProfileComplete = ref
+          .read(profileSettingsProvider)
+          .isProfileComplete;
+      context.go(isProfileComplete ? AppRoutes.lobby : AppRoutes.profileSetup);
     });
   }
 

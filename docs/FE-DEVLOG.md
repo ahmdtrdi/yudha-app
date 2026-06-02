@@ -1040,3 +1040,22 @@
 - Mobile auth is still a mock boolean and does not expose a Supabase access token. For now, the client reads `YUDHA_API_BASE_URL` and `YUDHA_SUPABASE_ACCESS_TOKEN` from dart defines; this should be replaced by real auth/session wiring.
 - The Interview API has no mobile session list endpoint yet, so the history button shows only the current in-memory chat, not past saved sessions.
 - The existing practice quiz widget test still hangs in isolation on this Windows test runner; the new interview controller test and the practice dashboard entry test pass.
+
+## 2026-06-02 - Mobile Supabase Auth Foundation
+
+### The Change
+- Added `supabase_flutter` to the mobile app and initialized Supabase from dart defines in `AppBootstrap`.
+- Extended `AppConfig` with `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `YUDHA_API_BASE_URL` dart-define values.
+- Replaced the mock boolean auth provider with a Supabase-aware `AppAuthState`, exposing authenticated status and the active session access token through Riverpod providers.
+- Updated Login and Sign Up flows to call Supabase auth APIs and surface loading/error states.
+- Updated the Interview API config to use the logged-in Supabase access token instead of a temporary manual token define.
+
+### The Reasoning
+- Interview endpoints are guarded by Supabase auth, so mobile needs a real session/token foundation before replacing mocks across the app.
+- Keeping credentials in dart defines avoids committing project credentials while still making local and CI/dev builds explicit.
+- Exposing the access token through a small provider gives future backend repositories one shared place to read auth state.
+
+### The Tech Debt
+- Login and sign-up now authenticate with Supabase, but profile creation/sync still depends on backend/Supabase triggers and has not yet replaced the local profile settings cache.
+- Auth route guarding is still lightweight; `SplashPage` checks auth once after a delay instead of using router-level redirects bound to auth state.
+- Supabase credentials still need to be provided by each developer through local run configuration or CI secrets.
