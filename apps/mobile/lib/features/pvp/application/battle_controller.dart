@@ -38,6 +38,7 @@ class BattleController extends StateNotifier<BattleState> {
       rewardClaimed: false,
       statusMessage: 'Mode ${_modeLabel(mode)} dipilih. Tekan mulai battle.',
       clearErrorMessage: true,
+      clearBattleEvent: true,
     );
   }
 
@@ -59,6 +60,7 @@ class BattleController extends StateNotifier<BattleState> {
       rewardClaimed: false,
       statusMessage: 'Pilih mode arena.',
       clearErrorMessage: true,
+      clearBattleEvent: true,
     );
   }
 
@@ -100,6 +102,7 @@ class BattleController extends StateNotifier<BattleState> {
         isLoading: false,
         statusMessage: 'Battle dimulai.',
         clearErrorMessage: true,
+        clearBattleEvent: true,
       );
     } catch (_) {
       state = state.copyWith(
@@ -129,6 +132,22 @@ class BattleController extends StateNotifier<BattleState> {
     );
   }
 
+  void answerBotQuestion() {
+    if (!state.isBattleActive || state.isLoading || state.mode != BattleMode.bot) {
+      return;
+    }
+
+    final BattleQuestion? question = _pickBotQuestion();
+    if (question == null) {
+      return;
+    }
+
+    state = BattleStateMachine.resolveOpponentTurn(
+      state: state,
+      question: question,
+    );
+  }
+
   void surrenderBattle() {
     if (!state.isBattleActive || state.isLoading) {
       return;
@@ -141,6 +160,7 @@ class BattleController extends StateNotifier<BattleState> {
       ratingDelta: -12,
       statusMessage: 'Kamu menyerah.',
       clearErrorMessage: true,
+      clearBattleEvent: true,
     );
   }
 
@@ -149,6 +169,7 @@ class BattleController extends StateNotifier<BattleState> {
       mode: state.mode,
       phase: BattlePhase.arenaMenu,
       opponentName: state.mode == BattleMode.bot ? 'BOT YUDHA' : 'Player Match',
+      clearBattleEvent: true,
     );
   }
 
@@ -171,6 +192,17 @@ class BattleController extends StateNotifier<BattleState> {
       }
     }
     return null;
+  }
+
+  BattleQuestion? _pickBotQuestion() {
+    BattleQuestion? fallback;
+    for (final BattleQuestion question in state.availableQuestions) {
+      fallback ??= question;
+      if (question.effect == QuestionEffect.damage) {
+        return question;
+      }
+    }
+    return fallback;
   }
 
   String _modeLabel(BattleMode mode) {

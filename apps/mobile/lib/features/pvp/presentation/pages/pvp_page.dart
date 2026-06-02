@@ -30,58 +30,21 @@ const String _playerMiniTowerDestroyedAsset =
     'assets/game/blue_minitower_destroyed.png';
 const String _tiuCardAsset = 'assets/game/tiu_card.png';
 const String _twkCardAsset = 'assets/game/twk_card.png';
-const String _playerAttackAsset = 'assets/game/attack_stright_blue.png';
-const String _enemyAttackAsset = 'assets/game/attack_side_red.png';
-const String _impactExplosionAsset = 'assets/game/impact_explosion.png';
+// Attack effects are now rendered via CustomPainter (no PNG assets needed).
+
+const Alignment _enemyMainAlignment = Alignment(0, -0.59);
+const Alignment _enemyMiniLeftAlignment = Alignment(-0.704, -0.418);
+const Alignment _enemyMiniRightAlignment = Alignment(0.704, -0.418);
+const Alignment _playerMainAlignment = Alignment(0, 0.392);
+const Alignment _playerMiniLeftAlignment = Alignment(-0.704, 0.222);
+const Alignment _playerMiniRightAlignment = Alignment(0.704, 0.222);
 
 class PvpPage extends ConsumerWidget {
   const PvpPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.listen<BattleState>(battleControllerProvider, (
-      BattleState? previous,
-      BattleState next,
-    ) {
-      if (next.phase != BattlePhase.inBattle) {
-        return;
-      }
-
-      final bool hasNewError =
-          next.errorMessage != null &&
-          next.errorMessage != previous?.errorMessage;
-      final bool hasNewStatus =
-          next.errorMessage == null &&
-          next.statusMessage != null &&
-          next.statusMessage != previous?.statusMessage;
-
-      if (!hasNewError && !hasNewStatus) {
-        return;
-      }
-
-      final String message = hasNewError
-          ? next.errorMessage!
-          : next.statusMessage!;
-      final ScaffoldMessengerState? messenger = ScaffoldMessenger.maybeOf(
-        context,
-      );
-      if (messenger == null) {
-        return;
-      }
-
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(message),
-            duration: const Duration(seconds: 3),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: hasNewError
-                ? const Color(0xFF8F2D2A)
-                : AppColors.levelUpTeal,
-          ),
-        );
-    });
+    // Toast notifications are now handled by _InBattleSectionState.
 
     final BattleState state = ref.watch(battleControllerProvider);
     final BattleController controller = ref.read(
@@ -195,6 +158,7 @@ class PvpPage extends ConsumerWidget {
       state: state,
       playerDisplayName: playerDisplayName,
       onPause: () => _showPauseDialog(context: context, controller: controller),
+      onBotAnswer: controller.answerBotQuestion,
       onPickQuestion: (BattleQuestion question) => _showQuestionSheet(
         context: context,
         controller: controller,
@@ -1034,7 +998,7 @@ class _HowToRow extends StatelessWidget {
   }
 }
 
-class _ArenaMenuSection extends StatelessWidget {
+class _ArenaMenuSection extends StatefulWidget {
   const _ArenaMenuSection({
     required this.playerDisplayName,
     required this.onBackHome,
@@ -1046,6 +1010,38 @@ class _ArenaMenuSection extends StatelessWidget {
   final VoidCallback onBackHome;
   final VoidCallback onStartBot;
   final VoidCallback onStartPlayer;
+
+  @override
+  State<_ArenaMenuSection> createState() => _ArenaMenuSectionState();
+}
+
+class _ArenaMenuSectionState extends State<_ArenaMenuSection>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _transitionController;
+  bool _transitionDone = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _transitionController =
+        AnimationController(
+            vsync: this,
+            duration: const Duration(milliseconds: 1800),
+          )
+          ..forward().then((_) {
+            if (mounted) {
+              setState(() {
+                _transitionDone = true;
+              });
+            }
+          });
+  }
+
+  @override
+  void dispose() {
+    _transitionController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1077,7 +1073,7 @@ class _ArenaMenuSection extends StatelessWidget {
                             Color(0xFF1A3A6B),
                             Color(0xFF2563EB),
                           ],
-                          onTap: onStartBot,
+                          onTap: widget.onStartBot,
                         ),
                         const SizedBox(height: 12),
                         _MenuActionButton(
@@ -1088,7 +1084,7 @@ class _ArenaMenuSection extends StatelessWidget {
                             Color(0xFF512DA8),
                             Color(0xFF9333EA),
                           ],
-                          onTap: onStartPlayer,
+                          onTap: widget.onStartPlayer,
                         ),
                         const SizedBox(height: 12),
                         _MenuActionButton(
@@ -1099,10 +1095,12 @@ class _ArenaMenuSection extends StatelessWidget {
                             Color(0xFF14532D),
                             Color(0xFF16A34A),
                           ],
-                          onTap: onBackHome,
+                          onTap: widget.onBackHome,
                         ),
                         SizedBox(height: compact ? 18 : 24),
-                        _ArenaTipStrip(playerDisplayName: playerDisplayName),
+                        _ArenaTipStrip(
+                          playerDisplayName: widget.playerDisplayName,
+                        ),
                       ],
                     ),
                   ),
@@ -1110,6 +1108,124 @@ class _ArenaMenuSection extends StatelessWidget {
               },
             ),
           ),
+          // ── Entrance transition overlay ──
+          if (!_transitionDone)
+            AnimatedBuilder(
+              animation: _transitionController,
+              builder: (BuildContext context, Widget? child) {
+                final double t = _transitionController.value;
+                final double fadeOut = t < 0.7
+                    ? 0
+                    : ((t - 0.7) / 0.3).clamp(0.0, 1.0);
+                final double progressBar = (t / 0.65).clamp(0.0, 1.0);
+                final double iconPulse = 1.0 + sin(t * pi * 4) * 0.08;
+
+                return Positioned.fill(
+                  child: IgnorePointer(
+                    ignoring: fadeOut >= 1.0,
+                    child: Opacity(
+                      opacity: (1 - fadeOut).clamp(0.0, 1.0),
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: <Color>[
+                              Color(0xFF0D1B3E),
+                              Color(0xFF080E1A),
+                              Color(0xFF0E2A1A),
+                            ],
+                          ),
+                        ),
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Transform.scale(
+                                scale: iconPulse,
+                                child: Container(
+                                  width: 80,
+                                  height: 80,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: const Color(
+                                      0xFFFFD23F,
+                                    ).withAlpha(28),
+                                    border: Border.all(
+                                      color: const Color(
+                                        0xFFFFD23F,
+                                      ).withAlpha(120),
+                                      width: 2,
+                                    ),
+                                    boxShadow: <BoxShadow>[
+                                      BoxShadow(
+                                        color: const Color(
+                                          0xFFFFD23F,
+                                        ).withAlpha(60),
+                                        blurRadius: 30,
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.military_tech_rounded,
+                                    color: Color(0xFFFFD23F),
+                                    size: 40,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              Text(
+                                'YUDHA PvP',
+                                style: GoogleFonts.orbitron(
+                                  color: const Color(0xFFFFD23F),
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 3,
+                                  shadows: <Shadow>[
+                                    Shadow(
+                                      color: const Color(
+                                        0xFFFFD23F,
+                                      ).withAlpha(120),
+                                      blurRadius: 20,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'MEMASUKI ARENA',
+                                style: GoogleFonts.orbitron(
+                                  color: Colors.white.withAlpha(120),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 4,
+                                ),
+                              ),
+                              const SizedBox(height: 32),
+                              SizedBox(
+                                width: 200,
+                                height: 4,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(2),
+                                  child: LinearProgressIndicator(
+                                    value: progressBar,
+                                    backgroundColor: Colors.white.withAlpha(20),
+                                    valueColor:
+                                        const AlwaysStoppedAnimation<Color>(
+                                          Color(0xFFFFD23F),
+                                        ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -1355,12 +1471,14 @@ class _InBattleSection extends StatefulWidget {
     required this.state,
     required this.playerDisplayName,
     required this.onPause,
+    required this.onBotAnswer,
     required this.onPickQuestion,
   });
 
   final BattleState state;
   final String playerDisplayName;
   final VoidCallback onPause;
+  final VoidCallback onBotAnswer;
   final ValueChanged<BattleQuestion> onPickQuestion;
 
   @override
@@ -1368,8 +1486,17 @@ class _InBattleSection extends StatefulWidget {
 }
 
 class _InBattleSectionState extends State<_InBattleSection>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _ambientController;
+  late final AnimationController _countdownController;
+  final Random _random = Random();
+
+  int _countdownValue = 3;
+  bool _countdownDone = false;
+  final List<_ToastData> _toasts = <_ToastData>[];
+  int _toastIdCounter = 0;
+  int _lastToastEventId = 0;
+  Timer? _botTimer;
 
   @override
   void initState() {
@@ -1378,12 +1505,109 @@ class _InBattleSectionState extends State<_InBattleSection>
       vsync: this,
       duration: const Duration(milliseconds: 6000),
     )..repeat();
+    _countdownController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _startCountdown();
+  }
+
+  void _startCountdown() {
+    _countdownValue = 3;
+    _countdownDone = false;
+    _animateCountdownTick();
+  }
+
+  void _animateCountdownTick() {
+    _countdownController.forward(from: 0).then((_) {
+      if (!mounted) return;
+      if (_countdownValue > 1) {
+        setState(() {
+          _countdownValue--;
+        });
+        _animateCountdownTick();
+      } else {
+        setState(() {
+          _countdownValue = 0;
+        });
+        _countdownController.forward(from: 0).then((_) {
+          if (!mounted) return;
+          setState(() {
+            _countdownDone = true;
+          });
+          _scheduleBotAttack();
+        });
+      }
+    });
+  }
+
+  void _addToast(String text, {bool isError = false}) {
+    final int id = _toastIdCounter++;
+    setState(() {
+      _toasts.add(_ToastData(id: id, text: text, isError: isError));
+    });
+    Future<void>.delayed(const Duration(milliseconds: 2800), () {
+      if (!mounted) return;
+      setState(() {
+        _toasts.removeWhere((_ToastData t) => t.id == id);
+      });
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _InBattleSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final String? newStatus = widget.state.statusMessage;
+    final String? newError = widget.state.errorMessage;
+    final String? toastText = newError ?? newStatus;
+    if (toastText != null &&
+        widget.state.battleEventId != _lastToastEventId &&
+        _countdownDone) {
+      _lastToastEventId = widget.state.battleEventId;
+      _addToast(toastText, isError: newError != null);
+    }
+
+    if (widget.state.phase != BattlePhase.inBattle ||
+        widget.state.mode != BattleMode.bot ||
+        widget.state.availableQuestions.isEmpty) {
+      _botTimer?.cancel();
+      _botTimer = null;
+      return;
+    }
+
+    if (_countdownDone && !(_botTimer?.isActive ?? false)) {
+      _scheduleBotAttack();
+    }
   }
 
   @override
   void dispose() {
+    _botTimer?.cancel();
     _ambientController.dispose();
+    _countdownController.dispose();
     super.dispose();
+  }
+
+  void _scheduleBotAttack() {
+    if (!_countdownDone ||
+        widget.state.phase != BattlePhase.inBattle ||
+        widget.state.mode != BattleMode.bot ||
+        widget.state.availableQuestions.isEmpty ||
+        (_botTimer?.isActive ?? false)) {
+      return;
+    }
+
+    final int delayMs = 3300 + _random.nextInt(2600);
+    _botTimer = Timer(Duration(milliseconds: delayMs), () {
+      if (!mounted ||
+          !_countdownDone ||
+          widget.state.phase != BattlePhase.inBattle ||
+          widget.state.mode != BattleMode.bot ||
+          widget.state.availableQuestions.isEmpty) {
+        return;
+      }
+      widget.onBotAnswer();
+    });
   }
 
   @override
@@ -1391,71 +1615,316 @@ class _InBattleSectionState extends State<_InBattleSection>
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
         final bool compact = constraints.maxHeight < 760;
-        final double bottomHudHeight = compact ? 156 : 184;
 
-        return AnimatedBuilder(
-          animation: _ambientController,
-          builder: (BuildContext context, Widget? child) {
-            final double animationValue = _ambientController.value;
-            return Stack(
-              children: <Widget>[
-                Positioned.fill(
-                  child: _ArenaPanel(
-                    playerHp: widget.state.playerHp,
-                    opponentHp: widget.state.opponentHp,
-                    mode: widget.state.mode,
-                    animationValue: animationValue,
-                    statusMessage:
-                        widget.state.errorMessage ??
-                        (widget.state.answeredQuestionIds.isEmpty
-                            ? 'Pilih kartu untuk menyerang atau heal.'
-                            : widget.state.statusMessage),
-                    statusIsError: widget.state.errorMessage != null,
-                    statusBottomInset: bottomHudHeight + 8,
+        return Stack(
+          children: <Widget>[
+            Positioned.fill(
+              child: RepaintBoundary(
+                child: AnimatedBuilder(
+                  animation: _ambientController,
+                  builder: (BuildContext context, Widget? child) {
+                    return _ArenaPanel(
+                      playerHp: widget.state.playerHp,
+                      opponentHp: widget.state.opponentHp,
+                      mode: widget.state.mode,
+                      animationValue: _ambientController.value,
+                      visualActor: widget.state.lastActor,
+                      visualEffect: widget.state.lastVisualEffect,
+                      visualCategory: widget.state.lastEventCategory,
+                      eventId: widget.state.battleEventId,
+                    );
+                  },
+                ),
+              ),
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: RepaintBoundary(
+                child: AnimatedBuilder(
+                  animation: _ambientController,
+                  builder: (BuildContext context, Widget? child) {
+                    return _HudStrip(
+                      isEnemy: true,
+                      playerName: widget.state.opponentName,
+                      hp: widget.state.opponentHp,
+                      points: widget.state.opponentPoints,
+                      compact: compact,
+                      animationValue: _ambientController.value,
+                    );
+                  },
+                ),
+              ),
+            ),
+            Positioned(
+              right: 10,
+              top: 10,
+              child: _ArenaIconButton(
+                icon: Icons.pause_rounded,
+                tooltip: 'Pause',
+                onPressed: widget.onPause,
+              ),
+            ),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                ignoring: !_countdownDone,
+                child: RepaintBoundary(
+                  child: AnimatedBuilder(
+                    animation: _ambientController,
+                    builder: (BuildContext context, Widget? child) {
+                      return _HudStrip(
+                        isEnemy: false,
+                        playerName: widget.playerDisplayName,
+                        hp: widget.state.playerHp,
+                        points: widget.state.playerPoints,
+                        questions: widget.state.availableQuestions
+                            .take(4)
+                            .toList(),
+                        onPickQuestion: widget.onPickQuestion,
+                        compact: compact,
+                        animationValue: _ambientController.value,
+                      );
+                    },
                   ),
                 ),
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: _HudStrip(
-                    isEnemy: true,
-                    playerName: widget.state.opponentName,
-                    hp: widget.state.opponentHp,
-                    points: widget.state.opponentPoints,
-                    compact: compact,
-                    animationValue: animationValue,
-                  ),
-                ),
-                Positioned(
-                  right: 10,
-                  top: 10,
-                  child: _ArenaIconButton(
-                    icon: Icons.pause_rounded,
-                    tooltip: 'Pause',
-                    onPressed: widget.onPause,
-                  ),
-                ),
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: _HudStrip(
-                    isEnemy: false,
-                    playerName: widget.playerDisplayName,
-                    hp: widget.state.playerHp,
-                    points: widget.state.playerPoints,
-                    questions: widget.state.availableQuestions.take(4).toList(),
-                    onPickQuestion: widget.onPickQuestion,
-                    compact: compact,
-                    animationValue: animationValue,
-                  ),
-                ),
-              ],
-            );
-          },
+              ),
+            ),
+            Positioned(
+              top: 64,
+              left: 16,
+              right: 16,
+              child: Column(
+                children: <Widget>[
+                  for (final _ToastData toast in _toasts)
+                    _GameToast(
+                      key: ValueKey<int>(toast.id),
+                      text: toast.text,
+                      isError: toast.isError,
+                    ),
+                ],
+              ),
+            ),
+            if (!_countdownDone)
+              AnimatedBuilder(
+                animation: _countdownController,
+                builder: (BuildContext context, Widget? child) {
+                  return _CountdownOverlay(
+                    value: _countdownValue,
+                    progress: _countdownController.value,
+                  );
+                },
+              ),
+          ],
         );
       },
+    );
+  }
+}
+
+class _ToastData {
+  const _ToastData({
+    required this.id,
+    required this.text,
+    required this.isError,
+  });
+  final int id;
+  final String text;
+  final bool isError;
+}
+
+class _GameToast extends StatefulWidget {
+  const _GameToast({super.key, required this.text, required this.isError});
+  final String text;
+  final bool isError;
+
+  @override
+  State<_GameToast> createState() => _GameToastState();
+}
+
+class _GameToastState extends State<_GameToast>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Color accent = widget.isError
+        ? const Color(0xFFFF6060)
+        : widget.text.contains('benar') || widget.text.contains('memulihkan')
+        ? const Color(0xFF4ADE80)
+        : widget.text.contains('menerima') || widget.text.contains('Musuh')
+        ? const Color(0xFFFF6060)
+        : const Color(0xFF60A5FA);
+    final Color bgColor = widget.isError
+        ? const Color(0xE0501414)
+        : widget.text.contains('benar') || widget.text.contains('memulihkan')
+        ? const Color(0xE0143214)
+        : widget.text.contains('menerima')
+        ? const Color(0xE0501414)
+        : const Color(0xE0142050);
+
+    return SlideTransition(
+      position: Tween<Offset>(begin: const Offset(0, -1), end: Offset.zero)
+          .animate(
+            CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+          ),
+      child: FadeTransition(
+        opacity: _controller,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 9,
+                ),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: accent.withAlpha(100)),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.black.withAlpha(100),
+                      blurRadius: 18,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: accent,
+                        shape: BoxShape.circle,
+                        boxShadow: <BoxShadow>[
+                          BoxShadow(
+                            color: accent.withAlpha(150),
+                            blurRadius: 6,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        widget.text,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.nunito(
+                          color: Colors.white.withAlpha(232),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CountdownOverlay extends StatelessWidget {
+  const _CountdownOverlay({required this.value, required this.progress});
+  final int value;
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isGo = value == 0;
+    final String label = isGo ? 'GO!' : '$value';
+    final double scaleAnim = isGo
+        ? 0.6 + Curves.elasticOut.transform(progress.clamp(0.0, 1.0)) * 0.6
+        : 0.3 + Curves.easeOutBack.transform(progress.clamp(0.0, 1.0)) * 0.9;
+    final double opacityAnim = progress < 0.8
+        ? 1.0
+        : (1.0 - (progress - 0.8) / 0.2);
+    final Color textColor = isGo ? const Color(0xFFFFD23F) : Colors.white;
+
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Container(
+          color: Colors.black.withAlpha(isGo ? 80 : 140),
+          child: Center(
+            child: Opacity(
+              opacity: opacityAnim.clamp(0.0, 1.0),
+              child: Transform.scale(
+                scale: scaleAnim.clamp(0.1, 2.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      label,
+                      style: GoogleFonts.orbitron(
+                        color: textColor,
+                        fontSize: isGo ? 72 : 96,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 4,
+                        shadows: <Shadow>[
+                          Shadow(
+                            color: textColor.withAlpha(180),
+                            blurRadius: 40,
+                          ),
+                          Shadow(
+                            color: textColor.withAlpha(100),
+                            blurRadius: 80,
+                          ),
+                          const Shadow(
+                            color: Colors.black,
+                            blurRadius: 10,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!isGo) ...<Widget>[
+                      const SizedBox(height: 12),
+                      Text(
+                        'BERSIAP',
+                        style: GoogleFonts.orbitron(
+                          color: Colors.white.withAlpha(150),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 6,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1615,21 +2084,6 @@ class _HudStrip extends StatelessWidget {
                                 color: Colors.white.withAlpha(210),
                                 fontSize: 11,
                                 fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Icon(
-                              Icons.star_rounded,
-                              color: const Color(0xFFFFD23F).withAlpha(220),
-                              size: 12,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '$points',
-                              style: GoogleFonts.nunito(
-                                color: Colors.white.withAlpha(190),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
                               ),
                             ),
                           ],
@@ -1861,7 +2315,7 @@ class _BattleCard extends StatelessWidget {
     final String cardAsset = isDamage ? _tiuCardAsset : _twkCardAsset;
     final int impact = BattleStateMachine.impactFromWeight(question.weight);
     final Color glow = isDamage
-        ? _attackAccentForIndex(index)
+        ? _attackAccentForCategory(question.category, index)
         : const Color(0xFF4ADE80);
     final double bob = sin((animationValue + (index * 0.13)) * pi * 2) * -3;
     final double shinePosition = ((animationValue + index * 0.22) % 1) * 3.4;
@@ -1896,7 +2350,7 @@ class _BattleCard extends StatelessWidget {
                     child: Image.asset(
                       cardAsset,
                       fit: BoxFit.cover,
-                      filterQuality: FilterQuality.high,
+                      filterQuality: FilterQuality.medium,
                     ),
                   ),
                   Positioned.fill(
@@ -1944,7 +2398,7 @@ class _BattleCard extends StatelessWidget {
                     left: 5,
                     child: Icon(
                       isDamage
-                          ? _attackIconForIndex(index)
+                          ? _attackIconForCategory(question.category, index)
                           : Icons.favorite_rounded,
                       color: glow,
                       size: compact ? 15 : 17,
@@ -2006,19 +2460,29 @@ class _BattleCard extends StatelessWidget {
   }
 }
 
-Color _attackAccentForIndex(int index) {
-  return switch (index % 3) {
-    0 => const Color(0xFFF59E0B),
-    1 => const Color(0xFFA855F7),
-    _ => const Color(0xFF3EAAFF),
+Color _attackAccentForCategory(String category, int index) {
+  return switch (category.toLowerCase()) {
+    'verbal' => const Color(0xFFA855F7),
+    'logika' => const Color(0xFF3EAAFF),
+    'numerik' => const Color(0xFFF59E0B),
+    _ => switch (index % 3) {
+      0 => const Color(0xFFF59E0B),
+      1 => const Color(0xFFA855F7),
+      _ => const Color(0xFF3EAAFF),
+    },
   };
 }
 
-IconData _attackIconForIndex(int index) {
-  return switch (index % 3) {
-    0 => Icons.local_fire_department_rounded,
-    1 => Icons.bolt_rounded,
-    _ => Icons.smart_toy_rounded,
+IconData _attackIconForCategory(String category, int index) {
+  return switch (category.toLowerCase()) {
+    'verbal' => Icons.bolt_rounded,
+    'logika' => Icons.smart_toy_rounded,
+    'numerik' => Icons.local_fire_department_rounded,
+    _ => switch (index % 3) {
+      0 => Icons.local_fire_department_rounded,
+      1 => Icons.bolt_rounded,
+      _ => Icons.smart_toy_rounded,
+    },
   };
 }
 
@@ -2027,21 +2491,15 @@ String _questionCardLabel(BattleQuestion question, int index) {
     return 'TWK';
   }
 
-  final String id = question.id.toLowerCase();
-  if (id.startsWith('tiu')) {
-    return index.isEven ? 'NUMERIK' : 'VERBAL';
-  }
-  if (id.startsWith('tkp')) {
-    return 'SPASIAL';
-  }
-  if (id.startsWith('twk')) {
-    return 'TWK';
-  }
-
-  return switch (index % 3) {
-    0 => 'NUMERIK',
-    1 => 'VERBAL',
-    _ => 'SPASIAL',
+  return switch (question.category.toLowerCase()) {
+    'verbal' => 'VERBAL',
+    'logika' => 'LOGIKA',
+    'numerik' => 'NUMERIK',
+    _ => switch (index % 3) {
+      0 => 'NUMERIK',
+      1 => 'VERBAL',
+      _ => 'LOGIKA',
+    },
   };
 }
 
@@ -2051,31 +2509,34 @@ class _ArenaPanel extends StatelessWidget {
     required this.opponentHp,
     required this.mode,
     required this.animationValue,
-    required this.statusMessage,
-    required this.statusIsError,
-    required this.statusBottomInset,
+    required this.visualActor,
+    required this.visualEffect,
+    required this.visualCategory,
+    required this.eventId,
   });
 
   final int playerHp;
   final int opponentHp;
   final BattleMode mode;
   final double animationValue;
-  final String? statusMessage;
-  final bool statusIsError;
-  final double statusBottomInset;
+  final BattleActor? visualActor;
+  final BattleVisualEffect? visualEffect;
+  final String? visualCategory;
+  final int eventId;
 
   @override
   Widget build(BuildContext context) {
-    final bool playerAttack =
-        statusMessage?.contains('Musuh menerima') ?? false;
-    final bool enemyAttack = statusMessage?.contains('Kamu menerima') ?? false;
-    final bool playerHeal = statusMessage?.contains('Kamu memulihkan') ?? false;
-    final bool enemyHeal = statusMessage?.contains('Musuh memulihkan') ?? false;
     final bool enemyMiniLeftDown = opponentHp <= 64;
     final bool enemyMiniRightDown = opponentHp <= 32;
     final bool playerMiniLeftDown = playerHp <= 64;
     final bool playerMiniRightDown = playerHp <= 32;
-    final String effectKey = statusMessage ?? 'idle-$playerHp-$opponentHp';
+    final Alignment visualTarget = _visualTargetAlignment(
+      actor: visualActor,
+      effect: visualEffect,
+      eventId: eventId,
+      playerHp: playerHp,
+      opponentHp: opponentHp,
+    );
 
     return ClipRRect(
       child: Stack(
@@ -2087,7 +2548,7 @@ class _ArenaPanel extends StatelessWidget {
             ),
           ),
           _TowerNode(
-            alignment: const Alignment(0, -0.59),
+            alignment: _enemyMainAlignment,
             imageAsset: _enemyMainTowerAsset,
             destroyedAsset: _enemyMainTowerDestroyedAsset,
             hpValue: (opponentHp * 30).round(),
@@ -2098,7 +2559,7 @@ class _ArenaPanel extends StatelessWidget {
             animationDelay: 0,
           ),
           _TowerNode(
-            alignment: const Alignment(-0.704, -0.418),
+            alignment: _enemyMiniLeftAlignment,
             imageAsset: _enemyMiniTowerAsset,
             destroyedAsset: _enemyMiniTowerDestroyedAsset,
             hpValue: enemyMiniLeftDown ? 0 : (opponentHp * 15).round(),
@@ -2109,7 +2570,7 @@ class _ArenaPanel extends StatelessWidget {
             animationDelay: 0.08,
           ),
           _TowerNode(
-            alignment: const Alignment(0.704, -0.418),
+            alignment: _enemyMiniRightAlignment,
             imageAsset: _enemyMiniTowerAsset,
             destroyedAsset: _enemyMiniTowerDestroyedAsset,
             hpValue: enemyMiniRightDown ? 0 : (opponentHp * 15).round(),
@@ -2120,7 +2581,7 @@ class _ArenaPanel extends StatelessWidget {
             animationDelay: 0.16,
           ),
           _TowerNode(
-            alignment: const Alignment(0, 0.392),
+            alignment: _playerMainAlignment,
             imageAsset: _playerMainTowerAsset,
             destroyedAsset: _playerMainTowerDestroyedAsset,
             hpValue: (playerHp * 30).round(),
@@ -2131,7 +2592,7 @@ class _ArenaPanel extends StatelessWidget {
             animationDelay: 0.24,
           ),
           _TowerNode(
-            alignment: const Alignment(-0.704, 0.222),
+            alignment: _playerMiniLeftAlignment,
             imageAsset: _playerMiniTowerAsset,
             destroyedAsset: _playerMiniTowerDestroyedAsset,
             hpValue: playerMiniLeftDown ? 0 : (playerHp * 15).round(),
@@ -2142,7 +2603,7 @@ class _ArenaPanel extends StatelessWidget {
             animationDelay: 0.32,
           ),
           _TowerNode(
-            alignment: const Alignment(0.704, 0.222),
+            alignment: _playerMiniRightAlignment,
             imageAsset: _playerMiniTowerAsset,
             destroyedAsset: _playerMiniTowerDestroyedAsset,
             hpValue: playerMiniRightDown ? 0 : (playerHp * 15).round(),
@@ -2153,19 +2614,12 @@ class _ArenaPanel extends StatelessWidget {
             animationDelay: 0.4,
           ),
           _BattleEffectOverlay(
-            playerAttack: playerAttack,
-            enemyAttack: enemyAttack,
-            playerHeal: playerHeal,
-            enemyHeal: enemyHeal,
-            effectKey: effectKey,
+            actor: visualActor,
+            effect: visualEffect,
+            category: visualCategory,
+            eventId: eventId,
+            targetAlignment: visualTarget,
           ),
-          if (statusMessage != null)
-            Positioned(
-              left: 18,
-              right: 18,
-              bottom: statusBottomInset,
-              child: _ArenaToast(text: statusMessage!, isError: statusIsError),
-            ),
         ],
       ),
     );
@@ -2174,52 +2628,48 @@ class _ArenaPanel extends StatelessWidget {
 
 class _BattleEffectOverlay extends StatelessWidget {
   const _BattleEffectOverlay({
-    required this.playerAttack,
-    required this.enemyAttack,
-    required this.playerHeal,
-    required this.enemyHeal,
-    required this.effectKey,
+    required this.actor,
+    required this.effect,
+    required this.category,
+    required this.eventId,
+    required this.targetAlignment,
   });
 
-  final bool playerAttack;
-  final bool enemyAttack;
-  final bool playerHeal;
-  final bool enemyHeal;
-  final String effectKey;
+  final BattleActor? actor;
+  final BattleVisualEffect? effect;
+  final String? category;
+  final int eventId;
+  final Alignment targetAlignment;
 
   @override
   Widget build(BuildContext context) {
+    if (actor == null || effect == null || eventId <= 0) {
+      return const SizedBox.shrink();
+    }
+
+    final bool isPlayer = actor == BattleActor.player;
+    final Alignment fromAlignment = isPlayer
+        ? _playerMainAlignment
+        : _enemyMainAlignment;
+    final String effectKey = '$eventId-${actor!.name}-${effect!.name}';
+
     return Positioned.fill(
       child: IgnorePointer(
         child: Stack(
           children: <Widget>[
-            if (playerAttack)
-              _AttackEffect(
-                key: ValueKey<String>('player-attack-$effectKey'),
-                asset: _playerAttackAsset,
-                fromAlignment: const Alignment(0, 0.392),
-                toAlignment: const Alignment(0, -0.59),
-                rotationTurns: 0,
-                color: const Color(0xFF55AAFF),
-              ),
-            if (enemyAttack)
-              _AttackEffect(
-                key: ValueKey<String>('enemy-attack-$effectKey'),
-                asset: _enemyAttackAsset,
-                fromAlignment: const Alignment(0, -0.59),
-                toAlignment: const Alignment(0, 0.392),
-                rotationTurns: 0,
-                color: const Color(0xFFFF5555),
-              ),
-            if (playerHeal)
-              _HealPulse(
-                key: ValueKey<String>('player-heal-$effectKey'),
-                alignment: const Alignment(0, 0.392),
-              ),
-            if (enemyHeal)
-              _HealPulse(
-                key: ValueKey<String>('enemy-heal-$effectKey'),
-                alignment: const Alignment(0, -0.59),
+            if (effect == BattleVisualEffect.heal)
+              _HealEffect(
+                key: ValueKey<String>('heal-$effectKey'),
+                alignment: targetAlignment,
+              )
+            else
+              _PrototypeAttackEffect(
+                key: ValueKey<String>('attack-$effectKey'),
+                effect: effect!,
+                category: category ?? 'numerik',
+                fromAlignment: fromAlignment,
+                toAlignment: targetAlignment,
+                isEnemy: !isPlayer,
               ),
           ],
         ),
@@ -2228,27 +2678,67 @@ class _BattleEffectOverlay extends StatelessWidget {
   }
 }
 
-class _AttackEffect extends StatefulWidget {
-  const _AttackEffect({
+Alignment _visualTargetAlignment({
+  required BattleActor? actor,
+  required BattleVisualEffect? effect,
+  required int eventId,
+  required int playerHp,
+  required int opponentHp,
+}) {
+  if (actor == null || effect == null) {
+    return _enemyMainAlignment;
+  }
+
+  if (effect == BattleVisualEffect.heal) {
+    if (actor == BattleActor.player) {
+      return playerHp <= 42
+          ? _playerMainAlignment
+          : eventId.isEven
+          ? _playerMiniLeftAlignment
+          : _playerMiniRightAlignment;
+    }
+
+    return opponentHp <= 42
+        ? _enemyMainAlignment
+        : eventId.isEven
+        ? _enemyMiniLeftAlignment
+        : _enemyMiniRightAlignment;
+  }
+
+  if (actor == BattleActor.player) {
+    if (opponentHp <= 38) {
+      return _enemyMainAlignment;
+    }
+    return eventId.isEven ? _enemyMiniLeftAlignment : _enemyMiniRightAlignment;
+  }
+
+  if (playerHp <= 38) {
+    return _playerMainAlignment;
+  }
+  return eventId.isEven ? _playerMiniLeftAlignment : _playerMiniRightAlignment;
+}
+
+class _PrototypeAttackEffect extends StatefulWidget {
+  const _PrototypeAttackEffect({
     super.key,
-    required this.asset,
+    required this.effect,
+    required this.category,
     required this.fromAlignment,
     required this.toAlignment,
-    required this.rotationTurns,
-    required this.color,
+    required this.isEnemy,
   });
 
-  final String asset;
+  final BattleVisualEffect effect;
+  final String category;
   final Alignment fromAlignment;
   final Alignment toAlignment;
-  final double rotationTurns;
-  final Color color;
+  final bool isEnemy;
 
   @override
-  State<_AttackEffect> createState() => _AttackEffectState();
+  State<_PrototypeAttackEffect> createState() => _PrototypeAttackEffectState();
 }
 
-class _AttackEffectState extends State<_AttackEffect>
+class _PrototypeAttackEffectState extends State<_PrototypeAttackEffect>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
@@ -2257,125 +2747,11 @@ class _AttackEffectState extends State<_AttackEffect>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 920),
-    )..forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (BuildContext context, Widget? child) {
-        final double raw = _controller.value;
-        final double travelT = (raw / 0.68).clamp(0.0, 1.0).toDouble();
-        final double curvedTravel = Curves.easeInOutCubic.transform(travelT);
-        final Alignment projectileAlignment = Alignment.lerp(
-          widget.fromAlignment,
-          widget.toAlignment,
-          curvedTravel,
-        )!;
-        final double fadeOut = raw < 0.78 ? 1 : (1 - raw) / 0.22;
-        final double projectileScale = 0.74 + (sin(curvedTravel * pi) * 0.18);
-        final double impactT = ((raw - 0.58) / 0.42).clamp(0.0, 1.0).toDouble();
-        final double impactOpacity = impactT <= 0 ? 0 : (1 - impactT);
-        final double impactScale = 0.55 + (impactT * 1.15);
-
-        return Stack(
-          children: <Widget>[
-            Align(
-              alignment: projectileAlignment,
-              child: Opacity(
-                opacity: fadeOut.clamp(0.0, 1.0).toDouble(),
-                child: Transform.scale(
-                  scale: projectileScale,
-                  child: RotationTransition(
-                    turns: AlwaysStoppedAnimation<double>(
-                      widget.rotationTurns +
-                          (widget.toAlignment.y > widget.fromAlignment.y
-                              ? 0.5
-                              : 0),
-                    ),
-                    child: Image.asset(
-                      widget.asset,
-                      width: 178,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.high,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            if (impactOpacity > 0)
-              Align(
-                alignment: widget.toAlignment,
-                child: Transform.scale(
-                  scale: impactScale,
-                  child: Opacity(
-                    opacity: impactOpacity.clamp(0.0, 1.0).toDouble(),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: <Widget>[
-                        Container(
-                          width: 126,
-                          height: 126,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: widget.color.withAlpha(130),
-                              width: 2,
-                            ),
-                            boxShadow: <BoxShadow>[
-                              BoxShadow(
-                                color: widget.color.withAlpha(120),
-                                blurRadius: 24,
-                                spreadRadius: 3,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Image.asset(
-                          _impactExplosionAsset,
-                          width: 96,
-                          fit: BoxFit.contain,
-                          filterQuality: FilterQuality.high,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        );
+      duration: switch (widget.effect) {
+        BattleVisualEffect.robot => const Duration(milliseconds: 2200),
+        BattleVisualEffect.wizard => const Duration(milliseconds: 980),
+        _ => const Duration(milliseconds: 1500),
       },
-    );
-  }
-}
-
-class _HealPulse extends StatefulWidget {
-  const _HealPulse({super.key, required this.alignment});
-
-  final Alignment alignment;
-
-  @override
-  State<_HealPulse> createState() => _HealPulseState();
-}
-
-class _HealPulseState extends State<_HealPulse>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
     )..forward();
   }
 
@@ -2390,40 +2766,1001 @@ class _HealPulseState extends State<_HealPulse>
     return AnimatedBuilder(
       animation: _controller,
       builder: (BuildContext context, Widget? child) {
-        final double value = Curves.easeOutCubic.transform(_controller.value);
-        final double opacity = (1 - value).clamp(0.0, 1.0).toDouble();
-        return Align(
-          alignment: widget.alignment,
-          child: Transform.scale(
-            scale: 0.62 + value * 1.18,
-            child: Opacity(
-              opacity: opacity,
-              child: Container(
-                width: 118,
-                height: 118,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFF22C55E).withAlpha(44),
-                  border: Border.all(color: const Color(0xFF4ADE80), width: 2),
-                  boxShadow: <BoxShadow>[
-                    BoxShadow(
-                      color: const Color(0xFF22C55E).withAlpha(110),
-                      blurRadius: 30,
-                      spreadRadius: 5,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.add_rounded,
-                  color: Color(0xFF4ADE80),
-                  size: 48,
-                ),
-              ),
-            ),
+        return CustomPaint(
+          size: Size.infinite,
+          painter: _PrototypeAttackPainter(
+            progress: _controller.value,
+            effect: widget.effect,
+            category: widget.category,
+            fromAlignment: widget.fromAlignment,
+            toAlignment: widget.toAlignment,
+            isEnemy: widget.isEnemy,
           ),
         );
       },
     );
+  }
+}
+
+class _PrototypeAttackPainter extends CustomPainter {
+  const _PrototypeAttackPainter({
+    required this.progress,
+    required this.effect,
+    required this.category,
+    required this.fromAlignment,
+    required this.toAlignment,
+    required this.isEnemy,
+  });
+
+  final double progress;
+  final BattleVisualEffect effect;
+  final String category;
+  final Alignment fromAlignment;
+  final Alignment toAlignment;
+  final bool isEnemy;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Offset from = Offset(
+      (fromAlignment.x + 1) * size.width / 2,
+      (fromAlignment.y + 1) * size.height / 2,
+    );
+    final Offset to = Offset(
+      (toAlignment.x + 1) * size.width / 2,
+      (toAlignment.y + 1) * size.height / 2,
+    );
+    final Color sideColor = isEnemy
+        ? const Color(0xFFFF5050)
+        : const Color(0xFF4AA3FF);
+
+    switch (effect) {
+      case BattleVisualEffect.cannon:
+        _drawCannon(canvas, from, to, sideColor);
+      case BattleVisualEffect.wizard:
+        _drawWizard(canvas, from, to, sideColor);
+      case BattleVisualEffect.robot:
+        _drawRobot(canvas, from, to, sideColor);
+      case BattleVisualEffect.heal:
+        break;
+    }
+  }
+
+  void _drawCannon(Canvas canvas, Offset from, Offset to, Color sideColor) {
+    final Color accent = const Color(0xFFFFA726);
+    final double chargeT = (progress / 0.28).clamp(0.0, 1.0);
+    final double flyT = ((progress - 0.25) / 0.45).clamp(0.0, 1.0);
+    final double impactT = ((progress - 0.62) / 0.38).clamp(0.0, 1.0);
+    final double angle = (to - from).direction;
+    final Offset ball = Offset.lerp(
+      from,
+      to,
+      Curves.easeInCubic.transform(flyT),
+    )!;
+
+    if (progress < 0.66) {
+      _drawCannonTurret(
+        canvas: canvas,
+        center: from,
+        angle: angle,
+        sideColor: sideColor,
+        chargeT: chargeT,
+        opacity: 1 - flyT * 0.7,
+      );
+    }
+
+    if (flyT > 0 && flyT < 1) {
+      for (int i = 0; i < 10; i++) {
+        final double t = (flyT - i * 0.035).clamp(0.0, 1.0);
+        if (t <= 0) {
+          continue;
+        }
+        final Offset pos = Offset.lerp(
+          from,
+          to,
+          Curves.easeInCubic.transform(t),
+        )!;
+        final double fade = (1 - i / 10) * (1 - flyT * 0.35);
+        canvas.drawCircle(
+          pos,
+          3 + (10 - i) * 0.8,
+          Paint()
+            ..color = accent.withAlpha(_alpha(fade * 0.55))
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+        );
+      }
+
+      canvas.drawCircle(
+        ball,
+        28,
+        Paint()
+          ..color = accent.withAlpha(58)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
+      );
+      canvas.drawCircle(
+        ball,
+        13,
+        Paint()
+          ..shader = RadialGradient(
+            center: const Alignment(-0.35, -0.35),
+            colors: <Color>[
+              const Color(0xFFFFF2B8),
+              accent,
+              const Color(0xFF331000),
+            ],
+          ).createShader(Rect.fromCircle(center: ball, radius: 14)),
+      );
+    }
+
+    if (impactT > 0) {
+      _drawImpact(canvas, to, accent, impactT, fire: true);
+    }
+  }
+
+  void _drawCannonTurret({
+    required Canvas canvas,
+    required Offset center,
+    required double angle,
+    required Color sideColor,
+    required double chargeT,
+    required double opacity,
+  }) {
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.scale(0.9);
+    final Paint sidePaint = Paint()
+      ..color = sideColor.withAlpha(_alpha(opacity));
+
+    for (final Offset wheel in const <Offset>[Offset(-17, 14), Offset(17, 14)]) {
+      canvas.drawCircle(
+        wheel,
+        9,
+        Paint()..color = const Color(0xFF4A2B1A).withAlpha(_alpha(opacity)),
+      );
+      canvas.drawCircle(
+        wheel,
+        5,
+        Paint()..color = const Color(0xFF8B5A2B).withAlpha(_alpha(opacity)),
+      );
+    }
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-21, -5, 42, 19),
+        const Radius.circular(5),
+      ),
+      sidePaint,
+    );
+    canvas.rotate(angle);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(0, -8, 48, 16),
+        const Radius.circular(6),
+      ),
+      Paint()..color = const Color(0xFFB8C1CC).withAlpha(_alpha(opacity)),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(38, -6, 10, 12),
+        const Radius.circular(3),
+      ),
+      Paint()..color = const Color(0xFF364151).withAlpha(_alpha(opacity)),
+    );
+    if (chargeT > 0) {
+      canvas.drawCircle(
+        const Offset(51, 0),
+        8 + chargeT * 13,
+        Paint()
+          ..color = const Color(0xFFFFD36A).withAlpha(
+            _alpha(chargeT * opacity * 0.45),
+          )
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+      );
+      canvas.drawCircle(
+        const Offset(51, 0),
+        4 + chargeT * 5,
+        Paint()..color = const Color(0xFFFFF0B0).withAlpha(_alpha(opacity)),
+      );
+    }
+    canvas.restore();
+  }
+
+  void _drawWizard(Canvas canvas, Offset from, Offset to, Color sideColor) {
+    final Color accent = const Color(0xFFA855F7);
+    final double castT = (progress / 0.32).clamp(0.0, 1.0);
+    final double boltT = ((progress - 0.24) / 0.24).clamp(0.0, 1.0);
+    final double flashT = ((progress - 0.48) / 0.52).clamp(0.0, 1.0);
+    final double wizardOpacity = progress < 0.58
+        ? 1
+        : (1 - (progress - 0.58) / 0.25).clamp(0.0, 1.0);
+
+    if (wizardOpacity > 0) {
+      _drawWizardCaster(
+        canvas,
+        from,
+        accent,
+        castT,
+        wizardOpacity,
+      );
+    }
+    if (boltT > 0) {
+      _drawLightning(canvas, from, to, boltT, 1 - flashT * 0.8);
+    }
+    if (flashT > 0) {
+      _drawImpact(canvas, to, const Color(0xFF8DDCFF), flashT, fire: false);
+    }
+  }
+
+  void _drawWizardCaster(
+    Canvas canvas,
+    Offset center,
+    Color accent,
+    double castT,
+    double opacity,
+  ) {
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    if (isEnemy) {
+      canvas.scale(1, -1);
+    }
+    canvas.scale(0.9);
+
+    canvas.drawOval(
+      Rect.fromCenter(center: const Offset(0, 28), width: 34, height: 9),
+      Paint()..color = Colors.black.withAlpha(_alpha(opacity * 0.22)),
+    );
+    final Path robe = Path()
+      ..moveTo(-15, 30)
+      ..quadraticBezierTo(-17, 4, -8, -13)
+      ..lineTo(0, -17)
+      ..lineTo(8, -13)
+      ..quadraticBezierTo(17, 4, 15, 30)
+      ..close();
+    canvas.drawPath(
+      robe,
+      Paint()
+        ..shader = LinearGradient(
+          colors: <Color>[
+            accent.withAlpha(_alpha(opacity)),
+            const Color(0xFF291171).withAlpha(_alpha(opacity)),
+          ],
+        ).createShader(const Rect.fromLTWH(-18, -18, 36, 50)),
+    );
+    canvas.drawOval(
+      Rect.fromCenter(center: const Offset(0, -19), width: 16, height: 19),
+      Paint()..color = const Color(0xFFE8C8A0).withAlpha(_alpha(opacity)),
+    );
+    canvas.drawOval(
+      Rect.fromCenter(center: const Offset(0, -27), width: 28, height: 7),
+      Paint()..color = const Color(0xFF21118F).withAlpha(_alpha(opacity)),
+    );
+    final Path hat = Path()
+      ..moveTo(-13, -27)
+      ..lineTo(13, -27)
+      ..lineTo(3, -53)
+      ..close();
+    canvas.drawPath(
+      hat,
+      Paint()..color = const Color(0xFF3926C9).withAlpha(_alpha(opacity)),
+    );
+
+    final Paint staffPaint = Paint()
+      ..color = const Color(0xFF9B7320).withAlpha(_alpha(opacity))
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(const Offset(16, 28), const Offset(16, -17), staffPaint);
+    canvas.drawCircle(
+      const Offset(16, -19),
+      6 + castT * 7,
+      Paint()
+        ..color = const Color(0xFFB7F4FF).withAlpha(
+          _alpha(opacity * (0.45 + castT * 0.55)),
+        )
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+    );
+    canvas.drawCircle(
+      const Offset(16, -19),
+      4 + castT * 3,
+      Paint()..color = Colors.white.withAlpha(_alpha(opacity)),
+    );
+
+    if (castT > 0) {
+      canvas.drawCircle(
+        const Offset(0, 29),
+        22 * castT,
+        Paint()
+          ..color = accent.withAlpha(_alpha(opacity * (1 - castT) * 0.7))
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+      for (int i = 0; i < 4; i++) {
+        final double angle = i * pi / 2 + progress * pi * 5;
+        final Offset rune = Offset(
+          cos(angle) * 22 * castT,
+          29 + sin(angle) * 22 * castT,
+        );
+        canvas.drawCircle(
+          rune,
+          2.4,
+          Paint()
+            ..color = const Color(0xFFFFE98A).withAlpha(
+              _alpha(opacity * castT),
+            ),
+        );
+      }
+    }
+    canvas.restore();
+  }
+
+  void _drawLightning(Canvas canvas, Offset from, Offset to, double boltT, double fade) {
+    const int segments = 10;
+    final int visible = max(2, (segments * boltT).round());
+    for (int pass = 0; pass < 3; pass++) {
+      final Paint paint = Paint()
+        ..color = (pass == 0 ? const Color(0xFF70B7FF) : Colors.white)
+            .withAlpha(_alpha(fade * (pass == 0 ? 0.34 : 0.88)))
+        ..strokeWidth = pass == 0 ? 9 : (pass == 1 ? 4 : 1.8)
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      final Path path = Path();
+      for (int i = 0; i <= visible; i++) {
+        final Offset point = _boltPoint(from, to, i / segments, pass);
+        if (i == 0) {
+          path.moveTo(point.dx, point.dy);
+        } else {
+          path.lineTo(point.dx, point.dy);
+        }
+      }
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  Offset _boltPoint(Offset from, Offset to, double t, int branch) {
+    final Offset base = Offset.lerp(from, to, t)!;
+    final Offset delta = to - from;
+    final double length = max(1, delta.distance);
+    final Offset normal = Offset(-delta.dy / length, delta.dx / length);
+    final double zigzag = sin(t * pi * 7 + branch * 1.7 + category.length) * 20;
+    return base + normal * zigzag * sin(t * pi);
+  }
+
+  void _drawRobot(Canvas canvas, Offset from, Offset to, Color sideColor) {
+    final double walkT = (progress / 0.68).clamp(0.0, 1.0);
+    final double windupT = ((progress - 0.68) / 0.12).clamp(0.0, 1.0);
+    final double slamT = ((progress - 0.80) / 0.20).clamp(0.0, 1.0);
+    final Offset current = Offset.lerp(
+      from,
+      to,
+      Curves.easeInOutCubic.transform(walkT),
+    )!;
+    final double bob = sin(progress * pi * 18) * 3 * (1 - slamT);
+    final double stomp =
+        -windupT * (isEnemy ? -12 : 12) + slamT * (isEnemy ? 16 : -16);
+    final double opacity = progress < 0.92
+        ? 1
+        : (1 - (progress - 0.92) / 0.08).clamp(0.0, 1.0);
+
+    _drawRobotBody(
+      canvas,
+      current + Offset(0, bob + stomp),
+      sideColor,
+      opacity,
+      windupT,
+      slamT,
+    );
+
+    if (slamT > 0) {
+      _drawImpact(canvas, to, const Color(0xFFFF8A2A), slamT, fire: true);
+      for (int i = 0; i < 6; i++) {
+        final double angle = i * pi / 3 + progress;
+        final double length = 20 + 42 * (1 - slamT);
+        final Offset end = to + Offset(
+          cos(angle) * length,
+          sin(angle) * length * 0.65,
+        );
+        canvas.drawLine(
+          to,
+          end,
+          Paint()
+            ..color = const Color(0xFF7A2D12).withAlpha(
+              _alpha((1 - slamT) * 0.65),
+            )
+            ..strokeWidth = 2,
+        );
+      }
+    }
+  }
+
+  void _drawRobotBody(
+    Canvas canvas,
+    Offset center,
+    Color sideColor,
+    double opacity,
+    double windupT,
+    double slamT,
+  ) {
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    if (isEnemy) {
+      canvas.scale(1, -1);
+    }
+    canvas.scale(0.66);
+
+    canvas.drawOval(
+      Rect.fromCenter(center: const Offset(0, 28), width: 46, height: 10),
+      Paint()..color = Colors.black.withAlpha(_alpha(opacity * 0.22)),
+    );
+    final int legSwap = (progress * 12).floor().isEven ? 1 : -1;
+    final Paint dark = Paint()..color = _darken(sideColor).withAlpha(_alpha(opacity));
+    final Paint mid = Paint()..color = sideColor.withAlpha(_alpha(opacity));
+    final Paint light = Paint()..color = _lighten(sideColor).withAlpha(_alpha(opacity));
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(-14, 8, 10, 18 + legSwap * 3),
+        const Radius.circular(3),
+      ),
+      mid,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(4, 8, 10, 18 - legSwap * 3),
+        const Radius.circular(3),
+      ),
+      mid,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-18, -18, 36, 30),
+        const Radius.circular(6),
+      ),
+      mid,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-18, -18, 36, 10),
+        const Radius.circular(5),
+      ),
+      light,
+    );
+    canvas.drawCircle(
+      const Offset(0, -3),
+      6,
+      Paint()
+        ..color = (windupT > 0 || slamT > 0
+                ? const Color(0xFFFFD23F)
+                : const Color(0xFF66E6FF))
+            .withAlpha(_alpha(opacity)),
+    );
+
+    final double armRaise = windupT * -0.75 + slamT * 0.9;
+    for (final int side in const <int>[-1, 1]) {
+      canvas.save();
+      canvas.translate(side * 23, -10);
+      canvas.rotate(side * armRaise);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(-5, 0, 10, 22),
+          const Radius.circular(4),
+        ),
+        dark,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(-7, 18, 14, 8),
+          const Radius.circular(3),
+        ),
+        dark,
+      );
+      canvas.restore();
+    }
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-13, -40, 26, 24),
+        const Radius.circular(5),
+      ),
+      light,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-9, -33, 18, 7),
+        const Radius.circular(2),
+      ),
+      Paint()..color = const Color(0xFFB7F4FF).withAlpha(_alpha(opacity)),
+    );
+    canvas.drawLine(
+      const Offset(0, -40),
+      const Offset(0, -49),
+      Paint()
+        ..color = const Color(0xFFB8C4D6).withAlpha(_alpha(opacity))
+        ..strokeWidth = 2,
+    );
+    canvas.drawCircle(
+      const Offset(0, -51),
+      3,
+      Paint()..color = const Color(0xFFB7F4FF).withAlpha(_alpha(opacity)),
+    );
+    canvas.restore();
+  }
+
+  void _drawImpact(
+    Canvas canvas,
+    Offset center,
+    Color color,
+    double t, {
+    required bool fire,
+  }) {
+    final double fade = (1 - t).clamp(0.0, 1.0);
+    final double flashFade = (1 - t * 2).clamp(0.0, 1.0);
+    if (flashFade > 0) {
+      canvas.drawCircle(
+        center,
+        16 + t * 48,
+        Paint()
+          ..color = Colors.white.withAlpha(_alpha(flashFade * 0.55))
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+      );
+    }
+
+    canvas.drawCircle(
+      center,
+      18 + t * (fire ? 58 : 70),
+      Paint()
+        ..shader = RadialGradient(
+          colors: fire
+              ? <Color>[
+                  const Color(0xFFFFF0B0).withAlpha(_alpha(fade * 0.88)),
+                  color.withAlpha(_alpha(fade * 0.65)),
+                  Colors.transparent,
+                ]
+              : <Color>[
+                  Colors.white.withAlpha(_alpha(fade * 0.72)),
+                  color.withAlpha(_alpha(fade * 0.5)),
+                  Colors.transparent,
+                ],
+        ).createShader(Rect.fromCircle(center: center, radius: 78)),
+    );
+
+    for (int ring = 0; ring < 3; ring++) {
+      final double rt = ((t - ring * 0.1) / (1 - ring * 0.1)).clamp(0.0, 1.0);
+      if (rt <= 0) {
+        continue;
+      }
+      canvas.drawCircle(
+        center,
+        18 + rt * (86 + ring * 22),
+        Paint()
+          ..color = color.withAlpha(_alpha((1 - rt) * 0.72))
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = (4 - ring) * (1 - rt),
+      );
+    }
+
+    for (int i = 0; i < 10; i++) {
+      final double angle = i * pi * 0.2 + progress * 4;
+      final double distance = t * (46 + i * 5);
+      canvas.drawCircle(
+        center + Offset(cos(angle) * distance, sin(angle) * distance),
+        2.2 + (1 - t) * 3,
+        Paint()..color = color.withAlpha(_alpha(fade * 0.85)),
+      );
+    }
+  }
+
+  int _alpha(double value) {
+    return (value.clamp(0.0, 1.0) * 255).round();
+  }
+
+  Color _darken(Color color) {
+    return Color.fromARGB(
+      color.alpha,
+      (color.red * 0.62).round(),
+      (color.green * 0.62).round(),
+      (color.blue * 0.62).round(),
+    );
+  }
+
+  Color _lighten(Color color) {
+    return Color.fromARGB(
+      color.alpha,
+      min(255, (color.red * 1.22).round()),
+      min(255, (color.green * 1.22).round()),
+      min(255, (color.blue * 1.22).round()),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _PrototypeAttackPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.effect != effect ||
+        oldDelegate.fromAlignment != fromAlignment ||
+        oldDelegate.toAlignment != toAlignment ||
+        oldDelegate.isEnemy != isEnemy;
+  }
+}
+
+class _ProjectileAttackEffect extends StatefulWidget {
+  const _ProjectileAttackEffect({
+    super.key,
+    required this.fromAlignment,
+    required this.toAlignment,
+    required this.color,
+    required this.trailColor,
+  });
+
+  final Alignment fromAlignment;
+  final Alignment toAlignment;
+  final Color color;
+  final Color trailColor;
+
+  @override
+  State<_ProjectileAttackEffect> createState() =>
+      _ProjectileAttackEffectState();
+}
+
+class _ProjectileAttackEffectState extends State<_ProjectileAttackEffect>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (BuildContext context, Widget? child) {
+        return CustomPaint(
+          size: Size.infinite,
+          painter: _ProjectilePainter(
+            progress: _controller.value,
+            fromAlignment: widget.fromAlignment,
+            toAlignment: widget.toAlignment,
+            color: widget.color,
+            trailColor: widget.trailColor,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ProjectilePainter extends CustomPainter {
+  const _ProjectilePainter({
+    required this.progress,
+    required this.fromAlignment,
+    required this.toAlignment,
+    required this.color,
+    required this.trailColor,
+  });
+
+  final double progress;
+  final Alignment fromAlignment;
+  final Alignment toAlignment;
+  final Color color;
+  final Color trailColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Offset from = Offset(
+      (fromAlignment.x + 1) / 2 * size.width,
+      (fromAlignment.y + 1) / 2 * size.height,
+    );
+    final Offset to = Offset(
+      (toAlignment.x + 1) / 2 * size.width,
+      (toAlignment.y + 1) / 2 * size.height,
+    );
+
+    final double travelPhase = 0.6;
+    final double travelT = (progress / travelPhase).clamp(0.0, 1.0);
+    final double curvedTravel = Curves.easeInOutCubic.transform(travelT);
+    final Offset current = Offset.lerp(from, to, curvedTravel)!;
+
+    // ── Screen flash on impact ──
+    final double impactT = ((progress - 0.52) / 0.48).clamp(0.0, 1.0);
+    if (impactT > 0 && impactT < 0.3) {
+      final double flashOpacity = (1 - impactT / 0.3) * 0.15;
+      canvas.drawRect(
+        Offset.zero & size,
+        Paint()..color = color.withAlpha((flashOpacity * 255).round()),
+      );
+    }
+
+    // ── Trail particles ──
+    if (travelT < 1.0) {
+      for (int i = 0; i < 8; i++) {
+        final double trailDelay = i * 0.04;
+        final double trailProgress = ((curvedTravel - trailDelay)).clamp(
+          0.0,
+          1.0,
+        );
+        if (trailProgress <= 0) continue;
+        final Offset trailPos = Offset.lerp(from, to, trailProgress)!;
+        final double trailFade = (1 - (i / 8.0)) * (1 - travelT);
+        final double jitterX = sin(i * 2.3 + progress * 20) * 6;
+        final double jitterY = cos(i * 3.1 + progress * 15) * 4;
+        canvas.drawCircle(
+          trailPos + Offset(jitterX, jitterY),
+          3.5 + (8 - i) * 0.8,
+          Paint()
+            ..color = trailColor.withAlpha((trailFade * 140).round())
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+        );
+      }
+    }
+
+    // ── Projectile orb ──
+    if (travelT < 1.0) {
+      final double orbSize = 16 + sin(curvedTravel * pi) * 6;
+      final double fadeOut = progress < 0.55
+          ? 1.0
+          : max(0, 1 - (progress - 0.55) / 0.15);
+      // Outer glow
+      canvas.drawCircle(
+        current,
+        orbSize * 2.2,
+        Paint()
+          ..color = color.withAlpha((fadeOut * 60).round())
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18),
+      );
+      // Mid glow
+      canvas.drawCircle(
+        current,
+        orbSize * 1.4,
+        Paint()
+          ..color = color.withAlpha((fadeOut * 150).round())
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+      );
+      // Core
+      canvas.drawCircle(
+        current,
+        orbSize * 0.7,
+        Paint()..color = Colors.white.withAlpha((fadeOut * 230).round()),
+      );
+    }
+
+    // ── Impact: expanding shockwave rings ──
+    if (impactT > 0) {
+      final double impactFade = max(0, 1 - impactT);
+
+      // Ring 1 — fast expanding
+      final double ring1Radius = 20 + impactT * 120;
+      canvas.drawCircle(
+        to,
+        ring1Radius,
+        Paint()
+          ..color = color.withAlpha((impactFade * 160).round())
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.5 * impactFade
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+      );
+
+      // Ring 2 — slower
+      final double ring2T = ((impactT - 0.08) / 0.92).clamp(0.0, 1.0);
+      if (ring2T > 0) {
+        final double ring2Fade = max(0, 1 - ring2T);
+        final double ring2Radius = 14 + ring2T * 80;
+        canvas.drawCircle(
+          to,
+          ring2Radius,
+          Paint()
+            ..color = color.withAlpha((ring2Fade * 120).round())
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.5 * ring2Fade,
+        );
+      }
+
+      // Ring 3 — slowest, widest
+      final double ring3T = ((impactT - 0.15) / 0.85).clamp(0.0, 1.0);
+      if (ring3T > 0) {
+        final double ring3Fade = max(0, 1 - ring3T);
+        canvas.drawCircle(
+          to,
+          10 + ring3T * 140,
+          Paint()
+            ..color = color.withAlpha((ring3Fade * 60).round())
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2 * ring3Fade
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+        );
+      }
+
+      // Central fireball glow
+      if (impactT < 0.5) {
+        final double fireT = impactT / 0.5;
+        final double fireFade = 1 - fireT;
+        canvas.drawCircle(
+          to,
+          12 + fireT * 40,
+          Paint()
+            ..color = color.withAlpha((fireFade * 100).round())
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16),
+        );
+        canvas.drawCircle(
+          to,
+          8 + fireT * 20,
+          Paint()
+            ..color = Colors.white.withAlpha((fireFade * 180).round())
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+        );
+      }
+
+      // Scatter sparks
+      for (int i = 0; i < 6; i++) {
+        final double angle = i * pi / 3 + impactT * 2;
+        final double dist = impactT * 60 + i * 8;
+        final double sparkFade = max(0, 1 - impactT * 1.2);
+        if (sparkFade <= 0) continue;
+        final Offset sparkPos =
+            to + Offset(cos(angle) * dist, sin(angle) * dist);
+        canvas.drawCircle(
+          sparkPos,
+          2.5 + (1 - impactT) * 2,
+          Paint()
+            ..color = color.withAlpha((sparkFade * 200).round())
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ProjectilePainter oldDelegate) {
+    return oldDelegate.progress != progress;
+  }
+}
+
+class _HealEffect extends StatefulWidget {
+  const _HealEffect({super.key, required this.alignment});
+
+  final Alignment alignment;
+
+  @override
+  State<_HealEffect> createState() => _HealEffectState();
+}
+
+class _HealEffectState extends State<_HealEffect>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (BuildContext context, Widget? child) {
+        return CustomPaint(
+          size: Size.infinite,
+          painter: _HealEffectPainter(
+            progress: _controller.value,
+            alignment: widget.alignment,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _HealEffectPainter extends CustomPainter {
+  const _HealEffectPainter({required this.progress, required this.alignment});
+
+  final double progress;
+  final Alignment alignment;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Offset center = Offset(
+      (alignment.x + 1) / 2 * size.width,
+      (alignment.y + 1) / 2 * size.height,
+    );
+    final double fade = max(0, 1 - progress);
+
+    // ── Expanding heal rings ──
+    for (int i = 0; i < 3; i++) {
+      final double ringDelay = i * 0.12;
+      final double ringT = ((progress - ringDelay) / (1 - ringDelay)).clamp(
+        0.0,
+        1.0,
+      );
+      final double ringFade = max(0, 1 - ringT);
+      final double radius = 18 + ringT * (60 + i * 20);
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..color = const Color(0xFF4ADE80).withAlpha((ringFade * 140).round())
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5 * ringFade
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+      );
+    }
+
+    // ── Central glow ──
+    if (progress < 0.6) {
+      final double glowT = progress / 0.6;
+      final double glowFade = 1 - glowT;
+      canvas.drawCircle(
+        center,
+        14 + glowT * 30,
+        Paint()
+          ..color = const Color(0xFF22C55E).withAlpha((glowFade * 80).round())
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14),
+      );
+      canvas.drawCircle(
+        center,
+        8 + glowT * 14,
+        Paint()
+          ..color = Colors.white.withAlpha((glowFade * 150).round())
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+      );
+    }
+
+    // ── Rising heal particles ──
+    for (int i = 0; i < 8; i++) {
+      final double pDelay = i * 0.06;
+      final double pT = ((progress - pDelay) / (1 - pDelay)).clamp(0.0, 1.0);
+      if (pT <= 0) continue;
+      final double pFade = max(0, 1 - pT);
+      final double angle = i * pi / 4;
+      final double dist = 14 + pT * 50;
+      final Offset pos =
+          center +
+          Offset(cos(angle) * dist * 0.6, -pT * 55 + sin(angle) * dist * 0.3);
+      canvas.drawCircle(
+        pos,
+        3 + (1 - pT) * 3,
+        Paint()
+          ..color = const Color(0xFF4ADE80).withAlpha((pFade * 200).round())
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+      );
+    }
+
+    // ── + symbol ──
+    if (fade > 0.3) {
+      final double symbolFade = ((fade - 0.3) / 0.7).clamp(0.0, 1.0);
+      final double symbolScale =
+          0.5 + Curves.easeOutBack.transform(min(1, progress * 2)) * 0.7;
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      canvas.scale(symbolScale);
+      final Paint plusPaint = Paint()
+        ..color = const Color(0xFF4ADE80).withAlpha((symbolFade * 230).round())
+        ..strokeWidth = 4
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(const Offset(-14, 0), const Offset(14, 0), plusPaint);
+      canvas.drawLine(const Offset(0, -14), const Offset(0, 14), plusPaint);
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _HealEffectPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }
 
@@ -2503,7 +3840,7 @@ class _TowerNode extends StatelessWidget {
                       child: Image.asset(
                         destroyed ? destroyedAsset : imageAsset,
                         fit: BoxFit.contain,
-                        filterQuality: FilterQuality.high,
+                        filterQuality: FilterQuality.medium,
                       ),
                     ),
                   ),
@@ -3546,6 +4883,8 @@ class _BattlefieldPainter extends CustomPainter {
     _drawTorch(canvas, width - 8, midY - riverHeight / 2 - 36, flicker * 0.96);
     _drawTorch(canvas, width - 8, midY + riverHeight / 2 + 36, flicker);
 
+    _drawSideTrees(canvas, size, time);
+
     _drawAmbientSpark(canvas, size, 0.18, 0.82, time, const Color(0xFF7DD3FC));
     _drawAmbientSpark(
       canvas,
@@ -3660,6 +4999,79 @@ class _BattlefieldPainter extends CustomPainter {
       ..color = color.withAlpha(((1 - progress) * 110).round())
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
     canvas.drawCircle(center, 3 + progress * 2, paint);
+  }
+
+  void _drawSideTrees(Canvas canvas, Size size, double time) {
+    final List<({double x, double y, double scale, Color dark, Color mid})>
+    trees = <({double x, double y, double scale, Color dark, Color mid})>[
+      (
+        x: 0.02,
+        y: 0.15,
+        scale: 0.86,
+        dark: const Color(0xFF14532D),
+        mid: const Color(0xFF2F8D3A),
+      ),
+      (
+        x: 0.02,
+        y: 0.37,
+        scale: 0.78,
+        dark: const Color(0xFF166534),
+        mid: const Color(0xFF3CA44A),
+      ),
+      (
+        x: 0.02,
+        y: 0.78,
+        scale: 0.9,
+        dark: const Color(0xFF14532D),
+        mid: const Color(0xFF2F8D3A),
+      ),
+      (
+        x: 0.98,
+        y: 0.15,
+        scale: 0.8,
+        dark: const Color(0xFF14532D),
+        mid: const Color(0xFF35A047),
+      ),
+      (
+        x: 0.98,
+        y: 0.39,
+        scale: 0.92,
+        dark: const Color(0xFF166534),
+        mid: const Color(0xFF3CA44A),
+      ),
+      (
+        x: 0.98,
+        y: 0.78,
+        scale: 0.84,
+        dark: const Color(0xFF14532D),
+        mid: const Color(0xFF2F8D3A),
+      ),
+    ];
+
+    for (int i = 0; i < trees.length; i++) {
+      final tree = trees[i];
+      final double sway = sin(time * pi * 2 + i * 1.4) * 1.8;
+      final Offset base = Offset(size.width * tree.x, size.height * tree.y);
+      canvas.save();
+      canvas.translate(base.dx, base.dy);
+      canvas.scale(tree.scale);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(-3, 2, 6, 20),
+          const Radius.circular(2),
+        ),
+        Paint()..color = const Color(0xFF6B3F1D),
+      );
+      canvas.translate(sway, 0);
+      canvas.drawCircle(Offset.zero, 13, Paint()..color = tree.dark);
+      canvas.drawCircle(const Offset(0, -9), 11, Paint()..color = tree.mid);
+      canvas.drawCircle(
+        const Offset(0, -17),
+        8,
+        Paint()..color = const Color(0xFF57C65D),
+      );
+      canvas.restore();
+    }
   }
 
   void _drawModeBadge(Canvas canvas, Size size) {

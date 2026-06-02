@@ -8,6 +8,7 @@ class BattleQuestion {
     required this.correctOptionIndex,
     required this.weight,
     required this.effect,
+    this.category = 'numerik',
   });
 
   final String id;
@@ -16,4 +17,5 @@ class BattleQuestion {
   final int correctOptionIndex;
   final int weight;
   final QuestionEffect effect;
+  final String category;
 }

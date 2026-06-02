@@ -10,7 +10,7 @@ class OnlineBattleRepository extends BattleRepository {
     await Future<void>.delayed(const Duration(milliseconds: 350));
     return BattleSessionSeed(
       opponentName: 'Player Match',
-      questions: MockQuestionBank.sample(),
+      questions: await MockQuestionBank.loadBattleQuestions(),
     );
   }
 }

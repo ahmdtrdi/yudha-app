@@ -10,7 +10,7 @@ class BotBattleRepository extends BattleRepository {
     await Future<void>.delayed(const Duration(milliseconds: 200));
     return BattleSessionSeed(
       opponentName: 'BOT YUDHA',
-      questions: MockQuestionBank.sample(),
+      questions: await MockQuestionBank.loadBattleQuestions(),
     );
   }
 }
