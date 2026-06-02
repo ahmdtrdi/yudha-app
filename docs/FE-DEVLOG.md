@@ -1018,3 +1018,25 @@
 
 ### The Reasoning
 - Disentangling the generic challenge pickers from the intricate Quiz gameplay and Interview sessions aligns the UI with the final product's UX. Creating rigid mock state machines (like `InterviewState.recording`) immediately paves the way for the real backend audio stream integration without touching the UI scaffolding ever again.
+
+## 2026-06-02 - Mobile Interview AI Client Wiring
+
+### The Change
+- Added a dedicated mobile interview state/data layer under `apps/mobile/lib/features/interview/`:
+  - launch config and chat/evaluation entities
+  - backend repository for `POST /interview/sessions`, `POST /interview/sessions/:id/turns`, and session completion
+  - Riverpod controller/provider family for session start, answer submit, completion, errors, and final summary state
+- Replaced the mock interview recorder page with a typed chat client that starts an AI interview session, submits candidate answers, renders AI questions, shows coaching notes, and exposes compact chat history from the top-right history button.
+- Added a dedicated "Latihan Interview AI" entry card to the Practice dashboard and passes CPNS/BUMN-specific company/role launch config into the interview route.
+- Added `http` to the mobile dependencies and a unit test for the interview controller flow.
+- Cleaned encountered analyzer issues in auth, leaderboard, and practice files; leaderboard hero XP now uses real tier progress values instead of unused mocked defaults.
+
+### The Reasoning
+- Backend already exposes the Interview AI workflow behind authenticated NestJS endpoints, so mobile should call the API rather than keep the old local mock state machine.
+- Keeping the HTTP repository behind an `InterviewRepository` abstraction lets real Supabase auth token plumbing replace the temporary dart-define token source later without rewriting the page/controller.
+- Passing `InterviewLaunchConfig` through route `extra` keeps Practice responsible for selecting the target company/role while keeping `InterviewPage` reusable.
+
+### The Tech Debt
+- Mobile auth is still a mock boolean and does not expose a Supabase access token. For now, the client reads `YUDHA_API_BASE_URL` and `YUDHA_SUPABASE_ACCESS_TOKEN` from dart defines; this should be replaced by real auth/session wiring.
+- The Interview API has no mobile session list endpoint yet, so the history button shows only the current in-memory chat, not past saved sessions.
+- The existing practice quiz widget test still hangs in isolation on this Windows test runner; the new interview controller test and the practice dashboard entry test pass.

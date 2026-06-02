@@ -4,10 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/practice/application/practice_providers.dart';
 import 'package:yudha_mobile/features/practice/application/practice_state.dart';
-import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
-import 'package:yudha_mobile/features/gamification/domain/entities/player_progress.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
@@ -20,7 +19,12 @@ class PracticePage extends ConsumerWidget {
     final controller = ref.read(practiceControllerProvider.notifier);
 
     final profileSettings = ref.watch(profileSettingsProvider);
-    final bool isCpns = profileSettings.target == ProfileTarget.cpns || profileSettings.target == null;
+    final bool isCpns =
+        profileSettings.target == ProfileTarget.cpns ||
+        profileSettings.target == null;
+    final InterviewLaunchConfig interviewConfig = isCpns
+        ? InterviewLaunchConfig.cpnsDefault()
+        : InterviewLaunchConfig.bumnDefault();
 
     void openQuiz() async {
       if (state.topics.isNotEmpty) {
@@ -34,6 +38,10 @@ class PracticePage extends ConsumerWidget {
     void openDailyChallenge() async {
       controller.startQuestionOfDay();
       context.push(AppRoutes.practiceQuiz);
+    }
+
+    void openInterviewPractice() {
+      context.push(AppRoutes.interview, extra: interviewConfig);
     }
 
     return Scaffold(
@@ -86,10 +94,14 @@ class PracticePage extends ConsumerWidget {
                         children: <Widget>[
                           _HeroChallengeCard(
                             isCpns: isCpns,
-                            question: state.questionOfDay?.prompt ??
+                            question:
+                                state.questionOfDay?.prompt ??
                                 'Memuat tantangan hari ini...',
-                            tags: state.questionOfDay?.topicName ??
-                                (isCpns ? 'TIU • Numerik' : 'Kepribadian • Integritas'),
+                            tags:
+                                state.questionOfDay?.topicName ??
+                                (isCpns
+                                    ? 'TIU • Numerik'
+                                    : 'Kepribadian • Integritas'),
                             onStart: openDailyChallenge,
                           ),
                           const SizedBox(height: 24),
@@ -99,6 +111,11 @@ class PracticePage extends ConsumerWidget {
                             color: isCpns
                                 ? AppColors.warriorNavy
                                 : AppColors.levelUpTeal,
+                          ),
+                          const SizedBox(height: 24),
+                          _InterviewPracticeCard(
+                            config: interviewConfig,
+                            onTap: openInterviewPractice,
                           ),
                           const SizedBox(height: 24),
                           if (isCpns)
@@ -118,7 +135,9 @@ class PracticePage extends ConsumerWidget {
                           const SizedBox(height: 12),
                           _RecentActivityTile(
                             icon: Icons.article_outlined,
-                            title: isCpns ? 'TWK — Pancasila' : 'Verbal — Analogi',
+                            title: isCpns
+                                ? 'TWK — Pancasila'
+                                : 'Verbal — Analogi',
                             subtitle: '15 soal  ·  2 hari lalu',
                             score: '80%',
                             scoreColor: AppColors.levelUpTeal,
@@ -126,9 +145,12 @@ class PracticePage extends ConsumerWidget {
                           const SizedBox(height: 8),
                           _RecentActivityTile(
                             icon: Icons.lightbulb_outline,
-                            title: isCpns ? 'TIU — Numerik' : 'Interview — Motivasi',
-                            subtitle:
-                                isCpns ? '20 soal  ·  3 hari lalu' : '5 pertanyaan  ·  2 hari lalu',
+                            title: isCpns
+                                ? 'TIU — Numerik'
+                                : 'Interview — Motivasi',
+                            subtitle: isCpns
+                                ? '20 soal  ·  3 hari lalu'
+                                : '5 pertanyaan  ·  2 hari lalu',
                             score: isCpns ? '65%' : 'Selesai',
                             scoreColor: isCpns
                                 ? AppColors.fireGold
@@ -217,8 +239,9 @@ class _HeroChallengeCard extends StatelessWidget {
             onPressed: onStart,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
-              foregroundColor:
-                  isCpns ? AppColors.warriorNavy : AppColors.levelUpTeal,
+              foregroundColor: isCpns
+                  ? AppColors.warriorNavy
+                  : AppColors.levelUpTeal,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               shape: RoundedRectangleBorder(
@@ -289,6 +312,88 @@ class _OverallProgress extends StatelessWidget {
   }
 }
 
+class _InterviewPracticeCard extends StatelessWidget {
+  const _InterviewPracticeCard({required this.config, required this.onTap});
+
+  final InterviewLaunchConfig config;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: <Color>[AppColors.warriorNavy, Color(0xFF0E4AAE)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: AppColors.warriorNavy.withAlpha(35),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(28),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withAlpha(45)),
+              ),
+              child: const Icon(
+                Icons.record_voice_over_rounded,
+                color: AppColors.fireGold,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Latihan Interview AI',
+                    style: GoogleFonts.orbitron(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${config.companyName} - ${config.targetRole}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withAlpha(210),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Icon(Icons.chevron_right_rounded, color: Colors.white),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _CpnsGrids extends StatelessWidget {
   const _CpnsGrids({required this.onTapTopic});
   final VoidCallback onTapTopic;
@@ -322,7 +427,12 @@ class _CpnsGrids extends StatelessWidget {
         _CategorySection(
           title: 'TKP — KARAKTERISTIK PRIBADI',
           items: <_GridItemData>[
-            _GridItemData('TKP', 'Pelayanan Publik', 'Etika & integritas', '35'),
+            _GridItemData(
+              'TKP',
+              'Pelayanan Publik',
+              'Etika & integritas',
+              '35',
+            ),
             _GridItemData('TKP', 'Sosial Budaya', 'Adaptasi & toleransi', '30'),
             _GridItemData('TKP', 'Teknologi', 'Digital & inovasi', '25'),
             _GridItemData('TKP', 'Profesionalisme', 'Etos & disiplin', '30'),
@@ -348,84 +458,14 @@ class _BumnGrids extends StatelessWidget {
             _GridItemData('Verbal', 'Verbal', 'Analogi & sinonim', '30'),
             _GridItemData('Numerik', 'Numerik', 'Dasar & hitung', '25'),
             _GridItemData('Logika', 'Logika', 'Penalaran & pola', '30'),
-            _GridItemData('Keprib.', 'Kepribadian', 'Sikap & nilai kerja', '20'),
+            _GridItemData(
+              'Keprib.',
+              'Kepribadian',
+              'Sikap & nilai kerja',
+              '20',
+            ),
           ],
           onTap: onTapTopic,
-        ),
-        const SizedBox(height: 24),
-        const Text(
-          'INTERVIEW PREP',
-          style: TextStyle(
-            color: AppColors.textMuted,
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-            letterSpacing: 1.2,
-          ),
-        ),
-        const SizedBox(height: 12),
-        InkWell(
-          onTap: () => context.push(AppRoutes.interview),
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.warriorNavy.withAlpha(20)),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: AppColors.warriorNavy.withAlpha(5),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: <Widget>[
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppColors.levelUpTeal.withAlpha(20),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.record_voice_over_rounded,
-                    color: AppColors.levelUpTeal,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      const Text(
-                        'Simulasi Wawancara',
-                        style: TextStyle(
-                          color: AppColors.textStrong,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '15 skenario · BUMN',
-                        style: TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.chevron_right,
-                  color: AppColors.textMuted.withAlpha(100),
-                ),
-              ],
-            ),
-          ),
         ),
       ],
     );
@@ -441,7 +481,11 @@ class _GridItemData {
 }
 
 class _CategorySection extends StatelessWidget {
-  const _CategorySection({required this.title, required this.items, required this.onTap});
+  const _CategorySection({
+    required this.title,
+    required this.items,
+    required this.onTap,
+  });
 
   final String title;
   final List<_GridItemData> items;
@@ -482,7 +526,9 @@ class _CategorySection extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.warriorNavy.withAlpha(20)),
+                  border: Border.all(
+                    color: AppColors.warriorNavy.withAlpha(20),
+                  ),
                   boxShadow: <BoxShadow>[
                     BoxShadow(
                       color: AppColors.warriorNavy.withAlpha(5),

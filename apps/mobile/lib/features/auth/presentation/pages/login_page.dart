@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
-import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -40,7 +39,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     // Simulate login
     ref.read(authProvider.notifier).login(email, password);
-    
+
     // For mockup purposes: after login, we assume their profile is complete and go straight to lobby.
     // (If we use the old check, it forces you to Sign Up because the local state is empty!)
     context.go(AppRoutes.lobby);
@@ -91,7 +90,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
                       onChanged: (_) {
-                        if (_emailError != null) setState(() => _emailError = null);
+                        if (_emailError != null) {
+                          setState(() => _emailError = null);
+                        }
                       },
                       decoration: InputDecoration(
                         labelText: 'Email',
@@ -105,7 +106,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       obscureText: true,
                       textInputAction: TextInputAction.done,
                       onChanged: (_) {
-                        if (_passwordError != null) setState(() => _passwordError = null);
+                        if (_passwordError != null) {
+                          setState(() => _passwordError = null);
+                        }
                       },
                       decoration: InputDecoration(
                         labelText: 'Password',

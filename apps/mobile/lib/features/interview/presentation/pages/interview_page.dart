@@ -1,112 +1,106 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
+import 'package:yudha_mobile/features/interview/application/interview_providers.dart';
+import 'package:yudha_mobile/features/interview/application/interview_state.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_message.dart';
 
-enum InterviewState {
-  ready,
-  recording,
-  processing,
-}
+class InterviewPage extends ConsumerStatefulWidget {
+  const InterviewPage({required this.config, super.key});
 
-class ChatMessage {
-  final String text;
-  final bool isUser;
-  final String time;
-
-  const ChatMessage({
-    required this.text,
-    required this.isUser,
-    required this.time,
-  });
-}
-
-class InterviewPage extends StatefulWidget {
-  const InterviewPage({super.key});
+  final InterviewLaunchConfig config;
 
   @override
-  State<InterviewPage> createState() => _InterviewPageState();
+  ConsumerState<InterviewPage> createState() => _InterviewPageState();
 }
 
-class _InterviewPageState extends State<InterviewPage> {
-  InterviewState _currentState = InterviewState.ready;
+class _InterviewPageState extends ConsumerState<InterviewPage> {
+  final TextEditingController _answerController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  final List<ChatMessage> _messages = <ChatMessage>[
-    const ChatMessage(
-      text:
-          'Selamat datang! Pertama, ceritakan sedikit tentang dirimu dan motivasi melamar BUMN.',
-      isUser: false,
-      time: '07:42',
-    ),
-    const ChatMessage(
-      text:
-          'Saya Yudha, lulusan Teknik Informatika. Tertarik BUMN karena ingin berkontribusi pada pelayanan publik secara nyata.',
-      isUser: true,
-      time: '07:43',
-    ),
-  ];
-
-  final String _currentQuestion =
-      'Ceritakan pengalaman kamu saat menghadapi konflik dengan rekan kerja. Bagaimana kamu menyelesaikannya?';
-
-  final String _currentAnswerPreview =
-      'Waktu itu saya pernah berbeda pendapat dengan rekan soal prioritas proyek... █';
-  final String _currentAnswerFull =
-      'Waktu itu saya pernah berbeda pendapat dengan rekan soal prioritas proyek. Saya memilih mengajak diskusi langsung, mendengarkan perspektifnya, lalu mencari solusi bersama yang adil untuk semua pihak.';
-
-  void _startRecording() {
-    setState(() {
-      _currentState = InterviewState.recording;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(interviewControllerProvider(widget.config).notifier).start();
     });
+  }
+
+  @override
+  void dispose() {
+    _answerController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitAnswer() async {
+    final String answer = _answerController.text.trim();
+    if (answer.isEmpty) {
+      return;
+    }
+
+    _answerController.clear();
+    await ref
+        .read(interviewControllerProvider(widget.config).notifier)
+        .submitAnswer(answer);
     _scrollToBottom();
   }
 
-  void _stopAndSend() {
-    setState(() {
-      _currentState = InterviewState.processing;
-    });
-    _scrollToBottom();
-
-    // Auto-reply mock
-    Future<void>.delayed(const Duration(seconds: 4), () {
-      if (!mounted) return;
-      setState(() {
-        _messages.add(
-          ChatMessage(
-            text: _currentAnswerFull,
-            isUser: true,
-            time: '07:48',
-          ),
-        );
-        _messages.add(
-          const ChatMessage(
-            text:
-                'Menarik. Lalu bagaimana kamu memastikan solusi tersebut bisa diterima oleh seluruh anggota tim proyek?',
-            isUser: false,
-            time: '07:49',
-          ),
-        );
-        _currentState = InterviewState.ready;
-      });
-      _scrollToBottom();
-    });
+  Future<void> _completeSession() async {
+    await ref
+        .read(interviewControllerProvider(widget.config).notifier)
+        .complete();
   }
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent + 200,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+      if (!_scrollController.hasClients) {
+        return;
       }
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent + 160,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOut,
+      );
     });
+  }
+
+  void _showHistory(InterviewState state) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: AppColors.scholarCream,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (BuildContext context) {
+        return _HistorySheet(messages: state.messages);
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final InterviewState state = ref.watch(
+      interviewControllerProvider(widget.config),
+    );
+    final bool isBusy =
+        state.status == InterviewViewStatus.starting ||
+        state.status == InterviewViewStatus.submitting;
+    final InterviewMessage? currentQuestion = state.currentQuestion;
+
+    ref.listen<InterviewState>(interviewControllerProvider(widget.config), (
+      InterviewState? previous,
+      InterviewState next,
+    ) {
+      if (previous?.messages.length != next.messages.length) {
+        _scrollToBottom();
+      }
+    });
+
     return Scaffold(
       backgroundColor: AppColors.scholarCream,
       appBar: AppBar(
@@ -120,49 +114,45 @@ class _InterviewPageState extends State<InterviewPage> {
         title: Column(
           children: <Widget>[
             Text(
-              'WAWANCARA',
+              'INTERVIEW AI',
               style: GoogleFonts.orbitron(
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
                 fontSize: 16,
-                letterSpacing: 2.0,
+                letterSpacing: 2,
               ),
             ),
             const SizedBox(height: 2),
             Text(
-              'BUMN • Sesi 1',
+              widget.config.companyName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: Colors.white.withAlpha(200),
                 fontWeight: FontWeight.w600,
                 fontSize: 10,
-                letterSpacing: 1.5,
+                letterSpacing: 1.2,
               ),
             ),
           ],
         ),
         centerTitle: true,
         actions: <Widget>[
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: InkWell(
-              onTap: () => context.pop(),
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.redAccent.withAlpha(150)),
-                  color: Colors.redAccent.withAlpha(20),
-                ),
-                child: const Text(
-                  'Selesai',
-                  style: TextStyle(
-                    color: Colors.redAccent,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+          IconButton(
+            tooltip: 'Riwayat chat',
+            icon: const Icon(Icons.history_rounded),
+            onPressed: state.messages.isEmpty
+                ? null
+                : () => _showHistory(state),
+          ),
+          TextButton(
+            onPressed: isBusy ? null : _completeSession,
+            child: const Text(
+              'Selesai',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -171,69 +161,75 @@ class _InterviewPageState extends State<InterviewPage> {
       body: SafeArea(
         child: Column(
           children: <Widget>[
-            _buildHeroBox(),
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.only(
-                  left: 20,
-                  right: 20,
-                  top: 16,
-                  bottom: 20, 
-                ),
-                itemCount: _messages.length +
-                    (_currentState == InterviewState.recording ? 1 : 0) +
-                    (_currentState == InterviewState.processing ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index < _messages.length) {
-                    final msg = _messages[index];
-                    return _ChatBubble(
-                        text: msg.text, isUser: msg.isUser, time: msg.time);
-                  } else if (index == _messages.length &&
-                      _currentState == InterviewState.recording) {
-                    return _ChatBubble(
-                      text: _currentAnswerPreview,
-                      isUser: true,
-                      time: '',
-                    );
-                  } else if (_currentState == InterviewState.processing) {
-                    return const _ChatBubble(
-                      text: '...',
-                      isUser: false,
-                      time: '',
-                      isTyping: true,
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
+            _InterviewHeader(
+              status: state.status,
+              config: widget.config,
+              currentQuestion: currentQuestion,
+              finalSummary: state.finalSummary,
             ),
-            _buildBottomRecorderBar(),
+            if (state.errorMessage != null)
+              _ErrorBanner(
+                message: state.errorMessage!,
+                onRetry: () => ref
+                    .read(interviewControllerProvider(widget.config).notifier)
+                    .start(),
+              ),
+            Expanded(
+              child: state.status == InterviewViewStatus.starting
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                      itemCount: state.messages.length + (isBusy ? 1 : 0),
+                      itemBuilder: (BuildContext context, int index) {
+                        if (index < state.messages.length) {
+                          return _ChatBubble(message: state.messages[index]);
+                        }
+                        return const _TypingBubble();
+                      },
+                    ),
+            ),
+            if (state.latestEvaluation != null)
+              _EvaluationStrip(evaluation: state.latestEvaluation!),
+            _AnswerComposer(
+              controller: _answerController,
+              enabled: state.canSubmit,
+              isBusy: isBusy,
+              onSubmit: _submitAnswer,
+            ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildHeroBox() {
-    final bool isAnswered = _currentState == InterviewState.processing;
-    // We visually transition the Hero Box based on the mock state for exactly what the UX prototype shows
-    final String heroTitle = isAnswered ? 'JAWABAN KAMU' : 'PERTANYAAN SAAT INI';
-    final String heroContent = isAnswered ? _currentAnswerFull : _currentQuestion;
-    final Color innerBoxColor = isAnswered
-        ? const Color(0xFF1E3A8A) // deep blue
-        : const Color(0xFF2563EB); // royal blue (slightly lighter)
+class _InterviewHeader extends StatelessWidget {
+  const _InterviewHeader({
+    required this.status,
+    required this.config,
+    required this.currentQuestion,
+    required this.finalSummary,
+  });
 
+  final InterviewViewStatus status;
+  final InterviewLaunchConfig config;
+  final InterviewMessage? currentQuestion;
+  final InterviewFinalSummary? finalSummary;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool completed = status == InterviewViewStatus.completed;
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(20, 20, 20, 4),
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.warriorNavy,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: AppColors.warriorNavy.withAlpha(40),
+            color: AppColors.warriorNavy.withAlpha(35),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
@@ -244,16 +240,18 @@ class _InterviewPageState extends State<InterviewPage> {
         children: <Widget>[
           Row(
             children: <Widget>[
-              // Avatar
               Container(
-                width: 40,
-                height: 40,
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
+                  color: AppColors.levelUpTeal.withAlpha(25),
                   shape: BoxShape.circle,
                   border: Border.all(color: AppColors.levelUpTeal, width: 2),
                 ),
-                child: const Icon(Icons.person_outline,
-                    color: AppColors.levelUpTeal, size: 24),
+                child: const Icon(
+                  Icons.smart_toy_outlined,
+                  color: AppColors.levelUpTeal,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -269,59 +267,35 @@ class _InterviewPageState extends State<InterviewPage> {
                       ),
                     ),
                     Text(
-                      _currentState == InterviewState.processing
-                          ? 'Menilai jawaban...'
-                          : 'HR Simulator - BUMN',
+                      '${config.targetRole} - ${config.mode}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: Colors.white.withAlpha(180),
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: <Widget>[
-                  Text(
-                    'Pertanyaan 2 / 5',
-                    style: TextStyle(
-                      color: Colors.white.withAlpha(180),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '01:24',
-                    style: GoogleFonts.orbitron(
-                      color: AppColors.fireGold,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              )
             ],
           ),
-          const SizedBox(height: 16),
-          // Inner Box
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 400),
+          const SizedBox(height: 14),
+          Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: innerBoxColor,
+              color: const Color(0xFF2563EB),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  heroTitle,
+                  completed ? 'RINGKASAN SESI' : 'PERTANYAAN SAAT INI',
                   style: GoogleFonts.orbitron(
-                    color: Colors.white.withAlpha(150),
+                    color: Colors.white.withAlpha(160),
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.2,
@@ -329,340 +303,310 @@ class _InterviewPageState extends State<InterviewPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  heroContent,
+                  completed && finalSummary != null
+                      ? 'Skor akhir ${finalSummary!.overallScore.toStringAsFixed(1)} dari ${finalSummary!.answerCount} jawaban.'
+                      : currentQuestion?.text ??
+                            'Menyiapkan sesi interview AI...',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    height: 1.5,
+                    fontWeight: FontWeight.w600,
+                    height: 1.45,
                   ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomRecorderBar() {
-    Color indicatorColor;
-    String indicatorLabel;
-    Widget centerButton;
-    Widget leftButton;
-    Widget rightButton;
-    String subtitle;
-
-    switch (_currentState) {
-      case InterviewState.ready:
-        indicatorColor = AppColors.levelUpTeal;
-        indicatorLabel = 'Siap merekam';
-        subtitle = 'Tekan dan tahan untuk berbicara • Ketik jawaban';
-        leftButton = _ActionBtn(icon: Icons.notes_rounded, onTap: () {});
-        rightButton = _ActionBtn(icon: Icons.access_time_rounded, onTap: () {});
-        centerButton = GestureDetector(
-          onTap: _startRecording,
-          child: Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white,
-              border: Border.all(color: AppColors.fireGold.withAlpha(100), width: 3),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: AppColors.fireGold.withAlpha(30),
-                  blurRadius: 16,
-                  spreadRadius: 4,
-                ),
-              ],
-            ),
-            child: const Icon(Icons.mic, color: AppColors.fireGold, size: 36),
-          ),
-        );
-        break;
-      case InterviewState.recording:
-        indicatorColor = Colors.redAccent;
-        indicatorLabel = 'Merekam...';
-        subtitle = 'Ketuk untuk berhenti - jawaban akan dikirim otomatis';
-        leftButton = _ActionBtn(icon: Icons.notes_rounded, onTap: () {});
-        rightButton = _ActionBtn(
-          icon: Icons.chevron_right_rounded,
-          onTap: _stopAndSend,
-          color: AppColors.warriorNavy,
-        );
-        centerButton = GestureDetector(
-          onTap: _stopAndSend,
-          child: Container(
-            width: 72,
-            height: 72,
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.redAccent.withAlpha(10),
-              border: Border.all(color: Colors.redAccent.withAlpha(100), width: 2),
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.redAccent, width: 3),
-              ),
-              child: const Icon(Icons.stop_rounded, color: Colors.redAccent, size: 32),
-            ),
-          ),
-        );
-        break;
-      case InterviewState.processing:
-        indicatorColor = AppColors.warriorNavy.withAlpha(150);
-        indicatorLabel = 'Pewawancara sedang merespons';
-        subtitle = 'Tunggu pewawancara selesai berbicara';
-        leftButton =
-            _ActionBtn(icon: Icons.notes_rounded, onTap: null, opacity: 0.3);
-        rightButton = _ActionBtn(
-            icon: Icons.chevron_right_rounded, onTap: null, opacity: 0.3);
-        centerButton = Container(
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white,
-            border: Border.all(color: Colors.grey.withAlpha(100), width: 2),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              for (int i = 0; i < 3; i++)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: CircleAvatar(
-                    radius: 4,
-                    backgroundColor: AppColors.warriorNavy.withAlpha(150),
-                  ),
-                )
-            ],
-          ),
-        );
-        break;
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: AppColors.warriorNavy.withAlpha(20),
-            blurRadius: 24,
-            offset: const Offset(0, -8),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          // Indicator string
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              if (_currentState == InterviewState.processing)
-                ...List<Widget>.generate(
-                  3,
-                  (index) => Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                    child: CircleAvatar(radius: 3, backgroundColor: indicatorColor),
-                  ),
-                )
-              else
-                CircleAvatar(radius: 4, backgroundColor: indicatorColor),
-              const SizedBox(width: 8),
-              Text(
-                indicatorLabel,
-                style: TextStyle(
-                  color: indicatorColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ],
-          ),
-          
-          if (_currentState == InterviewState.recording) ...<Widget>[
-             const SizedBox(height: 12),
-             // Mock Waveform
-             Row(
-               mainAxisAlignment: MainAxisAlignment.center,
-               children: List<Widget>.generate(12, (index) {
-                  final double height = [12.0, 20.0, 14.0, 28.0, 18.0, 32.0, 16.0, 24.0, 12.0, 20.0, 10.0, 15.0][index];
-                  return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: 4,
-                    height: height,
-                    decoration: BoxDecoration(
-                      color: Colors.redAccent.withAlpha(200),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  );
-               }),
-             )
-          ],
-
-          const SizedBox(height: 16),
-
-          // Main Action Row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: <Widget>[
-              leftButton,
-              centerButton,
-              rightButton,
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          Text(
-            subtitle,
-            style: TextStyle(
-              color: AppColors.textMuted.withAlpha(150),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          )
         ],
       ),
     );
   }
 }
 
-class _ActionBtn extends StatelessWidget {
-  const _ActionBtn({
-    required this.icon,
-    this.onTap,
-    this.color = AppColors.textMuted,
-    this.opacity = 1.0,
-  });
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.message, required this.onRetry});
 
-  final IconData icon;
-  final VoidCallback? onTap;
-  final Color color;
-  final double opacity;
+  final String message;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: opacity,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.grey.withAlpha(50)),
-            color: Colors.grey.withAlpha(10),
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.redAccent.withAlpha(18),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.redAccent.withAlpha(80)),
+      ),
+      child: Row(
+        children: <Widget>[
+          const Icon(Icons.info_outline, color: Colors.redAccent, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: AppColors.textStrong,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
-          child: Icon(icon, color: color, size: 24),
-        ),
+          TextButton(onPressed: onRetry, child: const Text('Coba lagi')),
+        ],
       ),
     );
   }
 }
 
 class _ChatBubble extends StatelessWidget {
-  const _ChatBubble({
-    required this.text,
-    required this.isUser,
-    required this.time,
-    this.isTyping = false,
-  });
+  const _ChatBubble({required this.message});
 
-  final String text;
-  final bool isUser;
-  final String time;
-  final bool isTyping;
+  final InterviewMessage message;
 
   @override
   Widget build(BuildContext context) {
+    final bool isUser = message.author == InterviewMessageAuthor.candidate;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 14),
       child: Row(
-        mainAxisAlignment:
-            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: <Widget>[
           if (!isUser) ...<Widget>[
-            _AvatarIcon(isUser: false),
+            const _AvatarIcon(isUser: false),
             const SizedBox(width: 8),
           ],
           Flexible(
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
                 color: isUser ? AppColors.warriorNavy : Colors.white,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(20),
                   topRight: const Radius.circular(20),
-                  bottomLeft: Radius.circular(isUser ? 20 : 0),
-                  bottomRight: Radius.circular(isUser ? 0 : 20),
+                  bottomLeft: Radius.circular(isUser ? 20 : 4),
+                  bottomRight: Radius.circular(isUser ? 4 : 20),
                 ),
                 boxShadow: <BoxShadow>[
-                  if (!isUser)
-                    BoxShadow(
-                      color: AppColors.warriorNavy.withAlpha(10),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
+                  BoxShadow(
+                    color: AppColors.warriorNavy.withAlpha(10),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
                 ],
               ),
-              child: Column(
-                crossAxisAlignment:
-                    isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                children: <Widget>[
-                  if (isTyping)
-                     Text(
-                      text,
-                      style: const TextStyle(
-                         color: AppColors.textMuted,
-                         fontSize: 24,
-                         letterSpacing: 2,
-                         height: 0.5,
-                      ),
-                    )
-                  else
-                    Text(
-                      text,
-                      style: TextStyle(
-                        color: isUser ? Colors.white : AppColors.textStrong,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        height: 1.4,
-                      ),
-                    ),
-                  if (time.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 6),
-                    Text(
-                      time,
-                      style: TextStyle(
-                        color: isUser
-                            ? Colors.white.withAlpha(150)
-                            : AppColors.textMuted.withAlpha(150),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ]
-                ],
+              child: Text(
+                message.text,
+                style: TextStyle(
+                  color: isUser ? Colors.white : AppColors.textStrong,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  height: 1.4,
+                ),
               ),
             ),
           ),
           if (isUser) ...<Widget>[
             const SizedBox(width: 8),
-            _AvatarIcon(isUser: true),
+            const _AvatarIcon(isUser: true),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _TypingBubble extends StatelessWidget {
+  const _TypingBubble();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(bottom: 14),
+      child: Row(
+        children: <Widget>[
+          _AvatarIcon(isUser: false),
+          SizedBox(width: 8),
+          _DotsBubble(),
+        ],
+      ),
+    );
+  }
+}
+
+class _DotsBubble extends StatelessWidget {
+  const _DotsBubble();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Text(
+        '...',
+        style: TextStyle(
+          color: AppColors.textMuted,
+          fontSize: 24,
+          height: 0.6,
+          letterSpacing: 2,
+        ),
+      ),
+    );
+  }
+}
+
+class _EvaluationStrip extends StatelessWidget {
+  const _EvaluationStrip({required this.evaluation});
+
+  final InterviewEvaluation evaluation;
+
+  @override
+  Widget build(BuildContext context) {
+    final String? firstImprovement = evaluation.improvements.isEmpty
+        ? null
+        : evaluation.improvements.first;
+    final String note =
+        evaluation.coachNote ??
+        firstImprovement ??
+        'Jawaban tersimpan. Lanjutkan ke pertanyaan berikutnya.';
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.levelUpTeal.withAlpha(16),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.levelUpTeal.withAlpha(70)),
+      ),
+      child: Text(
+        'Coach note: $note',
+        style: const TextStyle(
+          color: AppColors.textStrong,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          height: 1.35,
+        ),
+      ),
+    );
+  }
+}
+
+class _AnswerComposer extends StatelessWidget {
+  const _AnswerComposer({
+    required this.controller,
+    required this.enabled,
+    required this.isBusy,
+    required this.onSubmit,
+  });
+
+  final TextEditingController controller;
+  final bool enabled;
+  final bool isBusy;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: AppColors.warriorNavy.withAlpha(20),
+            blurRadius: 20,
+            offset: const Offset(0, -8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: TextField(
+              controller: controller,
+              enabled: enabled,
+              minLines: 1,
+              maxLines: 4,
+              textInputAction: TextInputAction.newline,
+              decoration: InputDecoration(
+                hintText: enabled
+                    ? 'Ketik jawaban interview kamu...'
+                    : 'Tunggu pewawancara AI...',
+                filled: true,
+                fillColor: AppColors.scholarCream,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(18),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          FilledButton(
+            onPressed: enabled && !isBusy ? onSubmit : null,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.warriorNavy,
+              shape: const CircleBorder(),
+              padding: const EdgeInsets.all(16),
+            ),
+            child: const Icon(Icons.send_rounded),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HistorySheet extends StatelessWidget {
+  const _HistorySheet({required this.messages});
+
+  final List<InterviewMessage> messages;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        itemCount: messages.length + 1,
+        separatorBuilder: (BuildContext context, int index) =>
+            const Divider(height: 20),
+        itemBuilder: (BuildContext context, int index) {
+          if (index == 0) {
+            return const Text(
+              'Riwayat Interview',
+              style: TextStyle(
+                color: AppColors.warriorNavy,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
+            );
+          }
+
+          final InterviewMessage message = messages[index - 1];
+          final bool isUser =
+              message.author == InterviewMessageAuthor.candidate;
+          return ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(
+              isUser ? Icons.person_outline : Icons.smart_toy_outlined,
+              color: isUser ? AppColors.levelUpTeal : AppColors.warriorNavy,
+            ),
+            title: Text(
+              isUser ? 'Jawaban kamu' : 'Pewawancara AI',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(message.text),
+          );
+        },
       ),
     );
   }
@@ -670,24 +614,28 @@ class _ChatBubble extends StatelessWidget {
 
 class _AvatarIcon extends StatelessWidget {
   const _AvatarIcon({required this.isUser});
+
   final bool isUser;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 24,
-      height: 24,
+      width: 26,
+      height: 26,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: isUser ? AppColors.levelUpTeal.withAlpha(20) : Colors.grey.withAlpha(20),
+        color: isUser
+            ? AppColors.levelUpTeal.withAlpha(20)
+            : Colors.grey.withAlpha(20),
         border: Border.all(
-            color: isUser
-                ? AppColors.levelUpTeal.withAlpha(100)
-                : Colors.grey.withAlpha(100)),
+          color: isUser
+              ? AppColors.levelUpTeal.withAlpha(100)
+              : Colors.grey.withAlpha(100),
+        ),
       ),
       child: Icon(
-        Icons.person_outline,
-        size: 14,
+        isUser ? Icons.person_outline : Icons.smart_toy_outlined,
+        size: 15,
         color: isUser ? AppColors.levelUpTeal : Colors.grey,
       ),
     );

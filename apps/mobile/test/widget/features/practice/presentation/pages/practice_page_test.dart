@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,25 +8,6 @@ import 'package:yudha_mobile/features/practice/domain/entities/practice_question
 import 'package:yudha_mobile/features/practice/domain/entities/practice_topic.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_page.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_quiz_page.dart';
-
-class _PendingPracticeRepository implements PracticeRepository {
-  const _PendingPracticeRepository();
-
-  @override
-  Future<PracticeQuestion> fetchQuestionOfDay() {
-    return Completer<PracticeQuestion>().future;
-  }
-
-  @override
-  Future<List<PracticeQuestion>> fetchQuestions({required String topicId}) {
-    return Completer<List<PracticeQuestion>>().future;
-  }
-
-  @override
-  Future<List<PracticeTopic>> fetchTopics() {
-    return Completer<List<PracticeTopic>>().future;
-  }
-}
 
 class _SuccessPracticeRepository implements PracticeRepository {
   const _SuccessPracticeRepository();
@@ -50,7 +29,9 @@ class _SuccessPracticeRepository implements PracticeRepository {
   }
 
   @override
-  Future<List<PracticeQuestion>> fetchQuestions({required String topicId}) async {
+  Future<List<PracticeQuestion>> fetchQuestions({
+    required String topicId,
+  }) async {
     return const <PracticeQuestion>[
       PracticeQuestion(
         id: 'q1',
@@ -101,6 +82,7 @@ void main() {
     expect(find.text('LATIHAN'), findsOneWidget);
     expect(find.text('CPNS'), findsOneWidget); // Default target badge
     expect(find.text('Progress CPNS'), findsOneWidget);
+    expect(find.text('Latihan Interview AI'), findsOneWidget);
     expect(find.text('TWK — WAWASAN KEBANGSAAN'), findsOneWidget);
   });
 
@@ -114,6 +96,7 @@ void main() {
         ),
       ],
     );
+    addTearDown(container.dispose);
 
     // Give the fake controller time to load() its initial data
     await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -143,5 +126,7 @@ void main() {
     expect(find.text('Only one number is not prime.'), findsOneWidget);
     // Dashed button should disappear entirely
     expect(find.text('Lihat petunjuk'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 }
