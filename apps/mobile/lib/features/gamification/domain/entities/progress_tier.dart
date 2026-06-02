@@ -1,8 +1,12 @@
 enum ProgressTier {
-  rookie,
-  warrior,
-  elite,
-  legend;
+  rookie(0),
+  warrior(400),
+  elite(800),
+  legend(1200);
+
+  const ProgressTier(this.minPoints);
+
+  final int minPoints;
 
   String get label => switch (this) {
     ProgressTier.rookie => 'Rookie',
@@ -23,4 +27,11 @@ enum ProgressTier {
     }
     return ProgressTier.rookie;
   }
+
+  ProgressTier? get nextTier => switch (this) {
+    ProgressTier.rookie => ProgressTier.warrior,
+    ProgressTier.warrior => ProgressTier.elite,
+    ProgressTier.elite => ProgressTier.legend,
+    ProgressTier.legend => null,
+  };
 }

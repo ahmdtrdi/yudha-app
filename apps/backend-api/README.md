@@ -25,6 +25,10 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## Interview AI CLI
+
+Untuk menjalankan simulasi interview AI lokal menggunakan Groq tanpa Supabase, baca [Interview AI CLI Guide](../../docs/INTERVIEW-AI-CLI.md).
+
 ## Project setup
 
 ```bash

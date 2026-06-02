@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yudha.local/contracts/interview-ai/interview-evaluation.schema.json",
+  "title": "InterviewEvaluation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "overallScore",
+    "dimensions",
+    "candidateFacts",
+    "strengths",
+    "improvements",
+    "suggestedRewrite",
+    "nextQuestion",
+    "shouldEndSession",
+    "endReason",
+    "coachNote"
+  ],
+  "properties": {
+    "overallScore": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relevance",
+        "clarity",
+        "structure",
+        "confidence",
+        "impact",
+        "authenticity"
+      ],
+      "properties": {
+        "relevance": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "clarity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "structure": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "confidence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "impact": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "authenticity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "candidateFacts": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "strengths": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "items": {
+        "type": "string"
+      }
+    },
+    "improvements": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "items": {
+        "type": "string"
+      }
+    },
+    "suggestedRewrite": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nextQuestion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "shouldEndSession": {
+      "type": "boolean"
+    },
+    "endReason": {
+      "type": ["string", "null"]
+    },
+    "coachNote": {
+      "type": ["string", "null"]
+    }
+  }
+}
