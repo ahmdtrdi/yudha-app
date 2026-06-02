@@ -51,7 +51,7 @@ class _InterviewPageState extends State<InterviewPage> {
       'Ceritakan pengalaman kamu saat menghadapi konflik dengan rekan kerja. Bagaimana kamu menyelesaikannya?';
 
   final String _currentAnswerPreview =
-      'Waktu itu saya pernah berbeda pendapat dengan rekan soal prioritas proyek... █';
+      'Waktu itu saya pernah berbeda pendapat dengan rekan soal prioritas proyek...';
   final String _currentAnswerFull =
       'Waktu itu saya pernah berbeda pendapat dengan rekan soal prioritas proyek. Saya memilih mengajak diskusi langsung, mendengarkan perspektifnya, lalu mencari solusi bersama yang adil untuk semua pihak.';
 
@@ -130,7 +130,7 @@ class _InterviewPageState extends State<InterviewPage> {
             ),
             const SizedBox(height: 2),
             Text(
-              'BUMN • Sesi 1',
+              'BUMN - Sesi 1',
               style: TextStyle(
                 color: Colors.white.withAlpha(200),
                 fontWeight: FontWeight.w600,
@@ -357,7 +357,7 @@ class _InterviewPageState extends State<InterviewPage> {
       case InterviewState.ready:
         indicatorColor = AppColors.levelUpTeal;
         indicatorLabel = 'Siap merekam';
-        subtitle = 'Tekan dan tahan untuk berbicara • Ketik jawaban';
+        subtitle = 'Tekan untuk berbicara - ketik jawaban';
         leftButton = _ActionBtn(icon: Icons.notes_rounded, onTap: () {});
         rightButton = _ActionBtn(icon: Icons.access_time_rounded, onTap: () {});
         centerButton = GestureDetector(

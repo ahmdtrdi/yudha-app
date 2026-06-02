@@ -54,7 +54,8 @@ void main() {
     expect(find.text('Mulai Battle'), findsOneWidget);
 
     await tester.tap(find.text('Mulai Battle'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
 
     expect(
       find.byKey(const ValueKey<String>('question-card-q1')),
@@ -64,10 +65,12 @@ void main() {
     expect(find.text('Kamu'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey<String>('question-card-q1')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
 
     await tester.tap(find.text('4'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
 
     expect(find.text('VICTORY!'), findsOneWidget);
   });

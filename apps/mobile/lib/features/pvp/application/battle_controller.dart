@@ -23,7 +23,9 @@ class BattleController extends StateNotifier<BattleState> {
 
     state = state.copyWith(
       mode: mode,
-      phase: BattlePhase.preBattle,
+      phase: state.phase == BattlePhase.arenaMenu
+          ? BattlePhase.arenaMenu
+          : BattlePhase.preBattle,
       outcome: BattleOutcome.inProgress,
       opponentName: mode == BattleMode.bot ? 'BOT YUDHA' : 'Player Match',
       playerHp: 100,
@@ -37,6 +39,35 @@ class BattleController extends StateNotifier<BattleState> {
       statusMessage: 'Mode ${_modeLabel(mode)} dipilih. Tekan mulai battle.',
       clearErrorMessage: true,
     );
+  }
+
+  void enterArena() {
+    if (state.phase == BattlePhase.inBattle || state.isLoading) {
+      return;
+    }
+
+    state = state.copyWith(
+      phase: BattlePhase.arenaMenu,
+      outcome: BattleOutcome.inProgress,
+      playerHp: 100,
+      opponentHp: 100,
+      playerPoints: 0,
+      opponentPoints: 0,
+      ratingDelta: 0,
+      availableQuestions: const <BattleQuestion>[],
+      answeredQuestionIds: const <String>[],
+      rewardClaimed: false,
+      statusMessage: 'Pilih mode arena.',
+      clearErrorMessage: true,
+    );
+  }
+
+  void exitArena() {
+    if (state.phase == BattlePhase.inBattle || state.isLoading) {
+      return;
+    }
+
+    state = BattleState.initial().copyWith(mode: state.mode);
   }
 
   Future<void> startBattle() async {
@@ -116,6 +147,7 @@ class BattleController extends StateNotifier<BattleState> {
   void resetBattle() {
     state = BattleState.initial().copyWith(
       mode: state.mode,
+      phase: BattlePhase.arenaMenu,
       opponentName: state.mode == BattleMode.bot ? 'BOT YUDHA' : 'Player Match',
     );
   }

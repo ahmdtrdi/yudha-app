@@ -35,7 +35,6 @@ class BattleState {
       answeredQuestionIds: <String>[],
       isLoading: false,
       rewardClaimed: false,
-      statusMessage: 'Pilih mode lalu mulai battle.',
     );
   }
 
