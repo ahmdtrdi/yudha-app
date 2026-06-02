@@ -1,30 +1,29 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Database } from './database.types';
 
 @Injectable()
 export class SupabaseService {
   private readonly logger = new Logger(SupabaseService.name);
-  private supabase: SupabaseClient;
+  private readonly supabase: SupabaseClient<Database>;
 
   constructor(private configService: ConfigService) {
-    // 1. Get the variables from .env
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
-    const supabaseKey = this.configService.get<string>('SUPABASE_KEY');
+    const supabaseKey =
+      this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY') ??
+      this.configService.get<string>('SUPABASE_KEY');
 
-    // 2. Safety check
     if (!supabaseUrl || !supabaseKey) {
-      this.logger.error('Supabase URL or Key is missing from .env file!');
+      this.logger.error('Supabase URL or backend key is missing.');
       throw new Error('Missing Supabase credentials');
     }
 
-    // 3. Initialize the client
-    this.supabase = createClient(supabaseUrl, supabaseKey);
-    this.logger.log('Supabase client successfully initialized 🚀');
+    this.supabase = createClient<Database>(supabaseUrl, supabaseKey);
+    this.logger.log('Supabase client initialized.');
   }
 
-  // 4. Create a method to expose the client to other parts of your app
-  getClient(): SupabaseClient {
+  getClient(): SupabaseClient<Database> {
     return this.supabase;
   }
 }
