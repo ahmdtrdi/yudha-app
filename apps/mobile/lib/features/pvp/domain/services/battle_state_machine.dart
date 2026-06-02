@@ -4,6 +4,8 @@ import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_question.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_state.dart';
 
+final Random _recycleRandom = Random();
+
 abstract final class BattleStateMachine {
   static BattleState resolveTurn({
     required BattleState state,
@@ -50,14 +52,20 @@ abstract final class BattleStateMachine {
     playerHp = _clampHp(playerHp);
     opponentHp = _clampHp(opponentHp);
 
-    final List<BattleQuestion> remainingQuestions = state.availableQuestions
+    List<BattleQuestion> remainingQuestions = state.availableQuestions
         .where((BattleQuestion item) => item.id != question.id)
         .toList(growable: false);
 
-    final List<String> answeredQuestions = <String>[
+    List<String> answeredQuestions = <String>[
       ...state.answeredQuestionIds,
       question.id,
     ];
+
+    // Recycle questions when pool is exhausted
+    if (remainingQuestions.isEmpty) {
+      remainingQuestions = _recycleQuestions(state.availableQuestions, question);
+      answeredQuestions = const <String>[];
+    }
 
     final ({BattlePhase phase, BattleOutcome outcome, int ratingDelta}) finish =
         _resolvePhase(
@@ -65,7 +73,6 @@ abstract final class BattleStateMachine {
           opponentHp: opponentHp,
           playerPoints: playerPoints,
           opponentPoints: opponentPoints,
-          hasRemainingQuestions: remainingQuestions.isNotEmpty,
         );
 
     return state.copyWith(
@@ -122,9 +129,20 @@ abstract final class BattleStateMachine {
     playerHp = _clampHp(playerHp);
     opponentHp = _clampHp(opponentHp);
 
-    final List<BattleQuestion> remainingQuestions = state.availableQuestions
+    List<BattleQuestion> remainingQuestions = state.availableQuestions
         .where((BattleQuestion item) => item.id != question.id)
         .toList(growable: false);
+
+    List<String> answeredQuestions = <String>[
+      ...state.answeredQuestionIds,
+      'bot:${question.id}',
+    ];
+
+    // Recycle questions when pool is exhausted
+    if (remainingQuestions.isEmpty) {
+      remainingQuestions = _recycleQuestions(state.availableQuestions, question);
+      answeredQuestions = const <String>[];
+    }
 
     final ({BattlePhase phase, BattleOutcome outcome, int ratingDelta}) finish =
         _resolvePhase(
@@ -132,7 +150,6 @@ abstract final class BattleStateMachine {
           opponentHp: opponentHp,
           playerPoints: playerPoints,
           opponentPoints: opponentPoints,
-          hasRemainingQuestions: remainingQuestions.isNotEmpty,
         );
 
     return state.copyWith(
@@ -144,10 +161,7 @@ abstract final class BattleStateMachine {
       playerPoints: playerPoints,
       opponentPoints: opponentPoints,
       availableQuestions: remainingQuestions,
-      answeredQuestionIds: <String>[
-        ...state.answeredQuestionIds,
-        'bot:${question.id}',
-      ],
+      answeredQuestionIds: answeredQuestions,
       battleEventId: state.battleEventId + 1,
       lastActor: BattleActor.opponent,
       lastVisualEffect: question.effect == QuestionEffect.heal
@@ -207,9 +221,9 @@ abstract final class BattleStateMachine {
     required int opponentHp,
     required int playerPoints,
     required int opponentPoints,
-    required bool hasRemainingQuestions,
   }) {
-    if (hasRemainingQuestions && playerHp > 0 && opponentHp > 0) {
+    // Game only ends when someone's HP reaches 0
+    if (playerHp > 0 && opponentHp > 0) {
       return (
         phase: BattlePhase.inBattle,
         outcome: BattleOutcome.inProgress,
@@ -265,5 +279,27 @@ abstract final class BattleStateMachine {
       'numerik' => 'Cannon Strike',
       _ => 'Serangan',
     };
+  }
+
+  /// Recycle all questions with fresh IDs when the pool is exhausted.
+  static List<BattleQuestion> _recycleQuestions(
+    List<BattleQuestion> allQuestions,
+    BattleQuestion justAnswered,
+  ) {
+    final int epoch = DateTime.now().millisecondsSinceEpoch;
+    final List<BattleQuestion> recycled = allQuestions
+        .where((BattleQuestion q) => q.id != justAnswered.id)
+        .map((BattleQuestion q) => BattleQuestion(
+              id: '${q.category}-r$epoch-${_recycleRandom.nextInt(99999)}',
+              prompt: q.prompt,
+              options: q.options,
+              correctOptionIndex: q.correctOptionIndex,
+              weight: q.weight,
+              effect: q.effect,
+              category: q.category,
+            ))
+        .toList();
+    recycled.shuffle(_recycleRandom);
+    return recycled;
   }
 }

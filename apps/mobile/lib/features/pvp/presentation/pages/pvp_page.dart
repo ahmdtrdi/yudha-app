@@ -32,12 +32,12 @@ const String _tiuCardAsset = 'assets/game/tiu_card.png';
 const String _twkCardAsset = 'assets/game/twk_card.png';
 // Attack effects are now rendered via CustomPainter (no PNG assets needed).
 
-const Alignment _enemyMainAlignment = Alignment(0, -0.59);
-const Alignment _enemyMiniLeftAlignment = Alignment(-0.704, -0.418);
-const Alignment _enemyMiniRightAlignment = Alignment(0.704, -0.418);
-const Alignment _playerMainAlignment = Alignment(0, 0.392);
-const Alignment _playerMiniLeftAlignment = Alignment(-0.704, 0.222);
-const Alignment _playerMiniRightAlignment = Alignment(0.704, 0.222);
+const Alignment _enemyMainAlignment = Alignment(0, -0.62);
+const Alignment _enemyMiniLeftAlignment = Alignment(-0.78, -0.44);
+const Alignment _enemyMiniRightAlignment = Alignment(0.78, -0.44);
+const Alignment _playerMainAlignment = Alignment(0, 0.42);
+const Alignment _playerMiniLeftAlignment = Alignment(-0.78, 0.24);
+const Alignment _playerMiniRightAlignment = Alignment(0.78, 0.24);
 
 class PvpPage extends ConsumerWidget {
   const PvpPage({super.key});
@@ -1026,7 +1026,7 @@ class _ArenaMenuSectionState extends State<_ArenaMenuSection>
     _transitionController =
         AnimationController(
             vsync: this,
-            duration: const Duration(milliseconds: 1800),
+            duration: const Duration(milliseconds: 1200),
           )
           ..forward().then((_) {
             if (mounted) {
@@ -1246,15 +1246,15 @@ class _ArenaMenuLogo extends StatelessWidget {
           height: compact ? 72 : 88,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppColors.fireGold.withAlpha(28),
+            color: AppColors.fireGold.withAlpha(15),
             border: Border.all(
-              color: AppColors.fireGold.withAlpha(150),
-              width: 2,
+              color: AppColors.fireGold.withAlpha(80),
+              width: 1.5,
             ),
             boxShadow: <BoxShadow>[
               BoxShadow(
-                color: AppColors.fireGold.withAlpha(70),
-                blurRadius: 26,
+                color: AppColors.fireGold.withAlpha(30),
+                blurRadius: 20,
               ),
             ],
           ),
@@ -1325,9 +1325,9 @@ class _MenuActionButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(18),
             boxShadow: <BoxShadow>[
               BoxShadow(
-                color: colors.last.withAlpha(90),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
+                color: colors.last.withAlpha(50),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
@@ -1426,38 +1426,28 @@ class _ArenaMenuBackgroundPainter extends CustomPainter {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: <Color>[
-          Color(0xFF0D1B3E),
-          Color(0xFF1A0A3A),
-          Color(0xFF0E2A1A),
+          Color(0xFF0A1628),
+          Color(0xFF111D38),
+          Color(0xFF0C1A2E),
         ],
       ).createShader(rect);
     canvas.drawRect(rect, backgroundPaint);
 
-    final Paint gridPaint = Paint()
-      ..color = Colors.white.withAlpha(12)
-      ..strokeWidth = 1;
-    const double gap = 44;
-    for (double x = 0; x < size.width; x += gap) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-    for (double y = 0; y < size.height; y += gap) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-
+    // Subtle corner accents only — no grid, no orbs
     final Paint glowBlue = Paint()
-      ..color = const Color(0xFF3EAAFF).withAlpha(42)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 34);
+      ..color = const Color(0xFF3EAAFF).withAlpha(18)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 50);
     final Paint glowGold = Paint()
-      ..color = AppColors.fireGold.withAlpha(46)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 34);
+      ..color = AppColors.fireGold.withAlpha(20)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 50);
     canvas.drawCircle(
-      Offset(size.width * 0.12, size.height * 0.18),
-      78,
+      Offset(size.width * 0.1, size.height * 0.15),
+      100,
       glowBlue,
     );
     canvas.drawCircle(
-      Offset(size.width * 0.88, size.height * 0.78),
-      92,
+      Offset(size.width * 0.9, size.height * 0.85),
+      100,
       glowGold,
     );
   }
@@ -1503,7 +1493,7 @@ class _InBattleSectionState extends State<_InBattleSection>
     super.initState();
     _ambientController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 6000),
+      duration: const Duration(milliseconds: 8000),
     )..repeat();
     _countdownController = AnimationController(
       vsync: this,
@@ -1557,14 +1547,33 @@ class _InBattleSectionState extends State<_InBattleSection>
   @override
   void didUpdateWidget(covariant _InBattleSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final String? newStatus = widget.state.statusMessage;
     final String? newError = widget.state.errorMessage;
-    final String? toastText = newError ?? newStatus;
-    if (toastText != null &&
-        widget.state.battleEventId != _lastToastEventId &&
-        _countdownDone) {
+    if (widget.state.battleEventId != _lastToastEventId &&
+        _countdownDone &&
+        widget.state.battleEventId > 0) {
       _lastToastEventId = widget.state.battleEventId;
-      _addToast(toastText, isError: newError != null);
+
+      final BattleActor? actor = widget.state.lastActor;
+      final BattleVisualEffect? effect = widget.state.lastVisualEffect;
+
+      if (newError != null) {
+        _addToast(newError, isError: true);
+      } else if (actor != null && effect != null) {
+        // Contextual toast messages
+        if (actor == BattleActor.opponent && effect != BattleVisualEffect.heal) {
+          // Enemy attacked us
+          _addToast('Enemy attacking!', isError: true);
+        } else if (actor == BattleActor.player && effect == BattleVisualEffect.heal) {
+          // Player healed
+          _addToast('Heal!');
+        } else if (actor == BattleActor.player && effect != BattleVisualEffect.heal) {
+          // Player attacked correctly
+          _addToast('Attack!');
+        } else if (actor == BattleActor.opponent && effect == BattleVisualEffect.heal) {
+          // Opponent healed (player answered wrong on heal card)
+          _addToast('Oh no', isError: true);
+        }
+      }
     }
 
     if (widget.state.phase != BattlePhase.inBattle ||
@@ -1994,39 +2003,36 @@ class _HudStrip extends StatelessWidget {
         ? const Color(0xFFFF6A6A)
         : const Color(0xFF63B6FF);
 
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: colors,
-            ),
-            border: Border(
-              top: isEnemy
-                  ? BorderSide.none
-                  : BorderSide(color: sideAccent.withAlpha(70)),
-              bottom: isEnemy
-                  ? BorderSide(color: sideAccent.withAlpha(70))
-                  : BorderSide.none,
-            ),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: Colors.black.withAlpha(88),
-                blurRadius: 24,
-                offset: Offset(0, isEnemy ? 6 : -6),
-              ),
-            ],
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: colors,
+        ),
+        border: Border(
+          top: isEnemy
+              ? BorderSide.none
+              : BorderSide(color: sideAccent.withAlpha(70)),
+          bottom: isEnemy
+              ? BorderSide(color: sideAccent.withAlpha(70))
+              : BorderSide.none,
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withAlpha(88),
+            blurRadius: 24,
+            offset: Offset(0, isEnemy ? 6 : -6),
           ),
-          padding: EdgeInsets.fromLTRB(
-            12,
-            compact ? 7 : 8,
-            isEnemy ? 62 : 12,
-            compact ? 7 : 10,
-          ),
-          child: Column(
+        ],
+      ),
+      padding: EdgeInsets.fromLTRB(
+        12,
+        compact ? 7 : 8,
+        isEnemy ? 62 : 12,
+        compact ? 7 : 10,
+      ),
+      child: Column(
             children: <Widget>[
               Row(
                 children: <Widget>[
@@ -2132,8 +2138,6 @@ class _HudStrip extends StatelessWidget {
               ],
             ],
           ),
-        ),
-      ),
     );
   }
 }
@@ -2350,7 +2354,7 @@ class _BattleCard extends StatelessWidget {
                     child: Image.asset(
                       cardAsset,
                       fit: BoxFit.cover,
-                      filterQuality: FilterQuality.medium,
+                      filterQuality: FilterQuality.low,
                     ),
                   ),
                   Positioned.fill(
@@ -4723,15 +4727,16 @@ class _BattlefieldPainter extends CustomPainter {
 
     const double tileSize = 28;
     final Paint tilePaint = Paint()..color = Colors.white.withAlpha(12);
-    final Paint tileShadePaint = Paint()..color = Colors.black.withAlpha(5);
     for (double x = 0; x < width; x += tileSize) {
       for (double y = 0; y < height; y += tileSize) {
         final int tx = (x / tileSize).floor();
         final int ty = (y / tileSize).floor();
-        canvas.drawRect(
-          Rect.fromLTWH(x, y, tileSize, tileSize),
-          (tx + ty).isEven ? tilePaint : tileShadePaint,
-        );
+        if ((tx + ty).isEven) {
+          canvas.drawRect(
+            Rect.fromLTWH(x, y, tileSize, tileSize),
+            tilePaint,
+          );
+        }
       }
     }
 
@@ -4776,12 +4781,12 @@ class _BattlefieldPainter extends CustomPainter {
       width / 420,
       height / 560,
     ).clamp(0.82, 1.25).toDouble();
-    _drawStonePad(canvas, size, 0.148, 0.291, 84 * scale, 72 * scale);
-    _drawStonePad(canvas, size, 0.852, 0.291, 84 * scale, 72 * scale);
-    _drawStonePad(canvas, size, 0.148, 0.611, 84 * scale, 72 * scale);
-    _drawStonePad(canvas, size, 0.852, 0.611, 84 * scale, 72 * scale);
-    _drawStonePad(canvas, size, 0.5, 0.205, 116 * scale, 112 * scale);
-    _drawStonePad(canvas, size, 0.5, 0.696, 116 * scale, 112 * scale);
+    _drawStonePad(canvas, size, 0.11, 0.28, 84 * scale, 72 * scale);
+    _drawStonePad(canvas, size, 0.89, 0.28, 84 * scale, 72 * scale);
+    _drawStonePad(canvas, size, 0.11, 0.62, 84 * scale, 72 * scale);
+    _drawStonePad(canvas, size, 0.89, 0.62, 84 * scale, 72 * scale);
+    _drawStonePad(canvas, size, 0.5, 0.19, 116 * scale, 112 * scale);
+    _drawStonePad(canvas, size, 0.5, 0.71, 116 * scale, 112 * scale);
 
     final double riverHeight = (height * 0.11).clamp(54.0, 78.0).toDouble();
     final Rect riverRect = Rect.fromCenter(
@@ -4804,14 +4809,14 @@ class _BattlefieldPainter extends CustomPainter {
 
     final Path riverPath = Path();
     riverPath.moveTo(0, midY - riverHeight / 2);
-    for (double x = 0; x <= width; x += 3) {
+    for (double x = 0; x <= width; x += 6) {
       riverPath.lineTo(
         x,
         midY - riverHeight / 2 + sin((x + riverOffset) * 0.07) * 5,
       );
     }
     riverPath.lineTo(width, midY + riverHeight / 2);
-    for (double x = width; x >= 0; x -= 3) {
+    for (double x = width; x >= 0; x -= 6) {
       riverPath.lineTo(
         x,
         midY + riverHeight / 2 + sin((x + riverOffset * 0.8) * 0.09) * 4,
