@@ -250,6 +250,31 @@ export class InterviewSessionRepository {
     return data ? this.mapTurn(data) : null;
   }
 
+  async getSessionTurn(
+    sessionId: string,
+    turnId: string,
+  ): Promise<InterviewTurn> {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('interview_turns')
+      .select()
+      .eq('session_id', sessionId)
+      .eq('id', turnId)
+      .single<InterviewTurnRow>();
+
+    if (error || !data) {
+      if (error?.code === 'PGRST116') {
+        throw new NotFoundException('Interview turn not found.');
+      }
+
+      throw new InternalServerErrorException(
+        error?.message ?? 'Failed to load interview turn.',
+      );
+    }
+
+    return this.mapTurn(data);
+  }
+
   async updateSessionSummary(
     sessionId: string,
     rollingSummary: string,
