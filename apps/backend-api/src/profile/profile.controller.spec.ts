@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { SupabaseAuthGuard } from '../auth/guards/supabase-auth.guard';
+import { ProfileService } from './profile.service';
 import { ProfileController } from './profile.controller';
 
 describe('ProfileController', () => {
@@ -7,7 +9,18 @@ describe('ProfileController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ProfileController],
-    }).compile();
+      providers: [
+        {
+          provide: ProfileService,
+          useValue: {
+            getProfile: jest.fn(),
+          },
+        },
+      ],
+    })
+      .overrideGuard(SupabaseAuthGuard)
+      .useValue({ canActivate: jest.fn(() => true) })
+      .compile();
 
     controller = module.get<ProfileController>(ProfileController);
   });

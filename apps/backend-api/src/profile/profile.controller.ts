@@ -1,5 +1,5 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { SupabaseAuthGuard } from 'src/auth/guards/supabase-auth.guard';
+import { SupabaseAuthGuard } from '../auth/guards/supabase-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { ProfileService } from './profile.service';
 

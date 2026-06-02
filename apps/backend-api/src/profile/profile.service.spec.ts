@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { SupabaseService } from '../supabase/supabase.service';
 import { ProfileService } from './profile.service';
 
 describe('ProfileService', () => {
@@ -6,7 +7,15 @@ describe('ProfileService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ProfileService],
+      providers: [
+        ProfileService,
+        {
+          provide: SupabaseService,
+          useValue: {
+            getClient: jest.fn(),
+          },
+        },
+      ],
     }).compile();
 
     service = module.get<ProfileService>(ProfileService);
