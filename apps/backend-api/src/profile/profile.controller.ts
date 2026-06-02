@@ -1,19 +1,16 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { SupabaseAuthGuard } from 'src/auth/guards/supabase-auth.guard';
+import type { User } from '@supabase/supabase-js';
 import { GetUser } from '../auth/decorators/get-user.decorator';
+import { SupabaseAuthGuard } from '../auth/guards/supabase-auth.guard';
 import { ProfileService } from './profile.service';
 
 @Controller('profile')
-@UseGuards(SupabaseAuthGuard) // 🛡️ Locks this entire controller!
+@UseGuards(SupabaseAuthGuard)
 export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
 
   @Get()
-  getMyProfile(@GetUser() user: any) {
-    // We completely ignore the URL or Body. 
-    // We grab the ID directly from the cryptographically verified token.
-    const userId = user.id; 
-    
-    return this.profileService.getProfile(userId);
+  getMyProfile(@GetUser() user: User) {
+    return this.profileService.getProfile(user.id);
   }
 }
