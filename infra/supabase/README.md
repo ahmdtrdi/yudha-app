@@ -13,6 +13,7 @@ Use it when:
 
 - `bootstrap.sql`: runnable SQL for a fresh Supabase project.
 - `schema-reference.md`: human-readable explanation of the tables, views, policies, and intended implementation order.
+- `auth-and-match-smoke-test.md`: manual register/login/profile/match verification steps.
 
 ## Recreate The Database
 
@@ -25,6 +26,7 @@ Use it when:
    - `SUPABASE_KEY`
 6. Create a test user through Supabase Auth.
 7. Confirm a row is automatically created in `public.profiles`.
+8. Follow `auth-and-match-smoke-test.md` to verify register, login, profile fetch, and match socket auth.
 
 ## Important Security Notes
 
