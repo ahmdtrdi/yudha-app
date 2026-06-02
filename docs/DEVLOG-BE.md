@@ -12,7 +12,7 @@
 - YUDHA PvP is an independent real-time card battle, not a shared quiz round, so cards are scoped by `roomId + userId + cardId`.
 - The same shared queue seeds both players' hands for fairness, while each player advances through draws independently.
 - `game_state_update` is player-relative with `self` and `opponent` so Flutter can render the same room from either player's perspective without guessing roles.
-- Web3/deposit/settlement logic was intentionally excluded; this slice proves the playable in-memory battle loop first.
+
 
 **The Tech Debt:**
 - Match results are not persisted to Supabase yet, and profile stats/rank/coins are not updated.
