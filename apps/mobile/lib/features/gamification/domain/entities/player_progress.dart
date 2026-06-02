@@ -48,6 +48,34 @@ class PlayerProgress {
 
   ProgressTier get tier => ProgressTier.fromPoints(totalPoints);
 
+  ProgressTier? get nextTier => tier.nextTier;
+
+  int get currentTierBasePoints => tier.minPoints;
+
+  int get nextTierPoints => nextTier?.minPoints ?? tier.minPoints;
+
+  double get tierProgress {
+    final ProgressTier? next = nextTier;
+    if (next == null) {
+      return 1;
+    }
+
+    final int span = next.minPoints - tier.minPoints;
+    if (span <= 0) {
+      return 1;
+    }
+
+    return ((totalPoints - tier.minPoints) / span).clamp(0, 1).toDouble();
+  }
+
+  int get pointsUntilNextTier {
+    final ProgressTier? next = nextTier;
+    if (next == null) {
+      return 0;
+    }
+    return (next.minPoints - totalPoints).clamp(0, next.minPoints);
+  }
+
   PlayerProgress copyWith({
     String? playerId,
     String? displayName,
