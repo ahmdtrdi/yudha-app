@@ -32,12 +32,12 @@ const String _tiuCardAsset = 'assets/game/tiu_card.png';
 const String _twkCardAsset = 'assets/game/twk_card.png';
 // Attack effects are now rendered via CustomPainter (no PNG assets needed).
 
-const Alignment _enemyMainAlignment = Alignment(0, -0.62);
-const Alignment _enemyMiniLeftAlignment = Alignment(-0.78, -0.44);
-const Alignment _enemyMiniRightAlignment = Alignment(0.78, -0.44);
-const Alignment _playerMainAlignment = Alignment(0, 0.42);
-const Alignment _playerMiniLeftAlignment = Alignment(-0.78, 0.24);
-const Alignment _playerMiniRightAlignment = Alignment(0.78, 0.24);
+const Alignment _enemyMainAlignment = Alignment(0, -0.59);
+const Alignment _enemyMiniLeftAlignment = Alignment(-0.704, -0.418);
+const Alignment _enemyMiniRightAlignment = Alignment(0.704, -0.418);
+const Alignment _playerMainAlignment = Alignment(0, 0.392);
+const Alignment _playerMiniLeftAlignment = Alignment(-0.704, 0.222);
+const Alignment _playerMiniRightAlignment = Alignment(0.704, 0.222);
 
 class PvpPage extends ConsumerWidget {
   const PvpPage({super.key});
@@ -1487,6 +1487,8 @@ class _InBattleSectionState extends State<_InBattleSection>
   int _toastIdCounter = 0;
   int _lastToastEventId = 0;
   Timer? _botTimer;
+  List<BattleQuestion> _hand = const <BattleQuestion>[];
+  late final AnimationController _shakeController;
 
   @override
   void initState() {
@@ -1500,6 +1502,11 @@ class _InBattleSectionState extends State<_InBattleSection>
       duration: const Duration(milliseconds: 700),
     );
     _startCountdown();
+    _hand = widget.state.availableQuestions.take(4).toList();
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
   }
 
   void _startCountdown() {
@@ -1563,6 +1570,7 @@ class _InBattleSectionState extends State<_InBattleSection>
         if (actor == BattleActor.opponent && effect != BattleVisualEffect.heal) {
           // Enemy attacked us
           _addToast('Enemy attacking!', isError: true);
+          _triggerShake();
         } else if (actor == BattleActor.player && effect == BattleVisualEffect.heal) {
           // Player healed
           _addToast('Heal!');
@@ -1587,6 +1595,48 @@ class _InBattleSectionState extends State<_InBattleSection>
     if (_countdownDone && !(_botTimer?.isActive ?? false)) {
       _scheduleBotAttack();
     }
+
+    // Rebuild hand: keep existing cards that are still available, fill gaps
+    _rebuildHand();
+  }
+
+  void _rebuildHand() {
+    final Set<String> availableIds = widget.state.availableQuestions
+        .map((BattleQuestion q) => q.id)
+        .toSet();
+
+    // Keep cards that are still in the pool (same position)
+    final List<BattleQuestion?> stable = _hand
+        .map((BattleQuestion q) => availableIds.contains(q.id) ? q : null)
+        .toList();
+
+    // Collect IDs already in hand
+    final Set<String> handIds = <String>{};
+    for (final BattleQuestion? q in stable) {
+      if (q != null) handIds.add(q.id);
+    }
+
+    // Get replacement cards from the pool (not already in hand)
+    final Iterator<BattleQuestion> replacements = widget
+        .state.availableQuestions
+        .where((BattleQuestion q) => !handIds.contains(q.id))
+        .iterator;
+
+    final List<BattleQuestion> newHand = <BattleQuestion>[];
+    for (int i = 0; i < 4; i++) {
+      if (i < stable.length && stable[i] != null) {
+        newHand.add(stable[i]!);
+      } else if (replacements.moveNext()) {
+        newHand.add(replacements.current);
+      }
+    }
+
+    // If hand is still short, fill from pool
+    while (newHand.length < 4 && replacements.moveNext()) {
+      newHand.add(replacements.current);
+    }
+
+    _hand = newHand;
   }
 
   @override
@@ -1594,7 +1644,12 @@ class _InBattleSectionState extends State<_InBattleSection>
     _botTimer?.cancel();
     _ambientController.dispose();
     _countdownController.dispose();
+    _shakeController.dispose();
     super.dispose();
+  }
+
+  void _triggerShake() {
+    _shakeController.forward(from: 0);
   }
 
   void _scheduleBotAttack() {
@@ -1621,31 +1676,43 @@ class _InBattleSectionState extends State<_InBattleSection>
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final bool compact = constraints.maxHeight < 760;
+    return AnimatedBuilder(
+      animation: _shakeController,
+      builder: (BuildContext context, Widget? shakeChild) {
+        final double shakeOffset = _shakeController.isAnimating
+            ? sin(_shakeController.value * pi * 6) *
+                (1 - _shakeController.value) * 6
+            : 0;
+        return Transform.translate(
+          offset: Offset(shakeOffset, 0),
+          child: shakeChild,
+        );
+      },
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          final bool compact = constraints.maxHeight < 760;
 
-        return Stack(
-          children: <Widget>[
-            Positioned.fill(
-              child: RepaintBoundary(
-                child: AnimatedBuilder(
-                  animation: _ambientController,
-                  builder: (BuildContext context, Widget? child) {
-                    return _ArenaPanel(
-                      playerHp: widget.state.playerHp,
-                      opponentHp: widget.state.opponentHp,
-                      mode: widget.state.mode,
-                      animationValue: _ambientController.value,
-                      visualActor: widget.state.lastActor,
-                      visualEffect: widget.state.lastVisualEffect,
-                      visualCategory: widget.state.lastEventCategory,
-                      eventId: widget.state.battleEventId,
-                    );
-                  },
+          return Stack(
+            children: <Widget>[
+              Positioned.fill(
+                child: RepaintBoundary(
+                  child: AnimatedBuilder(
+                    animation: _ambientController,
+                    builder: (BuildContext context, Widget? child) {
+                      return _ArenaPanel(
+                        playerHp: widget.state.playerHp,
+                        opponentHp: widget.state.opponentHp,
+                        mode: widget.state.mode,
+                        animationValue: _ambientController.value,
+                        visualActor: widget.state.lastActor,
+                        visualEffect: widget.state.lastVisualEffect,
+                        visualCategory: widget.state.lastEventCategory,
+                        eventId: widget.state.battleEventId,
+                      );
+                    },
+                  ),
                 ),
               ),
-            ),
             Positioned(
               top: 0,
               left: 0,
@@ -1690,9 +1757,7 @@ class _InBattleSectionState extends State<_InBattleSection>
                         playerName: widget.playerDisplayName,
                         hp: widget.state.playerHp,
                         points: widget.state.playerPoints,
-                        questions: widget.state.availableQuestions
-                            .take(4)
-                            .toList(),
+                        questions: _hand,
                         onPickQuestion: widget.onPickQuestion,
                         compact: compact,
                         animationValue: _ambientController.value,
@@ -1729,7 +1794,8 @@ class _InBattleSectionState extends State<_InBattleSection>
               ),
           ],
         );
-      },
+        },
+      ),
     );
   }
 }
@@ -3793,95 +3859,157 @@ class _TowerNode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double towerImageSize = mainTower ? 88 : 66;
+    final double towerImageSize = mainTower ? 108 : 80;
     final double padWidth = mainTower ? 118 : 88;
-    final double padHeight = mainTower ? 96 : 76;
-    final double bob = destroyed
-        ? 0
-        : sin((animationValue + animationDelay) * pi * 2) * 4;
+    final double padHeight = mainTower ? 112 : 86;
+    final double phase = (animationValue + animationDelay) * pi * 2;
+    final double bob = destroyed ? 0 : sin(phase) * 3;
+    final double sway = destroyed ? 0 : cos(phase * 0.7) * 1.5;
+    final double pulse = destroyed ? 1.0 : 1.0 + sin(phase * 2) * 0.012;
     final Color hpColor = hpProgress <= 0.32
         ? const Color(0xFFEF4444)
         : hpProgress <= 0.64
         ? const Color(0xFFFFD23F)
         : const Color(0xFF25C67A);
+    final bool isEnemy = alignment.y < 0;
+    final Color teamColor = isEnemy
+        ? const Color(0xFFFF4444)
+        : const Color(0xFF4488FF);
 
     return Align(
       alignment: alignment,
       child: Transform.translate(
-        offset: Offset(0, bob),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            SizedBox(
-              width: padWidth,
-              height: padHeight,
-              child: Center(
-                child: SizedBox(
-                  width: towerImageSize,
-                  height: towerImageSize,
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 260),
-                    transitionBuilder:
-                        (Widget child, Animation<double> animation) {
-                          return ScaleTransition(
-                            scale: Tween<double>(begin: 0.86, end: 1).animate(
-                              CurvedAnimation(
-                                parent: animation,
-                                curve: Curves.easeOutBack,
+        offset: Offset(sway, bob),
+        child: Transform.scale(
+          scale: pulse,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              SizedBox(
+                width: padWidth,
+                height: padHeight,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: <Widget>[
+                    // Ground shadow/glow
+                    Positioned(
+                      bottom: 0,
+                      child: Container(
+                        width: mainTower ? 80 : 60,
+                        height: mainTower ? 20 : 14,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          gradient: RadialGradient(
+                            colors: <Color>[
+                              teamColor.withAlpha(destroyed ? 20 : 60),
+                              teamColor.withAlpha(0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Tower image
+                    Center(
+                      child: SizedBox(
+                        width: towerImageSize,
+                        height: towerImageSize,
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 260),
+                          transitionBuilder:
+                              (Widget child, Animation<double> animation) {
+                                return ScaleTransition(
+                                  scale: Tween<double>(begin: 0.86, end: 1).animate(
+                                    CurvedAnimation(
+                                      parent: animation,
+                                      curve: Curves.easeOutBack,
+                                    ),
+                                  ),
+                                  child: FadeTransition(
+                                    opacity: animation,
+                                    child: child,
+                                  ),
+                                );
+                              },
+                          child: Opacity(
+                            key: ValueKey<String>(
+                              destroyed ? destroyedAsset : imageAsset,
+                            ),
+                            opacity: destroyed ? 0.72 : 1,
+                            child: Image.asset(
+                              destroyed ? destroyedAsset : imageAsset,
+                              fit: BoxFit.contain,
+                              filterQuality: FilterQuality.low,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 2),
+              // HP bar with glow when low
+              Stack(
+                alignment: Alignment.center,
+                children: <Widget>[
+                  if (hpProgress <= 0.32 && !destroyed)
+                    Container(
+                      width: mainTower ? 82 : 62,
+                      height: 11,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        boxShadow: <BoxShadow>[
+                          BoxShadow(
+                            color: hpColor.withAlpha(
+                              (80 + sin(phase * 4) * 40).round().clamp(0, 255),
+                            ),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: Container(
+                      width: mainTower ? 76 : 56,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withAlpha(150),
+                        border: Border.all(color: Colors.white.withAlpha(28)),
+                      ),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: FractionallySizedBox(
+                          widthFactor: hpProgress.clamp(0.0, 1.0).toDouble(),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: <Color>[
+                                  hpColor,
+                                  hpColor.withAlpha(200),
+                                ],
                               ),
                             ),
-                            child: FadeTransition(
-                              opacity: animation,
-                              child: child,
-                            ),
-                          );
-                        },
-                    child: Opacity(
-                      key: ValueKey<String>(
-                        destroyed ? destroyedAsset : imageAsset,
-                      ),
-                      opacity: destroyed ? 0.72 : 1,
-                      child: Image.asset(
-                        destroyed ? destroyedAsset : imageAsset,
-                        fit: BoxFit.contain,
-                        filterQuality: FilterQuality.medium,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 2),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: Container(
-                width: mainTower ? 76 : 56,
-                height: 7,
-                decoration: BoxDecoration(
-                  color: Colors.black.withAlpha(150),
-                  border: Border.all(color: Colors.white.withAlpha(28)),
-                ),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: FractionallySizedBox(
-                    widthFactor: hpProgress.clamp(0.0, 1.0).toDouble(),
-                    child: Container(color: hpColor),
-                  ),
-                ),
-              ),
-            ),
-            Text(
-              '$hpValue',
-              style: GoogleFonts.nunito(
-                color: Colors.white.withAlpha(235),
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-                shadows: <Shadow>[
-                  Shadow(color: Colors.black.withAlpha(220), blurRadius: 4),
                 ],
               ),
-            ),
-          ],
+              Text(
+                '$hpValue',
+                style: GoogleFonts.nunito(
+                  color: Colors.white.withAlpha(235),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  shadows: <Shadow>[
+                    Shadow(color: Colors.black.withAlpha(220), blurRadius: 4),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -4781,12 +4909,12 @@ class _BattlefieldPainter extends CustomPainter {
       width / 420,
       height / 560,
     ).clamp(0.82, 1.25).toDouble();
-    _drawStonePad(canvas, size, 0.11, 0.28, 84 * scale, 72 * scale);
-    _drawStonePad(canvas, size, 0.89, 0.28, 84 * scale, 72 * scale);
-    _drawStonePad(canvas, size, 0.11, 0.62, 84 * scale, 72 * scale);
-    _drawStonePad(canvas, size, 0.89, 0.62, 84 * scale, 72 * scale);
-    _drawStonePad(canvas, size, 0.5, 0.19, 116 * scale, 112 * scale);
-    _drawStonePad(canvas, size, 0.5, 0.71, 116 * scale, 112 * scale);
+    _drawStonePad(canvas, size, 0.148, 0.291, 84 * scale, 72 * scale);
+    _drawStonePad(canvas, size, 0.852, 0.291, 84 * scale, 72 * scale);
+    _drawStonePad(canvas, size, 0.148, 0.611, 84 * scale, 72 * scale);
+    _drawStonePad(canvas, size, 0.852, 0.611, 84 * scale, 72 * scale);
+    _drawStonePad(canvas, size, 0.5, 0.205, 116 * scale, 112 * scale);
+    _drawStonePad(canvas, size, 0.5, 0.696, 116 * scale, 112 * scale);
 
     final double riverHeight = (height * 0.11).clamp(54.0, 78.0).toDouble();
     final Rect riverRect = Rect.fromCenter(
