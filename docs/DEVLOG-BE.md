@@ -18,3 +18,37 @@
 - Match results are not persisted to Supabase yet, and profile stats/rank/coins are not updated.
 - Reconnect recovery, disconnect win/loss, room codes, bots, countdown timers, leaderboard, analytics, and practice APIs are still future slices.
 - The local question pool is only an MVP seed; production should load curated questions from Supabase or a managed content pipeline.
+
+## 2026-06-02 - Supabase Bootstrap Schema For New Project
+
+**The Change:**
+- Added `infra/supabase/bootstrap.sql` to recreate the core YUDHA database tables in a fresh Supabase project.
+- Included `profiles`, `questions`, `practice_sessions`, `practice_answers`, and `match_results` with indexes, timestamp triggers, profile auto-creation from `auth.users`, and baseline RLS policies.
+
+**The Reasoning:**
+- The current backend expects `profiles` to exist with `rank_points`, `total_matches`, `wins`, `losses`, `winrate`, `coins`, and equipped cosmetic fields.
+- Keeping the schema in the repo makes a lost/recreated Supabase project recoverable and gives the next persistence slice a clear target.
+- The script keeps match persistence ready without forcing the backend-game core to write results yet.
+
+**The Tech Debt:**
+- The bootstrap does not include seed question data yet.
+- Admin-only question management policies and service-role write flows still need to be formalized.
+- Match result persistence and profile stat updates are still pending implementation in `backend-game`.
+
+## 2026-06-02 - Team-Readable Supabase Schema Package
+
+**The Change:**
+- Expanded `infra/supabase/bootstrap.sql` into the full recoverable schema for profiles, questions, safe public question reads, practice, match history, match question pools, match logs, interview sessions/messages, institutions, documents, and document chunks.
+- Added `infra/supabase/README.md` with database recovery steps for a fresh Supabase project.
+- Added `infra/supabase/schema-reference.md` so teammates can understand the schema, RLS model, and table naming.
+- Updated `.gitignore` to ignore generated TypeScript build-info files.
+
+**The Reasoning:**
+- The team needs the database schema visible in the repo, not only inside a Supabase project owned by one account.
+- A runnable bootstrap plus human-readable docs makes database recovery repeatable if access is lost again.
+- The `public_questions` view keeps client-facing question reads separate from the internal table that stores answer metadata.
+
+**The Tech Debt:**
+- The schema still needs seed data for questions and institutions.
+- Backend persistence for `match_results`, `match_question_pool`, and `match_logs` is not implemented yet.
+- Admin/service-role workflows for writing protected content tables still need to be built.
