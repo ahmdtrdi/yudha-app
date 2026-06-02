@@ -12,7 +12,6 @@ class LobbyPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final progress = ref.watch(playerProgressProvider);
-    final int tierPoints = progress.totalPoints % 400;
 
     return Scaffold(
       backgroundColor: AppColors.surfaceLight,
@@ -52,7 +51,10 @@ class LobbyPage extends ConsumerWidget {
                       tierLabel: progress.tier.label,
                       totalPoints: progress.totalPoints,
                       winRate: progress.winRate,
-                      tierPoints: tierPoints,
+                      currentTierPoints:
+                          progress.totalPoints - progress.currentTierBasePoints,
+                      pointsUntilNextTier: progress.pointsUntilNextTier,
+                      tierProgress: progress.tierProgress,
                     ),
                   ),
                   SizedBox(height: compact ? 10 : 14),
@@ -105,7 +107,9 @@ class _LobbyHeroCard extends StatelessWidget {
     required this.tierLabel,
     required this.totalPoints,
     required this.winRate,
-    required this.tierPoints,
+    required this.currentTierPoints,
+    required this.pointsUntilNextTier,
+    required this.tierProgress,
   });
 
   final bool compact;
@@ -113,12 +117,19 @@ class _LobbyHeroCard extends StatelessWidget {
   final String tierLabel;
   final int totalPoints;
   final double winRate;
-  final int tierPoints;
+  final int currentTierPoints;
+  final int pointsUntilNextTier;
+  final double tierProgress;
 
   @override
   Widget build(BuildContext context) {
     final String winRateLabel = '${(winRate * 100).toStringAsFixed(0)}%';
-    final double tierProgress = tierPoints / 400;
+    final String progressLabel = pointsUntilNextTier == 0
+        ? 'Tier maksimum'
+        : '$currentTierPoints pts';
+    final String nextTierLabel = pointsUntilNextTier == 0
+        ? 'MAX'
+        : '$pointsUntilNextTier pts lagi';
 
     return Container(
       width: double.infinity,
@@ -134,115 +145,113 @@ class _LobbyHeroCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: <Widget>[
-                  _HeroPill(label: 'Winrate', value: winRateLabel),
-                  _HeroPill(label: 'Points', value: '$totalPoints'),
-                ],
-              ),
-              SizedBox(height: compact ? 12 : 14),
-              Expanded(
-                child: Center(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Container(
-                          width: compact ? 62 : 78,
-                          height: compact ? 62 : 78,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColors.scholarCream.withAlpha(20),
-                            border: Border.all(
-                              color: AppColors.levelUpTeal.withValues(
-                                alpha: 0.6,
-                              ),
-                              width: 2.5,
-                            ),
-                          ),
-                          child: Icon(
-                            Icons.shield_outlined,
-                            size: compact ? 32 : 40,
-                            color: AppColors.levelUpTeal,
-                          ),
-                        ),
-                        SizedBox(height: compact ? 8 : 12),
-                        Text(
-                          displayName,
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.dmSans(
-                            color: AppColors.scholarCream,
-                            fontSize: compact ? 24 : 28,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${tierLabel.toUpperCase()} TIER',
-                          style: GoogleFonts.orbitron(
-                            color: AppColors.fireGold,
-                            fontSize: compact ? 12 : 13,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: <Widget>[
-                  Text(
-                    'XP to next rank',
-                    style: GoogleFonts.dmSans(
-                      color: AppColors.scholarCream.withAlpha(190),
-                      fontSize: compact ? 11 : 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    '$tierPoints / 400',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: AppColors.scholarCream.withAlpha(220),
-                      fontSize: compact ? 11 : 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(100),
-                child: SizedBox(
-                  height: 10,
-                  child: Stack(
-                    children: <Widget>[
-                      Container(color: AppColors.scholarCream.withAlpha(40)),
-                      FractionallySizedBox(
-                        widthFactor: tierProgress == 0
-                            ? 0.02
-                            : tierProgress.clamp(0, 1),
-                        child: Container(
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: <Color>[
-                                AppColors.levelUpTeal,
-                                AppColors.fireGold,
-                              ],
-                            ),
-                          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              _HeroPill(label: 'Winrate', value: winRateLabel),
+              _HeroPill(label: 'Points', value: '$totalPoints'),
+            ],
+          ),
+          SizedBox(height: compact ? 12 : 14),
+          Expanded(
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Container(
+                      width: compact ? 62 : 78,
+                      height: compact ? 62 : 78,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.scholarCream.withAlpha(20),
+                        border: Border.all(
+                          color: AppColors.levelUpTeal.withValues(alpha: 0.6),
+                          width: 2.5,
                         ),
                       ),
-                    ],
-                  ),
+                      child: Icon(
+                        Icons.shield_outlined,
+                        size: compact ? 32 : 40,
+                        color: AppColors.levelUpTeal,
+                      ),
+                    ),
+                    SizedBox(height: compact ? 8 : 12),
+                    Text(
+                      displayName,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.dmSans(
+                        color: AppColors.scholarCream,
+                        fontSize: compact ? 24 : 28,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${tierLabel.toUpperCase()} TIER',
+                      style: GoogleFonts.orbitron(
+                        color: AppColors.fireGold,
+                        fontSize: compact ? 12 : 13,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              Text(
+                'XP to next rank',
+                style: GoogleFonts.dmSans(
+                  color: AppColors.scholarCream.withAlpha(190),
+                  fontSize: compact ? 11 : 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                '$progressLabel • $nextTierLabel',
+                style: GoogleFonts.jetBrainsMono(
+                  color: AppColors.scholarCream.withAlpha(220),
+                  fontSize: compact ? 11 : 12,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(100),
+            child: SizedBox(
+              height: 10,
+              child: Stack(
+                children: <Widget>[
+                  Container(color: AppColors.scholarCream.withAlpha(40)),
+                  FractionallySizedBox(
+                    widthFactor: tierProgress == 0
+                        ? 0.02
+                        : tierProgress.clamp(0, 1),
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: <Color>[
+                            AppColors.levelUpTeal,
+                            AppColors.fireGold,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

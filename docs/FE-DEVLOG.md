@@ -1059,3 +1059,23 @@
 - Login and sign-up now authenticate with Supabase, but profile creation/sync still depends on backend/Supabase triggers and has not yet replaced the local profile settings cache.
 - Auth route guarding is still lightweight; `SplashPage` checks auth once after a delay instead of using router-level redirects bound to auth state.
 - Supabase credentials still need to be provided by each developer through local run configuration or CI secrets.
+
+## 2026-06-03 - Real Profile Hydration for Mobile Progress
+
+### The Change
+- Added a backend-backed mobile profile/progress repository under `apps/mobile/lib/features/gamification/data/repositories/` for authenticated `GET /profile` requests.
+- Wired `playerProgressProvider` to hydrate from the authenticated Supabase session token instead of relying on seeded mock stats.
+- Replaced the old fake initial progression values with zeroed fallback defaults in `PlayerProgress.initial()`.
+- Synced the backend `username` into local profile settings so the existing profile/lobby UI keeps one visible display name after hydration.
+- Updated lobby rank progress rendering to use shared `PlayerProgress` tier getters instead of hardcoded `400`-point math.
+- Updated and expanded gamification tests to cover backend hydration behavior.
+
+### The Reasoning
+- `GET /profile` already exists in backend API and returns the authoritative rank/stat fields, so mobile should consume that instead of shipping fake win/loss/point values.
+- Hydrating through the existing Riverpod provider keeps lobby, profile, leaderboard, and PvP consumers on the same progress source without page-level network code.
+- Keeping a zeroed fallback state is safer than showing fabricated stats when auth or network is unavailable.
+
+### The Tech Debt
+- Backend profile payload does not currently provide streak, best streak, or last delta, so those still start at `0` and only change from local runtime PvP actions.
+- `ProfileSettings.target` is still local-only; backend profile hydration currently syncs the username but not exam target/preferences.
+- Failed profile fetches currently fall back silently to local defaults. We should surface a lightweight sync/error state once more real backend-backed screens depend on the same data.

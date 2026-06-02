@@ -17,12 +17,12 @@ class PlayerProgress {
     return const PlayerProgress(
       playerId: 'you',
       displayName: 'Kamu',
-      totalPoints: 520,
-      wins: 12,
-      losses: 6,
-      draws: 2,
+      totalPoints: 0,
+      wins: 0,
+      losses: 0,
+      draws: 0,
       streak: 0,
-      bestStreak: 3,
+      bestStreak: 0,
       lastDelta: 0,
     );
   }
