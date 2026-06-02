@@ -1,0 +1,41 @@
+{
+  "profile": {
+    "id": "kementerian-keuangan",
+    "name": "Kementerian Keuangan Republik Indonesia",
+    "summary": "Kementerian Keuangan adalah kementerian yang menyelenggarakan urusan pemerintahan di bidang keuangan negara untuk membantu Presiden dalam menyelenggarakan pemerintahan negara.",
+    "contentVersion": "official-web-2026-06-02",
+    "defaultTargetRole": "Staf Pengelola Keuangan Negara"
+  },
+  "contexts": [
+    {
+      "category": "Vision",
+      "content": "Menjadi Pengelola Keuangan Negara untuk Mewujudkan Perekonomian Indonesia yang Produktif, Kompetitif, Inklusif, dan Berkeadilan.",
+      "priority": 10
+    },
+    {
+      "category": "Mission",
+      "content": "Kementerian Keuangan berfokus pada penerimaan negara yang optimal, belanja negara yang produktif, pengelolaan aset yang akuntabel, pembiayaan yang dikelola dengan risiko terkendali, serta reformasi birokrasi.",
+      "priority": 20
+    },
+    {
+      "category": "Values",
+      "content": "Nilai-nilai Kementerian Keuangan adalah Integritas, Profesionalisme, Sinergi, Pelayanan, dan Kesempurnaan.",
+      "priority": 30
+    },
+    {
+      "category": "Interview focus",
+      "content": "Gunakan konteks kementerian hanya saat relevan. Untuk tahap awal, gali latar belakang, motivasi pelayanan publik, pengalaman umum, integritas, kemampuan belajar, dan kolaborasi.",
+      "priority": 40
+    }
+  ],
+  "sources": [
+    {
+      "title": "Kementerian Keuangan - Profil",
+      "url": "https://www.kemenkeu.go.id/profile"
+    },
+    {
+      "title": "DJPb Kementerian Keuangan - Nilai-Nilai Kementerian Keuangan",
+      "url": "https://djpb.kemenkeu.go.id/kppn/biak/id/profil/nilai-nilai-kementerian-keuangan.html"
+    }
+  ]
+}

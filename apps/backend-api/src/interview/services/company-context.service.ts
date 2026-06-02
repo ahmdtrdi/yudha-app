@@ -6,6 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../../supabase/supabase.service';
 import { CompanyContextSnapshot } from '../interview.types';
+import { formatCompanyBriefing } from './company-context-formatter';
 
 interface CompanyProfileRow {
   id: string;
@@ -74,20 +75,12 @@ export class CompanyContextService {
       companyId: profile.id,
       companyName: profile.name,
       contentVersion: profile.content_version,
-      briefing: this.buildBriefing(profile, contexts ?? []),
+      briefing: formatCompanyBriefing(
+        profile.summary,
+        contexts ?? [],
+        this.maxChars,
+      ),
     };
-  }
-
-  private buildBriefing(
-    profile: CompanyProfileRow,
-    contexts: CompanyContextRow[],
-  ): string {
-    const sections = [
-      `Overview: ${profile.summary}`,
-      ...contexts.map((context) => `${context.category}: ${context.content}`),
-    ];
-
-    return sections.join('\n').slice(0, this.maxChars);
   }
 
   private getPositiveInteger(

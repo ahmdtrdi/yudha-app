@@ -15,11 +15,14 @@ describe('InterviewEvaluationValidator', () => {
         impact: 80,
         authenticity: 80,
       },
+      candidateFacts: ['Candidate has led a team'],
       strengths: ['Relevant answer'],
       improvements: ['Add one measurable result'],
       suggestedRewrite: 'A stronger answer.',
       nextQuestion: 'What did you learn from the experience?',
       shouldEndSession: false,
+      endReason: null,
+      coachNote: null,
     };
 
     expect(validator.parse(evaluation)).toEqual(evaluation);
@@ -36,15 +39,42 @@ describe('InterviewEvaluationValidator', () => {
         impact: 80,
         authenticity: 80,
       },
+      candidateFacts: [],
       strengths: ['Relevant answer'],
       improvements: ['Add one measurable result'],
       suggestedRewrite: 'A stronger answer.',
       nextQuestion: 'What did you learn from the experience?',
       shouldEndSession: false,
+      endReason: null,
+      coachNote: null,
     };
 
     expect(() => validator.parse(evaluation)).toThrow(
       ServiceUnavailableException,
     );
+  });
+
+  it('accepts nullable metadata required by strict structured output', () => {
+    const evaluation = {
+      overallScore: 80,
+      dimensions: {
+        relevance: 80,
+        clarity: 80,
+        structure: 80,
+        confidence: 80,
+        impact: 80,
+        authenticity: 80,
+      },
+      candidateFacts: [],
+      strengths: ['Relevant answer'],
+      improvements: ['Add one measurable result'],
+      suggestedRewrite: 'A stronger answer.',
+      nextQuestion: 'What did you learn from the experience?',
+      shouldEndSession: false,
+      endReason: null,
+      coachNote: null,
+    };
+
+    expect(validator.parse(evaluation)).toEqual(evaluation);
   });
 });

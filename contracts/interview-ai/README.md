@@ -19,13 +19,15 @@ Request:
 
 ```json
 {
-  "mode": "bumn_hr",
+  "mode": "realistic",
   "targetRole": "Management Trainee",
   "companyId": "bumn_taspen",
   "language": "id",
   "responseStyle": "text"
 }
 ```
+
+Gunakan `mode: "realistic"` untuk simulasi interview tanpa feedback di tengah sesi. Gunakan `mode: "coaching"` untuk latihan interaktif dengan feedback setelah setiap jawaban.
 
 Response:
 
@@ -101,6 +103,8 @@ Menutup sesi dan menghasilkan final summary.
 ## Structured LLM Output
 
 Gunakan schema di `contracts/interview-ai/interview-evaluation.schema.json` agar parsing backend tetap stabil walau provider LLM berubah.
+
+Field `candidateFacts` menyimpan fakta eksplisit dari jawaban kandidat, seperti nama, status pendidikan, atau bidang studi. Fakta ini dipakai backend sebagai memori percakapan singkat agar pertanyaan lanjutan tetap natural tanpa mengarang informasi kandidat.
 
 ## Idempotency
 

@@ -9,7 +9,6 @@ import { StartInterviewSessionDto } from './dto/start-interview-session.dto';
 import { SubmitInterviewTurnDto } from './dto/submit-interview-turn.dto';
 import { INTERVIEW_LLM_CLIENT } from './interview.constants';
 import {
-  InterviewDimensions,
   InterviewEvaluation,
   InterviewFinalSummary,
   InterviewSession,
@@ -19,15 +18,7 @@ import type { InterviewLlmClient } from './interview.types';
 import { InterviewSessionRepository } from './repositories/interview-session.repository';
 import { CompanyContextService } from './services/company-context.service';
 import { InterviewInputValidator } from './services/interview-input-validator.service';
-
-const dimensionNames: (keyof InterviewDimensions)[] = [
-  'relevance',
-  'clarity',
-  'structure',
-  'confidence',
-  'impact',
-  'authenticity',
-];
+import { InterviewSummaryService } from './services/interview-summary.service';
 
 @Injectable()
 export class InterviewService {
@@ -38,6 +29,7 @@ export class InterviewService {
     private readonly repository: InterviewSessionRepository,
     private readonly companyContextService: CompanyContextService,
     private readonly inputValidator: InterviewInputValidator,
+    private readonly summaryService: InterviewSummaryService,
     configService: ConfigService,
     @Inject(INTERVIEW_LLM_CLIENT)
     private readonly llmClient: InterviewLlmClient,
@@ -141,7 +133,10 @@ export class InterviewService {
       isAnswerCompleted = true;
       await this.repository.updateSessionSummary(
         session.id,
-        this.appendRollingSummary(session.rollingSummary, completedEvaluation),
+        this.summaryService.appendRollingSummary(
+          session.rollingSummary,
+          completedEvaluation,
+        ),
       );
 
       const nextQuestion = shouldEndSession
@@ -151,23 +146,20 @@ export class InterviewService {
             completedEvaluation.nextQuestion,
             answerTurn.id,
           );
+      const finalSummary = shouldEndSession
+        ? this.buildFinalSummary(await this.repository.listTurns(session.id))
+        : null;
 
-      if (shouldEndSession) {
-        const finalTurns = await this.repository.listTurns(session.id);
-        await this.repository.completeSession(
-          session.id,
-          this.buildFinalSummary(finalTurns),
-        );
+      if (finalSummary) {
+        await this.repository.completeSession(session.id, finalSummary);
       }
 
-      return {
-        sessionId: session.id,
-        status: shouldEndSession ? 'completed' : 'active',
-        evaluation: completedEvaluation,
-        nextQuestion: nextQuestion
-          ? this.toQuestionResponse(nextQuestion)
-          : null,
-      };
+      return this.buildTurnResponse(
+        session,
+        completedEvaluation,
+        nextQuestion,
+        finalSummary,
+      );
     } catch (error) {
       if (!isAnswerCompleted) {
         await this.repository.failAnswer(answerTurn.id);
@@ -191,7 +183,10 @@ export class InterviewService {
         turnId: turn.id,
         role: turn.role,
         text: turn.content,
-        evaluation: turn.evaluation,
+        evaluation:
+          session.mode === 'coaching' || session.status === 'completed'
+            ? turn.evaluation
+            : undefined,
         createdAt: turn.createdAt,
       })),
       finalSummary: session.finalSummary,
@@ -244,20 +239,36 @@ export class InterviewService {
           answer.evaluation.nextQuestion,
           answer.id,
         );
+    let finalSummary = session.finalSummary;
 
     if (shouldEndSession && session.status === 'active') {
       const turns = await this.repository.listTurns(session.id);
-      await this.repository.completeSession(
-        session.id,
-        this.buildFinalSummary(turns),
-      );
+      finalSummary = this.buildFinalSummary(turns);
+      await this.repository.completeSession(session.id, finalSummary);
     }
+
+    return this.buildTurnResponse(
+      session,
+      answer.evaluation,
+      nextQuestion,
+      finalSummary,
+    );
+  }
+
+  private buildTurnResponse(
+    session: InterviewSession,
+    evaluation: InterviewEvaluation,
+    nextQuestion: InterviewTurn | null,
+    finalSummary: InterviewFinalSummary | null,
+  ) {
+    const isCompleted = evaluation.shouldEndSession;
 
     return {
       sessionId: session.id,
-      status: shouldEndSession ? 'completed' : 'active',
-      evaluation: answer.evaluation,
+      status: isCompleted ? 'completed' : 'active',
+      evaluation: session.mode === 'coaching' ? evaluation : undefined,
       nextQuestion: nextQuestion ? this.toQuestionResponse(nextQuestion) : null,
+      finalSummary: isCompleted ? finalSummary : undefined,
     };
   }
 
@@ -281,19 +292,6 @@ export class InterviewService {
     throw new ConflictException('Interview session has no active question.');
   }
 
-  private appendRollingSummary(
-    summary: string,
-    evaluation: InterviewEvaluation,
-  ): string {
-    const line = [
-      `Score ${evaluation.overallScore}.`,
-      `Strengths: ${evaluation.strengths.join('; ')}.`,
-      `Improve: ${evaluation.improvements.join('; ')}.`,
-    ].join(' ');
-
-    return [summary, line].filter(Boolean).join('\n').slice(-1600);
-  }
-
   private buildFinalSummary(turns: InterviewTurn[]): InterviewFinalSummary {
     const evaluations = turns
       .map((turn) => turn.evaluation)
@@ -301,44 +299,7 @@ export class InterviewService {
         Boolean(evaluation),
       );
 
-    if (evaluations.length === 0) {
-      throw new ConflictException(
-        'Submit at least one interview answer before completing the session.',
-      );
-    }
-
-    const dimensions = Object.fromEntries(
-      dimensionNames.map((dimension) => [
-        dimension,
-        this.average(
-          evaluations.map((evaluation) => evaluation.dimensions[dimension]),
-        ),
-      ]),
-    ) as unknown as InterviewDimensions;
-
-    return {
-      overallScore: this.average(
-        evaluations.map((evaluation) => evaluation.overallScore),
-      ),
-      dimensions,
-      strengths: this.uniqueItems(
-        evaluations.flatMap((evaluation) => evaluation.strengths),
-      ),
-      improvements: this.uniqueItems(
-        evaluations.flatMap((evaluation) => evaluation.improvements),
-      ),
-      answerCount: evaluations.length,
-    };
-  }
-
-  private uniqueItems(items: string[]): string[] {
-    return [...new Set(items)].slice(0, 5);
-  }
-
-  private average(values: number[]): number {
-    return Math.round(
-      values.reduce((total, value) => total + value, 0) / values.length,
-    );
+    return this.summaryService.buildFinalSummary(evaluations);
   }
 
   private buildOpeningQuestion(

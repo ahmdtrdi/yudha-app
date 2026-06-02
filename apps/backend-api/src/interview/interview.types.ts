@@ -18,6 +18,7 @@ export interface InterviewDimensions {
 export interface InterviewEvaluation {
   overallScore: number;
   dimensions: InterviewDimensions;
+  candidateFacts: string[];
   strengths: string[];
   improvements: string[];
   suggestedRewrite: string;

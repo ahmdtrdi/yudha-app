@@ -1,0 +1,46 @@
+{
+  "profile": {
+    "id": "pertamina",
+    "name": "PT Pertamina (Persero)",
+    "summary": "Pertamina adalah BUMN energi yang menjalankan bisnis energi terintegrasi dari hulu hingga hilir, termasuk eksplorasi dan produksi, pengolahan, distribusi, serta pemasaran produk energi.",
+    "contentVersion": "official-web-2026-06-02",
+    "defaultTargetRole": "Management Trainee"
+  },
+  "contexts": [
+    {
+      "category": "Vision",
+      "content": "Menjadi perusahaan energi nasional kelas dunia.",
+      "priority": 10
+    },
+    {
+      "category": "Mission",
+      "content": "Menjalankan usaha minyak, gas, serta energi baru dan terbarukan secara terintegrasi berdasarkan prinsip-prinsip komersial yang kuat.",
+      "priority": 20
+    },
+    {
+      "category": "Values",
+      "content": "Pertamina menerapkan core values BUMN AKHLAK: Amanah, Kompeten, Harmonis, Loyal, Adaptif, dan Kolaboratif.",
+      "priority": 30
+    },
+    {
+      "category": "Sustainability",
+      "content": "Pertamina menyatakan komitmen untuk mendukung target Net Zero Emission 2060 atau lebih cepat serta pencapaian Sustainable Development Goals.",
+      "priority": 40
+    },
+    {
+      "category": "Interview focus",
+      "content": "Gunakan konteks perusahaan hanya saat relevan. Untuk tahap awal, gali latar belakang, motivasi, pengalaman umum, kolaborasi, kemampuan belajar, dan alasan kandidat tertarik pada sektor energi.",
+      "priority": 50
+    }
+  ],
+  "sources": [
+    {
+      "title": "Pertamina Recruitment - About Us",
+      "url": "https://recruitment.pertamina.com/assets/frontend/content/about-us.html"
+    },
+    {
+      "title": "Pertamina Sustainability - CEO Message",
+      "url": "https://sustainability.pertamina.com/ceo-message/"
+    }
+  ]
+}

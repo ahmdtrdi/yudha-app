@@ -36,13 +36,16 @@ export class GroqLlmService implements InterviewLlmClient {
   private readonly timeoutMs: number;
   private readonly maxOutputTokens: number;
   private readonly maxRetries: number;
+  private readonly reasoningEffort: string;
 
   constructor(
     configService: ConfigService,
     private readonly promptService: InterviewPromptService,
     private readonly evaluationValidator: InterviewEvaluationValidator,
   ) {
-    this.apiKey = this.requireConfig(configService, 'INTERVIEW_LLM_API_KEY');
+    this.apiKey =
+      configService.get<string>('GROQ_API_KEY') ??
+      this.requireConfig(configService, 'INTERVIEW_LLM_API_KEY');
     this.baseUrl = configService.get<string>(
       'INTERVIEW_LLM_BASE_URL',
       'https://api.groq.com/openai/v1',
@@ -59,12 +62,16 @@ export class GroqLlmService implements InterviewLlmClient {
     this.maxOutputTokens = this.getPositiveInteger(
       configService,
       'INTERVIEW_LLM_MAX_OUTPUT_TOKENS',
-      800,
+      2048,
     );
     this.maxRetries = this.getNonNegativeInteger(
       configService,
       'INTERVIEW_LLM_MAX_RETRIES',
       1,
+    );
+    this.reasoningEffort = configService.get<string>(
+      'INTERVIEW_LLM_REASONING_EFFORT',
+      'low',
     );
   }
 
@@ -114,6 +121,7 @@ export class GroqLlmService implements InterviewLlmClient {
           model: this.model,
           messages: this.promptService.buildEvaluationMessages(input),
           max_completion_tokens: this.maxOutputTokens,
+          reasoning_effort: this.reasoningEffort,
           response_format: {
             type: 'json_schema',
             json_schema: {
@@ -130,13 +138,16 @@ export class GroqLlmService implements InterviewLlmClient {
         return response;
       }
 
+      const errorBody = await this.readErrorBody(response);
       const canRetry =
         attempt < this.maxRetries &&
-        (response.status === 429 || response.status >= 500);
+        (response.status === 429 ||
+          response.status >= 500 ||
+          errorBody.includes('"code":"json_validate_failed"'));
 
       if (!canRetry) {
         this.logger.error(
-          `Groq request failed with status ${response.status}.`,
+          `Groq request failed with status ${response.status}: ${errorBody}`,
         );
         throw new ServiceUnavailableException(
           'The interview model is temporarily unavailable.',
@@ -149,6 +160,14 @@ export class GroqLlmService implements InterviewLlmClient {
     throw new ServiceUnavailableException(
       'The interview model is temporarily unavailable.',
     );
+  }
+
+  private async readErrorBody(response: Response): Promise<string> {
+    try {
+      return (await response.text()).slice(0, 1000);
+    } catch {
+      return 'Unable to read Groq error response.';
+    }
   }
 
   private getRetryDelayMs(response: Response, attempt: number): number {
