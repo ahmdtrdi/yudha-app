@@ -6,11 +6,14 @@ export const INTERVIEW_EVALUATION_SCHEMA = {
   required: [
     'overallScore',
     'dimensions',
+    'candidateFacts',
     'strengths',
     'improvements',
     'suggestedRewrite',
     'nextQuestion',
     'shouldEndSession',
+    'endReason',
+    'coachNote',
   ],
   properties: {
     overallScore: scoreSchema(),
@@ -33,6 +36,11 @@ export const INTERVIEW_EVALUATION_SCHEMA = {
         impact: scoreSchema(),
         authenticity: scoreSchema(),
       },
+    },
+    candidateFacts: {
+      type: 'array',
+      maxItems: 8,
+      items: nonEmptyStringSchema(),
     },
     strengths: stringListSchema(),
     improvements: stringListSchema(),

@@ -30,6 +30,7 @@ export class InterviewEvaluationValidator {
 
     if (
       !this.isScore(value.overallScore) ||
+      !this.isCandidateFacts(value.candidateFacts) ||
       !this.isStringList(value.strengths) ||
       !this.isStringList(value.improvements) ||
       !this.isNonEmptyString(value.suggestedRewrite) ||
@@ -62,6 +63,14 @@ export class InterviewEvaluationValidator {
       Array.isArray(value) &&
       value.length >= 1 &&
       value.length <= 5 &&
+      value.every((item) => this.isNonEmptyString(item))
+    );
+  }
+
+  private isCandidateFacts(value: unknown): value is string[] {
+    return (
+      Array.isArray(value) &&
+      value.length <= 8 &&
       value.every((item) => this.isNonEmptyString(item))
     );
   }

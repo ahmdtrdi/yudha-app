@@ -9,6 +9,7 @@ import { GroqLlmService } from './services/groq-llm.service';
 import { InterviewEvaluationValidator } from './services/interview-evaluation-validator.service';
 import { InterviewInputValidator } from './services/interview-input-validator.service';
 import { InterviewPromptService } from './services/interview-prompt.service';
+import { InterviewSummaryService } from './services/interview-summary.service';
 
 @Module({
   imports: [SupabaseModule],
@@ -19,6 +20,7 @@ import { InterviewPromptService } from './services/interview-prompt.service';
     CompanyContextService,
     InterviewInputValidator,
     InterviewPromptService,
+    InterviewSummaryService,
     InterviewEvaluationValidator,
     {
       provide: INTERVIEW_LLM_CLIENT,
