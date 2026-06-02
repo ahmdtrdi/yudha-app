@@ -1,0 +1,41 @@
+{
+  "profile": {
+    "id": "bank-mandiri",
+    "name": "PT Bank Mandiri (Persero) Tbk",
+    "summary": "Bank Mandiri adalah perusahaan perbankan yang menyediakan layanan keuangan bagi nasabah individu dan bisnis serta mengembangkan solusi perbankan digital.",
+    "contentVersion": "official-web-2026-06-02",
+    "defaultTargetRole": "Officer Development Program"
+  },
+  "contexts": [
+    {
+      "category": "Vision",
+      "content": "Menjadi partner finansial pilihan utama Anda.",
+      "priority": 10
+    },
+    {
+      "category": "Mission",
+      "content": "Menyediakan solusi perbankan digital yang handal dan simple yang menjadi bagian hidup nasabah.",
+      "priority": 20
+    },
+    {
+      "category": "Values",
+      "content": "Bank Mandiri menerapkan core values BUMN AKHLAK: Amanah, Kompeten, Harmonis, Loyal, Adaptif, dan Kolaboratif.",
+      "priority": 30
+    },
+    {
+      "category": "Interview focus",
+      "content": "Gunakan konteks perusahaan hanya saat relevan. Untuk tahap awal, gali latar belakang, motivasi, pengalaman umum, orientasi layanan, kemampuan belajar, kolaborasi, dan ketertarikan pada layanan keuangan atau digital.",
+      "priority": 40
+    }
+  ],
+  "sources": [
+    {
+      "title": "Bank Mandiri - Company Profile",
+      "url": "https://www.bankmandiri.co.id/en/profil-perusahaan"
+    },
+    {
+      "title": "Bank Mandiri - AKHLAK",
+      "url": "https://www.bankmandiri.co.id/en/web/guest/akhlak"
+    }
+  ]
+}
