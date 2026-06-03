@@ -152,7 +152,7 @@ abstract final class MockQuestionBank {
     final List<BattleQuestion> ordered = <BattleQuestion>[];
     int cursor = 0;
 
-    while (ordered.length < 24 && groups.values.any((group) => group.isNotEmpty)) {
+    while (groups.values.any((group) => group.isNotEmpty)) {
       final String category = categoryLoop[cursor % categoryLoop.length];
       final List<BattleQuestion>? group = groups[category];
       if (group != null && group.isNotEmpty) {
