@@ -1122,3 +1122,24 @@
 - `apps/backend-api` still does not expose a practice module, so the current backend repository falls back to seeded local data on request failure.
 - Practice progress and recent activity are repository-driven now, but the fallback values are still static seed data until real backend responses exist.
 - The practice widget test continues to hang on this Windows runner in its second case after rendering `renders practice quiz page and transforms hint`; analyzer and practice unit tests pass, so this should be revisited separately as a test-runner issue.
+
+## 2026-06-03 - Leaderboard Made Backend-First With Real Rank Support
+
+### The Change
+- Added a backend-first leaderboard repository in `apps/mobile/lib/features/leaderboard/data/repositories/backend_leaderboard_repository.dart`.
+- Updated the leaderboard payload model to support real current-user metadata from API responses:
+  - `currentUserRank`
+  - `currentUserEntry`
+- Extended leaderboard state to store repository-provided current-user rank/entry instead of relying on page-local prototype values.
+- Refactored `LeaderboardController` so synthetic current-user insertion only happens when the repository does not provide current-user leaderboard data.
+- Replaced the page-level fixed `#13` prototype rank in `leaderboard_page.dart` with repository/state-driven rank handling.
+- Switched the default mobile provider from `MockLeaderboardRepository` to the backend-first repository, while keeping the mock repository as fallback data until the backend endpoint exists.
+
+### The Reasoning
+- The leaderboard feature already had a repository/controller split, so the highest-value cleanup was to move user-rank ownership into the data layer and remove page-owned prototype behavior.
+- Real leaderboard APIs often return both a visible page of ranked users and a separate current-user rank that may live outside the current page window. The payload/state needed to express that directly.
+- Keeping the mock repository only as a fallback preserves the current experience while making the mobile app ready to consume a real leaderboard endpoint without another UI rewrite.
+
+### The Tech Debt
+- `apps/backend-api` still does not expose a leaderboard endpoint, so the backend-first repository currently falls back to the mock repository on request failure.
+- The current fallback still reports prototype-style user rank data, but it now does so through the repository payload instead of hardcoded widget logic.

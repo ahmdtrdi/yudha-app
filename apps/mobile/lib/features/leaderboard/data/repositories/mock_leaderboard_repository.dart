@@ -28,6 +28,7 @@ class MockLeaderboardRepository extends LeaderboardRepository {
     return LeaderboardPagePayload(
       entries: source.sublist(start, end),
       hasMore: end < source.length,
+      currentUserRank: 13,
     );
   }
 }

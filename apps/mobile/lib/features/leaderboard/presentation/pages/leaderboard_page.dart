@@ -18,16 +18,28 @@ class LeaderboardPage extends ConsumerWidget {
     );
     final progress = ref.watch(playerProgressProvider);
 
-    int userRank =
-        13; // Fixed prototype rank representing your global position out of the total database!
+    int? userRank = leaderboardState.currentUserRank;
     bool isUserInLoadedList = false;
     if (leaderboardState.status == LeaderboardViewStatus.success) {
       final idx = leaderboardState.entries.indexWhere((e) => e.isCurrentUser);
       if (idx != -1) {
-        userRank = idx + 1;
+        userRank ??= idx + 1;
         isUserInLoadedList = true;
       }
     }
+
+    final LeaderboardEntry currentUserEntry =
+        leaderboardState.currentUserEntry ??
+        LeaderboardEntry(
+          playerId: progress.playerId,
+          playerName: progress.displayName.isEmpty
+              ? 'Kamu'
+              : progress.displayName,
+          points: progress.totalPoints,
+          winRate: progress.winRate,
+          streak: progress.streak,
+          isCurrentUser: true,
+        );
 
     // Split top 3 vs others
     final topThree = leaderboardState.entries.take(3).toList();
@@ -122,6 +134,7 @@ class LeaderboardPage extends ConsumerWidget {
                 ),
               ),
               if (!isUserInLoadedList &&
+                  userRank != null &&
                   leaderboardState.status == LeaderboardViewStatus.success)
                 SliverToBoxAdapter(
                   child: Column(
@@ -137,16 +150,7 @@ class LeaderboardPage extends ConsumerWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: _LeaderboardTile(
                           rank: userRank,
-                          entry: LeaderboardEntry(
-                            playerId: progress.playerId,
-                            playerName: progress.displayName.isEmpty
-                                ? 'Kamu'
-                                : progress.displayName,
-                            points: progress.totalPoints,
-                            winRate: progress.winRate,
-                            streak: progress.streak,
-                            isCurrentUser: true,
-                          ),
+                          entry: currentUserEntry,
                         ),
                       ),
                     ],
@@ -199,7 +203,7 @@ class _HeroRankCard extends StatelessWidget {
     required this.targetXp,
   });
 
-  final int rank;
+  final int? rank;
   final String name;
   final String tierLabel;
   final int totalPoints;
@@ -358,7 +362,7 @@ class _HeroRankCard extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    rank > 0 ? '#$rank' : '-',
+                    rank != null && rank! > 0 ? '#$rank' : '-',
                     style: GoogleFonts.orbitron(
                       color: AppColors.fireGold,
                       fontSize: 20,

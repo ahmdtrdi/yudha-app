@@ -27,6 +27,7 @@ class _SuccessLeaderboardRepository extends LeaderboardRepository {
         ),
       ],
       hasMore: false,
+      currentUserRank: 21,
     );
   }
 }
@@ -114,10 +115,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('Belum ada peringkat global.'),
-      findsOneWidget,
-    );
+    expect(find.text('Belum ada peringkat global.'), findsOneWidget);
   });
 
   testWidgets('renders error state with retry action', (
