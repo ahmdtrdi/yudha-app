@@ -129,9 +129,9 @@ abstract final class MockQuestionBank {
     final Map<String, List<BattleQuestion>> groups =
         <String, List<BattleQuestion>>{};
     for (final BattleQuestion question in questions) {
-      groups.putIfAbsent(question.category, () => <BattleQuestion>[]).add(
-        question,
-      );
+      groups
+          .putIfAbsent(question.category, () => <BattleQuestion>[])
+          .add(question);
     }
 
     final Random random = Random();
@@ -152,7 +152,8 @@ abstract final class MockQuestionBank {
     final List<BattleQuestion> ordered = <BattleQuestion>[];
     int cursor = 0;
 
-    while (ordered.length < 24 && groups.values.any((group) => group.isNotEmpty)) {
+    while (ordered.length < 24 &&
+        groups.values.any((group) => group.isNotEmpty)) {
       final String category = categoryLoop[cursor % categoryLoop.length];
       final List<BattleQuestion>? group = groups[category];
       if (group != null && group.isNotEmpty) {

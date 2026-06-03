@@ -128,10 +128,7 @@ class PvpPage extends ConsumerWidget {
         },
         onStartPlayer: () async {
           controller.setMode(BattleMode.online);
-          final bool allowStart = await _showRoomCodeDialog(context);
-          if (allowStart) {
-            controller.startBattle();
-          }
+          await controller.startBattle();
         },
       );
     }
@@ -159,11 +156,17 @@ class PvpPage extends ConsumerWidget {
       playerDisplayName: playerDisplayName,
       onPause: () => _showPauseDialog(context: context, controller: controller),
       onBotAnswer: controller.answerBotQuestion,
-      onPickQuestion: (BattleQuestion question) => _showQuestionSheet(
-        context: context,
-        controller: controller,
-        question: question,
-      ),
+      onPickQuestion: (BattleQuestion question) async {
+        final bool ready = await controller.prepareQuestion(question);
+        if (!ready || !context.mounted) {
+          return;
+        }
+        await _showQuestionSheet(
+          context: context,
+          controller: controller,
+          question: question,
+        );
+      },
     );
   }
 
@@ -179,8 +182,8 @@ class PvpPage extends ConsumerWidget {
       builder: (BuildContext sheetContext) {
         return _QuestionBattleSheet(
           question: question,
-          onAnswered: (int selectedOptionIndex) {
-            controller.answerQuestion(
+          onAnswered: (int selectedOptionIndex) async {
+            await controller.answerQuestion(
               questionId: question.id,
               selectedOptionIndex: selectedOptionIndex,
             );
@@ -293,152 +296,6 @@ class PvpPage extends ConsumerWidget {
       controller.resetBattle();
     }
   }
-
-  Future<bool> _showRoomCodeDialog(BuildContext context) async {
-    final TextEditingController roomCodeController = TextEditingController();
-    String? localCreatedCode;
-    String? validationError;
-
-    try {
-      final bool? confirmed = await showDialog<bool>(
-        context: context,
-        builder: (BuildContext dialogContext) {
-          return StatefulBuilder(
-            builder: (BuildContext dialogContext, StateSetter setDialogState) {
-              return AlertDialog(
-                backgroundColor: const Color(0xFF101733),
-                title: const Text(
-                  'VS Player',
-                  style: TextStyle(color: Colors.white),
-                ),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Text(
-                        'Buat room lalu gunakan kode itu untuk mulai simulasi match player.',
-                        style: TextStyle(
-                          color: Colors.white.withAlpha(170),
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          const String chars =
-                              'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-                          final Random random = Random();
-                          final String code = List<String>.generate(
-                            6,
-                            (_) => chars[random.nextInt(chars.length)],
-                          ).join();
-
-                          setDialogState(() {
-                            localCreatedCode = code;
-                            roomCodeController.text = code;
-                            validationError = null;
-                          });
-                        },
-                        icon: const Icon(
-                          Icons.add_home_work_outlined,
-                          size: 18,
-                        ),
-                        label: const Text('Buat Room'),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: roomCodeController,
-                        maxLength: 6,
-                        textCapitalization: TextCapitalization.characters,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 2,
-                        ),
-                        onChanged: (String value) {
-                          final String upper = value.toUpperCase();
-                          if (validationError != null) {
-                            setDialogState(() {
-                              validationError = null;
-                            });
-                          }
-                          if (value != upper) {
-                            roomCodeController.value = TextEditingValue(
-                              text: upper,
-                              selection: TextSelection.collapsed(
-                                offset: upper.length,
-                              ),
-                            );
-                          }
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'KODE ROOM',
-                          counterText: '',
-                          errorText: validationError,
-                          hintStyle: TextStyle(
-                            color: Colors.white.withAlpha(80),
-                            letterSpacing: 1,
-                          ),
-                          filled: true,
-                          fillColor: Colors.white.withAlpha(18),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                      if (localCreatedCode != null) ...<Widget>[
-                        const SizedBox(height: 6),
-                        Text(
-                          'Kode dibuat: $localCreatedCode',
-                          style: const TextStyle(
-                            color: AppColors.fireGold,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                actions: <Widget>[
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(false),
-                    child: const Text('Batal'),
-                  ),
-                  FilledButton(
-                    onPressed: () {
-                      final String roomCode = roomCodeController.text
-                          .trim()
-                          .toUpperCase();
-                      final bool isGeneratedCode =
-                          localCreatedCode != null &&
-                          roomCode == localCreatedCode;
-
-                      if (!isGeneratedCode) {
-                        setDialogState(() {
-                          validationError =
-                              'Gunakan kode room yang dibuat dahulu.';
-                        });
-                        return;
-                      }
-
-                      Navigator.of(dialogContext).pop(true);
-                    },
-                    child: const Text('Mulai Match'),
-                  ),
-                ],
-              );
-            },
-          );
-        },
-      );
-
-      return confirmed ?? false;
-    } finally {
-      roomCodeController.dispose();
-    }
-  }
 }
 
 class _QuestionBattleSheet extends StatefulWidget {
@@ -448,7 +305,7 @@ class _QuestionBattleSheet extends StatefulWidget {
   });
 
   final BattleQuestion question;
-  final ValueChanged<int> onAnswered;
+  final Future<void> Function(int selectedOptionIndex) onAnswered;
 
   @override
   State<_QuestionBattleSheet> createState() => _QuestionBattleSheetState();
@@ -467,6 +324,9 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
   @override
   void initState() {
     super.initState();
+    if (widget.question.correctOptionIndex == null) {
+      return;
+    }
     _timer = Timer.periodic(const Duration(seconds: 1), (Timer timer) {
       if (_remainingSeconds <= 1) {
         timer.cancel();
@@ -491,13 +351,19 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
       return;
     }
 
-    final bool correct = selectedIndex == widget.question.correctOptionIndex;
+    final bool usesServerValidation =
+        widget.question.correctOptionIndex == null;
+    final bool correct =
+        !usesServerValidation &&
+        selectedIndex == widget.question.correctOptionIndex;
     _timer?.cancel();
     setState(() {
       _locked = true;
       _selectedIndex = selectedIndex;
-      _isCorrect = correct;
-      _feedback = timedOut
+      _isCorrect = usesServerValidation ? null : correct;
+      _feedback = usesServerValidation
+          ? 'Jawaban dikirim. Arena sedang menilai...'
+          : timedOut
           ? 'Waktu habis. Serangan gagal.'
           : correct
           ? 'Jawaban benar. Serangan masuk.'
@@ -509,7 +375,10 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
       return;
     }
 
-    widget.onAnswered(selectedIndex);
+    await widget.onAnswered(selectedIndex);
+    if (!mounted) {
+      return;
+    }
     Navigator.of(context).pop();
   }
 
@@ -522,6 +391,8 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
     final int impact = BattleStateMachine.impactFromWeight(
       widget.question.weight,
     );
+    final bool usesServerValidation =
+        widget.question.correctOptionIndex == null;
     final double timerProgress = _remainingSeconds / _maxSeconds;
     final double bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
@@ -589,10 +460,11 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
                         ],
                       ),
                     ),
-                    _TimerRing(
-                      remainingSeconds: _remainingSeconds,
-                      progress: timerProgress,
-                    ),
+                    if (!usesServerValidation)
+                      _TimerRing(
+                        remainingSeconds: _remainingSeconds,
+                        progress: timerProgress,
+                      ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -623,19 +495,26 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
                       itemBuilder: (BuildContext context, int index) {
                         final bool isSelected = _selectedIndex == index;
                         final bool optionCorrect =
+                            !usesServerValidation &&
                             index == widget.question.correctOptionIndex;
                         Color border = Colors.white.withAlpha(46);
                         Color background = Colors.white.withAlpha(16);
                         Color textColor = Colors.white;
 
                         if (_locked && isSelected) {
-                          border = optionCorrect
-                              ? const Color(0xFF4ADE80)
-                              : const Color(0xFFF87171);
-                          background = optionCorrect
-                              ? const Color(0xFF22C55E).withAlpha(55)
-                              : const Color(0xFFEF4444).withAlpha(46);
-                          textColor = border;
+                          if (usesServerValidation) {
+                            border = accent;
+                            background = accent.withAlpha(46);
+                            textColor = accent;
+                          } else {
+                            border = optionCorrect
+                                ? const Color(0xFF4ADE80)
+                                : const Color(0xFFF87171);
+                            background = optionCorrect
+                                ? const Color(0xFF22C55E).withAlpha(55)
+                                : const Color(0xFFEF4444).withAlpha(46);
+                            textColor = border;
+                          }
                         }
 
                         return Material(
@@ -1079,7 +958,7 @@ class _ArenaMenuSectionState extends State<_ArenaMenuSection>
                         _MenuActionButton(
                           icon: Icons.public_rounded,
                           title: 'VS Player',
-                          subtitle: 'Buat room atau join teman',
+                          subtitle: 'Masuk antrean matchmaking arena',
                           colors: const <Color>[
                             Color(0xFF512DA8),
                             Color(0xFF9333EA),
@@ -2910,7 +2789,10 @@ class _PrototypeAttackPainter extends CustomPainter {
     final Paint sidePaint = Paint()
       ..color = sideColor.withAlpha(_alpha(opacity));
 
-    for (final Offset wheel in const <Offset>[Offset(-17, 14), Offset(17, 14)]) {
+    for (final Offset wheel in const <Offset>[
+      Offset(-17, 14),
+      Offset(17, 14),
+    ]) {
       canvas.drawCircle(
         wheel,
         9,
@@ -2949,9 +2831,9 @@ class _PrototypeAttackPainter extends CustomPainter {
         const Offset(51, 0),
         8 + chargeT * 13,
         Paint()
-          ..color = const Color(0xFFFFD36A).withAlpha(
-            _alpha(chargeT * opacity * 0.45),
-          )
+          ..color = const Color(
+            0xFFFFD36A,
+          ).withAlpha(_alpha(chargeT * opacity * 0.45))
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
       );
       canvas.drawCircle(
@@ -2973,13 +2855,7 @@ class _PrototypeAttackPainter extends CustomPainter {
         : (1 - (progress - 0.58) / 0.25).clamp(0.0, 1.0);
 
     if (wizardOpacity > 0) {
-      _drawWizardCaster(
-        canvas,
-        from,
-        accent,
-        castT,
-        wizardOpacity,
-      );
+      _drawWizardCaster(canvas, from, accent, castT, wizardOpacity);
     }
     if (boltT > 0) {
       _drawLightning(canvas, from, to, boltT, 1 - flashT * 0.8);
@@ -3051,9 +2927,9 @@ class _PrototypeAttackPainter extends CustomPainter {
       const Offset(16, -19),
       6 + castT * 7,
       Paint()
-        ..color = const Color(0xFFB7F4FF).withAlpha(
-          _alpha(opacity * (0.45 + castT * 0.55)),
-        )
+        ..color = const Color(
+          0xFFB7F4FF,
+        ).withAlpha(_alpha(opacity * (0.45 + castT * 0.55)))
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
     );
     canvas.drawCircle(
@@ -3081,16 +2957,22 @@ class _PrototypeAttackPainter extends CustomPainter {
           rune,
           2.4,
           Paint()
-            ..color = const Color(0xFFFFE98A).withAlpha(
-              _alpha(opacity * castT),
-            ),
+            ..color = const Color(
+              0xFFFFE98A,
+            ).withAlpha(_alpha(opacity * castT)),
         );
       }
     }
     canvas.restore();
   }
 
-  void _drawLightning(Canvas canvas, Offset from, Offset to, double boltT, double fade) {
+  void _drawLightning(
+    Canvas canvas,
+    Offset from,
+    Offset to,
+    double boltT,
+    double fade,
+  ) {
     const int segments = 10;
     final int visible = max(2, (segments * boltT).round());
     for (int pass = 0; pass < 3; pass++) {
@@ -3152,17 +3034,15 @@ class _PrototypeAttackPainter extends CustomPainter {
       for (int i = 0; i < 6; i++) {
         final double angle = i * pi / 3 + progress;
         final double length = 20 + 42 * (1 - slamT);
-        final Offset end = to + Offset(
-          cos(angle) * length,
-          sin(angle) * length * 0.65,
-        );
+        final Offset end =
+            to + Offset(cos(angle) * length, sin(angle) * length * 0.65);
         canvas.drawLine(
           to,
           end,
           Paint()
-            ..color = const Color(0xFF7A2D12).withAlpha(
-              _alpha((1 - slamT) * 0.65),
-            )
+            ..color = const Color(
+              0xFF7A2D12,
+            ).withAlpha(_alpha((1 - slamT) * 0.65))
             ..strokeWidth = 2,
         );
       }
@@ -3189,9 +3069,11 @@ class _PrototypeAttackPainter extends CustomPainter {
       Paint()..color = Colors.black.withAlpha(_alpha(opacity * 0.22)),
     );
     final int legSwap = (progress * 12).floor().isEven ? 1 : -1;
-    final Paint dark = Paint()..color = _darken(sideColor).withAlpha(_alpha(opacity));
+    final Paint dark = Paint()
+      ..color = _darken(sideColor).withAlpha(_alpha(opacity));
     final Paint mid = Paint()..color = sideColor.withAlpha(_alpha(opacity));
-    final Paint light = Paint()..color = _lighten(sideColor).withAlpha(_alpha(opacity));
+    final Paint light = Paint()
+      ..color = _lighten(sideColor).withAlpha(_alpha(opacity));
 
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -3225,10 +3107,11 @@ class _PrototypeAttackPainter extends CustomPainter {
       const Offset(0, -3),
       6,
       Paint()
-        ..color = (windupT > 0 || slamT > 0
-                ? const Color(0xFFFFD23F)
-                : const Color(0xFF66E6FF))
-            .withAlpha(_alpha(opacity)),
+        ..color =
+            (windupT > 0 || slamT > 0
+                    ? const Color(0xFFFFD23F)
+                    : const Color(0xFF66E6FF))
+                .withAlpha(_alpha(opacity)),
     );
 
     final double armRaise = windupT * -0.75 + slamT * 0.9;

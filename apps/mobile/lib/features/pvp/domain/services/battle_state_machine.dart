@@ -79,10 +79,7 @@ abstract final class BattleStateMachine {
       availableQuestions: remainingQuestions,
       answeredQuestionIds: answeredQuestions,
       battleEventId: state.battleEventId + 1,
-      lastActor: _actorForPlayerTurn(
-        question: question,
-        isCorrect: isCorrect,
-      ),
+      lastActor: _actorForPlayerTurn(question: question, isCorrect: isCorrect),
       lastVisualEffect: _visualEffectForTurn(
         question: question,
         isCorrect: isCorrect,
@@ -115,8 +112,7 @@ abstract final class BattleStateMachine {
     } else {
       playerHp -= impact;
       opponentPoints += impact;
-      statusMessage =
-          'BOT YUDHA menjawab benar. Kamu menerima $impact damage.';
+      statusMessage = 'BOT YUDHA menjawab benar. Kamu menerima $impact damage.';
     }
 
     playerHp = _clampHp(playerHp);

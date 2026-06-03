@@ -29,8 +29,7 @@ class ProfileSettings {
   final bool soundEnabled;
   final bool hapticsEnabled;
 
-  bool get isProfileComplete =>
-      displayName.trim().isNotEmpty && target != null;
+  bool get isProfileComplete => displayName.trim().isNotEmpty && target != null;
 
   ProfileSettings copyWith({
     String? displayName,

@@ -1143,3 +1143,31 @@
 ### The Tech Debt
 - `apps/backend-api` still does not expose a leaderboard endpoint, so the backend-first repository currently falls back to the mock repository on request failure.
 - The current fallback still reports prototype-style user rank data, but it now does so through the repository payload instead of hardcoded widget logic.
+
+## 2026-06-03 - Online PvP Wired to Backend-Game Socket Match Flow
+
+### The Change
+- Added a dedicated mobile online-match bridge for PvP:
+  - `apps/mobile/lib/features/pvp/data/repositories/online_battle_repository.dart`
+  - `apps/mobile/lib/features/pvp/data/repositories/socket_online_battle_repository.dart`
+  - `apps/mobile/lib/features/pvp/domain/entities/online_battle_update.dart`
+- Added `socket_io_client` to `apps/mobile/pubspec.yaml` and introduced `YUDHA_GAME_BASE_URL` in `apps/mobile/lib/app/config/app_config.dart` with the backend-game default `http://10.0.2.2:3001`.
+- Rewired `battle_providers.dart` so online PvP now uses the authenticated Supabase access token and connects to the real `/match` Socket.IO namespace instead of the old seeded `MockQuestionBank`.
+- Split `BattleController` behavior by mode:
+  - bot mode still uses the local `BattleStateMachine`
+  - online mode now queues through backend-game, opens cards through the gateway, submits answers to the server, and updates UI state from `queue_joined`, `match_found`, `game_state_update`, `play_card_result`, `match_result`, and presence/error events.
+- Updated `BattleQuestion` so `correctOptionIndex` can be absent for server-owned cards, and adjusted the PvP question sheet in `pvp_page.dart` to stop grading online answers locally.
+- Removed the old fake room-code start flow from the PvP page and changed the online entry copy to queue-based matchmaking.
+- Updated the PvP widget test to use a controller-driven setup that remains stable after the online/bot split.
+
+### The Reasoning
+- `backend-game` already owns the real online match lifecycle through Socket.IO, so the mobile app should stop pretending online PvP is just another local question seed.
+- Keeping bot mode on the existing local state machine avoids destabilizing the offline/demo-friendly path while we wire online mode to server-authoritative actions.
+- The backend intentionally does not expose the correct answer in public card payloads, so the mobile question UI needed to stop validating online answers client-side for fairness.
+- Introducing a small online repository boundary keeps the socket/event mapping isolated from the battle page and makes future backend-game contract changes easier to absorb.
+
+### The Tech Debt
+- Online PvP is now wired to the real socket flow, but backend-game still serves seeded local questions in `QuestionService`; the content source is backend-owned, not yet database-backed.
+- The current online result mapping still derives mobile rating delta locally (`+20/-12/0`) because backend-game does not yet return a dedicated rating delta payload.
+- Opponent identity in mobile currently falls back to a shortened user-id label because the match payload does not provide a display name.
+- `flutter analyze` still reports older lint drift inside `pvp_page.dart` (deprecated color channel API usage and unused legacy elements) that predates this socket wiring pass.

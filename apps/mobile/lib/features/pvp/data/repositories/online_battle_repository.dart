@@ -1,16 +1,21 @@
 import 'package:yudha_mobile/features/pvp/data/repositories/battle_repository.dart';
-import 'package:yudha_mobile/features/pvp/data/repositories/mock_question_bank.dart';
-import 'package:yudha_mobile/features/pvp/domain/entities/battle_session_seed.dart';
+import 'package:yudha_mobile/features/pvp/domain/entities/online_battle_update.dart';
 
-class OnlineBattleRepository extends BattleRepository {
+abstract class OnlineBattleRepository extends BattleRepository {
   const OnlineBattleRepository();
 
-  @override
-  Future<BattleSessionSeed> createSession() async {
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    return BattleSessionSeed(
-      opponentName: 'Player Match',
-      questions: await MockQuestionBank.loadBattleQuestions(),
-    );
-  }
+  Stream<OnlineBattleUpdate> get updates;
+
+  Future<void> openCard({required String cardId});
+
+  Future<void> submitAnswer({
+    required String cardId,
+    required int selectedOptionIndex,
+  });
+
+  Future<void> cancelQueue();
+
+  Future<void> surrender();
+
+  void dispose();
 }
