@@ -80,6 +80,25 @@ export class InterviewService {
     };
   }
 
+  async listSessions(userId: string) {
+    const sessions = await this.repository.listOwnedSessions(userId);
+
+    return {
+      sessions: sessions.map((session) => ({
+        sessionId: session.id,
+        status: session.status,
+        companyId: session.companyId,
+        targetRole: session.targetRole,
+        mode: session.mode,
+        language: session.language,
+        responseStyle: session.responseStyle,
+        finalSummary: session.finalSummary,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+      })),
+    };
+  }
+
   async submitAnswer(
     userId: string,
     sessionId: string,
