@@ -111,3 +111,42 @@
 ### The Tech Debt
 
 - Keep the CLI guide synchronized when supported fixture IDs, flags, or Groq defaults change.
+
+## 2026-06-02 - Interview speech architecture scaffold
+
+### The Change
+
+- Added a speech architecture scaffold inside `apps/backend-api/src/interview`:
+  - `interview-speech.controller.ts`
+  - `speech/interview-speech.constants.ts`
+  - `speech/interview-speech.types.ts`
+  - `services/interview-speech.service.ts`
+  - `services/interview-audio-validator.service.ts`
+  - `services/groq-stt.service.ts`
+  - `services/elevenlabs-tts.service.ts`
+- Added authenticated endpoints for:
+  - audio transcription via `POST /interview/sessions/:sessionId/speech/transcriptions`
+  - interviewer question synthesis via `GET /interview/sessions/:sessionId/speech/questions/:turnId/audio`
+- Updated interview session validation and responses so `responseStyle` now supports `text` or `voice`.
+- Updated session responses so question payloads expose `audioAvailable` when voice mode is active.
+- Added interview repository turn lookup needed for safe per-question TTS.
+- Added speech-related environment variables to `apps/backend-api/.env.example`.
+- Added `docs/INTERVIEW-SPEECH-ARCHITECTURE.md`.
+- Validation passed:
+  - `npm run build`
+  - `npm run lint`
+
+### The Reasoning
+
+- The interview domain remains text-first so all scoring, summaries, idempotency, and harness flows continue to operate on stable text input.
+- Speech is modeled as an adapter layer around the existing interview lifecycle rather than being embedded inside answer submission.
+- Groq Whisper Turbo is a practical default STT choice because it is cheap, already aligned with the Groq stack in this backend, and sufficient for turn-based interview recording.
+- ElevenLabs is isolated behind a synthesis client so voice quality can improve without coupling the rest of the interview module to ElevenLabs-specific APIs.
+- Synthesizing only stored `question` turns prevents the TTS endpoint from becoming a generic arbitrary-text proxy.
+
+### The Tech Debt
+
+- The current speech flow is turn-based, not realtime. Add streaming STT only when the UI actually needs partial transcripts or live turn detection.
+- TTS responses are not cached yet, so replaying the same interviewer question will call ElevenLabs again.
+- Audio uploads are validated after multipart parsing. Add tighter transport-level file limits if abuse or large uploads become a concern.
+- Transcript metadata is returned to the client but not persisted yet. Add per-turn speech metadata storage only if replay, analytics, or auditability justify the schema growth.
