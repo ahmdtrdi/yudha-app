@@ -1,7 +1,7 @@
-import 'package:yudha_mobile/features/gamification/domain/entities/player_progress.dart';
+import 'package:yudha_mobile/features/gamification/data/models/player_progress_snapshot.dart';
 
 abstract class PlayerProgressRepository {
   const PlayerProgressRepository();
 
-  Future<PlayerProgress> fetchCurrentProgress();
+  Future<PlayerProgressSnapshot> fetchCurrentProgress();
 }

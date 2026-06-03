@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:yudha_mobile/app/config/app_config.dart';
+import 'package:yudha_mobile/features/gamification/data/models/player_progress_snapshot.dart';
 import 'package:yudha_mobile/features/gamification/data/repositories/player_progress_repository.dart';
-import 'package:yudha_mobile/features/gamification/domain/entities/player_progress.dart';
 
 class PlayerProgressApiConfig {
   const PlayerProgressApiConfig({
@@ -28,7 +28,7 @@ class BackendPlayerProgressRepository implements PlayerProgressRepository {
   final http.Client _client;
 
   @override
-  Future<PlayerProgress> fetchCurrentProgress() async {
+  Future<PlayerProgressSnapshot> fetchCurrentProgress() async {
     if (!_config.hasAccessToken) {
       throw const PlayerProgressApiException(
         'Profil membutuhkan sesi login Supabase. Silakan masuk ulang.',
@@ -67,16 +67,13 @@ class BackendPlayerProgressRepository implements PlayerProgressRepository {
     final int draws = (totalMatches - wins - losses).clamp(0, totalMatches);
     final String displayName = decoded['username']?.toString().trim() ?? '';
 
-    return PlayerProgress(
+    return PlayerProgressSnapshot(
       playerId: decoded['id']?.toString() ?? 'you',
       displayName: displayName.isEmpty ? 'Kamu' : displayName,
       totalPoints: _readInt(decoded['rank_points']),
       wins: wins,
       losses: losses,
       draws: draws,
-      streak: 0,
-      bestStreak: 0,
-      lastDelta: 0,
     );
   }
 

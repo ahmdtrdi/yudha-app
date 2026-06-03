@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:yudha_mobile/features/gamification/data/models/player_progress_snapshot.dart';
 import 'package:yudha_mobile/features/gamification/data/repositories/player_progress_repository.dart';
 import 'package:yudha_mobile/features/gamification/domain/entities/player_progress.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
@@ -14,7 +15,7 @@ class PlayerProgressController extends StateNotifier<PlayerProgress> {
        _onDisplayNameHydrated = onDisplayNameHydrated,
        super(PlayerProgress.initial()) {
     if (shouldHydrate && repository != null) {
-      unawaited(_loadRemoteProgress());
+      unawaited(hydrateFromRepository());
     }
   }
 
@@ -62,12 +63,15 @@ class PlayerProgressController extends StateNotifier<PlayerProgress> {
     );
   }
 
-  Future<void> _loadRemoteProgress() async {
+  Future<void> hydrateFromRepository() async {
+    if (_repository == null) {
+      return;
+    }
+
     try {
-      final PlayerProgress remoteProgress = await _repository!
-          .fetchCurrentProgress();
-      state = remoteProgress;
-      _onDisplayNameHydrated?.call(remoteProgress.displayName);
+      final PlayerProgressSnapshot snapshot = await _repository.fetchCurrentProgress();
+      state = state.mergeSnapshot(snapshot);
+      _onDisplayNameHydrated?.call(snapshot.displayName);
     } catch (_) {
       // Keep local fallback state when the profile API is temporarily unavailable.
     }

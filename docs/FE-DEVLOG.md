@@ -1079,3 +1079,21 @@
 - Backend profile payload does not currently provide streak, best streak, or last delta, so those still start at `0` and only change from local runtime PvP actions.
 - `ProfileSettings.target` is still local-only; backend profile hydration currently syncs the username but not exam target/preferences.
 - Failed profile fetches currently fall back silently to local defaults. We should surface a lightweight sync/error state once more real backend-backed screens depend on the same data.
+
+## 2026-06-03 - PlayerProgress Projection Boundary Tightening
+
+### The Change
+- Added a dedicated backend snapshot model for profile-owned progress fields in `apps/mobile/lib/features/gamification/data/models/player_progress_snapshot.dart`.
+- Refactored the player progress repository contract to return the backend snapshot instead of returning the full `PlayerProgress` domain model directly.
+- Updated the backend profile repository to map `/profile` JSON into the snapshot shape only.
+- Added `mergeSnapshot(...)` to `PlayerProgress` so the mobile domain model remains the projection that combines backend-owned fields with client-owned runtime fields.
+- Exposed `hydrateFromRepository()` on `PlayerProgressController` and updated tests to verify backend hydration preserves local-only fields like `streak`, `bestStreak`, and `lastDelta`.
+
+### The Reasoning
+- We chose the “local domain projection” model intentionally: backend owns persisted identity/rank/match counts, while mobile still owns runtime-only values that are not yet part of the backend contract.
+- Returning a snapshot from the repository prevents the backend response shape from quietly becoming the app state shape.
+- Merging snapshots into `PlayerProgress` keeps UI code stable and makes future backend additions easier to absorb without rewriting feature screens.
+
+### The Tech Debt
+- The projection boundary is now explicit, but we still need to decide whether streak-related fields should eventually be server-authoritative once match syncing is implemented.
+- `target` and other profile preferences still live in separate local settings state, so profile identity is cleaner now but not yet fully unified.
