@@ -16,8 +16,12 @@ class BattleState {
     required this.answeredQuestionIds,
     required this.isLoading,
     required this.rewardClaimed,
+    required this.battleEventId,
     this.statusMessage,
     this.errorMessage,
+    this.lastActor,
+    this.lastVisualEffect,
+    this.lastEventCategory,
   });
 
   factory BattleState.initial() {
@@ -35,7 +39,7 @@ class BattleState {
       answeredQuestionIds: <String>[],
       isLoading: false,
       rewardClaimed: false,
-      statusMessage: 'Pilih mode lalu mulai battle.',
+      battleEventId: 0,
     );
   }
 
@@ -52,8 +56,12 @@ class BattleState {
   final List<String> answeredQuestionIds;
   final bool isLoading;
   final bool rewardClaimed;
+  final int battleEventId;
   final String? statusMessage;
   final String? errorMessage;
+  final BattleActor? lastActor;
+  final BattleVisualEffect? lastVisualEffect;
+  final String? lastEventCategory;
 
   bool get isBattleActive => phase == BattlePhase.inBattle;
   bool get isBattleFinished => phase == BattlePhase.finished;
@@ -72,10 +80,15 @@ class BattleState {
     List<String>? answeredQuestionIds,
     bool? isLoading,
     bool? rewardClaimed,
+    int? battleEventId,
     String? statusMessage,
     String? errorMessage,
+    BattleActor? lastActor,
+    BattleVisualEffect? lastVisualEffect,
+    String? lastEventCategory,
     bool clearStatusMessage = false,
     bool clearErrorMessage = false,
+    bool clearBattleEvent = false,
   }) {
     return BattleState(
       mode: mode ?? this.mode,
@@ -91,12 +104,20 @@ class BattleState {
       answeredQuestionIds: answeredQuestionIds ?? this.answeredQuestionIds,
       isLoading: isLoading ?? this.isLoading,
       rewardClaimed: rewardClaimed ?? this.rewardClaimed,
+      battleEventId: battleEventId ?? this.battleEventId,
       statusMessage: clearStatusMessage
           ? null
           : statusMessage ?? this.statusMessage,
       errorMessage: clearErrorMessage
           ? null
           : errorMessage ?? this.errorMessage,
+      lastActor: clearBattleEvent ? null : lastActor ?? this.lastActor,
+      lastVisualEffect: clearBattleEvent
+          ? null
+          : lastVisualEffect ?? this.lastVisualEffect,
+      lastEventCategory: clearBattleEvent
+          ? null
+          : lastEventCategory ?? this.lastEventCategory,
     );
   }
 }

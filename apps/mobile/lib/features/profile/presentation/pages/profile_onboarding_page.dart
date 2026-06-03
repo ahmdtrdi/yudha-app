@@ -144,7 +144,7 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
                       },
                       decoration: InputDecoration(
                         labelText: 'Password',
-                        hintText: '••••••••',
+                        hintText: '********',
                         errorText: _passwordError,
                       ),
                     ),

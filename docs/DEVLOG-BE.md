@@ -18,3 +18,55 @@
 - Match results are not persisted to Supabase yet, and profile stats/rank/coins are not updated.
 - Reconnect recovery, disconnect win/loss, room codes, bots, countdown timers, leaderboard, analytics, and practice APIs are still future slices.
 - The local question pool is only an MVP seed; production should load curated questions from Supabase or a managed content pipeline.
+
+## 2026-06-02 - Supabase Bootstrap Schema For New Project
+
+**The Change:**
+- Added `infra/supabase/bootstrap.sql` to recreate the core YUDHA database tables in a fresh Supabase project.
+- Included `profiles`, `questions`, `practice_sessions`, `practice_answers`, and `match_results` with indexes, timestamp triggers, profile auto-creation from `auth.users`, and baseline RLS policies.
+
+**The Reasoning:**
+- The current backend expects `profiles` to exist with `rank_points`, `total_matches`, `wins`, `losses`, `winrate`, `coins`, and equipped cosmetic fields.
+- Keeping the schema in the repo makes a lost/recreated Supabase project recoverable and gives the next persistence slice a clear target.
+- The script keeps match persistence ready without forcing the backend-game core to write results yet.
+
+**The Tech Debt:**
+- The bootstrap does not include seed question data yet.
+- Admin-only question management policies and service-role write flows still need to be formalized.
+- Match result persistence and profile stat updates are still pending implementation in `backend-game`.
+
+## 2026-06-02 - Team-Readable Supabase Schema Package
+
+**The Change:**
+- Expanded `infra/supabase/bootstrap.sql` into the full recoverable schema for profiles, questions, safe public question reads, practice, match history, match question pools, match logs, interview sessions/messages, institutions, documents, and document chunks.
+- Added `infra/supabase/README.md` with database recovery steps for a fresh Supabase project.
+- Added `infra/supabase/schema-reference.md` so teammates can understand the schema, RLS model, and table naming.
+- Updated `.gitignore` to ignore generated TypeScript build-info files.
+
+**The Reasoning:**
+- The team needs the database schema visible in the repo, not only inside a Supabase project owned by one account.
+- A runnable bootstrap plus human-readable docs makes database recovery repeatable if access is lost again.
+- The `public_questions` view keeps client-facing question reads separate from the internal table that stores answer metadata.
+
+**The Tech Debt:**
+- The schema still needs seed data for questions and institutions.
+- Backend persistence for `match_results`, `match_question_pool`, and `match_logs` is not implemented yet.
+- Admin/service-role workflows for writing protected content tables still need to be built.
+
+## 2026-06-02 - Supabase Auth API And Smoke Test Path
+
+**The Change:**
+- Added `POST /auth/register` and `POST /auth/login` in `apps/backend-api`.
+- Registration forwards username/full-name metadata to Supabase Auth so the profile trigger can create the matching `profiles` row.
+- Updated backend env examples to refer to the Supabase publishable key.
+- Added `infra/supabase/auth-and-match-smoke-test.md` with manual register, login, profile, and match-socket verification steps.
+
+**The Reasoning:**
+- The backend-game match socket already requires a Supabase access token, so the app needed a concrete way to obtain that token.
+- Keeping register/login in `backend-api` gives the team one simple smoke-test path before wiring Flutter to real auth.
+- The publishable key is enough for normal Supabase Auth operations and RLS-protected user flows.
+
+**The Tech Debt:**
+- Flutter auth is still mock-only and needs to call these endpoints or Supabase Auth directly.
+- Email confirmation may need to be disabled in local/dev Supabase settings or handled in the UI.
+- Backend privileged writes for match persistence/profile stat updates will need a server-only key or dedicated SQL/RLS policy design.

@@ -72,7 +72,11 @@ export class InterviewService {
       sessionId: session.id,
       status: session.status,
       companyId: session.companyId,
-      openingQuestion: this.toQuestionResponse(openingQuestion),
+      responseStyle: session.responseStyle,
+      openingQuestion: this.toQuestionResponse(
+        openingQuestion,
+        session.responseStyle,
+      ),
     };
   }
 
@@ -179,6 +183,7 @@ export class InterviewService {
       companyId: session.companyId,
       targetRole: session.targetRole,
       mode: session.mode,
+      responseStyle: session.responseStyle,
       turns: turns.map((turn) => ({
         turnId: turn.id,
         role: turn.role,
@@ -266,8 +271,11 @@ export class InterviewService {
     return {
       sessionId: session.id,
       status: isCompleted ? 'completed' : 'active',
+      responseStyle: session.responseStyle,
       evaluation: session.mode === 'coaching' ? evaluation : undefined,
-      nextQuestion: nextQuestion ? this.toQuestionResponse(nextQuestion) : null,
+      nextQuestion: nextQuestion
+        ? this.toQuestionResponse(nextQuestion, session.responseStyle)
+        : null,
       finalSummary: isCompleted ? finalSummary : undefined,
     };
   }
@@ -312,10 +320,11 @@ export class InterviewService {
     ].join(' ');
   }
 
-  private toQuestionResponse(question: InterviewTurn) {
+  private toQuestionResponse(question: InterviewTurn, responseStyle: string) {
     return {
       turnId: question.id,
       text: question.content,
+      audioAvailable: responseStyle === 'voice',
     };
   }
 

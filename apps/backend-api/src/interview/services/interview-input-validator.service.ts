@@ -13,8 +13,13 @@ export class InterviewInputValidator {
       this.requireText(input.language, 'language', 10);
     }
 
-    if (input.responseStyle !== undefined && input.responseStyle !== 'text') {
-      throw new BadRequestException('Only text responses are supported.');
+    if (
+      input.responseStyle !== undefined &&
+      !['text', 'voice'].includes(input.responseStyle)
+    ) {
+      throw new BadRequestException(
+        'responseStyle must be either text or voice.',
+      );
     }
   }
 

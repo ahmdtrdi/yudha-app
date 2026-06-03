@@ -123,7 +123,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       },
                       decoration: InputDecoration(
                         labelText: 'Password',
-                        hintText: '••••••••',
+                        hintText: '********',
                         errorText: _passwordError,
                       ),
                     ),
