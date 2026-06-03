@@ -101,7 +101,7 @@ void main() {
     expect(find.text('LATIHAN'), findsOneWidget);
     expect(find.text('CPNS'), findsOneWidget); // Default target badge
     expect(find.text('Progress CPNS'), findsOneWidget);
-    expect(find.text('TWK — WAWASAN KEBANGSAAN'), findsOneWidget);
+    expect(find.text('TWK - WAWASAN KEBANGSAAN'), findsOneWidget);
   });
 
   testWidgets('renders practice quiz page and transforms hint', (
