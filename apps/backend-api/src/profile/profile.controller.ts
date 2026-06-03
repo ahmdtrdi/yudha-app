@@ -1,7 +1,7 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
+import { SupabaseAuthGuard } from '../auth/guards/supabase-auth.guard';
 import type { User } from '@supabase/supabase-js';
 import { GetUser } from '../auth/decorators/get-user.decorator';
-import { SupabaseAuthGuard } from '../auth/guards/supabase-auth.guard';
 import { ProfileService } from './profile.service';
 
 @Controller('profile')

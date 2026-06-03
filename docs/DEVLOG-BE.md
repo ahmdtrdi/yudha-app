@@ -52,3 +52,21 @@
 - The schema still needs seed data for questions and institutions.
 - Backend persistence for `match_results`, `match_question_pool`, and `match_logs` is not implemented yet.
 - Admin/service-role workflows for writing protected content tables still need to be built.
+
+## 2026-06-02 - Supabase Auth API And Smoke Test Path
+
+**The Change:**
+- Added `POST /auth/register` and `POST /auth/login` in `apps/backend-api`.
+- Registration forwards username/full-name metadata to Supabase Auth so the profile trigger can create the matching `profiles` row.
+- Updated backend env examples to refer to the Supabase publishable key.
+- Added `infra/supabase/auth-and-match-smoke-test.md` with manual register, login, profile, and match-socket verification steps.
+
+**The Reasoning:**
+- The backend-game match socket already requires a Supabase access token, so the app needed a concrete way to obtain that token.
+- Keeping register/login in `backend-api` gives the team one simple smoke-test path before wiring Flutter to real auth.
+- The publishable key is enough for normal Supabase Auth operations and RLS-protected user flows.
+
+**The Tech Debt:**
+- Flutter auth is still mock-only and needs to call these endpoints or Supabase Auth directly.
+- Email confirmation may need to be disabled in local/dev Supabase settings or handled in the UI.
+- Backend privileged writes for match persistence/profile stat updates will need a server-only key or dedicated SQL/RLS policy design.
