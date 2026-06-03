@@ -1018,3 +1018,128 @@
 
 ### The Reasoning
 - Disentangling the generic challenge pickers from the intricate Quiz gameplay and Interview sessions aligns the UI with the final product's UX. Creating rigid mock state machines (like `InterviewState.recording`) immediately paves the way for the real backend audio stream integration without touching the UI scaffolding ever again.
+
+## 2026-06-02 - Mobile Interview AI Client Wiring
+
+### The Change
+- Added a dedicated mobile interview state/data layer under `apps/mobile/lib/features/interview/`:
+  - launch config and chat/evaluation entities
+  - backend repository for `POST /interview/sessions`, `POST /interview/sessions/:id/turns`, and session completion
+  - Riverpod controller/provider family for session start, answer submit, completion, errors, and final summary state
+- Replaced the mock interview recorder page with a typed chat client that starts an AI interview session, submits candidate answers, renders AI questions, shows coaching notes, and exposes compact chat history from the top-right history button.
+- Added a dedicated "Latihan Interview AI" entry card to the Practice dashboard and passes CPNS/BUMN-specific company/role launch config into the interview route.
+- Added `http` to the mobile dependencies and a unit test for the interview controller flow.
+- Cleaned encountered analyzer issues in auth, leaderboard, and practice files; leaderboard hero XP now uses real tier progress values instead of unused mocked defaults.
+
+### The Reasoning
+- Backend already exposes the Interview AI workflow behind authenticated NestJS endpoints, so mobile should call the API rather than keep the old local mock state machine.
+- Keeping the HTTP repository behind an `InterviewRepository` abstraction lets real Supabase auth token plumbing replace the temporary dart-define token source later without rewriting the page/controller.
+- Passing `InterviewLaunchConfig` through route `extra` keeps Practice responsible for selecting the target company/role while keeping `InterviewPage` reusable.
+
+### The Tech Debt
+- Mobile auth is still a mock boolean and does not expose a Supabase access token. For now, the client reads `YUDHA_API_BASE_URL` and `YUDHA_SUPABASE_ACCESS_TOKEN` from dart defines; this should be replaced by real auth/session wiring.
+- The Interview API has no mobile session list endpoint yet, so the history button shows only the current in-memory chat, not past saved sessions.
+- The existing practice quiz widget test still hangs in isolation on this Windows test runner; the new interview controller test and the practice dashboard entry test pass.
+
+## 2026-06-02 - Mobile Supabase Auth Foundation
+
+### The Change
+- Added `supabase_flutter` to the mobile app and initialized Supabase from dart defines in `AppBootstrap`.
+- Extended `AppConfig` with `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `YUDHA_API_BASE_URL` dart-define values.
+- Replaced the mock boolean auth provider with a Supabase-aware `AppAuthState`, exposing authenticated status and the active session access token through Riverpod providers.
+- Updated Login and Sign Up flows to call Supabase auth APIs and surface loading/error states.
+- Updated the Interview API config to use the logged-in Supabase access token instead of a temporary manual token define.
+
+### The Reasoning
+- Interview endpoints are guarded by Supabase auth, so mobile needs a real session/token foundation before replacing mocks across the app.
+- Keeping credentials in dart defines avoids committing project credentials while still making local and CI/dev builds explicit.
+- Exposing the access token through a small provider gives future backend repositories one shared place to read auth state.
+
+### The Tech Debt
+- Login and sign-up now authenticate with Supabase, but profile creation/sync still depends on backend/Supabase triggers and has not yet replaced the local profile settings cache.
+- Auth route guarding is still lightweight; `SplashPage` checks auth once after a delay instead of using router-level redirects bound to auth state.
+- Supabase credentials still need to be provided by each developer through local run configuration or CI secrets.
+
+## 2026-06-03 - Real Profile Hydration for Mobile Progress
+
+### The Change
+- Added a backend-backed mobile profile/progress repository under `apps/mobile/lib/features/gamification/data/repositories/` for authenticated `GET /profile` requests.
+- Wired `playerProgressProvider` to hydrate from the authenticated Supabase session token instead of relying on seeded mock stats.
+- Replaced the old fake initial progression values with zeroed fallback defaults in `PlayerProgress.initial()`.
+- Synced the backend `username` into local profile settings so the existing profile/lobby UI keeps one visible display name after hydration.
+- Updated lobby rank progress rendering to use shared `PlayerProgress` tier getters instead of hardcoded `400`-point math.
+- Updated and expanded gamification tests to cover backend hydration behavior.
+
+### The Reasoning
+- `GET /profile` already exists in backend API and returns the authoritative rank/stat fields, so mobile should consume that instead of shipping fake win/loss/point values.
+- Hydrating through the existing Riverpod provider keeps lobby, profile, leaderboard, and PvP consumers on the same progress source without page-level network code.
+- Keeping a zeroed fallback state is safer than showing fabricated stats when auth or network is unavailable.
+
+### The Tech Debt
+- Backend profile payload does not currently provide streak, best streak, or last delta, so those still start at `0` and only change from local runtime PvP actions.
+- `ProfileSettings.target` is still local-only; backend profile hydration currently syncs the username but not exam target/preferences.
+- Failed profile fetches currently fall back silently to local defaults. We should surface a lightweight sync/error state once more real backend-backed screens depend on the same data.
+
+## 2026-06-03 - PlayerProgress Projection Boundary Tightening
+
+### The Change
+- Added a dedicated backend snapshot model for profile-owned progress fields in `apps/mobile/lib/features/gamification/data/models/player_progress_snapshot.dart`.
+- Refactored the player progress repository contract to return the backend snapshot instead of returning the full `PlayerProgress` domain model directly.
+- Updated the backend profile repository to map `/profile` JSON into the snapshot shape only.
+- Added `mergeSnapshot(...)` to `PlayerProgress` so the mobile domain model remains the projection that combines backend-owned fields with client-owned runtime fields.
+- Exposed `hydrateFromRepository()` on `PlayerProgressController` and updated tests to verify backend hydration preserves local-only fields like `streak`, `bestStreak`, and `lastDelta`.
+
+### The Reasoning
+- We chose the “local domain projection” model intentionally: backend owns persisted identity/rank/match counts, while mobile still owns runtime-only values that are not yet part of the backend contract.
+- Returning a snapshot from the repository prevents the backend response shape from quietly becoming the app state shape.
+- Merging snapshots into `PlayerProgress` keeps UI code stable and makes future backend additions easier to absorb without rewriting feature screens.
+
+### The Tech Debt
+- The projection boundary is now explicit, but we still need to decide whether streak-related fields should eventually be server-authoritative once match syncing is implemented.
+- `target` and other profile preferences still live in separate local settings state, so profile identity is cleaner now but not yet fully unified.
+
+## 2026-06-03 - Practice Dashboard Data Made Repository-Driven
+
+### The Change
+- Added practice dashboard domain entities for repository-driven progress and recent activity:
+  - `practice_dashboard.dart`
+  - `practice_recent_activity.dart`
+- Extended `PracticeTopic` with repository-owned dashboard metadata (`groupTitle`, `badgeLabel`, `questionCount`) so the Practice page no longer hardcodes CPNS/BUMN card grids in the widget tree.
+- Refactored `PracticeRepository` to expose `fetchDashboard(target)` plus topic question loading.
+- Added `BackendPracticeRepository` as the default mobile repository, expecting backend endpoints for:
+  - `GET /practice/dashboard?target=...`
+  - `GET /practice/topics/:id/questions`
+- Kept the existing local practice data as a fallback inside the backend repository so the app still renders while backend practice endpoints do not yet exist.
+- Updated `PracticeController` and `PracticeState` to load and store repository-provided dashboard progress, question of the day, and recent activity.
+- Rewrote `PracticePage` to render grouped topic sections and recent activity from state instead of hardcoded tile data.
+
+### The Reasoning
+- The immediate goal was to remove UI-owned fake data from the Practice screen without blocking the mobile branch on missing backend endpoints.
+- Making the backend repository the default provider gives us one clean cutover path once the API is ready, while the seed fallback keeps the feature usable during the transition.
+- Moving section labels, counts, and recent activity into repository data makes the page honest about where its content comes from and keeps future product changes out of the widget layout.
+
+### The Tech Debt
+- `apps/backend-api` still does not expose a practice module, so the current backend repository falls back to seeded local data on request failure.
+- Practice progress and recent activity are repository-driven now, but the fallback values are still static seed data until real backend responses exist.
+- The practice widget test continues to hang on this Windows runner in its second case after rendering `renders practice quiz page and transforms hint`; analyzer and practice unit tests pass, so this should be revisited separately as a test-runner issue.
+
+## 2026-06-03 - Leaderboard Made Backend-First With Real Rank Support
+
+### The Change
+- Added a backend-first leaderboard repository in `apps/mobile/lib/features/leaderboard/data/repositories/backend_leaderboard_repository.dart`.
+- Updated the leaderboard payload model to support real current-user metadata from API responses:
+  - `currentUserRank`
+  - `currentUserEntry`
+- Extended leaderboard state to store repository-provided current-user rank/entry instead of relying on page-local prototype values.
+- Refactored `LeaderboardController` so synthetic current-user insertion only happens when the repository does not provide current-user leaderboard data.
+- Replaced the page-level fixed `#13` prototype rank in `leaderboard_page.dart` with repository/state-driven rank handling.
+- Switched the default mobile provider from `MockLeaderboardRepository` to the backend-first repository, while keeping the mock repository as fallback data until the backend endpoint exists.
+
+### The Reasoning
+- The leaderboard feature already had a repository/controller split, so the highest-value cleanup was to move user-rank ownership into the data layer and remove page-owned prototype behavior.
+- Real leaderboard APIs often return both a visible page of ranked users and a separate current-user rank that may live outside the current page window. The payload/state needed to express that directly.
+- Keeping the mock repository only as a fallback preserves the current experience while making the mobile app ready to consume a real leaderboard endpoint without another UI rewrite.
+
+### The Tech Debt
+- `apps/backend-api` still does not expose a leaderboard endpoint, so the backend-first repository currently falls back to the mock repository on request failure.
+- The current fallback still reports prototype-style user rank data, but it now does so through the repository payload instead of hardcoded widget logic.

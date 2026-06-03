@@ -3,6 +3,7 @@ import 'package:yudha_mobile/features/gamification/domain/entities/player_progre
 import 'package:yudha_mobile/features/leaderboard/application/leaderboard_state.dart';
 import 'package:yudha_mobile/features/leaderboard/data/repositories/leaderboard_repository.dart';
 import 'package:yudha_mobile/features/leaderboard/domain/entities/leaderboard_entry.dart';
+import 'package:yudha_mobile/features/leaderboard/domain/entities/leaderboard_page_payload.dart';
 import 'package:yudha_mobile/features/leaderboard/domain/entities/leaderboard_query.dart';
 import 'package:yudha_mobile/features/leaderboard/domain/entities/leaderboard_scope.dart';
 
@@ -28,6 +29,7 @@ class LeaderboardController extends StateNotifier<LeaderboardState> {
       page: 1,
       hasMore: false,
       isLoadingMore: false,
+      clearCurrentUser: true,
       clearError: true,
     );
     await _fetchPage(page: 1, append: false);
@@ -48,6 +50,7 @@ class LeaderboardController extends StateNotifier<LeaderboardState> {
       entries: const <LeaderboardEntry>[],
       page: 1,
       hasMore: false,
+      clearCurrentUser: true,
       clearError: true,
     );
     await _fetchPage(page: 1, append: false);
@@ -73,6 +76,7 @@ class LeaderboardController extends StateNotifier<LeaderboardState> {
           : payload.entries;
       final List<LeaderboardEntry> normalizedEntries = _normalizeEntries(
         baseEntries,
+        payload: payload,
       );
 
       final bool isEmpty = normalizedEntries.isEmpty;
@@ -82,6 +86,8 @@ class LeaderboardController extends StateNotifier<LeaderboardState> {
         page: page,
         hasMore: payload.hasMore,
         isLoadingMore: false,
+        currentUserRank: payload.currentUserRank,
+        currentUserEntry: payload.currentUserEntry,
         status: isEmpty
             ? LeaderboardViewStatus.empty
             : LeaderboardViewStatus.success,
@@ -100,7 +106,10 @@ class LeaderboardController extends StateNotifier<LeaderboardState> {
     }
   }
 
-  List<LeaderboardEntry> _normalizeEntries(List<LeaderboardEntry> entries) {
+  List<LeaderboardEntry> _normalizeEntries(
+    List<LeaderboardEntry> entries, {
+    required LeaderboardPagePayload payload,
+  }) {
     final List<LeaderboardEntry> mutable = entries
         .where(
           (LeaderboardEntry entry) =>
@@ -108,7 +117,9 @@ class LeaderboardController extends StateNotifier<LeaderboardState> {
         )
         .toList(growable: true);
 
-    if (state.scope == LeaderboardScope.global) {
+    if (payload.currentUserRank == null &&
+        payload.currentUserEntry == null &&
+        state.scope == LeaderboardScope.global) {
       final int insertIndex = mutable.indexWhere(
         (e) => _currentProgress.totalPoints >= e.points,
       );

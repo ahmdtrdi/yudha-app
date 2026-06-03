@@ -7,7 +7,6 @@ import 'package:yudha_mobile/features/practice/application/practice_providers.da
 import 'package:yudha_mobile/features/practice/application/practice_state.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_hint_state.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_option.dart';
-import 'package:yudha_mobile/features/practice/domain/entities/practice_question.dart';
 
 class PracticeQuizPage extends ConsumerWidget {
   const PracticeQuizPage({super.key});
@@ -27,7 +26,6 @@ class PracticeQuizPage extends ConsumerWidget {
 
     final int index = state.currentQuestionIndex;
     final int total = state.questions.length;
-    final bool isLast = index == total - 1;
     final bool isSubmitted = state.isCurrentQuestionSubmitted;
     final bool isCompleted = state.status == PracticeViewStatus.completed;
     final bool hasSelection = state.selectedOptionId != null;
@@ -223,8 +221,11 @@ class PracticeQuizPage extends ConsumerWidget {
                     // Options List
                     ...List<Widget>.generate(question.options.length, (i) {
                       final PracticeOption option = question.options[i];
-                      final bool isSelected = state.selectedOptionId == option.id;
-                      final String letter = String.fromCharCode(65 + i); // A, B, C...
+                      final bool isSelected =
+                          state.selectedOptionId == option.id;
+                      final String letter = String.fromCharCode(
+                        65 + i,
+                      ); // A, B, C...
 
                       // State colors
                       final Color borderColor = isSelected
@@ -236,10 +237,12 @@ class PracticeQuizPage extends ConsumerWidget {
                       final Color letterBgColor = isSelected
                           ? AppColors.warriorNavy
                           : AppColors.surfaceLight;
-                      final Color letterColor =
-                          isSelected ? Colors.white : AppColors.textMuted;
-                      final FontWeight textWeight =
-                          isSelected ? FontWeight.w800 : FontWeight.w600;
+                      final Color letterColor = isSelected
+                          ? Colors.white
+                          : AppColors.textMuted;
+                      final FontWeight textWeight = isSelected
+                          ? FontWeight.w800
+                          : FontWeight.w600;
 
                       // Note: We don't render "showCorrect" during selection in the exact exact Figma reference, it just highlights the selected option for KONFIRMASI.
                       // We will keep it simple and just show selected state until submitted.
@@ -333,9 +336,12 @@ class PracticeQuizPage extends ConsumerWidget {
                       : null,
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.warriorNavy,
-                    disabledBackgroundColor:
-                        AppColors.warriorNavy.withAlpha(15),
-                    disabledForegroundColor: AppColors.warriorNavy.withAlpha(80),
+                    disabledBackgroundColor: AppColors.warriorNavy.withAlpha(
+                      15,
+                    ),
+                    disabledForegroundColor: AppColors.warriorNavy.withAlpha(
+                      80,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),

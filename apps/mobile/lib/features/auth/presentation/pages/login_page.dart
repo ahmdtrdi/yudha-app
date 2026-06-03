@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
-import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -27,7 +26,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
@@ -36,18 +35,25 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       _passwordError = password.isEmpty ? 'Password wajib diisi.' : null;
     });
 
-    if (_emailError != null || _passwordError != null) return;
+    if (_emailError != null || _passwordError != null) {
+      return;
+    }
 
-    // Simulate login
-    ref.read(authProvider.notifier).login(email, password);
-    
-    // For mockup purposes: after login, we assume their profile is complete and go straight to lobby.
-    // (If we use the old check, it forces you to Sign Up because the local state is empty!)
+    final bool didLogin = await ref
+        .read(authProvider.notifier)
+        .login(email, password);
+
+    if (!mounted || !didLogin) {
+      return;
+    }
+
     context.go(AppRoutes.lobby);
   }
 
   @override
   Widget build(BuildContext context) {
+    final AppAuthState authState = ref.watch(authProvider);
+
     return Scaffold(
       backgroundColor: AppColors.surfaceLight,
       body: SafeArea(
@@ -86,12 +92,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                     ),
                     const SizedBox(height: 24),
+                    if (authState.errorMessage != null) ...<Widget>[
+                      _AuthErrorBanner(message: authState.errorMessage!),
+                      const SizedBox(height: 16),
+                    ],
                     TextField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
                       onChanged: (_) {
-                        if (_emailError != null) setState(() => _emailError = null);
+                        if (_emailError != null) {
+                          setState(() => _emailError = null);
+                        }
                       },
                       decoration: InputDecoration(
                         labelText: 'Email',
@@ -105,7 +117,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       obscureText: true,
                       textInputAction: TextInputAction.done,
                       onChanged: (_) {
-                        if (_passwordError != null) setState(() => _passwordError = null);
+                        if (_passwordError != null) {
+                          setState(() => _passwordError = null);
+                        }
                       },
                       decoration: InputDecoration(
                         labelText: 'Password',
@@ -117,21 +131,30 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     SizedBox(
                       height: 52,
                       child: FilledButton(
-                        onPressed: _submit,
+                        onPressed: authState.isLoading ? null : _submit,
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.warriorNavy,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        child: Text(
-                          'Masuk',
-                          style: GoogleFonts.orbitron(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
+                        child: authState.isLoading
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                'Masuk',
+                                style: GoogleFonts.orbitron(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -151,6 +174,40 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _AuthErrorBanner extends StatelessWidget {
+  const _AuthErrorBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.redAccent.withAlpha(18),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.redAccent.withAlpha(80)),
+      ),
+      child: Row(
+        children: <Widget>[
+          const Icon(Icons.info_outline, color: Colors.redAccent, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: AppColors.textStrong,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -35,7 +35,7 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final String email = _emailController.text.trim();
     final String password = _passwordController.text.trim();
     final String name = _nameController.text.trim();
@@ -48,11 +48,21 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
       _targetError = target == null ? 'Pilih target belajar.' : null;
     });
 
-    if (_emailError != null || _passwordError != null || _nameError != null || _targetError != null || target == null) {
+    if (_emailError != null ||
+        _passwordError != null ||
+        _nameError != null ||
+        _targetError != null ||
+        target == null) {
       return;
     }
 
-    ref.read(authProvider.notifier).signUp(email, password, name, target);
+    final bool didSignUp = await ref
+        .read(authProvider.notifier)
+        .signUp(email, password, name, target);
+    if (!mounted || !didSignUp) {
+      return;
+    }
+
     ref
         .read(profileSettingsProvider.notifier)
         .completeProfile(displayName: name, target: target);
@@ -63,6 +73,8 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final AppAuthState authState = ref.watch(authProvider);
+
     return Scaffold(
       backgroundColor: AppColors.surfaceLight,
       body: SafeArea(
@@ -101,12 +113,18 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    if (authState.errorMessage != null) ...<Widget>[
+                      _AuthErrorBanner(message: authState.errorMessage!),
+                      const SizedBox(height: 16),
+                    ],
                     TextField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
                       onChanged: (_) {
-                        if (_emailError != null) setState(() => _emailError = null);
+                        if (_emailError != null) {
+                          setState(() => _emailError = null);
+                        }
                       },
                       decoration: InputDecoration(
                         labelText: 'Email',
@@ -120,7 +138,9 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
                       obscureText: true,
                       textInputAction: TextInputAction.next,
                       onChanged: (_) {
-                        if (_passwordError != null) setState(() => _passwordError = null);
+                        if (_passwordError != null) {
+                          setState(() => _passwordError = null);
+                        }
                       },
                       decoration: InputDecoration(
                         labelText: 'Password',
@@ -173,8 +193,9 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
                           : <ProfileTarget>{_selectedTarget!},
                       onSelectionChanged: (Set<ProfileTarget> selected) {
                         setState(() {
-                          _selectedTarget =
-                              selected.isEmpty ? null : selected.first;
+                          _selectedTarget = selected.isEmpty
+                              ? null
+                              : selected.first;
                           _targetError = null;
                         });
                       },
@@ -194,21 +215,30 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
                     SizedBox(
                       height: 52,
                       child: FilledButton(
-                        onPressed: _submit,
+                        onPressed: authState.isLoading ? null : _submit,
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.warriorNavy,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        child: Text(
-                          'Daftar & Lanjut',
-                          style: GoogleFonts.orbitron(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
+                        child: authState.isLoading
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                'Daftar & Lanjut',
+                                style: GoogleFonts.orbitron(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -228,6 +258,40 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _AuthErrorBanner extends StatelessWidget {
+  const _AuthErrorBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.redAccent.withAlpha(18),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.redAccent.withAlpha(80)),
+      ),
+      child: Row(
+        children: <Widget>[
+          const Icon(Icons.info_outline, color: Colors.redAccent, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: AppColors.textStrong,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

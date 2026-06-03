@@ -6,7 +6,6 @@ import 'package:yudha_mobile/features/gamification/application/player_progress_p
 import 'package:yudha_mobile/features/leaderboard/application/leaderboard_providers.dart';
 import 'package:yudha_mobile/features/leaderboard/application/leaderboard_state.dart';
 import 'package:yudha_mobile/features/leaderboard/domain/entities/leaderboard_entry.dart';
-import 'package:yudha_mobile/features/leaderboard/domain/entities/leaderboard_scope.dart';
 
 class LeaderboardPage extends ConsumerWidget {
   const LeaderboardPage({super.key});
@@ -19,15 +18,28 @@ class LeaderboardPage extends ConsumerWidget {
     );
     final progress = ref.watch(playerProgressProvider);
 
-    int userRank = 13; // Fixed prototype rank representing your global position out of the total database!
+    int? userRank = leaderboardState.currentUserRank;
     bool isUserInLoadedList = false;
     if (leaderboardState.status == LeaderboardViewStatus.success) {
       final idx = leaderboardState.entries.indexWhere((e) => e.isCurrentUser);
       if (idx != -1) {
-        userRank = idx + 1;
+        userRank ??= idx + 1;
         isUserInLoadedList = true;
       }
     }
+
+    final LeaderboardEntry currentUserEntry =
+        leaderboardState.currentUserEntry ??
+        LeaderboardEntry(
+          playerId: progress.playerId,
+          playerName: progress.displayName.isEmpty
+              ? 'Kamu'
+              : progress.displayName,
+          points: progress.totalPoints,
+          winRate: progress.winRate,
+          streak: progress.streak,
+          isCurrentUser: true,
+        );
 
     // Split top 3 vs others
     final topThree = leaderboardState.entries.take(3).toList();
@@ -56,8 +68,8 @@ class LeaderboardPage extends ConsumerWidget {
           onRetry: () => leaderboardController.loadInitial(),
         ),
         LeaderboardViewStatus.empty => _EmptyState(
-            onRefresh: leaderboardController.refresh,
-          ),
+          onRefresh: leaderboardController.refresh,
+        ),
         LeaderboardViewStatus.success => RefreshIndicator(
           onRefresh: leaderboardController.refresh,
           child: CustomScrollView(
@@ -75,10 +87,15 @@ class LeaderboardPage extends ConsumerWidget {
                     totalPoints: progress.totalPoints,
                     streak: progress.streak,
                     winRate: progress.winRate,
+                    currentXp:
+                        progress.totalPoints - progress.currentTierBasePoints,
+                    targetXp:
+                        progress.nextTierPoints -
+                        progress.currentTierBasePoints,
                   ),
                 ),
               ),
-                if (leaderboardState.errorMessage != null)
+              if (leaderboardState.errorMessage != null)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -117,6 +134,7 @@ class LeaderboardPage extends ConsumerWidget {
                 ),
               ),
               if (!isUserInLoadedList &&
+                  userRank != null &&
                   leaderboardState.status == LeaderboardViewStatus.success)
                 SliverToBoxAdapter(
                   child: Column(
@@ -132,16 +150,7 @@ class LeaderboardPage extends ConsumerWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: _LeaderboardTile(
                           rank: userRank,
-                          entry: LeaderboardEntry(
-                            playerId: progress.playerId,
-                            playerName: progress.displayName.isEmpty
-                                ? 'Kamu'
-                                : progress.displayName,
-                            points: progress.totalPoints,
-                            winRate: progress.winRate,
-                            streak: progress.streak,
-                            isCurrentUser: true,
-                          ),
+                          entry: currentUserEntry,
                         ),
                       ),
                     ],
@@ -190,11 +199,11 @@ class _HeroRankCard extends StatelessWidget {
     required this.totalPoints,
     required this.streak,
     required this.winRate,
-    this.currentXp = 120, // mocked default
-    this.targetXp = 400,
+    required this.currentXp,
+    required this.targetXp,
   });
 
-  final int rank;
+  final int? rank;
   final String name;
   final String tierLabel;
   final int totalPoints;
@@ -353,7 +362,7 @@ class _HeroRankCard extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    rank > 0 ? '#$rank' : '-',
+                    rank != null && rank! > 0 ? '#$rank' : '-',
                     style: GoogleFonts.orbitron(
                       color: AppColors.fireGold,
                       fontSize: 20,
@@ -687,6 +696,7 @@ class _ErrorState extends StatelessWidget {
     );
   }
 }
+
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.onRefresh});
   final VoidCallback onRefresh;
@@ -697,9 +707,16 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          const Icon(Icons.emoji_events_outlined, size: 34, color: AppColors.textMuted),
+          const Icon(
+            Icons.emoji_events_outlined,
+            size: 34,
+            color: AppColors.textMuted,
+          ),
           const SizedBox(height: 8),
-          const Text('Belum ada peringkat global.', textAlign: TextAlign.center),
+          const Text(
+            'Belum ada peringkat global.',
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 8),
           OutlinedButton(onPressed: onRefresh, child: const Text('Refresh')),
         ],

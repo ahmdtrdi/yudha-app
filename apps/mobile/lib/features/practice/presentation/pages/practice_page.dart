@@ -4,10 +4,11 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/practice/application/practice_providers.dart';
 import 'package:yudha_mobile/features/practice/application/practice_state.dart';
-import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
-import 'package:yudha_mobile/features/gamification/domain/entities/player_progress.dart';
+import 'package:yudha_mobile/features/practice/domain/entities/practice_recent_activity.dart';
+import 'package:yudha_mobile/features/practice/domain/entities/practice_topic.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
@@ -18,22 +19,31 @@ class PracticePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final PracticeState state = ref.watch(practiceControllerProvider);
     final controller = ref.read(practiceControllerProvider.notifier);
-
     final profileSettings = ref.watch(profileSettingsProvider);
-    final bool isCpns = profileSettings.target == ProfileTarget.cpns || profileSettings.target == null;
+    final bool isCpns =
+        profileSettings.target == ProfileTarget.cpns ||
+        profileSettings.target == null;
+    final InterviewLaunchConfig interviewConfig = isCpns
+        ? InterviewLaunchConfig.cpnsDefault()
+        : InterviewLaunchConfig.bumnDefault();
+    final Map<String, List<PracticeTopic>> topicGroups = _groupTopics(
+      state.topics,
+    );
 
-    void openQuiz() async {
-      if (state.topics.isNotEmpty) {
-        await controller.selectTopic(state.topics.first.id);
-      }
+    Future<void> openQuiz(String topicId) async {
+      await controller.selectTopic(topicId);
       if (context.mounted) {
         context.push(AppRoutes.practiceQuiz);
       }
     }
 
-    void openDailyChallenge() async {
+    void openDailyChallenge() {
       controller.startQuestionOfDay();
       context.push(AppRoutes.practiceQuiz);
+    }
+
+    void openInterviewPractice() {
+      context.push(AppRoutes.interview, extra: interviewConfig);
     }
 
     return Scaffold(
@@ -46,13 +56,13 @@ class PracticePage extends ConsumerWidget {
             fontWeight: FontWeight.w800,
             fontSize: 18,
             color: Colors.white,
-            letterSpacing: 2.0,
+            letterSpacing: 2,
           ),
         ),
         centerTitle: true,
         actions: <Widget>[
           Padding(
-            padding: const EdgeInsets.only(right: 16.0),
+            padding: const EdgeInsets.only(right: 16),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
@@ -72,75 +82,143 @@ class PracticePage extends ConsumerWidget {
           ),
         ],
       ),
-      body: state.status == PracticeViewStatus.loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: controller.reload,
-              child: CustomScrollView(
-                slivers: <Widget>[
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          _HeroChallengeCard(
-                            isCpns: isCpns,
-                            question: state.questionOfDay?.prompt ??
-                                'Memuat tantangan hari ini...',
-                            tags: state.questionOfDay?.topicName ??
-                                (isCpns ? 'TIU - Numerik' : 'Kepribadian - Integritas'),
-                            onStart: openDailyChallenge,
-                          ),
-                          const SizedBox(height: 24),
-                          _OverallProgress(
-                            label: isCpns ? 'Progress CPNS' : 'Progress BUMN',
-                            progressPercent: isCpns ? 28 : 52,
-                            color: isCpns
-                                ? AppColors.warriorNavy
-                                : AppColors.levelUpTeal,
-                          ),
-                          const SizedBox(height: 24),
-                          if (isCpns)
-                            _CpnsGrids(onTapTopic: openQuiz)
-                          else
-                            _BumnGrids(onTapTopic: openQuiz),
-                          const SizedBox(height: 24),
-                          const Text(
-                            'TERAKHIR DIKERJAKAN',
-                            style: TextStyle(
-                              color: AppColors.textMuted,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          _RecentActivityTile(
-                            icon: Icons.article_outlined,
-                            title: isCpns ? 'TWK - Pancasila' : 'Verbal - Analogi',
-                            subtitle: '15 soal - 2 hari lalu',
-                            score: '80%',
-                            scoreColor: AppColors.levelUpTeal,
-                          ),
-                          const SizedBox(height: 8),
-                          _RecentActivityTile(
-                            icon: Icons.lightbulb_outline,
-                            title: isCpns ? 'TIU - Numerik' : 'Interview - Motivasi',
-                            subtitle:
-                                isCpns ? '20 soal - 3 hari lalu' : '5 pertanyaan - 2 hari lalu',
-                            score: isCpns ? '65%' : 'Selesai',
-                            scoreColor: isCpns
-                                ? AppColors.fireGold
-                                : AppColors.warriorNavy,
-                          ),
-                        ],
+      body: switch (state.status) {
+        PracticeViewStatus.loading => const Center(
+          child: CircularProgressIndicator(),
+        ),
+        PracticeViewStatus.error when state.topics.isEmpty =>
+          _PracticeErrorView(
+            message: state.errorMessage ?? 'Gagal memuat latihan. Coba lagi.',
+            onRetry: controller.reload,
+          ),
+        _ => RefreshIndicator(
+          onRefresh: controller.reload,
+          child: CustomScrollView(
+            slivers: <Widget>[
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      _HeroChallengeCard(
+                        isCpns: isCpns,
+                        question:
+                            state.questionOfDay?.prompt ??
+                            'Memuat tantangan hari ini...',
+                        tags:
+                            state.questionOfDay?.topicName ??
+                            (isCpns ? 'TIU - Numerik' : 'Logika - Pola'),
+                        onStart: openDailyChallenge,
                       ),
-                    ),
+                      const SizedBox(height: 24),
+                      _OverallProgress(
+                        label: isCpns ? 'Progress CPNS' : 'Progress BUMN',
+                        progressPercent: state.overallProgressPercent,
+                        color: isCpns
+                            ? AppColors.warriorNavy
+                            : AppColors.levelUpTeal,
+                      ),
+                      const SizedBox(height: 24),
+                      _InterviewPracticeCard(
+                        config: interviewConfig,
+                        onTap: openInterviewPractice,
+                      ),
+                      const SizedBox(height: 24),
+                      for (final MapEntry<String, List<PracticeTopic>> entry
+                          in topicGroups.entries) ...<Widget>[
+                        _CategorySection(
+                          title: entry.key,
+                          items: entry.value,
+                          onTapTopic: openQuiz,
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                      if (state.recentActivities.isNotEmpty) ...<Widget>[
+                        const Text(
+                          'TERAKHIR DIKERJAKAN',
+                          style: TextStyle(
+                            color: AppColors.textMuted,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        for (
+                          int index = 0;
+                          index < state.recentActivities.length;
+                          index++
+                        ) ...<Widget>[
+                          _RecentActivityTile(
+                            activity: state.recentActivities[index],
+                          ),
+                          if (index != state.recentActivities.length - 1)
+                            const SizedBox(height: 8),
+                        ],
+                      ],
+                    ],
                   ),
-                ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      },
+    );
+  }
+
+  Map<String, List<PracticeTopic>> _groupTopics(List<PracticeTopic> topics) {
+    final Map<String, List<PracticeTopic>> groups =
+        <String, List<PracticeTopic>>{};
+    for (final PracticeTopic topic in topics) {
+      groups.putIfAbsent(topic.groupTitle, () => <PracticeTopic>[]).add(topic);
+    }
+    return groups;
+  }
+}
+
+class _PracticeErrorView extends StatelessWidget {
+  const _PracticeErrorView({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Icon(
+              Icons.cloud_off_rounded,
+              color: AppColors.textMuted,
+              size: 42,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.textStrong,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
               ),
             ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: onRetry,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.warriorNavy,
+              ),
+              child: const Text('Muat Ulang'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -200,25 +278,22 @@ class _HeroChallengeCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          Row(
-            children: <Widget>[
-              Text(
-                tags,
-                style: TextStyle(
-                  color: Colors.white.withAlpha(200),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+          Text(
+            tags,
+            style: TextStyle(
+              color: Colors.white.withAlpha(200),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 20),
           ElevatedButton.icon(
             onPressed: onStart,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
-              foregroundColor:
-                  isCpns ? AppColors.warriorNavy : AppColors.levelUpTeal,
+              foregroundColor: isCpns
+                  ? AppColors.warriorNavy
+                  : AppColors.levelUpTeal,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               shape: RoundedRectangleBorder(
@@ -289,163 +364,98 @@ class _OverallProgress extends StatelessWidget {
   }
 }
 
-class _CpnsGrids extends StatelessWidget {
-  const _CpnsGrids({required this.onTapTopic});
-  final VoidCallback onTapTopic;
+class _InterviewPracticeCard extends StatelessWidget {
+  const _InterviewPracticeCard({required this.config, required this.onTap});
+
+  final InterviewLaunchConfig config;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        _CategorySection(
-          title: 'TWK - WAWASAN KEBANGSAAN',
-          items: <_GridItemData>[
-            _GridItemData('TWK', 'Pancasila', 'Nilai & implementasi', '30'),
-            _GridItemData('TWK', 'UUD 1945', 'Pasal & amandemen', '25'),
-            _GridItemData('TWK', 'NKRI', 'Sejarah & wawasan', '20'),
-            _GridItemData('TWK', 'Bhinneka T.I.', 'Keberagaman', '30'),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: <Color>[AppColors.warriorNavy, Color(0xFF0E4AAE)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: AppColors.warriorNavy.withAlpha(35),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
           ],
-          onTap: onTapTopic,
         ),
-        const SizedBox(height: 24),
-        _CategorySection(
-          title: 'TIU - INTELEGENSIA UMUM',
-          items: <_GridItemData>[
-            _GridItemData('TIU', 'Verbal', 'Analogi & silogisme', '40'),
-            _GridItemData('TIU', 'Numerik', 'Deret & aritmatika', '40'),
-            _GridItemData('TIU', 'Figural', 'Pola & rotasi', '20'),
-            _GridItemData('TIU', 'Logika', 'Deduktif & induktif', '35'),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(28),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withAlpha(45)),
+              ),
+              child: const Icon(
+                Icons.record_voice_over_rounded,
+                color: AppColors.fireGold,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Latihan Interview AI',
+                    style: GoogleFonts.orbitron(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${config.companyName} - ${config.targetRole}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withAlpha(210),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Icon(Icons.chevron_right_rounded, color: Colors.white),
           ],
-          onTap: onTapTopic,
         ),
-        const SizedBox(height: 24),
-        _CategorySection(
-          title: 'TKP - KARAKTERISTIK PRIBADI',
-          items: <_GridItemData>[
-            _GridItemData('TKP', 'Pelayanan Publik', 'Etika & integritas', '35'),
-            _GridItemData('TKP', 'Sosial Budaya', 'Adaptasi & toleransi', '30'),
-            _GridItemData('TKP', 'Teknologi', 'Digital & inovasi', '25'),
-            _GridItemData('TKP', 'Profesionalisme', 'Etos & disiplin', '30'),
-          ],
-          onTap: onTapTopic,
-        ),
-      ],
+      ),
     );
   }
-}
-
-class _BumnGrids extends StatelessWidget {
-  const _BumnGrids({required this.onTapTopic});
-  final VoidCallback onTapTopic;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        _CategorySection(
-          title: 'SOAL KEMAMPUAN',
-          items: <_GridItemData>[
-            _GridItemData('Verbal', 'Verbal', 'Analogi & sinonim', '30'),
-            _GridItemData('Numerik', 'Numerik', 'Dasar & hitung', '25'),
-            _GridItemData('Logika', 'Logika', 'Penalaran & pola', '30'),
-            _GridItemData('Keprib.', 'Kepribadian', 'Sikap & nilai kerja', '20'),
-          ],
-          onTap: onTapTopic,
-        ),
-        const SizedBox(height: 24),
-        const Text(
-          'INTERVIEW PREP',
-          style: TextStyle(
-            color: AppColors.textMuted,
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-            letterSpacing: 1.2,
-          ),
-        ),
-        const SizedBox(height: 12),
-        InkWell(
-          onTap: () => context.push(AppRoutes.interview),
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.warriorNavy.withAlpha(20)),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: AppColors.warriorNavy.withAlpha(5),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: <Widget>[
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppColors.levelUpTeal.withAlpha(20),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.record_voice_over_rounded,
-                    color: AppColors.levelUpTeal,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      const Text(
-                        'Simulasi Wawancara',
-                        style: TextStyle(
-                          color: AppColors.textStrong,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '15 skenario - BUMN',
-                        style: TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.chevron_right,
-                  color: AppColors.textMuted.withAlpha(100),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _GridItemData {
-  _GridItemData(this.badge, this.title, this.subtitle, this.count);
-  final String badge;
-  final String title;
-  final String subtitle;
-  final String count;
 }
 
 class _CategorySection extends StatelessWidget {
-  const _CategorySection({required this.title, required this.items, required this.onTap});
+  const _CategorySection({
+    required this.title,
+    required this.items,
+    required this.onTapTopic,
+  });
 
   final String title;
-  final List<_GridItemData> items;
-  final VoidCallback onTap;
+  final List<PracticeTopic> items;
+  final ValueChanged<String> onTapTopic;
 
   @override
   Widget build(BuildContext context) {
@@ -472,17 +482,19 @@ class _CategorySection extends StatelessWidget {
             childAspectRatio: 1.45,
           ),
           itemCount: items.length,
-          itemBuilder: (context, index) {
-            final item = items[index];
+          itemBuilder: (BuildContext context, int index) {
+            final PracticeTopic item = items[index];
             return InkWell(
-              onTap: onTap,
+              onTap: () => onTapTopic(item.id),
               borderRadius: BorderRadius.circular(16),
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.warriorNavy.withAlpha(20)),
+                  border: Border.all(
+                    color: AppColors.warriorNavy.withAlpha(20),
+                  ),
                   boxShadow: <BoxShadow>[
                     BoxShadow(
                       color: AppColors.warriorNavy.withAlpha(5),
@@ -508,7 +520,7 @@ class _CategorySection extends StatelessWidget {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            item.badge,
+                            item.badgeLabel ?? item.name,
                             style: GoogleFonts.orbitron(
                               color: AppColors.warriorNavy,
                               fontSize: 9,
@@ -517,7 +529,7 @@ class _CategorySection extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '${item.count} soal',
+                          '${item.questionCount} soal',
                           style: TextStyle(
                             color: AppColors.textMuted.withAlpha(120),
                             fontSize: 10,
@@ -530,7 +542,7 @@ class _CategorySection extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
-                          item.title,
+                          item.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -541,13 +553,14 @@ class _CategorySection extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          item.subtitle,
-                          maxLines: 1,
+                          item.description,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: AppColors.warriorNavy.withAlpha(150),
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
+                            height: 1.3,
                           ),
                         ),
                       ],
@@ -564,22 +577,23 @@ class _CategorySection extends StatelessWidget {
 }
 
 class _RecentActivityTile extends StatelessWidget {
-  const _RecentActivityTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.score,
-    required this.scoreColor,
-  });
+  const _RecentActivityTile({required this.activity});
 
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final String score;
-  final Color scoreColor;
+  final PracticeRecentActivity activity;
 
   @override
   Widget build(BuildContext context) {
+    final IconData icon = switch (activity.type) {
+      PracticeRecentActivityType.insight => Icons.lightbulb_outline,
+      PracticeRecentActivityType.interview => Icons.record_voice_over_rounded,
+      PracticeRecentActivityType.quiz => Icons.article_outlined,
+    };
+    final Color scoreColor = switch (activity.type) {
+      PracticeRecentActivityType.insight => AppColors.fireGold,
+      PracticeRecentActivityType.interview => AppColors.warriorNavy,
+      PracticeRecentActivityType.quiz => AppColors.levelUpTeal,
+    };
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -610,7 +624,7 @@ class _RecentActivityTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  title,
+                  activity.title,
                   style: const TextStyle(
                     color: AppColors.textStrong,
                     fontSize: 14,
@@ -619,7 +633,7 @@ class _RecentActivityTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  subtitle,
+                  activity.subtitle,
                   style: const TextStyle(
                     color: AppColors.textMuted,
                     fontSize: 12,
@@ -630,7 +644,7 @@ class _RecentActivityTile extends StatelessWidget {
             ),
           ),
           Text(
-            score,
+            activity.scoreLabel,
             style: TextStyle(
               color: scoreColor,
               fontSize: 15,

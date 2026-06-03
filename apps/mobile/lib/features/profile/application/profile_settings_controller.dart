@@ -20,6 +20,14 @@ class ProfileSettingsController extends StateNotifier<ProfileSettings> {
     _setState(state.copyWith(displayName: name.trim()));
   }
 
+  void syncDisplayName(String name) {
+    final String trimmed = name.trim();
+    if (trimmed.isEmpty || trimmed == state.displayName) {
+      return;
+    }
+    _setState(state.copyWith(displayName: trimmed));
+  }
+
   void setTarget(ProfileTarget target) {
     _setState(state.copyWith(target: target));
   }

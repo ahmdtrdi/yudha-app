@@ -1,19 +1,25 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yudha_mobile/features/practice/application/practice_state.dart';
 import 'package:yudha_mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:yudha_mobile/features/practice/domain/entities/practice_dashboard.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_hint_state.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_option.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_question.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_topic.dart';
+import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
 class PracticeController extends StateNotifier<PracticeState> {
-  PracticeController({required PracticeRepository repository})
-    : _repository = repository,
-      super(PracticeState.initial()) {
+  PracticeController({
+    required PracticeRepository repository,
+    required ProfileTarget target,
+  }) : _repository = repository,
+       _target = target,
+       super(PracticeState.initial()) {
     load();
   }
 
   final PracticeRepository _repository;
+  final ProfileTarget _target;
 
   Future<void> load() async {
     state = state.copyWith(
@@ -25,9 +31,11 @@ class PracticeController extends StateNotifier<PracticeState> {
     );
 
     try {
-      final List<PracticeTopic> topics = await _repository.fetchTopics();
-      final PracticeQuestion questionOfDay = await _repository
-          .fetchQuestionOfDay();
+      final PracticeDashboard dashboard = await _repository.fetchDashboard(
+        target: _target,
+      );
+      final List<PracticeTopic> topics = dashboard.topics;
+      final PracticeQuestion questionOfDay = dashboard.questionOfDay;
 
       if (topics.isEmpty) {
         state = state.copyWith(
@@ -35,6 +43,8 @@ class PracticeController extends StateNotifier<PracticeState> {
           errorMessage: 'No practice topics available yet.',
           updateQuestionOfDay: true,
           questionOfDay: questionOfDay,
+          overallProgressPercent: dashboard.overallProgressPercent,
+          recentActivities: dashboard.recentActivities,
         );
         return;
       }
@@ -68,6 +78,8 @@ class PracticeController extends StateNotifier<PracticeState> {
         resetSelectedOption: true,
         updateQuestionOfDay: true,
         questionOfDay: questionOfDay,
+        overallProgressPercent: dashboard.overallProgressPercent,
+        recentActivities: dashboard.recentActivities,
         clearError: true,
       );
     } catch (_) {

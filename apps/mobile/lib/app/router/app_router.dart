@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/app/router/app_tab_shell.dart';
+import 'package:yudha_mobile/features/auth/presentation/pages/login_page.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/presentation/pages/interview_page.dart';
 import 'package:yudha_mobile/features/leaderboard/presentation/pages/leaderboard_page.dart';
 import 'package:yudha_mobile/features/lobby/presentation/pages/lobby_page.dart';
@@ -12,7 +14,6 @@ import 'package:yudha_mobile/features/profile/presentation/pages/profile_onboard
 import 'package:yudha_mobile/features/profile/presentation/pages/profile_page.dart';
 import 'package:yudha_mobile/features/pvp/presentation/pages/pvp_page.dart';
 import 'package:yudha_mobile/features/store/presentation/pages/store_page.dart';
-import 'package:yudha_mobile/features/auth/presentation/pages/login_page.dart';
 
 final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
   (Ref ref) => GoRouter(
@@ -63,7 +64,14 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
       ),
       GoRoute(
         path: AppRoutes.interview,
-        builder: (context, state) => const InterviewPage(),
+        builder: (context, state) {
+          final Object? extra = state.extra;
+          return InterviewPage(
+            config: extra is InterviewLaunchConfig
+                ? extra
+                : InterviewLaunchConfig.bumnDefault(),
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.store,

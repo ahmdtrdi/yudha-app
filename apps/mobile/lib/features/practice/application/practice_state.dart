@@ -1,5 +1,6 @@
 import 'package:yudha_mobile/features/practice/domain/entities/practice_hint_state.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_question.dart';
+import 'package:yudha_mobile/features/practice/domain/entities/practice_recent_activity.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_topic.dart';
 
 enum PracticeViewStatus { loading, ready, completed, error }
@@ -16,6 +17,8 @@ class PracticeState {
     required this.correctAnswers,
     required this.hintState,
     required this.questionOfDay,
+    required this.overallProgressPercent,
+    required this.recentActivities,
     required this.errorMessage,
   });
 
@@ -31,6 +34,8 @@ class PracticeState {
       correctAnswers: 0,
       hintState: PracticeHintState.locked,
       questionOfDay: null,
+      overallProgressPercent: 0,
+      recentActivities: <PracticeRecentActivity>[],
       errorMessage: null,
     );
   }
@@ -45,6 +50,8 @@ class PracticeState {
   final int correctAnswers;
   final PracticeHintState hintState;
   final PracticeQuestion? questionOfDay;
+  final int overallProgressPercent;
+  final List<PracticeRecentActivity> recentActivities;
   final String? errorMessage;
 
   PracticeQuestion? get currentQuestion {
@@ -88,6 +95,8 @@ class PracticeState {
     PracticeHintState? hintState,
     PracticeQuestion? questionOfDay,
     bool updateQuestionOfDay = false,
+    int? overallProgressPercent,
+    List<PracticeRecentActivity>? recentActivities,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -105,6 +114,9 @@ class PracticeState {
       correctAnswers: correctAnswers ?? this.correctAnswers,
       hintState: hintState ?? this.hintState,
       questionOfDay: updateQuestionOfDay ? questionOfDay : this.questionOfDay,
+      overallProgressPercent:
+          overallProgressPercent ?? this.overallProgressPercent,
+      recentActivities: recentActivities ?? this.recentActivities,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
     );
   }

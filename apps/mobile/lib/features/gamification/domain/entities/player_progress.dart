@@ -1,3 +1,4 @@
+import 'package:yudha_mobile/features/gamification/data/models/player_progress_snapshot.dart';
 import 'package:yudha_mobile/features/gamification/domain/entities/progress_tier.dart';
 
 class PlayerProgress {
@@ -17,12 +18,12 @@ class PlayerProgress {
     return const PlayerProgress(
       playerId: 'you',
       displayName: 'Kamu',
-      totalPoints: 520,
-      wins: 12,
-      losses: 6,
-      draws: 2,
+      totalPoints: 0,
+      wins: 0,
+      losses: 0,
+      draws: 0,
       streak: 0,
-      bestStreak: 3,
+      bestStreak: 0,
       lastDelta: 0,
     );
   }
@@ -97,6 +98,17 @@ class PlayerProgress {
       streak: streak ?? this.streak,
       bestStreak: bestStreak ?? this.bestStreak,
       lastDelta: lastDelta ?? this.lastDelta,
+    );
+  }
+
+  PlayerProgress mergeSnapshot(PlayerProgressSnapshot snapshot) {
+    return copyWith(
+      playerId: snapshot.playerId,
+      displayName: snapshot.displayName,
+      totalPoints: snapshot.totalPoints,
+      wins: snapshot.wins,
+      losses: snapshot.losses,
+      draws: snapshot.draws,
     );
   }
 }

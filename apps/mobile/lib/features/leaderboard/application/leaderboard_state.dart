@@ -11,6 +11,8 @@ class LeaderboardState {
     required this.page,
     required this.hasMore,
     required this.isLoadingMore,
+    required this.currentUserRank,
+    required this.currentUserEntry,
     required this.errorMessage,
   });
 
@@ -22,6 +24,8 @@ class LeaderboardState {
       page: 1,
       hasMore: false,
       isLoadingMore: false,
+      currentUserRank: null,
+      currentUserEntry: null,
       errorMessage: null,
     );
   }
@@ -32,6 +36,8 @@ class LeaderboardState {
   final int page;
   final bool hasMore;
   final bool isLoadingMore;
+  final int? currentUserRank;
+  final LeaderboardEntry? currentUserEntry;
   final String? errorMessage;
 
   LeaderboardState copyWith({
@@ -41,6 +47,9 @@ class LeaderboardState {
     int? page,
     bool? hasMore,
     bool? isLoadingMore,
+    int? currentUserRank,
+    LeaderboardEntry? currentUserEntry,
+    bool clearCurrentUser = false,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -51,6 +60,12 @@ class LeaderboardState {
       page: page ?? this.page,
       hasMore: hasMore ?? this.hasMore,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      currentUserRank: clearCurrentUser
+          ? null
+          : currentUserRank ?? this.currentUserRank,
+      currentUserEntry: clearCurrentUser
+          ? null
+          : currentUserEntry ?? this.currentUserEntry,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
     );
   }
