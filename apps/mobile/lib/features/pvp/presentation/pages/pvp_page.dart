@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:math';
 import 'dart:ui' as ui;
 
@@ -13,6 +13,12 @@ import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_question.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_state.dart';
 import 'package:yudha_mobile/features/pvp/domain/services/battle_state_machine.dart';
+
+part 'pvp_page/question_battle_sheet.dart';
+part 'pvp_page/arena_entry_section.dart';
+part 'pvp_page/arena_menu_section.dart';
+part 'pvp_page/in_battle_section.dart';
+part 'pvp_page/result_status_section.dart';
 
 const String _enemyAvatarAsset = 'assets/game/red_avatar.png';
 const String _playerAvatarAsset = 'assets/game/blue_avatar.png';
