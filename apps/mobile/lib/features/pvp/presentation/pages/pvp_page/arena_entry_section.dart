@@ -1,4 +1,4 @@
-﻿part of '../pvp_page.dart';
+part of '../pvp_page.dart';
 
 class _ArenaEntrySection extends StatelessWidget {
   const _ArenaEntrySection({
@@ -194,7 +194,6 @@ class _HowToRow extends StatelessWidget {
   }
 }
 
-
 class _ArenaPreview extends StatelessWidget {
   const _ArenaPreview({required this.playerName});
 
@@ -389,7 +388,6 @@ class _AvatarBadge extends StatelessWidget {
     );
   }
 }
-
 
 class _ArenaRingPainter extends CustomPainter {
   @override

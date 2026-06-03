@@ -1,4 +1,4 @@
-﻿part of '../pvp_page.dart';
+part of '../pvp_page.dart';
 
 class _ResultSection extends StatelessWidget {
   const _ResultSection({
@@ -619,4 +619,3 @@ class _StatusBanner extends StatelessWidget {
     );
   }
 }
-

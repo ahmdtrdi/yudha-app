@@ -1,4 +1,4 @@
-﻿part of '../pvp_page.dart';
+part of '../pvp_page.dart';
 
 class _ArenaMenuSection extends StatefulWidget {
   const _ArenaMenuSection({
@@ -457,4 +457,3 @@ class _ArenaMenuBackgroundPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

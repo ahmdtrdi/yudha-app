@@ -1227,3 +1227,34 @@
 ### The Tech Debt
 - The controller still contains a legacy fallback path that can synthesize the current user from local progress if backend current-user data is absent. That is useful as a safety net, but it is still local logic.
 - The leaderboard page still keeps the existing `scope` state machinery even though the backend module is currently global-only. We can trim that once we decide whether the UI should keep a scope toggle at all.
+
+## 2026-06-03 - PvP Arena Menu Duplicate Class Fix
+
+### The Change
+- Removed the stale in-file `_ArenaMenuSection` implementation from `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart`.
+- Kept `apps/mobile/lib/features/pvp/presentation/pages/pvp_page/arena_menu_section.dart` as the single source of truth for the arena menu part implementation.
+- Verified the duplicate class symbols are gone and reran `flutter analyze` on `lib/features/pvp/presentation/pages/pvp_page.dart`, which now completes without the previous frontend compiler crash.
+
+### The Reasoning
+- `pvp_page.dart` already declares `part 'pvp_page/arena_menu_section.dart';`, so keeping another private `_ArenaMenuSection` and `_ArenaMenuSectionState` inside the same library created duplicate canonical names.
+- The Dart frontend crash was a library-structure issue rather than a Gradle issue, so the safest fix was to remove only the duplicated block and preserve the split part-file architecture already in place.
+
+### The Tech Debt
+- `flutter analyze` still reports pre-existing warnings and deprecation infos in `pvp_page.dart` unrelated to this crash, including deprecated color channel accessors and a few unused private elements/parameters.
+- The large `pvp_page.dart` library remains easy to regress when widgets are split out incrementally; if we keep refactoring it into `part` files, we should continue cleaning up the original file immediately after extraction to avoid duplicate declarations.
+
+## 2026-06-03 - PvP Split Part Duplicate Cleanup
+
+### The Change
+- Trimmed `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart` down to the shared imports/constants, `part` declarations, and the `PvpPage` orchestration widget.
+- Removed the remaining stale copied declarations for the question sheet, arena entry, in-battle scene, result status section, and their helper widgets/painters from the main library file.
+- Ran `dart format` on the PvP page library and part files after the cleanup.
+- Ran `flutter pub get` to refresh local package resolution, then verified `flutter analyze lib/features/pvp/presentation/pages/pvp_page.dart` and `flutter build apk --debug` both pass.
+
+### The Reasoning
+- The next compiler crash showed `_InBattleSectionState` had the same duplicate canonical-name problem as the arena menu.
+- Because all extracted sections were already included with `part` directives, the clean fix was to keep one declaration owner per private class: the dedicated part file.
+- Clearing all stale copied sections at once prevents the compiler from surfacing the same failure repeatedly for the next duplicated state/helper class.
+
+### The Tech Debt
+- The PvP page is now structurally cleaner, but the part-file library is still large and tightly coupled through private declarations. A future pass could split this into public widgets with explicit imports once the UI stabilizes.
