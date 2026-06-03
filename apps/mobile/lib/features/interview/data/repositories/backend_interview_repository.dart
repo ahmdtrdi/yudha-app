@@ -5,6 +5,7 @@ import 'package:yudha_mobile/app/config/app_config.dart';
 import 'package:yudha_mobile/features/interview/data/repositories/interview_repository.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_message.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_session_record.dart';
 
 class InterviewApiConfig {
   const InterviewApiConfig({
@@ -27,6 +28,49 @@ class BackendInterviewRepository implements InterviewRepository {
 
   final InterviewApiConfig _config;
   final http.Client _client;
+
+  @override
+  Future<List<InterviewSessionSummaryRecord>> listSessions() async {
+    final Map<String, dynamic> body = await _get('/interview/sessions');
+    final Object? sessionsJson = body['sessions'];
+    if (sessionsJson is! List) {
+      return const <InterviewSessionSummaryRecord>[];
+    }
+
+    return sessionsJson
+        .whereType<Map<String, dynamic>>()
+        .map(_sessionSummaryFromJson)
+        .toList(growable: false);
+  }
+
+  @override
+  Future<InterviewSessionDetailRecord> getSession(String sessionId) async {
+    final Map<String, dynamic> body = await _get(
+      '/interview/sessions/$sessionId',
+    );
+    final Object? turnsJson = body['turns'];
+    final List<InterviewMessage> messages = turnsJson is List
+        ? turnsJson
+              .whereType<Map<String, dynamic>>()
+              .map(_messageFromTurnJson)
+              .toList(growable: false)
+        : const <InterviewMessage>[];
+
+    return InterviewSessionDetailRecord(
+      sessionId: body['sessionId'] as String? ?? sessionId,
+      status: body['status'] as String? ?? 'active',
+      companyId: body['companyId'] as String? ?? '',
+      targetRole: body['targetRole'] as String? ?? '',
+      mode: body['mode'] as String? ?? '',
+      responseStyle: body['responseStyle'] as String? ?? 'text',
+      messages: messages,
+      finalSummary: body['finalSummary'] is Map<String, dynamic>
+          ? InterviewFinalSummary.fromJson(
+              body['finalSummary'] as Map<String, dynamic>,
+            )
+          : null,
+    );
+  }
 
   @override
   Future<InterviewStartResult> startSession(
@@ -100,22 +144,41 @@ class BackendInterviewRepository implements InterviewRepository {
     String path,
     Map<String, dynamic> body,
   ) async {
+    _ensureAuthenticated();
+
+    final Uri uri = Uri.parse('${_config.baseUrl}$path');
+    final http.Response response = await _client.post(
+      uri,
+      headers: _headers,
+      body: jsonEncode(body),
+    );
+
+    return _decodeResponse(response);
+  }
+
+  Future<Map<String, dynamic>> _get(String path) async {
+    _ensureAuthenticated();
+
+    final Uri uri = Uri.parse('${_config.baseUrl}$path');
+    final http.Response response = await _client.get(uri, headers: _headers);
+
+    return _decodeResponse(response);
+  }
+
+  void _ensureAuthenticated() {
     if (!_config.hasAccessToken) {
       throw const InterviewApiException(
         'Interview AI membutuhkan sesi login Supabase. Silakan masuk ulang.',
       );
     }
+  }
 
-    final Uri uri = Uri.parse('${_config.baseUrl}$path');
-    final http.Response response = await _client.post(
-      uri,
-      headers: <String, String>{
-        'authorization': 'Bearer ${_config.accessToken}',
-        'content-type': 'application/json',
-      },
-      body: jsonEncode(body),
-    );
+  Map<String, String> get _headers => <String, String>{
+    'authorization': 'Bearer ${_config.accessToken}',
+    'content-type': 'application/json',
+  };
 
+  Map<String, dynamic> _decodeResponse(http.Response response) {
     final Object? decoded = response.body.isEmpty
         ? const <String, dynamic>{}
         : jsonDecode(response.body);
@@ -141,6 +204,53 @@ class BackendInterviewRepository implements InterviewRepository {
       text: json['text'] as String,
       createdAt: DateTime.now(),
     );
+  }
+
+  InterviewSessionSummaryRecord _sessionSummaryFromJson(
+    Map<String, dynamic> json,
+  ) {
+    return InterviewSessionSummaryRecord(
+      sessionId: json['sessionId'] as String? ?? '',
+      status: json['status'] as String? ?? 'active',
+      companyId: json['companyId'] as String? ?? '',
+      targetRole: json['targetRole'] as String? ?? '',
+      mode: json['mode'] as String? ?? '',
+      language: json['language'] as String? ?? '',
+      responseStyle: json['responseStyle'] as String? ?? 'text',
+      finalSummary: json['finalSummary'] is Map<String, dynamic>
+          ? InterviewFinalSummary.fromJson(
+              json['finalSummary'] as Map<String, dynamic>,
+            )
+          : null,
+      createdAt: _parseDateTime(json['createdAt']),
+      updatedAt: _parseDateTime(json['updatedAt']),
+    );
+  }
+
+  InterviewMessage _messageFromTurnJson(Map<String, dynamic> json) {
+    final String role = json['role'] as String? ?? 'question';
+    return InterviewMessage(
+      id: json['turnId'] as String? ?? '',
+      author: role == 'answer'
+          ? InterviewMessageAuthor.candidate
+          : InterviewMessageAuthor.interviewer,
+      text: json['text'] as String? ?? '',
+      createdAt: _parseDateTime(json['createdAt']),
+      evaluation: json['evaluation'] is Map<String, dynamic>
+          ? InterviewEvaluation.fromJson(
+              json['evaluation'] as Map<String, dynamic>,
+            )
+          : null,
+    );
+  }
+
+  DateTime _parseDateTime(Object? rawValue) {
+    final String? text = rawValue?.toString();
+    if (text == null || text.trim().isEmpty) {
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+    return DateTime.tryParse(text)?.toLocal() ??
+        DateTime.fromMillisecondsSinceEpoch(0);
   }
 }
 

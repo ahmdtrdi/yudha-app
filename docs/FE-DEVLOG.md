@@ -1143,3 +1143,87 @@
 ### The Tech Debt
 - `apps/backend-api` still does not expose a leaderboard endpoint, so the backend-first repository currently falls back to the mock repository on request failure.
 - The current fallback still reports prototype-style user rank data, but it now does so through the repository payload instead of hardcoded widget logic.
+
+## 2026-06-03 - Online PvP Wired to Backend-Game Socket Match Flow
+
+### The Change
+- Added a dedicated mobile online-match bridge for PvP:
+  - `apps/mobile/lib/features/pvp/data/repositories/online_battle_repository.dart`
+  - `apps/mobile/lib/features/pvp/data/repositories/socket_online_battle_repository.dart`
+  - `apps/mobile/lib/features/pvp/domain/entities/online_battle_update.dart`
+- Added `socket_io_client` to `apps/mobile/pubspec.yaml` and introduced `YUDHA_GAME_BASE_URL` in `apps/mobile/lib/app/config/app_config.dart` with the backend-game default `http://10.0.2.2:3001`.
+- Rewired `battle_providers.dart` so online PvP now uses the authenticated Supabase access token and connects to the real `/match` Socket.IO namespace instead of the old seeded `MockQuestionBank`.
+- Split `BattleController` behavior by mode:
+  - bot mode still uses the local `BattleStateMachine`
+  - online mode now queues through backend-game, opens cards through the gateway, submits answers to the server, and updates UI state from `queue_joined`, `match_found`, `game_state_update`, `play_card_result`, `match_result`, and presence/error events.
+- Updated `BattleQuestion` so `correctOptionIndex` can be absent for server-owned cards, and adjusted the PvP question sheet in `pvp_page.dart` to stop grading online answers locally.
+- Removed the old fake room-code start flow from the PvP page and changed the online entry copy to queue-based matchmaking.
+- Updated the PvP widget test to use a controller-driven setup that remains stable after the online/bot split.
+
+### The Reasoning
+- `backend-game` already owns the real online match lifecycle through Socket.IO, so the mobile app should stop pretending online PvP is just another local question seed.
+- Keeping bot mode on the existing local state machine avoids destabilizing the offline/demo-friendly path while we wire online mode to server-authoritative actions.
+- The backend intentionally does not expose the correct answer in public card payloads, so the mobile question UI needed to stop validating online answers client-side for fairness.
+- Introducing a small online repository boundary keeps the socket/event mapping isolated from the battle page and makes future backend-game contract changes easier to absorb.
+
+### The Tech Debt
+- Online PvP is now wired to the real socket flow, but backend-game still serves seeded local questions in `QuestionService`; the content source is backend-owned, not yet database-backed.
+- The current online result mapping still derives mobile rating delta locally (`+20/-12/0`) because backend-game does not yet return a dedicated rating delta payload.
+- Opponent identity in mobile currently falls back to a shortened user-id label because the match payload does not provide a display name.
+- `flutter analyze` still reports older lint drift inside `pvp_page.dart` (deprecated color channel API usage and unused legacy elements) that predates this socket wiring pass.
+
+## 2026-06-03 - Interview Session History Wired to Backend Sessions API
+
+### The Change
+- Extended the mobile interview repository contract to support backend-backed session browsing:
+  - `listSessions()`
+  - `getSession(sessionId)`
+- Added new interview session record models in `apps/mobile/lib/features/interview/domain/entities/interview_session_record.dart` for:
+  - session summaries from `GET /interview/sessions`
+  - session transcript/detail from `GET /interview/sessions/:sessionId`
+- Updated `BackendInterviewRepository` to:
+  - call the new sessions list endpoint
+  - call the session detail endpoint
+  - map backend turns into existing `InterviewMessage` chat entities
+  - preserve evaluations/final summaries for completed coaching sessions.
+- Added Riverpod async providers in `interview_providers.dart` for interview history list and per-session detail loading.
+- Reworked the top-right history action in `interview_page.dart`:
+  - it now opens a backend-backed session list instead of showing only current in-memory messages
+  - tapping a session opens a transcript/detail bottom sheet with final score summary and per-turn coaching notes when available.
+- Added repository parsing tests for the new list/detail endpoints and updated the existing interview controller fake repository to satisfy the expanded contract.
+
+### The Reasoning
+- Backend now owns real session persistence, so the mobile history UI should stop pretending that “history” only means the current chat already loaded in memory.
+- Keeping live interview chat in the existing `InterviewController` while moving history browsing into dedicated async providers keeps the active session flow stable and avoids mixing historical transcript loading with answer-submission state.
+- Reusing the existing `InterviewMessage` entity for transcript detail keeps the transcript UI visually consistent with the active chat page and reduces mapping duplication.
+
+### The Tech Debt
+- Opening a past session currently shows a transcript/detail sheet rather than fully restoring that session into the live interview screen. That was the safer first cut because the screen config still comes from the route launch payload.
+- Session summaries currently display `companyId` in humanized form because the list endpoint does not yet return a friendly company display name.
+- The active chat screen and history detail sheet now share transcript semantics, but not a shared reusable widget yet; that can be extracted later if the interview UI keeps growing.
+
+## 2026-06-03 - Leaderboard Wired to Backend List and My-Rank Endpoints
+
+### The Change
+- Updated the mobile leaderboard backend repository to consume the real backend-api contract:
+  - `GET /leaderboard?limit=...&offset=...`
+  - `GET /leaderboard/me`
+- Mapped backend leaderboard rows into the existing mobile `LeaderboardEntry` model using backend-owned fields:
+  - `userId`
+  - `username`
+  - `rankPoints`
+  - `winrate`
+  - `streak`
+- Marked the current user directly from the backend `/leaderboard/me` response so the loaded leaderboard can recognize the user row without fabricating it locally.
+- Kept the existing mock leaderboard repository as a fallback only when the backend request path fails.
+- Updated the leaderboard hero card to prefer server-provided current-user rank data when available, while still falling back to local player progress for display if the backend payload is missing.
+- Added a repository test covering both the list endpoint and the `me` endpoint merge behavior.
+
+### The Reasoning
+- The backend leaderboard module now owns the ranking contract, so the mobile client should consume the authoritative list and the authoritative current-user rank instead of inventing either on the page layer.
+- Using a separate `/leaderboard/me` call matches the backend shape cleanly and avoids guessing current-user position from the visible page window.
+- Keeping the fallback repository in place preserves app usability in local/offline cases without making the fake behavior the primary path anymore.
+
+### The Tech Debt
+- The controller still contains a legacy fallback path that can synthesize the current user from local progress if backend current-user data is absent. That is useful as a safety net, but it is still local logic.
+- The leaderboard page still keeps the existing `scope` state machinery even though the backend module is currently global-only. We can trim that once we decide whether the UI should keep a scope toggle at all.

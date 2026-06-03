@@ -5,16 +5,16 @@ class BattleQuestion {
     required this.id,
     required this.prompt,
     required this.options,
-    required this.correctOptionIndex,
     required this.weight,
     required this.effect,
+    this.correctOptionIndex,
     this.category = 'numerik',
   });
 
   final String id;
   final String prompt;
   final List<String> options;
-  final int correctOptionIndex;
+  final int? correctOptionIndex;
   final int weight;
   final QuestionEffect effect;
   final String category;

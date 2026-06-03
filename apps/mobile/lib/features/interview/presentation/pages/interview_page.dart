@@ -7,6 +7,7 @@ import 'package:yudha_mobile/features/interview/application/interview_providers.
 import 'package:yudha_mobile/features/interview/application/interview_state.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_message.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_session_record.dart';
 
 class InterviewPage extends ConsumerStatefulWidget {
   const InterviewPage({required this.config, super.key});
@@ -77,7 +78,29 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (BuildContext context) {
-        return _HistorySheet(messages: state.messages);
+        return _SessionsSheet(
+          currentSessionId: state.sessionId,
+          config: widget.config,
+          onOpenSession: (InterviewSessionSummaryRecord session) {
+            Navigator.of(context).pop();
+            _showSessionDetail(session.sessionId);
+          },
+        );
+      },
+    );
+  }
+
+  void _showSessionDetail(String sessionId) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: AppColors.scholarCream,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (BuildContext context) {
+        return _SessionDetailSheet(sessionId: sessionId);
       },
     );
   }
@@ -141,9 +164,7 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
           IconButton(
             tooltip: 'Riwayat chat',
             icon: const Icon(Icons.history_rounded),
-            onPressed: state.messages.isEmpty
-                ? null
-                : () => _showHistory(state),
+            onPressed: () => _showHistory(state),
           ),
           TextButton(
             onPressed: isBusy ? null : _completeSession,
@@ -566,50 +587,455 @@ class _AnswerComposer extends StatelessWidget {
   }
 }
 
-class _HistorySheet extends StatelessWidget {
-  const _HistorySheet({required this.messages});
+class _SessionsSheet extends ConsumerWidget {
+  const _SessionsSheet({
+    required this.currentSessionId,
+    required this.config,
+    required this.onOpenSession,
+  });
 
-  final List<InterviewMessage> messages;
+  final String? currentSessionId;
+  final InterviewLaunchConfig config;
+  final ValueChanged<InterviewSessionSummaryRecord> onOpenSession;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AsyncValue<List<InterviewSessionSummaryRecord>> sessionsAsync = ref
+        .watch(interviewSessionsProvider);
+
     return SafeArea(
-      child: ListView.separated(
+      child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        itemCount: messages.length + 1,
-        separatorBuilder: (BuildContext context, int index) =>
-            const Divider(height: 20),
-        itemBuilder: (BuildContext context, int index) {
-          if (index == 0) {
-            return const Text(
-              'Riwayat Interview',
-              style: TextStyle(
-                color: AppColors.warriorNavy,
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
+        child: sessionsAsync.when(
+          data: (List<InterviewSessionSummaryRecord> sessions) {
+            if (sessions.isEmpty) {
+              return const Center(
+                child: Text(
+                  'Belum ada sesi interview tersimpan.',
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Riwayat Interview',
+                  style: TextStyle(
+                    color: AppColors.warriorNavy,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Sesi aktif baru: ${config.companyName}',
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: sessions.length,
+                    separatorBuilder: (BuildContext context, int index) =>
+                        const SizedBox(height: 10),
+                    itemBuilder: (BuildContext context, int index) {
+                      final InterviewSessionSummaryRecord session =
+                          sessions[index];
+                      final bool isCurrent =
+                          session.sessionId == currentSessionId;
+                      final String title = _humanizeCompanyId(
+                        session.companyId,
+                      );
+                      final String summaryText = session.finalSummary == null
+                          ? 'Belum diselesaikan'
+                          : 'Skor ${session.finalSummary!.overallScore.toStringAsFixed(1)}';
+
+                      return Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(18),
+                          onTap: () => onOpenSession(session),
+                          child: Ink(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: isCurrent
+                                    ? AppColors.levelUpTeal
+                                    : AppColors.warriorNavy.withAlpha(24),
+                                width: isCurrent ? 1.6 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Container(
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.warriorNavy.withAlpha(12),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    session.status == 'completed'
+                                        ? Icons.task_alt_rounded
+                                        : Icons.history_rounded,
+                                    color: session.status == 'completed'
+                                        ? AppColors.levelUpTeal
+                                        : AppColors.warriorNavy,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      Row(
+                                        children: <Widget>[
+                                          Expanded(
+                                            child: Text(
+                                              title,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                color: AppColors.textStrong,
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                          ),
+                                          if (isCurrent)
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: AppColors.levelUpTeal
+                                                    .withAlpha(18),
+                                                borderRadius:
+                                                    BorderRadius.circular(999),
+                                              ),
+                                              child: const Text(
+                                                'Aktif',
+                                                style: TextStyle(
+                                                  color: AppColors.levelUpTeal,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${session.targetRole} - ${session.mode}',
+                                        style: const TextStyle(
+                                          color: AppColors.textMuted,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        '$summaryText  •  ${_sessionTimestamp(session.updatedAt)}',
+                                        style: const TextStyle(
+                                          color: AppColors.textStrong,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: AppColors.textMuted,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+          error: (Object error, StackTrace stackTrace) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  const Text(
+                    'Riwayat sesi belum bisa dimuat.',
+                    style: TextStyle(
+                      color: AppColors.textStrong,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => ref.invalidate(interviewSessionsProvider),
+                    child: const Text('Muat ulang'),
+                  ),
+                ],
               ),
             );
-          }
-
-          final InterviewMessage message = messages[index - 1];
-          final bool isUser =
-              message.author == InterviewMessageAuthor.candidate;
-          return ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(
-              isUser ? Icons.person_outline : Icons.smart_toy_outlined,
-              color: isUser ? AppColors.levelUpTeal : AppColors.warriorNavy,
-            ),
-            title: Text(
-              isUser ? 'Jawaban kamu' : 'Pewawancara AI',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Text(message.text),
-          );
-        },
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+        ),
       ),
     );
   }
+}
+
+class _SessionDetailSheet extends ConsumerWidget {
+  const _SessionDetailSheet({required this.sessionId});
+
+  final String sessionId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AsyncValue<InterviewSessionDetailRecord> detailAsync = ref.watch(
+      interviewSessionDetailProvider(sessionId),
+    );
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        child: detailAsync.when(
+          data: (InterviewSessionDetailRecord detail) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  _humanizeCompanyId(detail.companyId),
+                  style: const TextStyle(
+                    color: AppColors.warriorNavy,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${detail.targetRole} - ${detail.mode}',
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (detail.finalSummary != null) ...<Widget>[
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.levelUpTeal.withAlpha(16),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: AppColors.levelUpTeal.withAlpha(60),
+                      ),
+                    ),
+                    child: Text(
+                      'Skor akhir ${detail.finalSummary!.overallScore.toStringAsFixed(1)} dari ${detail.finalSummary!.answerCount} jawaban.',
+                      style: const TextStyle(
+                        color: AppColors.textStrong,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                Expanded(
+                  child: detail.messages.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'Transkrip sesi masih kosong.',
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          itemCount: detail.messages.length,
+                          separatorBuilder: (BuildContext context, int index) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (BuildContext context, int index) {
+                            final InterviewMessage message =
+                                detail.messages[index];
+                            return _SessionTranscriptTile(message: message);
+                          },
+                        ),
+                ),
+              ],
+            );
+          },
+          error: (Object error, StackTrace stackTrace) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  const Text(
+                    'Detail sesi belum bisa dimuat.',
+                    style: TextStyle(
+                      color: AppColors.textStrong,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => ref.invalidate(
+                      interviewSessionDetailProvider(sessionId),
+                    ),
+                    child: const Text('Muat ulang'),
+                  ),
+                ],
+              ),
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+        ),
+      ),
+    );
+  }
+}
+
+class _SessionTranscriptTile extends StatelessWidget {
+  const _SessionTranscriptTile({required this.message});
+
+  final InterviewMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isCandidate = message.author == InterviewMessageAuthor.candidate;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isCandidate
+              ? AppColors.levelUpTeal.withAlpha(36)
+              : AppColors.warriorNavy.withAlpha(20),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(
+                isCandidate
+                    ? Icons.person_outline_rounded
+                    : Icons.smart_toy_outlined,
+                size: 18,
+                color: isCandidate
+                    ? AppColors.levelUpTeal
+                    : AppColors.warriorNavy,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isCandidate ? 'Jawaban kamu' : 'Pewawancara AI',
+                style: const TextStyle(
+                  color: AppColors.textStrong,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _messageTimestamp(message.createdAt),
+                style: const TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            message.text,
+            style: const TextStyle(
+              color: AppColors.textStrong,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              height: 1.4,
+            ),
+          ),
+          if (message.evaluation?.coachNote != null) ...<Widget>[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.scholarCream,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'Coach note: ${message.evaluation!.coachNote!}',
+                style: const TextStyle(
+                  color: AppColors.textStrong,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+String _humanizeCompanyId(String companyId) {
+  if (companyId.trim().isEmpty) {
+    return 'Interview Session';
+  }
+  return companyId
+      .split('_')
+      .where((String part) => part.trim().isNotEmpty)
+      .map(
+        (String part) =>
+            '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+      )
+      .join(' ');
+}
+
+String _sessionTimestamp(DateTime time) {
+  final DateTime now = DateTime.now();
+  final Duration diff = now.difference(time);
+  if (diff.inMinutes < 1) {
+    return 'Baru saja';
+  }
+  if (diff.inHours < 1) {
+    return '${diff.inMinutes}m lalu';
+  }
+  if (diff.inDays < 1) {
+    return '${diff.inHours}j lalu';
+  }
+  return '${time.day.toString().padLeft(2, '0')}/${time.month.toString().padLeft(2, '0')}/${time.year}';
+}
+
+String _messageTimestamp(DateTime time) {
+  return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
 }
 
 class _AvatarIcon extends StatelessWidget {

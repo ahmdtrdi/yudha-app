@@ -4,6 +4,10 @@ abstract final class AppConfig {
     'YUDHA_API_BASE_URL',
     defaultValue: 'http://10.0.2.2:3000',
   );
+  static const String gameBaseUrl = String.fromEnvironment(
+    'YUDHA_GAME_BASE_URL',
+    defaultValue: 'http://10.0.2.2:3001',
+  );
   static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   static const String supabasePublishableKey = String.fromEnvironment(
     'SUPABASE_PUBLISHABLE_KEY',

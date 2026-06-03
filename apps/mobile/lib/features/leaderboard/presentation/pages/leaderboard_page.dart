@@ -17,17 +17,6 @@ class LeaderboardPage extends ConsumerWidget {
       leaderboardControllerProvider.notifier,
     );
     final progress = ref.watch(playerProgressProvider);
-
-    int? userRank = leaderboardState.currentUserRank;
-    bool isUserInLoadedList = false;
-    if (leaderboardState.status == LeaderboardViewStatus.success) {
-      final idx = leaderboardState.entries.indexWhere((e) => e.isCurrentUser);
-      if (idx != -1) {
-        userRank ??= idx + 1;
-        isUserInLoadedList = true;
-      }
-    }
-
     final LeaderboardEntry currentUserEntry =
         leaderboardState.currentUserEntry ??
         LeaderboardEntry(
@@ -40,6 +29,16 @@ class LeaderboardPage extends ConsumerWidget {
           streak: progress.streak,
           isCurrentUser: true,
         );
+
+    int? userRank = leaderboardState.currentUserRank;
+    bool isUserInLoadedList = false;
+    if (leaderboardState.status == LeaderboardViewStatus.success) {
+      final idx = leaderboardState.entries.indexWhere((e) => e.isCurrentUser);
+      if (idx != -1) {
+        userRank ??= idx + 1;
+        isUserInLoadedList = true;
+      }
+    }
 
     // Split top 3 vs others
     final topThree = leaderboardState.entries.take(3).toList();
@@ -80,13 +79,11 @@ class LeaderboardPage extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                   child: _HeroRankCard(
                     rank: userRank,
-                    name: progress.displayName.isEmpty
-                        ? 'Kamu'
-                        : progress.displayName,
+                    name: currentUserEntry.playerName,
                     tierLabel: progress.tier.label.toUpperCase(),
-                    totalPoints: progress.totalPoints,
-                    streak: progress.streak,
-                    winRate: progress.winRate,
+                    totalPoints: currentUserEntry.points,
+                    streak: currentUserEntry.streak,
+                    winRate: currentUserEntry.winRate,
                     currentXp:
                         progress.totalPoints - progress.currentTierBasePoints,
                     targetXp:

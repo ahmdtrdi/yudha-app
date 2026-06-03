@@ -4,6 +4,7 @@ import 'package:yudha_mobile/features/interview/application/interview_state.dart
 import 'package:yudha_mobile/features/interview/data/repositories/interview_repository.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_message.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_session_record.dart';
 
 void main() {
   test('starts session and submits answer', () async {
@@ -31,6 +32,24 @@ void main() {
 }
 
 class _FakeInterviewRepository implements InterviewRepository {
+  @override
+  Future<InterviewSessionDetailRecord> getSession(String sessionId) async {
+    return const InterviewSessionDetailRecord(
+      sessionId: 'session-1',
+      status: 'completed',
+      companyId: 'bumn_taspen',
+      targetRole: 'Management Trainee',
+      mode: 'coaching',
+      responseStyle: 'text',
+      messages: <InterviewMessage>[],
+    );
+  }
+
+  @override
+  Future<List<InterviewSessionSummaryRecord>> listSessions() async {
+    return const <InterviewSessionSummaryRecord>[];
+  }
+
   @override
   Future<InterviewStartResult> startSession(
     InterviewLaunchConfig config,

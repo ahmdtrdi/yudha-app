@@ -69,7 +69,8 @@ class PlayerProgressController extends StateNotifier<PlayerProgress> {
     }
 
     try {
-      final PlayerProgressSnapshot snapshot = await _repository.fetchCurrentProgress();
+      final PlayerProgressSnapshot snapshot = await _repository
+          .fetchCurrentProgress();
       state = state.mergeSnapshot(snapshot);
       _onDisplayNameHydrated?.call(snapshot.displayName);
     } catch (_) {
