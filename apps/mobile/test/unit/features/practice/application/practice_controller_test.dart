@@ -3,11 +3,13 @@ import 'package:yudha_mobile/features/practice/application/practice_controller.d
 import 'package:yudha_mobile/features/practice/application/practice_state.dart';
 import 'package:yudha_mobile/features/practice/data/repositories/mock_practice_repository.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_hint_state.dart';
+import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
 void main() {
   test('load initializes topics and first topic session', () async {
     final PracticeController controller = PracticeController(
       repository: const MockPracticeRepository(),
+      target: ProfileTarget.cpns,
     );
 
     await controller.reload();
@@ -22,6 +24,7 @@ void main() {
   test('submit answer on question of day can complete session', () async {
     final PracticeController controller = PracticeController(
       repository: const MockPracticeRepository(),
+      target: ProfileTarget.cpns,
     );
 
     await controller.reload();
@@ -40,6 +43,7 @@ void main() {
   test('hint flow transitions through watch ad and buy states', () async {
     final PracticeController controller = PracticeController(
       repository: const MockPracticeRepository(),
+      target: ProfileTarget.cpns,
     );
 
     await controller.reload();
@@ -60,4 +64,3 @@ void main() {
     expect(controller.state.hintState, PracticeHintState.unlocked);
   });
 }
-

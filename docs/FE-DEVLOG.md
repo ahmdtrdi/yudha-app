@@ -1097,3 +1097,28 @@
 ### The Tech Debt
 - The projection boundary is now explicit, but we still need to decide whether streak-related fields should eventually be server-authoritative once match syncing is implemented.
 - `target` and other profile preferences still live in separate local settings state, so profile identity is cleaner now but not yet fully unified.
+
+## 2026-06-03 - Practice Dashboard Data Made Repository-Driven
+
+### The Change
+- Added practice dashboard domain entities for repository-driven progress and recent activity:
+  - `practice_dashboard.dart`
+  - `practice_recent_activity.dart`
+- Extended `PracticeTopic` with repository-owned dashboard metadata (`groupTitle`, `badgeLabel`, `questionCount`) so the Practice page no longer hardcodes CPNS/BUMN card grids in the widget tree.
+- Refactored `PracticeRepository` to expose `fetchDashboard(target)` plus topic question loading.
+- Added `BackendPracticeRepository` as the default mobile repository, expecting backend endpoints for:
+  - `GET /practice/dashboard?target=...`
+  - `GET /practice/topics/:id/questions`
+- Kept the existing local practice data as a fallback inside the backend repository so the app still renders while backend practice endpoints do not yet exist.
+- Updated `PracticeController` and `PracticeState` to load and store repository-provided dashboard progress, question of the day, and recent activity.
+- Rewrote `PracticePage` to render grouped topic sections and recent activity from state instead of hardcoded tile data.
+
+### The Reasoning
+- The immediate goal was to remove UI-owned fake data from the Practice screen without blocking the mobile branch on missing backend endpoints.
+- Making the backend repository the default provider gives us one clean cutover path once the API is ready, while the seed fallback keeps the feature usable during the transition.
+- Moving section labels, counts, and recent activity into repository data makes the page honest about where its content comes from and keeps future product changes out of the widget layout.
+
+### The Tech Debt
+- `apps/backend-api` still does not expose a practice module, so the current backend repository falls back to seeded local data on request failure.
+- Practice progress and recent activity are repository-driven now, but the fallback values are still static seed data until real backend responses exist.
+- The practice widget test continues to hang on this Windows runner in its second case after rendering `renders practice quiz page and transforms hint`; analyzer and practice unit tests pass, so this should be revisited separately as a test-runner issue.
