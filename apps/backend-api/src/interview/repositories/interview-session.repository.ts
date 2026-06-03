@@ -114,6 +114,22 @@ export class InterviewSessionRepository {
     return this.mapSession(data);
   }
 
+  async listOwnedSessions(userId: string): Promise<InterviewSession[]> {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('interview_sessions')
+      .select()
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .returns<InterviewSessionRow[]>();
+
+    if (error) {
+      throw new InternalServerErrorException(error.message);
+    }
+
+    return (data ?? []).map((session) => this.mapSession(session));
+  }
+
   async addQuestion(
     sessionId: string,
     content: string,
