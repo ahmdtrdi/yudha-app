@@ -1201,3 +1201,29 @@
 - Opening a past session currently shows a transcript/detail sheet rather than fully restoring that session into the live interview screen. That was the safer first cut because the screen config still comes from the route launch payload.
 - Session summaries currently display `companyId` in humanized form because the list endpoint does not yet return a friendly company display name.
 - The active chat screen and history detail sheet now share transcript semantics, but not a shared reusable widget yet; that can be extracted later if the interview UI keeps growing.
+
+## 2026-06-03 - Leaderboard Wired to Backend List and My-Rank Endpoints
+
+### The Change
+- Updated the mobile leaderboard backend repository to consume the real backend-api contract:
+  - `GET /leaderboard?limit=...&offset=...`
+  - `GET /leaderboard/me`
+- Mapped backend leaderboard rows into the existing mobile `LeaderboardEntry` model using backend-owned fields:
+  - `userId`
+  - `username`
+  - `rankPoints`
+  - `winrate`
+  - `streak`
+- Marked the current user directly from the backend `/leaderboard/me` response so the loaded leaderboard can recognize the user row without fabricating it locally.
+- Kept the existing mock leaderboard repository as a fallback only when the backend request path fails.
+- Updated the leaderboard hero card to prefer server-provided current-user rank data when available, while still falling back to local player progress for display if the backend payload is missing.
+- Added a repository test covering both the list endpoint and the `me` endpoint merge behavior.
+
+### The Reasoning
+- The backend leaderboard module now owns the ranking contract, so the mobile client should consume the authoritative list and the authoritative current-user rank instead of inventing either on the page layer.
+- Using a separate `/leaderboard/me` call matches the backend shape cleanly and avoids guessing current-user position from the visible page window.
+- Keeping the fallback repository in place preserves app usability in local/offline cases without making the fake behavior the primary path anymore.
+
+### The Tech Debt
+- The controller still contains a legacy fallback path that can synthesize the current user from local progress if backend current-user data is absent. That is useful as a safety net, but it is still local logic.
+- The leaderboard page still keeps the existing `scope` state machinery even though the backend module is currently global-only. We can trim that once we decide whether the UI should keep a scope toggle at all.
