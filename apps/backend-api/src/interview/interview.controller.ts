@@ -22,6 +22,11 @@ export class InterviewController {
     return this.interviewService.startSession(user.id, input);
   }
 
+  @Get()
+  listSessions(@GetUser() user: AuthenticatedUser) {
+    return this.interviewService.listSessions(user.id);
+  }
+
   @Post(':sessionId/turns')
   submitAnswer(
     @GetUser() user: AuthenticatedUser,
