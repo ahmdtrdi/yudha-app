@@ -1,8 +1,13 @@
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_message.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_session_record.dart';
 
 abstract class InterviewRepository {
   Future<InterviewStartResult> startSession(InterviewLaunchConfig config);
+
+  Future<List<InterviewSessionSummaryRecord>> listSessions();
+
+  Future<InterviewSessionDetailRecord> getSession(String sessionId);
 
   Future<InterviewTurnResult> submitAnswer({
     required String sessionId,

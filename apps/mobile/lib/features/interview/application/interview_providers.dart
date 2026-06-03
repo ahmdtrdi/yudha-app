@@ -5,6 +5,7 @@ import 'package:yudha_mobile/features/interview/application/interview_state.dart
 import 'package:yudha_mobile/features/interview/data/repositories/backend_interview_repository.dart';
 import 'package:yudha_mobile/features/interview/data/repositories/interview_repository.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_session_record.dart';
 
 final Provider<InterviewApiConfig> interviewApiConfigProvider =
     Provider<InterviewApiConfig>(
@@ -18,6 +19,22 @@ final Provider<InterviewRepository> interviewRepositoryProvider =
         config: ref.watch(interviewApiConfigProvider),
       ),
     );
+
+final FutureProvider<List<InterviewSessionSummaryRecord>>
+interviewSessionsProvider = FutureProvider<List<InterviewSessionSummaryRecord>>(
+  (Ref ref) {
+    return ref.watch(interviewRepositoryProvider).listSessions();
+  },
+);
+
+final FutureProviderFamily<InterviewSessionDetailRecord, String>
+interviewSessionDetailProvider =
+    FutureProvider.family<InterviewSessionDetailRecord, String>((
+      Ref ref,
+      String sessionId,
+    ) {
+      return ref.watch(interviewRepositoryProvider).getSession(sessionId);
+    });
 
 final StateNotifierProviderFamily<
   InterviewController,

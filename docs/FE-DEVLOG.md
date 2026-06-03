@@ -1171,3 +1171,33 @@
 - The current online result mapping still derives mobile rating delta locally (`+20/-12/0`) because backend-game does not yet return a dedicated rating delta payload.
 - Opponent identity in mobile currently falls back to a shortened user-id label because the match payload does not provide a display name.
 - `flutter analyze` still reports older lint drift inside `pvp_page.dart` (deprecated color channel API usage and unused legacy elements) that predates this socket wiring pass.
+
+## 2026-06-03 - Interview Session History Wired to Backend Sessions API
+
+### The Change
+- Extended the mobile interview repository contract to support backend-backed session browsing:
+  - `listSessions()`
+  - `getSession(sessionId)`
+- Added new interview session record models in `apps/mobile/lib/features/interview/domain/entities/interview_session_record.dart` for:
+  - session summaries from `GET /interview/sessions`
+  - session transcript/detail from `GET /interview/sessions/:sessionId`
+- Updated `BackendInterviewRepository` to:
+  - call the new sessions list endpoint
+  - call the session detail endpoint
+  - map backend turns into existing `InterviewMessage` chat entities
+  - preserve evaluations/final summaries for completed coaching sessions.
+- Added Riverpod async providers in `interview_providers.dart` for interview history list and per-session detail loading.
+- Reworked the top-right history action in `interview_page.dart`:
+  - it now opens a backend-backed session list instead of showing only current in-memory messages
+  - tapping a session opens a transcript/detail bottom sheet with final score summary and per-turn coaching notes when available.
+- Added repository parsing tests for the new list/detail endpoints and updated the existing interview controller fake repository to satisfy the expanded contract.
+
+### The Reasoning
+- Backend now owns real session persistence, so the mobile history UI should stop pretending that “history” only means the current chat already loaded in memory.
+- Keeping live interview chat in the existing `InterviewController` while moving history browsing into dedicated async providers keeps the active session flow stable and avoids mixing historical transcript loading with answer-submission state.
+- Reusing the existing `InterviewMessage` entity for transcript detail keeps the transcript UI visually consistent with the active chat page and reduces mapping duplication.
+
+### The Tech Debt
+- Opening a past session currently shows a transcript/detail sheet rather than fully restoring that session into the live interview screen. That was the safer first cut because the screen config still comes from the route launch payload.
+- Session summaries currently display `companyId` in humanized form because the list endpoint does not yet return a friendly company display name.
+- The active chat screen and history detail sheet now share transcript semantics, but not a shared reusable widget yet; that can be extracted later if the interview UI keeps growing.
