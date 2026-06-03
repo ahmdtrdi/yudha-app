@@ -2646,10 +2646,10 @@ class _BattlefieldPainter extends CustomPainter {
       width / 420,
       height / 560,
     ).clamp(0.82, 1.25).toDouble();
-    _drawStonePad(canvas, size, 0.148, 0.291, 84 * scale, 72 * scale);
-    _drawStonePad(canvas, size, 0.852, 0.291, 84 * scale, 72 * scale);
-    _drawStonePad(canvas, size, 0.148, 0.611, 84 * scale, 72 * scale);
-    _drawStonePad(canvas, size, 0.852, 0.611, 84 * scale, 72 * scale);
+    _drawStonePad(canvas, size, 0.13, 0.291, 84 * scale, 72 * scale);
+    _drawStonePad(canvas, size, 0.87, 0.291, 84 * scale, 72 * scale);
+    _drawStonePad(canvas, size, 0.13, 0.611, 84 * scale, 72 * scale);
+    _drawStonePad(canvas, size, 0.87, 0.611, 84 * scale, 72 * scale);
     _drawStonePad(canvas, size, 0.5, 0.205, 116 * scale, 112 * scale);
     _drawStonePad(canvas, size, 0.5, 0.696, 116 * scale, 112 * scale);
 
