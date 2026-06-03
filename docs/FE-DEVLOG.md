@@ -1338,3 +1338,68 @@
 
 ### The Tech Debt
 - The current email validation is intentionally lightweight and regex-based. If the auth UX gets more complex later, we may want richer per-field validation states or localized rule messaging.
+
+## 2026-06-03 - Auth Error Localization And Reset
+
+### The Change
+- Translated Supabase's `Invalid login credential` auth message into Indonesian in `apps/mobile/lib/features/auth/application/auth_providers.dart`.
+- Added a shared `clearError()` path on the auth notifier so the login/register pages can clear stale banner state when the user switches screens.
+- Cleared the shared auth error state when entering or switching between login and signup screens so a login failure no longer leaks into the register page.
+
+### The Reasoning
+- Login and registration share the same auth notifier, so a failure on one screen can remain visible on the other unless we intentionally reset it.
+- Mapping the most common credential error into Indonesian makes the app feel more local and avoids surfacing backend phrasing directly to users.
+
+### The Tech Debt
+- The auth error mapping is still string-based for the Supabase response message. If we need broader localization later, we may want a small auth error translation layer instead of branching on raw message text.
+
+## 2026-06-03 - Auth Error Reset Timing Fix
+
+### The Change
+- Deferred the login/register `clearError()` calls with `WidgetsBinding.instance.addPostFrameCallback(...)` in `apps/mobile/lib/features/auth/presentation/pages/login_page.dart` and `apps/mobile/lib/features/profile/presentation/pages/profile_onboarding_page.dart`.
+
+### The Reasoning
+- Clearing the shared auth provider directly in `initState` caused a Riverpod mutation-during-build error on screen entry.
+- Moving that reset to the first post-frame callback preserves the stale-banner cleanup behavior without mutating provider state during widget construction.
+
+### The Tech Debt
+- The auth pages still coordinate shared notifier cleanup from the UI layer. If auth screen transitions grow more complex later, this reset behavior may be cleaner as router-level or notifier-owned navigation state handling.
+
+## 2026-06-03 - Email Confirmation Auth Flow
+
+### The Change
+- Added a dedicated confirm-email screen at `apps/mobile/lib/features/auth/presentation/pages/email_confirmation_pending_page.dart` and routed it through `AppRoutes.confirmEmail`.
+- Updated signup so a created-but-not-yet-confirmed account no longer proceeds into the app; it now routes to the confirmation screen when Supabase returns a user without a session.
+- Localized the unconfirmed-email login failure into Indonesian and added a shortcut from the login page to the confirm-email screen for already-registered but unverified users.
+
+### The Reasoning
+- The app previously treated signup as fully complete even when Supabase still required email verification, which left the next user action to fail with a raw auth error.
+- A dedicated confirmation step makes the flow legible both for brand-new signups and for users who already created an account but have not clicked the verification email yet.
+
+### The Tech Debt
+- The current confirmation UX is informational only. If we want a smoother recovery path later, the next improvement would be adding resend-confirmation support from the app.
+
+## 2026-06-04 - Resend Confirmation Email Action
+
+### The Change
+- Added `resendConfirmationEmail(...)` to `apps/mobile/lib/features/auth/application/auth_providers.dart`, backed by Supabase Auth `resend` for signup confirmation emails.
+- Upgraded `apps/mobile/lib/features/auth/presentation/pages/email_confirmation_pending_page.dart` into a stateful auth screen with a resend button, loading state, and inline success/error feedback.
+
+### The Reasoning
+- The confirmation screen already explained what to do next, but it still left the user stuck if the original verification email never arrived.
+- Adding resend directly on the screen makes the confirm-email flow self-recovering without forcing the user to leave the app or restart signup.
+
+### The Tech Debt
+- The resend flow currently reports status inline on the confirmation page only. If we expand account recovery later, it may make sense to centralize confirmation and resend messaging across auth screens.
+
+## 2026-06-04 - Confirmation Page Copy Polish
+
+### The Change
+- Reworded the email verification page copy in `apps/mobile/lib/features/auth/presentation/pages/email_confirmation_pending_page.dart` into more natural Indonesian, including the title, instructions, resend success message, and return-to-login button label.
+
+### The Reasoning
+- The confirmation flow already worked, but the wording still felt partly translated instead of written for Indonesian-speaking users.
+- Tightening the copy makes the next-step instructions easier to follow, especially for first-time signup and resend scenarios.
+
+### The Tech Debt
+- The confirmation copy is now more consistent, but the rest of the auth funnel still mixes a few product-specific English terms with Indonesian UI text. A broader copy pass would make the experience feel more unified.

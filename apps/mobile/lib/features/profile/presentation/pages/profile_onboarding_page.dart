@@ -29,6 +29,17 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
   String? _targetError;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      ref.read(authProvider.notifier).clearError();
+    });
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
@@ -60,7 +71,17 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
     final bool didSignUp = await ref
         .read(authProvider.notifier)
         .signUp(email, password, name, target);
-    if (!mounted || !didSignUp) {
+    if (!mounted) {
+      return;
+    }
+
+    final AppAuthState authState = ref.read(authProvider);
+    if (!didSignUp && authState.errorCode == 'email_confirmation_pending') {
+      context.go(AppRoutes.confirmEmail, extra: email);
+      return;
+    }
+
+    if (!didSignUp) {
       return;
     }
 
@@ -244,7 +265,10 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
                     ),
                     const SizedBox(height: 16),
                     TextButton(
-                      onPressed: () => context.go(AppRoutes.login),
+                      onPressed: () {
+                        ref.read(authProvider.notifier).clearError();
+                        context.go(AppRoutes.login);
+                      },
                       child: Text(
                         'Sudah punya akun? Masuk',
                         style: GoogleFonts.dmSans(

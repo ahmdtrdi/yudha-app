@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/app/router/app_tab_shell.dart';
+import 'package:yudha_mobile/features/auth/presentation/pages/email_confirmation_pending_page.dart';
 import 'package:yudha_mobile/features/auth/presentation/pages/login_page.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/presentation/pages/interview_page.dart';
@@ -30,6 +31,12 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
       GoRoute(
         path: AppRoutes.profileSetup,
         builder: (context, state) => const ProfileOnboardingPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.confirmEmail,
+        builder: (context, state) => EmailConfirmationPendingPage(
+          email: state.extra is String ? state.extra as String : null,
+        ),
       ),
       ShellRoute(
         builder: (context, state, child) {
