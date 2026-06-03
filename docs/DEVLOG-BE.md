@@ -70,3 +70,9 @@
 - Flutter auth is still mock-only and needs to call these endpoints or Supabase Auth directly.
 - Email confirmation may need to be disabled in local/dev Supabase settings or handled in the UI.
 - Backend privileged writes for match persistence/profile stat updates will need a server-only key or dedicated SQL/RLS policy design.
+
+## 2026-06-03
+
+- Added `GET /interview/sessions` for authenticated users to retrieve their interview sessions from the `interview_sessions` table.
+- Added repository support for listing owned interview sessions ordered by newest first.
+- Returned compact session metadata including status, company, target role, mode, language, response style, final summary, and timestamps.
