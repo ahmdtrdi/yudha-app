@@ -24,7 +24,8 @@ abstract final class BattleStateMachine {
       if (isCorrect) {
         opponentHp -= impact;
         playerPoints += impact;
-        statusMessage = 'Jawaban benar. Musuh menerima $impact damage.';
+        statusMessage =
+            '${_attackLabel(question.category)} masuk. Musuh menerima $impact damage.';
       } else {
         final int reflectedDamage = max(1, impact ~/ 2);
         playerHp -= reflectedDamage;
@@ -36,7 +37,7 @@ abstract final class BattleStateMachine {
       if (isCorrect) {
         playerHp += impact;
         playerPoints += max(1, impact ~/ 2);
-        statusMessage = 'Jawaban benar. Kamu memulihkan HP sebesar $impact.';
+        statusMessage = 'TWK Heal aktif. Kamu memulihkan HP sebesar $impact.';
       } else {
         final int opponentHeal = max(1, impact ~/ 2);
         opponentHp += opponentHeal;
@@ -77,6 +78,82 @@ abstract final class BattleStateMachine {
       opponentPoints: opponentPoints,
       availableQuestions: remainingQuestions,
       answeredQuestionIds: answeredQuestions,
+      battleEventId: state.battleEventId + 1,
+      lastActor: _actorForPlayerTurn(
+        question: question,
+        isCorrect: isCorrect,
+      ),
+      lastVisualEffect: _visualEffectForTurn(
+        question: question,
+        isCorrect: isCorrect,
+      ),
+      lastEventCategory: question.category,
+      statusMessage: finish.phase == BattlePhase.finished
+          ? '$statusMessage ${_resultLabel(finish.outcome)}'
+          : statusMessage,
+      clearErrorMessage: true,
+    );
+  }
+
+  static BattleState resolveOpponentTurn({
+    required BattleState state,
+    required BattleQuestion question,
+  }) {
+    final int impact = impactFromWeight(question.weight);
+
+    int playerHp = state.playerHp;
+    int opponentHp = state.opponentHp;
+    final int playerPoints = state.playerPoints;
+    int opponentPoints = state.opponentPoints;
+
+    late final String statusMessage;
+
+    if (question.effect == QuestionEffect.heal) {
+      opponentHp += impact;
+      opponentPoints += max(1, impact ~/ 2);
+      statusMessage = 'BOT YUDHA menjawab TWK. Musuh memulihkan HP $impact.';
+    } else {
+      playerHp -= impact;
+      opponentPoints += impact;
+      statusMessage =
+          'BOT YUDHA menjawab benar. Kamu menerima $impact damage.';
+    }
+
+    playerHp = _clampHp(playerHp);
+    opponentHp = _clampHp(opponentHp);
+
+    final List<BattleQuestion> remainingQuestions = state.availableQuestions
+        .where((BattleQuestion item) => item.id != question.id)
+        .toList(growable: false);
+
+    final ({BattlePhase phase, BattleOutcome outcome, int ratingDelta}) finish =
+        _resolvePhase(
+          playerHp: playerHp,
+          opponentHp: opponentHp,
+          playerPoints: playerPoints,
+          opponentPoints: opponentPoints,
+          hasRemainingQuestions: remainingQuestions.isNotEmpty,
+        );
+
+    return state.copyWith(
+      phase: finish.phase,
+      outcome: finish.outcome,
+      ratingDelta: finish.ratingDelta,
+      playerHp: playerHp,
+      opponentHp: opponentHp,
+      playerPoints: playerPoints,
+      opponentPoints: opponentPoints,
+      availableQuestions: remainingQuestions,
+      answeredQuestionIds: <String>[
+        ...state.answeredQuestionIds,
+        'bot:${question.id}',
+      ],
+      battleEventId: state.battleEventId + 1,
+      lastActor: BattleActor.opponent,
+      lastVisualEffect: question.effect == QuestionEffect.heal
+          ? BattleVisualEffect.heal
+          : visualEffectForCategory(question.category),
+      lastEventCategory: question.category,
       statusMessage: finish.phase == BattlePhase.finished
           ? '$statusMessage ${_resultLabel(finish.outcome)}'
           : statusMessage,
@@ -85,8 +162,39 @@ abstract final class BattleStateMachine {
   }
 
   static int impactFromWeight(int weight) {
-    final int boundedWeight = weight.clamp(1, 3);
+    final int boundedWeight = weight.clamp(1, 4);
     return 8 + (boundedWeight * 6);
+  }
+
+  static BattleVisualEffect visualEffectForCategory(String category) {
+    return switch (category.toLowerCase()) {
+      'verbal' => BattleVisualEffect.wizard,
+      'logika' => BattleVisualEffect.robot,
+      'twk' => BattleVisualEffect.heal,
+      _ => BattleVisualEffect.cannon,
+    };
+  }
+
+  static BattleActor _actorForPlayerTurn({
+    required BattleQuestion question,
+    required bool isCorrect,
+  }) {
+    if (question.effect == QuestionEffect.damage) {
+      return isCorrect ? BattleActor.player : BattleActor.opponent;
+    }
+
+    return isCorrect ? BattleActor.player : BattleActor.opponent;
+  }
+
+  static BattleVisualEffect _visualEffectForTurn({
+    required BattleQuestion question,
+    required bool isCorrect,
+  }) {
+    if (question.effect == QuestionEffect.heal) {
+      return BattleVisualEffect.heal;
+    }
+
+    return visualEffectForCategory(question.category);
   }
 
   static int _clampHp(int value) {
@@ -147,6 +255,15 @@ abstract final class BattleStateMachine {
       BattleOutcome.lose => 'Kamu kalah.',
       BattleOutcome.draw => 'Hasil seri.',
       BattleOutcome.inProgress => '',
+    };
+  }
+
+  static String _attackLabel(String category) {
+    return switch (category.toLowerCase()) {
+      'verbal' => 'Wizard Bolt',
+      'logika' => 'Robot Slam',
+      'numerik' => 'Cannon Strike',
+      _ => 'Serangan',
     };
   }
 }

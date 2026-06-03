@@ -89,7 +89,7 @@ class PracticePage extends ConsumerWidget {
                             question: state.questionOfDay?.prompt ??
                                 'Memuat tantangan hari ini...',
                             tags: state.questionOfDay?.topicName ??
-                                (isCpns ? 'TIU • Numerik' : 'Kepribadian • Integritas'),
+                                (isCpns ? 'TIU - Numerik' : 'Kepribadian - Integritas'),
                             onStart: openDailyChallenge,
                           ),
                           const SizedBox(height: 24),
@@ -118,17 +118,17 @@ class PracticePage extends ConsumerWidget {
                           const SizedBox(height: 12),
                           _RecentActivityTile(
                             icon: Icons.article_outlined,
-                            title: isCpns ? 'TWK — Pancasila' : 'Verbal — Analogi',
-                            subtitle: '15 soal  ·  2 hari lalu',
+                            title: isCpns ? 'TWK - Pancasila' : 'Verbal - Analogi',
+                            subtitle: '15 soal - 2 hari lalu',
                             score: '80%',
                             scoreColor: AppColors.levelUpTeal,
                           ),
                           const SizedBox(height: 8),
                           _RecentActivityTile(
                             icon: Icons.lightbulb_outline,
-                            title: isCpns ? 'TIU — Numerik' : 'Interview — Motivasi',
+                            title: isCpns ? 'TIU - Numerik' : 'Interview - Motivasi',
                             subtitle:
-                                isCpns ? '20 soal  ·  3 hari lalu' : '5 pertanyaan  ·  2 hari lalu',
+                                isCpns ? '20 soal - 3 hari lalu' : '5 pertanyaan - 2 hari lalu',
                             score: isCpns ? '65%' : 'Selesai',
                             scoreColor: isCpns
                                 ? AppColors.fireGold
@@ -298,7 +298,7 @@ class _CpnsGrids extends StatelessWidget {
     return Column(
       children: <Widget>[
         _CategorySection(
-          title: 'TWK — WAWASAN KEBANGSAAN',
+          title: 'TWK - WAWASAN KEBANGSAAN',
           items: <_GridItemData>[
             _GridItemData('TWK', 'Pancasila', 'Nilai & implementasi', '30'),
             _GridItemData('TWK', 'UUD 1945', 'Pasal & amandemen', '25'),
@@ -309,7 +309,7 @@ class _CpnsGrids extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         _CategorySection(
-          title: 'TIU — INTELEGENSIA UMUM',
+          title: 'TIU - INTELEGENSIA UMUM',
           items: <_GridItemData>[
             _GridItemData('TIU', 'Verbal', 'Analogi & silogisme', '40'),
             _GridItemData('TIU', 'Numerik', 'Deret & aritmatika', '40'),
@@ -320,7 +320,7 @@ class _CpnsGrids extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         _CategorySection(
-          title: 'TKP — KARAKTERISTIK PRIBADI',
+          title: 'TKP - KARAKTERISTIK PRIBADI',
           items: <_GridItemData>[
             _GridItemData('TKP', 'Pelayanan Publik', 'Etika & integritas', '35'),
             _GridItemData('TKP', 'Sosial Budaya', 'Adaptasi & toleransi', '30'),
@@ -409,7 +409,7 @@ class _BumnGrids extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '15 skenario · BUMN',
+                        '15 skenario - BUMN',
                         style: TextStyle(
                           color: AppColors.textMuted,
                           fontSize: 13,

@@ -639,7 +639,7 @@ class _LeaderboardTile extends StatelessWidget {
                   ],
                 ),
                 Text(
-                  'WR ${(entry.winRate * 100).toStringAsFixed(0)}%  •  Streak ${entry.streak}',
+                  'WR ${(entry.winRate * 100).toStringAsFixed(0)}%  |  Streak ${entry.streak}',
                   style: GoogleFonts.dmSans(
                     color: AppColors.textMuted,
                     fontSize: 12,

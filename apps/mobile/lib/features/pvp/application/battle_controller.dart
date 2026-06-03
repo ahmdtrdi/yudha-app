@@ -23,7 +23,9 @@ class BattleController extends StateNotifier<BattleState> {
 
     state = state.copyWith(
       mode: mode,
-      phase: BattlePhase.preBattle,
+      phase: state.phase == BattlePhase.arenaMenu
+          ? BattlePhase.arenaMenu
+          : BattlePhase.preBattle,
       outcome: BattleOutcome.inProgress,
       opponentName: mode == BattleMode.bot ? 'BOT YUDHA' : 'Player Match',
       playerHp: 100,
@@ -36,7 +38,38 @@ class BattleController extends StateNotifier<BattleState> {
       rewardClaimed: false,
       statusMessage: 'Mode ${_modeLabel(mode)} dipilih. Tekan mulai battle.',
       clearErrorMessage: true,
+      clearBattleEvent: true,
     );
+  }
+
+  void enterArena() {
+    if (state.phase == BattlePhase.inBattle || state.isLoading) {
+      return;
+    }
+
+    state = state.copyWith(
+      phase: BattlePhase.arenaMenu,
+      outcome: BattleOutcome.inProgress,
+      playerHp: 100,
+      opponentHp: 100,
+      playerPoints: 0,
+      opponentPoints: 0,
+      ratingDelta: 0,
+      availableQuestions: const <BattleQuestion>[],
+      answeredQuestionIds: const <String>[],
+      rewardClaimed: false,
+      statusMessage: 'Pilih mode arena.',
+      clearErrorMessage: true,
+      clearBattleEvent: true,
+    );
+  }
+
+  void exitArena() {
+    if (state.phase == BattlePhase.inBattle || state.isLoading) {
+      return;
+    }
+
+    state = BattleState.initial().copyWith(mode: state.mode);
   }
 
   Future<void> startBattle() async {
@@ -69,6 +102,7 @@ class BattleController extends StateNotifier<BattleState> {
         isLoading: false,
         statusMessage: 'Battle dimulai.',
         clearErrorMessage: true,
+        clearBattleEvent: true,
       );
     } catch (_) {
       state = state.copyWith(
@@ -98,6 +132,22 @@ class BattleController extends StateNotifier<BattleState> {
     );
   }
 
+  void answerBotQuestion() {
+    if (!state.isBattleActive || state.isLoading || state.mode != BattleMode.bot) {
+      return;
+    }
+
+    final BattleQuestion? question = _pickBotQuestion();
+    if (question == null) {
+      return;
+    }
+
+    state = BattleStateMachine.resolveOpponentTurn(
+      state: state,
+      question: question,
+    );
+  }
+
   void surrenderBattle() {
     if (!state.isBattleActive || state.isLoading) {
       return;
@@ -110,13 +160,16 @@ class BattleController extends StateNotifier<BattleState> {
       ratingDelta: -12,
       statusMessage: 'Kamu menyerah.',
       clearErrorMessage: true,
+      clearBattleEvent: true,
     );
   }
 
   void resetBattle() {
     state = BattleState.initial().copyWith(
       mode: state.mode,
+      phase: BattlePhase.arenaMenu,
       opponentName: state.mode == BattleMode.bot ? 'BOT YUDHA' : 'Player Match',
+      clearBattleEvent: true,
     );
   }
 
@@ -139,6 +192,17 @@ class BattleController extends StateNotifier<BattleState> {
       }
     }
     return null;
+  }
+
+  BattleQuestion? _pickBotQuestion() {
+    BattleQuestion? fallback;
+    for (final BattleQuestion question in state.availableQuestions) {
+      fallback ??= question;
+      if (question.effect == QuestionEffect.damage) {
+        return question;
+      }
+    }
+    return fallback;
   }
 
   String _modeLabel(BattleMode mode) {
