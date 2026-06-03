@@ -76,3 +76,21 @@
 - Added `GET /interview/sessions` for authenticated users to retrieve their interview sessions from the `interview_sessions` table.
 - Added repository support for listing owned interview sessions ordered by newest first.
 - Returned compact session metadata including status, company, target role, mode, language, response style, final summary, and timestamps.
+
+## 2026-06-03 - Leaderboard API Endpoints
+
+**The Change:**
+- Added a new `LeaderboardModule` in `apps/backend-api` and registered it in the main API module.
+- Added `GET /leaderboard` to return ranked profile entries with pagination.
+- Added authenticated `GET /leaderboard/me` to return the current user's leaderboard rank.
+- Added leaderboard service/repository layers that read rank-ready stats from `profiles`.
+
+**The Reasoning:**
+- `profiles` already stores the current leaderboard state, including rank points, match totals, win/loss counts, winrate, and equipped cosmetics.
+- Reading from `profiles` keeps leaderboard queries fast and avoids recalculating stats from match history on every request.
+- The API follows the existing backend module pattern with a controller, service, repository, and Supabase-backed data access.
+
+**The Tech Debt:**
+- `full_name` and `created_at` are not currently present in the generated backend `profiles` type, so leaderboard responses omit `fullName` and use `id` as the final stable tie-breaker.
+- `backend-game` still needs to persist completed match results and update profile stats/rank points after each match.
+- `GET /leaderboard/around-me` is still a future UX endpoint.
