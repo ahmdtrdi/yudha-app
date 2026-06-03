@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
+import 'package:yudha_mobile/features/auth/presentation/auth_input_validators.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -31,8 +32,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final password = _passwordController.text.trim();
 
     setState(() {
-      _emailError = email.isEmpty ? 'Email wajib diisi.' : null;
-      _passwordError = password.isEmpty ? 'Password wajib diisi.' : null;
+      _emailError = AuthInputValidators.validateEmail(email);
+      _passwordError = AuthInputValidators.validatePassword(password);
     });
 
     if (_emailError != null || _passwordError != null) {

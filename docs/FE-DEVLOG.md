@@ -1258,3 +1258,83 @@
 
 ### The Tech Debt
 - The PvP page is now structurally cleaner, but the part-file library is still large and tightly coupled through private declarations. A future pass could split this into public widgets with explicit imports once the UI stabilizes.
+
+## 2026-06-03 - Auth Signup Error Visibility
+
+### The Change
+- Updated `apps/mobile/lib/features/auth/application/auth_providers.dart` so unexpected login/signup exceptions are logged and surfaced with a more useful banner message instead of always collapsing into the generic "Gagal ... Coba lagi beberapa saat." fallback.
+- Added a friendlier connectivity-specific message for socket/client/host-lookup failures during Supabase auth requests.
+
+### The Reasoning
+- The registration flow in the Flutter app talks directly to Supabase Auth, not to `backend-api`, so a generic fallback hid the real failure mode and made local debugging harder.
+- Preserving unexpected exception text lets us distinguish between Supabase validation errors and runtime/config/network issues on-device.
+
+### The Tech Debt
+- This improves visibility, but it does not change the underlying auth architecture. Mobile signup/login still bypass the backend auth controller entirely.
+
+## 2026-06-03 - ProfileTarget Signup Type Fix
+
+### The Change
+- Updated `apps/mobile/lib/features/auth/application/auth_providers.dart` to accept `ProfileTarget?` in `signUp(...)` instead of `dynamic`.
+- Kept the Supabase signup payload using `target.name`, but now with a statically typed enum value so the getter resolves correctly.
+
+### The Reasoning
+- `ProfileTarget` is an enum, but `target?.name` was being invoked through a `dynamic` parameter. That turns the enum-name access into a runtime dynamic call, which caused `NoSuchMethodError` on registration.
+- Typing the parameter correctly lets Dart resolve the enum `name` getter at compile time and removes the runtime crash.
+
+### The Tech Debt
+- The auth provider still serializes target metadata inline for Supabase user data. If this payload grows, a small dedicated mapper would make the contract clearer.
+
+## 2026-06-03 - Lobby Hero Stat Layout Cleanup
+
+### The Change
+- Removed the temporary settings button from `apps/mobile/lib/features/lobby/presentation/pages/lobby_page.dart` now that profile settings already live on the profile screen.
+- Moved streak into the hero card stat row so winrate, streak, and points are shown together at the same visual level.
+- Simplified the top of the lobby layout by removing the separate streak chip/header row.
+
+### The Reasoning
+- The old top row split related player stats across two different surfaces and kept a settings shortcut that duplicated the profile destination conceptually.
+- Grouping winrate, streak, and points in one row makes the hero card feel more intentional and keeps the player summary easier to scan.
+
+### The Tech Debt
+- The lobby hero card still owns several responsibilities at once: identity, tier progress, and headline stats. If the lobby grows further, it may be worth splitting that card into smaller presentational widgets.
+
+## 2026-06-03 - Profile Logout Action
+
+### The Change
+- Added a logout button below the haptic feedback toggle in `apps/mobile/lib/features/profile/presentation/pages/profile_page.dart`.
+- Wired the button to the existing `authProvider.logout()` flow and redirected back to the login route after sign-out.
+
+### The Reasoning
+- Once profile became the home for account-level controls, logout belonged there as a direct action instead of being hidden elsewhere or left unavailable.
+- Placing it beneath the toggle group keeps account exit behavior close to the rest of profile controls without mixing it into the performance section.
+
+### The Tech Debt
+- Logout currently returns to the login route immediately after local sign-out. If we later add remote session management, account switching, or sign-out confirmation, this action may need a dedicated flow.
+
+## 2026-06-03 - Profile Logout Confirmation Overlay
+
+### The Change
+- Added a confirmation dialog to the logout action in `apps/mobile/lib/features/profile/presentation/pages/profile_page.dart`.
+- The logout button now asks the user to confirm before calling `authProvider.logout()` and routing back to login.
+
+### The Reasoning
+- Logout is a high-impact account action, so it benefits from a small confirmation pause to prevent accidental taps.
+- Reusing a styled dialog keeps the interaction consistent with the rest of the app's modal treatment while preserving the existing logout flow.
+
+### The Tech Debt
+- The confirmation copy and button states are still static. If we later introduce async logout progress, cross-device sessions, or destructive-action patterns app-wide, this dialog should likely move into a shared confirmation component.
+
+## 2026-06-03 - Auth Form Input Guards
+
+### The Change
+- Added a shared auth input validator in `apps/mobile/lib/features/auth/presentation/auth_input_validators.dart`.
+- Updated both `apps/mobile/lib/features/auth/presentation/pages/login_page.dart` and `apps/mobile/lib/features/profile/presentation/pages/profile_onboarding_page.dart` to validate email format and minimum password length before submit.
+- Email now requires a valid `name@provider.domain` shape, and password now requires at least 6 characters.
+
+### The Reasoning
+- The login and signup forms previously only checked for non-empty fields, which let obvious invalid input travel all the way to the auth request layer.
+- Sharing one validator keeps login and signup behavior aligned and makes future auth input rules easier to update in one place.
+
+### The Tech Debt
+- The current email validation is intentionally lightweight and regex-based. If the auth UX gets more complex later, we may want richer per-field validation states or localized rule messaging.

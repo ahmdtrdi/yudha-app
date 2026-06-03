@@ -1,6 +1,9 @@
+import 'dart:developer';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yudha_mobile/app/config/app_config.dart';
+import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
 class AppAuthState {
   const AppAuthState({
@@ -86,10 +89,16 @@ class AuthNotifier extends Notifier<AppAuthState> {
     } on AuthException catch (error) {
       state = state.copyWith(isLoading: false, errorMessage: error.message);
       return false;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      log(
+        'Unexpected login error',
+        name: 'AuthNotifier',
+        error: error,
+        stackTrace: stackTrace,
+      );
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Gagal masuk. Coba lagi beberapa saat.',
+        errorMessage: _describeUnexpectedError(error, action: 'masuk'),
       );
       return false;
     }
@@ -99,7 +108,7 @@ class AuthNotifier extends Notifier<AppAuthState> {
     String email,
     String password,
     String name,
-    dynamic target,
+    ProfileTarget? target,
   ) async {
     final SupabaseClient? client = _client;
     if (client == null) {
@@ -125,10 +134,16 @@ class AuthNotifier extends Notifier<AppAuthState> {
     } on AuthException catch (error) {
       state = state.copyWith(isLoading: false, errorMessage: error.message);
       return false;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      log(
+        'Unexpected signup error',
+        name: 'AuthNotifier',
+        error: error,
+        stackTrace: stackTrace,
+      );
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Gagal daftar. Coba lagi beberapa saat.',
+        errorMessage: _describeUnexpectedError(error, action: 'daftar'),
       );
       return false;
     }
@@ -140,6 +155,25 @@ class AuthNotifier extends Notifier<AppAuthState> {
       await client.auth.signOut();
     }
     state = state.copyWith(clearSession: true, clearError: true);
+  }
+
+  String _describeUnexpectedError(Object error, {required String action}) {
+    final String raw = error.toString().trim();
+    final String normalized = raw.startsWith('Exception: ')
+        ? raw.substring('Exception: '.length)
+        : raw;
+
+    if (normalized.contains('Failed host lookup') ||
+        normalized.contains('SocketException') ||
+        normalized.contains('ClientException')) {
+      return 'Tidak bisa terhubung ke layanan auth. Periksa koneksi internet dan konfigurasi Supabase.';
+    }
+
+    if (normalized.isEmpty) {
+      return 'Gagal $action. Coba lagi beberapa saat.';
+    }
+
+    return normalized;
   }
 }
 
