@@ -6,6 +6,7 @@ import { InterviewModule } from './interview/interview.module';
 import { SupabaseModule } from './supabase/supabase.module';
 import { ProfileModule } from './profile/profile.module';
 import { AuthModule } from './auth/auth.module';
+import { LeaderboardModule } from './leaderboard/leaderboard.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AuthModule } from './auth/auth.module';
     SupabaseModule,
     AuthModule,
     ProfileModule,
+    LeaderboardModule,
     InterviewModule,
   ],
   controllers: [AppController],
