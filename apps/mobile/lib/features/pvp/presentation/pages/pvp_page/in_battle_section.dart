@@ -2676,6 +2676,9 @@ class _BattlefieldPainter extends CustomPainter {
         ).createShader(bounds),
     );
 
+    canvas.save();
+    canvas.translate(0, -h * _arenaVerticalLiftFraction);
+
     // Checker grass tiles
     const double tile = 26;
     final Paint tileA = Paint()..color = Colors.white.withAlpha(10);
@@ -2965,6 +2968,8 @@ class _BattlefieldPainter extends CustomPainter {
     _drawAmbientSpark(
       canvas, size, 0.72, 0.88, time + 0.78, const Color(0xFFA5B4FC),
     );
+
+    canvas.restore();
 
     if (mode == BattleMode.online) {
       _drawModeBadge(canvas, size);

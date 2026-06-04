@@ -38,12 +38,33 @@ const String _tiuCardAsset = 'assets/game/tiu_card.png';
 const String _twkCardAsset = 'assets/game/twk_card.png';
 // Attack effects are now rendered via CustomPainter (no PNG assets needed).
 
-const Alignment _enemyMainAlignment = Alignment(0, -0.59);
-const Alignment _enemyMiniLeftAlignment = Alignment(-0.74, -0.418);
-const Alignment _enemyMiniRightAlignment = Alignment(0.74, -0.418);
-const Alignment _playerMainAlignment = Alignment(0, 0.392);
-const Alignment _playerMiniLeftAlignment = Alignment(-0.74, 0.222);
-const Alignment _playerMiniRightAlignment = Alignment(0.74, 0.222);
+const double _arenaVerticalLiftFraction = 0.05;
+const double _arenaAlignmentLift = _arenaVerticalLiftFraction * 2;
+
+const Alignment _enemyMainAlignment = Alignment(
+  0,
+  -0.59 - _arenaAlignmentLift,
+);
+const Alignment _enemyMiniLeftAlignment = Alignment(
+  -0.74,
+  -0.418 - _arenaAlignmentLift,
+);
+const Alignment _enemyMiniRightAlignment = Alignment(
+  0.74,
+  -0.418 - _arenaAlignmentLift,
+);
+const Alignment _playerMainAlignment = Alignment(
+  0,
+  0.392 - _arenaAlignmentLift,
+);
+const Alignment _playerMiniLeftAlignment = Alignment(
+  -0.74,
+  0.222 - _arenaAlignmentLift,
+);
+const Alignment _playerMiniRightAlignment = Alignment(
+  0.74,
+  0.222 - _arenaAlignmentLift,
+);
 
 class PvpPage extends ConsumerWidget {
   const PvpPage({super.key});
