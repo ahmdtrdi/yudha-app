@@ -1,6 +1,6 @@
 # Auth And Match Smoke Test
 
-Use this after running `infra/supabase/bootstrap.sql` and setting backend env values.
+Use this after running `infra/supabase/bootstrapv2.sql` and setting backend env values.
 
 ## Environment
 
@@ -19,6 +19,7 @@ $body = @{
   password = "secret123"
   username = "player1"
   fullName = "Player One"
+  target = "cpns"
 } | ConvertTo-Json
 
 Invoke-RestMethod `

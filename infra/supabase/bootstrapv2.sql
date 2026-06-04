@@ -45,7 +45,7 @@ create table if not exists public.profiles (
     and coins >= 0
   ),
   constraint profiles_target_check check (
-    target in ('cpns', 'bumn', 'kedinasan')
+    target in ('cpns', 'bumn')
   )
 );
 
@@ -422,7 +422,7 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, username, full_name)
+  insert into public.profiles (id, username, full_name, target)
   values (
     new.id,
     coalesce(
@@ -430,7 +430,11 @@ begin
       split_part(new.email, '@', 1),
       'player'
     ),
-    new.raw_user_meta_data ->> 'full_name'
+    coalesce(
+      nullif(btrim(new.raw_user_meta_data ->> 'full_name'), ''),
+      nullif(btrim(new.raw_user_meta_data ->> 'display_name'), '')
+    ),
+    new.raw_user_meta_data ->> 'target'
   )
   on conflict (id) do nothing;
   return new;

@@ -4,8 +4,9 @@ import { SupabaseService } from '../supabase/supabase.service';
 export type RegisterPayload = {
   email?: string;
   password?: string;
-  username?: string;
-  fullName?: string;
+  target?: string | null;
+  username?: string | null;
+  fullName?: string | null;
 };
 
 export type LoginPayload = {
@@ -20,6 +21,7 @@ export class AuthService {
   async register(payload: RegisterPayload) {
     const email = this.requireEmail(payload.email);
     const password = this.requirePassword(payload.password);
+    const target = this.requireRegisterTarget(payload.target);
 
     const supabase = this.supabaseService.getClient();
     const { data, error } = await supabase.auth.signUp({
@@ -29,6 +31,7 @@ export class AuthService {
         data: {
           username: payload.username?.trim() || email.split('@')[0],
           full_name: payload.fullName?.trim() || null,
+          target,
         },
       },
     });
@@ -75,5 +78,13 @@ export class AuthService {
       throw new BadRequestException('Password must be at least 6 characters.');
     }
     return value;
+  }
+
+  private requireRegisterTarget(value?: string | null): 'cpns' | 'bumn' {
+    const target = value?.trim().toLowerCase();
+    if (target !== 'cpns' && target !== 'bumn') {
+      throw new BadRequestException('Target must be either cpns or bumn.');
+    }
+    return target;
   }
 }
