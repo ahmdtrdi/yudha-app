@@ -130,3 +130,20 @@
 - Existing Supabase projects must apply the new migration before registrations without `target` should be considered invalid at the database trigger level.
 - The older schema/docs still mention `kedinasan` in some question/practice target constraints, so a future cleanup should decide whether to remove or reintroduce that target consistently.
 - Mobile still signs up directly through Supabase Auth, so backend and trigger validation must stay in sync until mobile fully uses the backend auth endpoint.
+
+## 2026-06-04 - Profile Read And Update Endpoint
+
+**The Change:**
+- Updated authenticated `GET /profile` to fetch all columns from the `profiles` table with `select('*')`.
+- Added authenticated `PATCH /profile` so a user can update profile fields on their own profile row and receive the full updated row.
+- Expanded backend Supabase profile types to include `full_name`, `created_at`, and `updated_at`.
+- Added focused profile service/controller tests for full reads, updates, empty payload rejection, and Supabase error mapping.
+
+**The Reasoning:**
+- Mobile and future profile screens need the complete profile row instead of the older leaderboard-focused subset.
+- The update path remains scoped by authenticated `user.id`, so callers cannot choose another user's profile id in the endpoint path.
+- Returning the full row after update keeps client state refresh simple and consistent with the GET response shape.
+
+**The Tech Debt:**
+- The update payload is intentionally broad for now; future product rules should decide which profile columns are safe for user self-service edits.
+- Database constraints still carry most validation for target/stat fields, so API-level validation may need to be added once profile editing UX is finalized.

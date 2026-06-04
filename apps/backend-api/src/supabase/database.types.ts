@@ -25,6 +25,7 @@ export type Database = {
         Row: {
           id: string;
           username: Nullable<string>;
+          full_name: Nullable<string>;
           target: string;
           rank_points: number;
           total_matches: number;
@@ -34,10 +35,13 @@ export type Database = {
           coins: number;
           equipped_avatar_id: Nullable<string>;
           equipped_arena_id: Nullable<string>;
+          created_at: string;
+          updated_at: string;
         };
         Insert: {
           id: string;
           username?: Nullable<string>;
+          full_name?: Nullable<string>;
           target?: string;
           rank_points?: number;
           total_matches?: number;
@@ -47,6 +51,8 @@ export type Database = {
           coins?: number;
           equipped_avatar_id?: Nullable<string>;
           equipped_arena_id?: Nullable<string>;
+          created_at?: string;
+          updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>;
         Relationships: [];
