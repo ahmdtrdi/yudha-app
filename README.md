@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/Flutter-Mobile-02569B?logo=flutter&logoColor=white" alt="Flutter" />
   <img src="https://img.shields.io/badge/NestJS-Backend-E0234E?logo=nestjs&logoColor=white" alt="NestJS" />
   <img src="https://img.shields.io/badge/Socket.IO-Realtime-010101?logo=socketdotio&logoColor=white" alt="Socket.IO" />
-  <img src="https://img.shields.io/badge/Status-Active%20Prototype-0A7D58" alt="Status" />
+  <img src="https://img.shields.io/badge/Status-Active%20Development-0A7D58" alt="Status" />
 </p>
 
 ## Overview
@@ -43,8 +43,8 @@ yudha-app/
 |  |- mobile/         # Flutter app (Android/iOS)
 |  |- backend-api/    # NestJS API (auth/profile/content/leaderboard)
 |  |- backend-game/   # NestJS realtime service (PvP/match state)
-|  |- games/          # Browser PvP prototype (web mini-game)
-|- prototype/         # High-fidelity HTML prototype flows
+|  |- games/
+|  |  |- data/        # Question data source
 |- contracts/         # Shared API/socket contracts
 |- infra/             # Deployment and infra setup
 |- docs/              # Product + technical docs
@@ -97,13 +97,6 @@ cd apps/mobile
 flutter pub get
 flutter run
 ```
-
-### 4) Prototype Flow (HTML)
-
-Open directly in browser:
-
-- `prototype/index.html`
-- `prototype/interview.html`
 
 ## Useful Commands
 

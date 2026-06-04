@@ -8,7 +8,7 @@ This document explains the current Flutter PvP game flow in `apps/mobile`. It de
 
 The active Flutter game mode is the PvP arena at route `/pvp`.
 
-The browser prototype in `apps/games` is separate. The Flutter PvP screen currently uses local mock repositories and does not yet connect to the realtime backend.
+The old browser prototype has been removed. `apps/games/data` is kept only as a question data source, while the playable game experience lives in `apps/mobile`.
 
 ## Source Map
 
