@@ -1,8 +1,8 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
 import { SupabaseAuthGuard } from '../auth/guards/supabase-auth.guard';
 import type { User } from '@supabase/supabase-js';
 import { GetUser } from '../auth/decorators/get-user.decorator';
-import { ProfileService } from './profile.service';
+import { ProfileService, type UpdateProfilePayload } from './profile.service';
 
 @Controller('profile')
 @UseGuards(SupabaseAuthGuard)
@@ -12,5 +12,10 @@ export class ProfileController {
   @Get()
   getMyProfile(@GetUser() user: User) {
     return this.profileService.getProfile(user.id);
+  }
+
+  @Patch()
+  updateMyProfile(@GetUser() user: User, @Body() payload: UpdateProfilePayload) {
+    return this.profileService.updateProfile(user.id, payload);
   }
 }
