@@ -39,11 +39,11 @@ const String _twkCardAsset = 'assets/game/twk_card.png';
 // Attack effects are now rendered via CustomPainter (no PNG assets needed).
 
 const Alignment _enemyMainAlignment = Alignment(0, -0.59);
-const Alignment _enemyMiniLeftAlignment = Alignment(-0.704, -0.418);
-const Alignment _enemyMiniRightAlignment = Alignment(0.704, -0.418);
+const Alignment _enemyMiniLeftAlignment = Alignment(-0.74, -0.418);
+const Alignment _enemyMiniRightAlignment = Alignment(0.74, -0.418);
 const Alignment _playerMainAlignment = Alignment(0, 0.392);
-const Alignment _playerMiniLeftAlignment = Alignment(-0.704, 0.222);
-const Alignment _playerMiniRightAlignment = Alignment(0.704, 0.222);
+const Alignment _playerMiniLeftAlignment = Alignment(-0.74, 0.222);
+const Alignment _playerMiniRightAlignment = Alignment(0.74, 0.222);
 
 class PvpPage extends ConsumerWidget {
   const PvpPage({super.key});
@@ -61,8 +61,12 @@ class PvpPage extends ConsumerWidget {
     );
 
     if (state.phase != BattlePhase.preBattle) {
+      // In-battle and arena menu use their own backgrounds
+      final bool needsDark = state.phase == BattlePhase.inBattle;
       return Scaffold(
-        backgroundColor: const Color(0xFF04060F),
+        backgroundColor: needsDark
+            ? const Color(0xFF04060F)
+            : const Color(0xFFF6F8FC),
         body: SafeArea(
           child: _buildBattleContent(
             context: context,
@@ -76,8 +80,19 @@ class PvpPage extends ConsumerWidget {
     }
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF6F8FC),
       appBar: AppBar(
-        title: const Text('Battle Arena'),
+        title: Text(
+          'Battle Arena',
+          style: GoogleFonts.dmSans(
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
+        backgroundColor: const Color(0xFFF6F8FC),
+        foregroundColor: AppColors.textStrong,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
       ),
       body: SafeArea(

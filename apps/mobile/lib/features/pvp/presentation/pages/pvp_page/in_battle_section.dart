@@ -2436,139 +2436,211 @@ class _TowerNode extends StatelessWidget {
         offset: Offset(sway, bob),
         child: Transform.scale(
           scale: pulse,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              SizedBox(
-                width: padWidth,
-                height: padHeight,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: <Widget>[
-                    // Ground shadow/glow
-                    Positioned(
-                      bottom: 0,
-                      child: Container(
-                        width: mainTower ? 80 : 60,
-                        height: mainTower ? 20 : 14,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          gradient: RadialGradient(
-                            colors: <Color>[
-                              teamColor.withAlpha(destroyed ? 20 : 60),
-                              teamColor.withAlpha(0),
-                            ],
-                          ),
+          child: SizedBox(
+            width: padWidth,
+            height: padHeight,
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: <Widget>[
+                // Stone platform base (integrated with tower for perfect alignment)
+                Positioned(
+                  bottom: -4,
+                  child: Container(
+                    width: mainTower ? 108 : 80,
+                    height: mainTower ? 48 : 36,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(7),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: <Color>[
+                          Color(0xFFBEA882),
+                          Color(0xFF9E8A68),
+                          Color(0xFF7A6A4E),
+                        ],
+                      ),
+                      border: Border.all(
+                        color: const Color(0xFF5C4E38),
+                        width: 1.5,
+                      ),
+                      boxShadow: <BoxShadow>[
+                        BoxShadow(
+                          color: Colors.black.withAlpha(80),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
                         ),
+                        BoxShadow(
+                          color: teamColor.withAlpha(destroyed ? 8 : 30),
+                          blurRadius: 14,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: CustomPaint(
+                        painter: _StonePadGridPainter(),
                       ),
                     ),
-                    // Tower image
-                    Center(
-                      child: SizedBox(
-                        width: towerImageSize,
-                        height: towerImageSize,
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 260),
-                          transitionBuilder:
-                              (Widget child, Animation<double> animation) {
-                                return ScaleTransition(
-                                  scale: Tween<double>(begin: 0.86, end: 1)
-                                      .animate(
-                                        CurvedAnimation(
-                                          parent: animation,
-                                          curve: Curves.easeOutBack,
-                                        ),
-                                      ),
-                                  child: FadeTransition(
-                                    opacity: animation,
-                                    child: child,
-                                  ),
-                                );
-                              },
-                          child: Opacity(
-                            key: ValueKey<String>(
-                              destroyed ? destroyedAsset : imageAsset,
-                            ),
-                            opacity: destroyed ? 0.72 : 1,
-                            child: Image.asset(
-                              destroyed ? destroyedAsset : imageAsset,
-                              fit: BoxFit.contain,
-                              filterQuality: FilterQuality.low,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              // HP bar with glow when low
-              Stack(
-                alignment: Alignment.center,
-                children: <Widget>[
-                  if (hpProgress <= 0.32 && !destroyed)
-                    Container(
-                      width: mainTower ? 82 : 62,
-                      height: 11,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        boxShadow: <BoxShadow>[
-                          BoxShadow(
-                            color: hpColor.withAlpha(
-                              (80 + sin(phase * 4) * 40).round().clamp(0, 255),
-                            ),
-                            blurRadius: 8,
-                          ),
+                // Ground shadow ellipse
+                Positioned(
+                  bottom: -8,
+                  child: Container(
+                    width: mainTower ? 90 : 66,
+                    height: mainTower ? 14 : 10,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      gradient: RadialGradient(
+                        colors: <Color>[
+                          Colors.black.withAlpha(50),
+                          Colors.black.withAlpha(0),
                         ],
                       ),
                     ),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(999),
-                    child: Container(
-                      width: mainTower ? 76 : 56,
-                      height: 7,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withAlpha(150),
-                        border: Border.all(color: Colors.white.withAlpha(28)),
-                      ),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: FractionallySizedBox(
-                          widthFactor: hpProgress.clamp(0.0, 1.0).toDouble(),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: <Color>[
-                                  hpColor,
-                                  hpColor.withAlpha(200),
-                                ],
+                  ),
+                ),
+                // Tower image
+                Center(
+                  child: SizedBox(
+                    width: towerImageSize,
+                    height: towerImageSize,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 260),
+                      transitionBuilder:
+                          (Widget child, Animation<double> animation) {
+                            return ScaleTransition(
+                              scale: Tween<double>(begin: 0.86, end: 1)
+                                  .animate(
+                                    CurvedAnimation(
+                                      parent: animation,
+                                      curve: Curves.easeOutBack,
+                                    ),
+                                  ),
+                              child: FadeTransition(
+                                opacity: animation,
+                                child: child,
                               ),
-                            ),
-                          ),
+                            );
+                          },
+                      child: Opacity(
+                        key: ValueKey<String>(
+                          destroyed ? destroyedAsset : imageAsset,
+                        ),
+                        opacity: destroyed ? 0.72 : 1,
+                        child: Image.asset(
+                          destroyed ? destroyedAsset : imageAsset,
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.low,
                         ),
                       ),
                     ),
                   ),
-                ],
-              ),
-              Text(
-                '$hpValue',
-                style: GoogleFonts.nunito(
-                  color: Colors.white.withAlpha(235),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  shadows: <Shadow>[
-                    Shadow(color: Colors.black.withAlpha(220), blurRadius: 4),
-                  ],
                 ),
-              ),
-            ],
+                // HP bar (positioned below the tower image area)
+                Positioned(
+                  top: padHeight + 2,
+                  left: 0,
+                  right: 0,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Stack(
+                        alignment: Alignment.center,
+                        children: <Widget>[
+                          if (hpProgress <= 0.32 && !destroyed)
+                            Container(
+                              width: mainTower ? 82 : 62,
+                              height: 11,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(999),
+                                boxShadow: <BoxShadow>[
+                                  BoxShadow(
+                                    color: hpColor.withAlpha(
+                                      (80 + sin(phase * 4) * 40).round().clamp(0, 255),
+                                    ),
+                                    blurRadius: 8,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(999),
+                            child: Container(
+                              width: mainTower ? 76 : 56,
+                              height: 7,
+                              decoration: BoxDecoration(
+                                color: Colors.black.withAlpha(150),
+                                border: Border.all(color: Colors.white.withAlpha(28)),
+                              ),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: FractionallySizedBox(
+                                  widthFactor: hpProgress.clamp(0.0, 1.0).toDouble(),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: <Color>[
+                                          hpColor,
+                                          hpColor.withAlpha(200),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        '$hpValue',
+                        style: GoogleFonts.nunito(
+                          color: Colors.white.withAlpha(235),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          shadows: <Shadow>[
+                            Shadow(color: Colors.black.withAlpha(220), blurRadius: 4),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+/// Painter for the stone grid pattern on tower platforms.
+class _StonePadGridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint gridPaint = Paint()
+      ..color = Colors.black.withAlpha(22)
+      ..strokeWidth = 0.8;
+    for (double x = 0; x < size.width; x += 14) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
+    }
+    for (double y = 0; y < size.height; y += 14) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+    // Subtle highlight on top edge
+    canvas.drawLine(
+      Offset.zero,
+      Offset(size.width, 0),
+      Paint()..color = Colors.white.withAlpha(30)..strokeWidth = 1,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _BattlefieldPainter extends CustomPainter {
@@ -2579,204 +2651,329 @@ class _BattlefieldPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final double width = size.width;
-    final double height = size.height;
+    final double w = size.width;
+    final double h = size.height;
     final Rect bounds = Offset.zero & size;
     final double tick = time * pi * 2;
-    final double riverOffset = time * 80;
+    final double riverOff = time * 80;
 
-    final Paint grassPaint = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: <Color>[Color(0xFF4F9B35), Color(0xFF3E852B)],
-      ).createShader(bounds);
-    canvas.drawRect(bounds, grassPaint);
+    // ══════════════════════════════════════════
+    // 1. GRASS – rich multi-tone base
+    // ══════════════════════════════════════════
+    canvas.drawRect(
+      bounds,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: <Color>[
+            Color(0xFF3D8526),
+            Color(0xFF4B9B35),
+            Color(0xFF479432),
+            Color(0xFF3A7E24),
+          ],
+          stops: <double>[0, 0.35, 0.65, 1],
+        ).createShader(bounds),
+    );
 
-    const double tileSize = 28;
-    final Paint tilePaint = Paint()..color = Colors.white.withAlpha(12);
-    for (double x = 0; x < width; x += tileSize) {
-      for (double y = 0; y < height; y += tileSize) {
-        final int tx = (x / tileSize).floor();
-        final int ty = (y / tileSize).floor();
-        if ((tx + ty).isEven) {
-          canvas.drawRect(Rect.fromLTWH(x, y, tileSize, tileSize), tilePaint);
-        }
+    // Checker grass tiles
+    const double tile = 26;
+    final Paint tileA = Paint()..color = Colors.white.withAlpha(10);
+    final Paint tileB = Paint()..color = Colors.black.withAlpha(8);
+    for (double x = 0; x < w; x += tile) {
+      for (double y = 0; y < h; y += tile) {
+        final bool even = ((x / tile).floor() + (y / tile).floor()).isEven;
+        canvas.drawRect(Rect.fromLTWH(x, y, tile, tile), even ? tileA : tileB);
       }
     }
 
-    _drawCloudShadow(canvas, size, 0.04, 0.18, 0.44, 0.09, 0.10, time);
-    _drawCloudShadow(canvas, size, 0.52, 0.08, 0.36, 0.07, 0.08, time + 0.3);
-    _drawCloudShadow(canvas, size, 0.26, 0.72, 0.50, 0.10, 0.07, time + 0.6);
-
-    final double laneWidth = (width * 0.22).clamp(92.0, 110.0).toDouble();
-    final double midY = height * 0.46;
-    final double crossHeight = 68;
-    final Paint pathPaint = Paint()..color = const Color(0xFFCBA65F);
-    final Paint pathShade = Paint()..color = Colors.black.withAlpha(24);
-
-    canvas.drawRect(
-      Rect.fromCenter(
-        center: Offset(width / 2, height / 2),
-        width: laneWidth,
-        height: height,
-      ),
-      pathPaint,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(width / 2 - laneWidth / 2, 0, 5, height),
-      pathShade,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(width / 2 + laneWidth / 2 - 5, 0, 5, height),
-      pathShade,
-    );
-    canvas.drawRect(
-      Rect.fromCenter(
-        center: Offset(width / 2, midY),
-        width: width,
-        height: crossHeight,
-      ),
-      pathPaint,
-    );
-    canvas.drawRect(Rect.fromLTWH(0, midY - 34, width, 5), pathShade);
-    canvas.drawRect(Rect.fromLTWH(0, midY + 29, width, 5), pathShade);
-
-    final double scale = min(
-      width / 420,
-      height / 560,
-    ).clamp(0.82, 1.25).toDouble();
-    _drawStonePad(canvas, size, 0.148, 0.291, 84 * scale, 72 * scale);
-    _drawStonePad(canvas, size, 0.852, 0.291, 84 * scale, 72 * scale);
-    _drawStonePad(canvas, size, 0.148, 0.611, 84 * scale, 72 * scale);
-    _drawStonePad(canvas, size, 0.852, 0.611, 84 * scale, 72 * scale);
-    _drawStonePad(canvas, size, 0.5, 0.205, 116 * scale, 112 * scale);
-    _drawStonePad(canvas, size, 0.5, 0.696, 116 * scale, 112 * scale);
-
-    final double riverHeight = (height * 0.11).clamp(54.0, 78.0).toDouble();
-    final Rect riverRect = Rect.fromCenter(
-      center: Offset(width / 2, midY),
-      width: width,
-      height: riverHeight + 16,
-    );
-    final Paint riverPaint = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: <Color>[
-          Color(0xFF0AB8D8),
-          Color(0xFF18E8FF),
-          Color(0xFF18E8FF),
-          Color(0xFF0AB8D8),
-        ],
-        stops: <double>[0, 0.35, 0.65, 1],
-      ).createShader(riverRect);
-
-    final Path riverPath = Path();
-    riverPath.moveTo(0, midY - riverHeight / 2);
-    for (double x = 0; x <= width; x += 6) {
-      riverPath.lineTo(
-        x,
-        midY - riverHeight / 2 + sin((x + riverOffset) * 0.07) * 5,
+    // Subtle grass stripe rows for depth
+    for (double y = 0; y < h; y += 52) {
+      canvas.drawRect(
+        Rect.fromLTWH(0, y, w, 3),
+        Paint()..color = Colors.black.withAlpha(6),
       );
     }
-    riverPath.lineTo(width, midY + riverHeight / 2);
-    for (double x = width; x >= 0; x -= 6) {
+
+    // Cloud shadows
+    _drawCloudShadow(canvas, size, 0.04, 0.18, 0.44, 0.09, 0.07, time);
+    _drawCloudShadow(canvas, size, 0.52, 0.08, 0.36, 0.07, 0.05, time + 0.3);
+    _drawCloudShadow(canvas, size, 0.26, 0.72, 0.50, 0.10, 0.06, time + 0.6);
+
+    // ══════════════════════════════════════════
+    // 2. LANES – cobblestone paths
+    // ══════════════════════════════════════════
+    final double laneW = (w * 0.22).clamp(92.0, 110.0).toDouble();
+    final double midY = h * 0.46;
+    const double crossH = 68;
+
+    // Vertical main lane
+    final Rect vLane = Rect.fromCenter(
+      center: Offset(w / 2, h / 2),
+      width: laneW,
+      height: h,
+    );
+    canvas.drawRect(
+      vLane,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: const <Color>[
+            Color(0xFFA88C56),
+            Color(0xFFC4A866),
+            Color(0xFFC4A866),
+            Color(0xFFA88C56),
+          ],
+        ).createShader(vLane),
+    );
+
+    // Lane edge shadows
+    canvas.drawRect(
+      Rect.fromLTWH(w / 2 - laneW / 2, 0, 4, h),
+      Paint()..color = Colors.black.withAlpha(28),
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(w / 2 + laneW / 2 - 4, 0, 4, h),
+      Paint()..color = Colors.black.withAlpha(28),
+    );
+    // Lane edge highlight (inner)
+    canvas.drawRect(
+      Rect.fromLTWH(w / 2 - laneW / 2 + 4, 0, 2, h),
+      Paint()..color = Colors.white.withAlpha(14),
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(w / 2 + laneW / 2 - 6, 0, 2, h),
+      Paint()..color = Colors.white.withAlpha(14),
+    );
+
+    // Cobblestone pattern on vertical lane
+    final Paint cobble = Paint()..color = Colors.black.withAlpha(12);
+    for (double y = 0; y < h; y += 14) {
+      final double xOff = ((y / 14).floor().isEven) ? 7 : 0;
+      for (double x = vLane.left + xOff; x < vLane.right - 2; x += 14) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(x + 1, y + 1, 12, 12),
+            const Radius.circular(2),
+          ),
+          cobble,
+        );
+      }
+    }
+
+    // Horizontal cross lane
+    final Rect hLane = Rect.fromCenter(
+      center: Offset(w / 2, midY),
+      width: w,
+      height: crossH,
+    );
+    canvas.drawRect(
+      hLane,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: const <Color>[
+            Color(0xFFA88C56),
+            Color(0xFFC4A866),
+            Color(0xFFC4A866),
+            Color(0xFFA88C56),
+          ],
+        ).createShader(hLane),
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(0, midY - crossH / 2, w, 4),
+      Paint()..color = Colors.black.withAlpha(24),
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(0, midY + crossH / 2 - 4, w, 4),
+      Paint()..color = Colors.black.withAlpha(24),
+    );
+
+    // Cobblestone on horizontal lane
+    for (double y = hLane.top; y < hLane.bottom - 2; y += 14) {
+      final double xOff = ((y / 14).floor().isEven) ? 7 : 0;
+      for (double x = xOff; x < w - 2; x += 14) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(x + 1, y + 1, 12, 12),
+            const Radius.circular(2),
+          ),
+          cobble,
+        );
+      }
+    }
+
+    // ══════════════════════════════════════════
+    // 3. KING TOWER ZONE highlights
+    // ══════════════════════════════════════════
+    _drawKingZone(canvas, size, 0.5, 0.19, true);
+    _drawKingZone(canvas, size, 0.5, 0.72, false);
+
+    // ══════════════════════════════════════════
+    // 4. RIVER
+    // ══════════════════════════════════════════
+    final double rivH = (h * 0.11).clamp(54.0, 78.0).toDouble();
+
+    // River body path with wave edges
+    final Path riverPath = Path();
+    riverPath.moveTo(0, midY - rivH / 2);
+    for (double x = 0; x <= w; x += 4) {
       riverPath.lineTo(
         x,
-        midY + riverHeight / 2 + sin((x + riverOffset * 0.8) * 0.09) * 4,
+        midY - rivH / 2 + sin((x + riverOff) * 0.06) * 4,
+      );
+    }
+    riverPath.lineTo(w, midY + rivH / 2);
+    for (double x = w; x >= 0; x -= 4) {
+      riverPath.lineTo(
+        x,
+        midY + rivH / 2 + sin((x + riverOff * 0.7) * 0.08) * 3,
       );
     }
     riverPath.close();
-    canvas.drawPath(riverPath, riverPaint);
 
-    final Paint foamPaint = Paint()..color = Colors.white.withAlpha(78);
+    // River shadow
+    canvas.drawPath(
+      riverPath.shift(const Offset(0, 3)),
+      Paint()..color = Colors.black.withAlpha(35),
+    );
+
+    // River gradient fill
+    final Rect riverRect = Rect.fromCenter(
+      center: Offset(w / 2, midY),
+      width: w,
+      height: rivH + 20,
+    );
+    canvas.drawPath(
+      riverPath,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: <Color>[
+            Color(0xFF0097B8),
+            Color(0xFF10CCE8),
+            Color(0xFF30E8FF),
+            Color(0xFF10CCE8),
+            Color(0xFF0097B8),
+          ],
+          stops: <double>[0, 0.2, 0.5, 0.8, 1],
+        ).createShader(riverRect),
+    );
+
+    // River surface highlights – moving horizontal streaks
+    for (int i = 0; i < 8; i++) {
+      final double sx = ((i * w / 7 + riverOff * 2.5) % (w + 60)) - 30;
+      final double sy = midY + sin(i * 1.7 + tick) * (rivH * 0.22);
+      final double sw = 28 + sin(i * 2.1) * 10;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(sx, sy), width: sw, height: 2.5),
+          const Radius.circular(2),
+        ),
+        Paint()
+          ..color = Colors.white.withAlpha(
+            (40 + sin(tick * 3 + i) * 18).round().clamp(0, 90),
+          ),
+      );
+    }
+
+    // Foam splashes
+    final Paint foamPaint = Paint()..color = Colors.white.withAlpha(60);
     for (int i = 0; i < 5; i++) {
-      final double cx = ((i * 90 + riverOffset * 3.5) % (width + 60)) - 30;
-      final double cy = midY + sin(i * 1.3) * 7;
-      final double pulse = 0.72 + sin(tick * 3 + i) * 0.16;
+      final double cx = ((i * 90 + riverOff * 3.5) % (w + 60)) - 30;
+      final double cy = midY + sin(i * 1.3) * (rivH * 0.18);
+      final double p = 0.72 + sin(tick * 3 + i) * 0.16;
       canvas.save();
       canvas.translate(cx, cy);
       canvas.rotate(-0.18);
-      canvas.scale(pulse, pulse);
+      canvas.scale(p);
       canvas.drawOval(
-        Rect.fromCenter(center: Offset.zero, width: 44, height: 10),
+        Rect.fromCenter(center: Offset.zero, width: 36, height: 8),
         foamPaint,
       );
       canvas.restore();
     }
 
-    final Paint riverEdge = Paint()
-      ..color = Colors.white.withAlpha(46)
+    // Shore edges
+    final Paint shore = Paint()
+      ..color = Colors.white.withAlpha(44)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
-    final Path topEdge = Path()..moveTo(0, midY - riverHeight / 2);
-    for (double x = 0; x <= width; x += 3) {
-      topEdge.lineTo(
+    Path edge = Path()..moveTo(0, midY - rivH / 2);
+    for (double x = 0; x <= w; x += 3) {
+      edge.lineTo(x, midY - rivH / 2 + sin((x + riverOff) * 0.06) * 4);
+    }
+    canvas.drawPath(edge, shore);
+    edge = Path()..moveTo(0, midY + rivH / 2);
+    for (double x = 0; x <= w; x += 3) {
+      edge.lineTo(
         x,
-        midY - riverHeight / 2 + sin((x + riverOffset) * 0.07) * 5,
+        midY + rivH / 2 + sin((x + riverOff * 0.7) * 0.08) * 3,
       );
     }
-    canvas.drawPath(topEdge, riverEdge);
+    canvas.drawPath(edge, shore);
 
-    final Paint bridgePaint = Paint()..color = const Color(0xFF7A6A4A);
-    final Paint bridgeGlow = Paint()..color = const Color(0xFFE8B840);
-    for (final Offset offset in <Offset>[
-      Offset(width / 2 - 40, midY - 22),
-      Offset(width / 2 + 16, midY - 22),
-      Offset(width / 2 - 40, midY + 4),
-      Offset(width / 2 + 16, midY + 4),
-    ]) {
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(offset.dx, offset.dy, 24, 18),
-          const Radius.circular(3),
-        ),
-        bridgePaint,
-      );
-    }
-    final double bridgePulse = 1 + 0.12 * sin(tick * 2.5);
-    canvas.drawCircle(
-      Offset(width / 2 - 46, midY - 8),
-      7 * bridgePulse,
-      bridgeGlow,
+    // Shore glow (grass-water border light)
+    final Paint shoreGlow = Paint()
+      ..color = const Color(0xFF60E8FF).withAlpha(20)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+    canvas.drawRect(
+      Rect.fromLTWH(0, midY - rivH / 2 - 6, w, 8),
+      shoreGlow,
     );
-    canvas.drawCircle(
-      Offset(width / 2 + 46, midY - 8),
-      7 * bridgePulse,
-      bridgeGlow,
+    canvas.drawRect(
+      Rect.fromLTWH(0, midY + rivH / 2 - 2, w, 8),
+      shoreGlow,
     );
 
+    // ══════════════════════════════════════════
+    // 5. WOODEN BRIDGE
+    // ══════════════════════════════════════════
+    _drawWoodenBridge(canvas, w / 2, midY, laneW, rivH, tick);
+
+    // ══════════════════════════════════════════
+    // 6. TORCHES
+    // ══════════════════════════════════════════
     final double flicker = 0.86 + 0.14 * sin(tick * 12 + 1);
-    _drawTorch(canvas, 8, midY - riverHeight / 2 - 36, flicker);
-    _drawTorch(canvas, 8, midY + riverHeight / 2 + 36, flicker * 0.92);
-    _drawTorch(canvas, width - 8, midY - riverHeight / 2 - 36, flicker * 0.96);
-    _drawTorch(canvas, width - 8, midY + riverHeight / 2 + 36, flicker);
+    _drawTorch(canvas, 10, midY - rivH / 2 - 32, flicker);
+    _drawTorch(canvas, 10, midY + rivH / 2 + 32, flicker * 0.92);
+    _drawTorch(canvas, w - 10, midY - rivH / 2 - 32, flicker * 0.96);
+    _drawTorch(canvas, w - 10, midY + rivH / 2 + 32, flicker);
 
+    // ══════════════════════════════════════════
+    // 7. DECORATIONS
+    // ══════════════════════════════════════════
     _drawSideTrees(canvas, size, time);
+    _drawBushes(canvas, size, time);
 
+    // ══════════════════════════════════════════
+    // 8. AMBIENT SPARKS
+    // ══════════════════════════════════════════
     _drawAmbientSpark(canvas, size, 0.18, 0.82, time, const Color(0xFF7DD3FC));
     _drawAmbientSpark(
-      canvas,
-      size,
-      0.82,
-      0.23,
-      time + 0.35,
-      const Color(0xFFFCD34D),
+      canvas, size, 0.82, 0.23, time + 0.35, const Color(0xFFFCD34D),
     );
     _drawAmbientSpark(
-      canvas,
-      size,
-      0.52,
-      0.50,
-      time + 0.62,
-      const Color(0xFF86EFAC),
+      canvas, size, 0.52, 0.50, time + 0.62, const Color(0xFF86EFAC),
+    );
+    _drawAmbientSpark(
+      canvas, size, 0.30, 0.12, time + 0.15, const Color(0xFFFCA5A5),
+    );
+    _drawAmbientSpark(
+      canvas, size, 0.72, 0.88, time + 0.78, const Color(0xFFA5B4FC),
     );
 
     if (mode == BattleMode.online) {
       _drawModeBadge(canvas, size);
     }
   }
+
+  // ──────────────────────────────────────────
+  // Helper painters
+  // ──────────────────────────────────────────
 
   void _drawCloudShadow(
     Canvas canvas,
@@ -2788,68 +2985,168 @@ class _BattlefieldPainter extends CustomPainter {
     double alpha,
     double phase,
   ) {
-    final double width = size.width * wRatio;
-    final double height = size.height * hRatio;
+    final double cw = size.width * wRatio;
+    final double ch = size.height * hRatio;
     final double x =
-        ((size.width * xRatio + phase * 38) % (size.width + width)) - width;
+        ((size.width * xRatio + phase * 38) % (size.width + cw)) - cw;
     final double y = size.height * yRatio;
     final Rect rect = Rect.fromCenter(
-      center: Offset(x + width / 2, y + height / 2),
-      width: width,
-      height: height,
+      center: Offset(x + cw / 2, y + ch / 2),
+      width: cw,
+      height: ch,
     );
-    final Paint paint = Paint()
-      ..shader = RadialGradient(
-        colors: <Color>[
-          Colors.black.withAlpha((alpha * 255).round()),
-          Colors.transparent,
-        ],
-      ).createShader(rect);
-    canvas.drawOval(rect, paint);
+    canvas.drawOval(
+      rect,
+      Paint()
+        ..shader = RadialGradient(
+          colors: <Color>[
+            Colors.black.withAlpha((alpha * 255).round()),
+            Colors.transparent,
+          ],
+        ).createShader(rect),
+    );
   }
 
-  void _drawStonePad(
+  void _drawKingZone(
     Canvas canvas,
     Size size,
-    double xRatio,
-    double yRatio,
-    double width,
-    double height,
+    double xR,
+    double yR,
+    bool isEnemy,
   ) {
-    final Rect rect = Rect.fromCenter(
-      center: Offset(size.width * xRatio, size.height * yRatio),
-      width: width,
-      height: height,
+    final Offset c = Offset(size.width * xR, size.height * yR);
+    final Color zone =
+        isEnemy ? const Color(0xFFBB3333) : const Color(0xFF3366BB);
+    canvas.drawOval(
+      Rect.fromCenter(center: c, width: 140, height: 80),
+      Paint()
+        ..color = zone.withAlpha(14)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 22),
     );
-    final RRect rounded = RRect.fromRectAndRadius(
-      rect,
-      const Radius.circular(8),
+  }
+
+  void _drawWoodenBridge(
+    Canvas canvas,
+    double cx,
+    double cy,
+    double laneW,
+    double rivH,
+    double tick,
+  ) {
+    final double bw = laneW + 10;
+    final double bh = rivH + 16;
+
+    // Shadow
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset(cx, cy + 4), width: bw, height: bh),
+        const Radius.circular(4),
+      ),
+      Paint()..color = Colors.black.withAlpha(45),
     );
-    final Paint padPaint = Paint()..color = const Color(0xFF9E8C6A);
-    final Paint gridPaint = Paint()
-      ..color = Colors.black.withAlpha(26)
-      ..strokeWidth = 1;
-    canvas.drawRRect(rounded, padPaint);
-    canvas.save();
-    canvas.clipRRect(rounded);
-    for (double x = rect.left; x < rect.right; x += 18) {
-      canvas.drawLine(Offset(x, rect.top), Offset(x, rect.bottom), gridPaint);
+
+    // Base
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset(cx, cy), width: bw, height: bh),
+        const Radius.circular(3),
+      ),
+      Paint()..color = const Color(0xFF5A3E12),
+    );
+
+    // Planks
+    final double pTop = cy - bh / 2 + 3;
+    final double pBot = cy + bh / 2 - 3;
+    final Paint plankA = Paint()..color = const Color(0xFF8B6914);
+    final Paint plankB = Paint()..color = const Color(0xFF6E5410);
+    int idx = 0;
+    for (double y = pTop; y < pBot; y += 7) {
+      canvas.drawRect(
+        Rect.fromLTWH(cx - bw / 2 + 4, y, bw - 8, 5),
+        idx.isEven ? plankA : plankB,
+      );
+      // Plank gap
+      canvas.drawRect(
+        Rect.fromLTWH(cx - bw / 2 + 4, y + 5, bw - 8, 1.5),
+        Paint()..color = const Color(0xFF3E2A0A),
+      );
+      idx++;
     }
-    for (double y = rect.top; y < rect.bottom; y += 18) {
-      canvas.drawLine(Offset(rect.left, y), Offset(rect.right, y), gridPaint);
+
+    // Side rails
+    final Paint railPaint = Paint()..color = const Color(0xFF4E3510);
+    canvas.drawRect(
+      Rect.fromLTWH(cx - bw / 2, cy - bh / 2, 4, bh),
+      railPaint,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(cx + bw / 2 - 4, cy - bh / 2, 4, bh),
+      railPaint,
+    );
+
+    // Rail posts with lanterns
+    final Paint postPaint = Paint()..color = const Color(0xFF8B6914);
+    for (final double yOff in <double>[-bh / 2 + 3, 0, bh / 2 - 3]) {
+      for (final double side in <double>[-1, 1]) {
+        canvas.drawCircle(
+          Offset(cx + side * bw / 2, cy + yOff),
+          4.5,
+          postPaint,
+        );
+        canvas.drawCircle(
+          Offset(cx + side * bw / 2, cy + yOff),
+          2.5,
+          Paint()..color = const Color(0xFFAA8420),
+        );
+      }
     }
-    canvas.restore();
+
+    // Lantern glow on top posts
+    final double glow = 1 + 0.12 * sin(tick * 2.5);
+    for (final double side in <double>[-1, 1]) {
+      canvas.drawCircle(
+        Offset(cx + side * bw / 2, cy - bh / 2 + 3),
+        7 * glow,
+        Paint()
+          ..color = const Color(0xFFFFAA00).withAlpha(55)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+      );
+      canvas.drawCircle(
+        Offset(cx + side * bw / 2, cy - bh / 2 + 3),
+        3 * glow,
+        Paint()..color = const Color(0xFFFFCC44).withAlpha(160),
+      );
+    }
   }
 
   void _drawTorch(Canvas canvas, double x, double y, double flicker) {
-    final Paint corePaint = Paint()
-      ..color = const Color(0xFFFFAA00).withAlpha(230);
-    final Paint glowPaint = Paint()
-      ..color = const Color(0xFFFFAA00).withAlpha(56);
-    canvas.save();
-    canvas.drawCircle(Offset(x, y), 16 * flicker, glowPaint);
-    canvas.drawCircle(Offset(x, y), 5 * flicker, corePaint);
-    canvas.restore();
+    // Torch pole
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset(x, y + 10), width: 3, height: 14),
+        const Radius.circular(1.5),
+      ),
+      Paint()..color = const Color(0xFF6B4520),
+    );
+    // Flame glow
+    canvas.drawCircle(
+      Offset(x, y),
+      18 * flicker,
+      Paint()
+        ..color = const Color(0xFFFFAA00).withAlpha(40)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+    );
+    // Flame core
+    canvas.drawCircle(
+      Offset(x, y),
+      5 * flicker,
+      Paint()..color = const Color(0xFFFFBB22).withAlpha(230),
+    );
+    canvas.drawCircle(
+      Offset(x, y - 2),
+      3 * flicker,
+      Paint()..color = const Color(0xFFFFF4CC).withAlpha(200),
+    );
   }
 
   void _drawAmbientSpark(
@@ -2873,46 +3170,47 @@ class _BattlefieldPainter extends CustomPainter {
 
   void _drawSideTrees(Canvas canvas, Size size, double time) {
     final List<({double x, double y, double scale, Color dark, Color mid})>
-    trees = <({double x, double y, double scale, Color dark, Color mid})>[
+        trees =
+        <({double x, double y, double scale, Color dark, Color mid})>[
       (
         x: 0.02,
-        y: 0.15,
-        scale: 0.86,
-        dark: const Color(0xFF14532D),
-        mid: const Color(0xFF2F8D3A),
-      ),
-      (
-        x: 0.02,
-        y: 0.37,
-        scale: 0.78,
-        dark: const Color(0xFF166534),
-        mid: const Color(0xFF3CA44A),
-      ),
-      (
-        x: 0.02,
-        y: 0.78,
+        y: 0.14,
         scale: 0.9,
         dark: const Color(0xFF14532D),
         mid: const Color(0xFF2F8D3A),
       ),
       (
+        x: 0.02,
+        y: 0.36,
+        scale: 0.82,
+        dark: const Color(0xFF166534),
+        mid: const Color(0xFF3CA44A),
+      ),
+      (
+        x: 0.02,
+        y: 0.78,
+        scale: 0.94,
+        dark: const Color(0xFF14532D),
+        mid: const Color(0xFF2F8D3A),
+      ),
+      (
         x: 0.98,
-        y: 0.15,
-        scale: 0.8,
+        y: 0.14,
+        scale: 0.84,
         dark: const Color(0xFF14532D),
         mid: const Color(0xFF35A047),
       ),
       (
         x: 0.98,
-        y: 0.39,
-        scale: 0.92,
+        y: 0.38,
+        scale: 0.96,
         dark: const Color(0xFF166534),
         mid: const Color(0xFF3CA44A),
       ),
       (
         x: 0.98,
         y: 0.78,
-        scale: 0.84,
+        scale: 0.88,
         dark: const Color(0xFF14532D),
         mid: const Color(0xFF2F8D3A),
       ),
@@ -2920,11 +3218,18 @@ class _BattlefieldPainter extends CustomPainter {
 
     for (int i = 0; i < trees.length; i++) {
       final tree = trees[i];
-      final double sway = sin(time * pi * 2 + i * 1.4) * 1.8;
+      final double sway = sin(time * pi * 2 + i * 1.4) * 2;
       final Offset base = Offset(size.width * tree.x, size.height * tree.y);
       canvas.save();
       canvas.translate(base.dx, base.dy);
       canvas.scale(tree.scale);
+
+      // Trunk shadow
+      canvas.drawOval(
+        Rect.fromCenter(center: const Offset(0, 22), width: 18, height: 6),
+        Paint()..color = Colors.black.withAlpha(20),
+      );
+      // Trunk
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           const Rect.fromLTWH(-3, 2, 6, 20),
@@ -2932,14 +3237,102 @@ class _BattlefieldPainter extends CustomPainter {
         ),
         Paint()..color = const Color(0xFF6B3F1D),
       );
-      canvas.translate(sway, 0);
-      canvas.drawCircle(Offset.zero, 13, Paint()..color = tree.dark);
-      canvas.drawCircle(const Offset(0, -9), 11, Paint()..color = tree.mid);
-      canvas.drawCircle(
-        const Offset(0, -17),
-        8,
-        Paint()..color = const Color(0xFF57C65D),
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(-1, 4, 2, 16),
+          const Radius.circular(1),
+        ),
+        Paint()..color = const Color(0xFF7D4E26),
       );
+
+      canvas.translate(sway, 0);
+      // Foliage layers
+      canvas.drawCircle(Offset.zero, 14, Paint()..color = tree.dark);
+      canvas.drawCircle(
+        const Offset(-4, -3),
+        10,
+        Paint()..color = tree.mid,
+      );
+      canvas.drawCircle(
+        const Offset(4, -6),
+        9,
+        Paint()..color = tree.mid,
+      );
+      canvas.drawCircle(
+        const Offset(0, -10),
+        8,
+        Paint()..color = const Color(0xFF4FBB50),
+      );
+      canvas.drawCircle(
+        const Offset(0, -16),
+        6,
+        Paint()..color = const Color(0xFF62D462),
+      );
+      // Light dapple
+      canvas.drawCircle(
+        const Offset(-3, -8),
+        3,
+        Paint()..color = Colors.white.withAlpha(16),
+      );
+
+      canvas.restore();
+    }
+  }
+
+  void _drawBushes(Canvas canvas, Size size, double time) {
+    const List<(double, double, double)> bushData = <(double, double, double)>[
+      (0.07, 0.56, 0.85),
+      (0.93, 0.56, 0.75),
+      (0.07, 0.28, 0.7),
+      (0.93, 0.28, 0.8),
+      (0.04, 0.92, 0.65),
+      (0.96, 0.08, 0.6),
+      (0.04, 0.64, 0.55),
+      (0.96, 0.64, 0.6),
+    ];
+
+    for (int i = 0; i < bushData.length; i++) {
+      final (double bx, double by, double bs) = bushData[i];
+      final Offset center = Offset(size.width * bx, size.height * by);
+      final double sway = sin(time * pi * 2 + i * 1.2) * 1.0;
+
+      canvas.save();
+      canvas.translate(center.dx + sway, center.dy);
+      canvas.scale(bs);
+
+      // Shadow
+      canvas.drawOval(
+        Rect.fromCenter(center: const Offset(0, 7), width: 18, height: 5),
+        Paint()..color = Colors.black.withAlpha(16),
+      );
+      // Bush body
+      canvas.drawCircle(
+        Offset.zero,
+        7,
+        Paint()..color = const Color(0xFF2D7A2D),
+      );
+      canvas.drawCircle(
+        const Offset(-4, -1),
+        5,
+        Paint()..color = const Color(0xFF35912A),
+      );
+      canvas.drawCircle(
+        const Offset(4, -1),
+        5,
+        Paint()..color = const Color(0xFF35912A),
+      );
+      canvas.drawCircle(
+        const Offset(0, -4),
+        4,
+        Paint()..color = const Color(0xFF4AAA3A),
+      );
+      // Highlight
+      canvas.drawCircle(
+        const Offset(-2, -3),
+        2,
+        Paint()..color = Colors.white.withAlpha(14),
+      );
+
       canvas.restore();
     }
   }

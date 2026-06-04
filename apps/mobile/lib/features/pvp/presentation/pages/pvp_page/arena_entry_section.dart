@@ -22,36 +22,39 @@ class _ArenaEntrySection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 SizedBox(
-                  height: compact ? 236 : 280,
+                  height: compact ? 220 : 260,
                   child: _ArenaPreview(playerName: playerDisplayName),
                 ),
-                SizedBox(height: compact ? 12 : 16),
+                SizedBox(height: compact ? 14 : 20),
                 _HowToPlayPanel(compact: compact),
-                SizedBox(height: compact ? 12 : 16),
+                SizedBox(height: compact ? 16 : 22),
                 SizedBox(
                   width: double.infinity,
-                  height: 56,
-                  child: FilledButton.icon(
+                  height: 54,
+                  child: FilledButton(
                     onPressed: onEnterArena,
-                    icon: const Icon(Icons.sports_esports_rounded, size: 20),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.warriorNavy,
-                      foregroundColor: const Color(0xFFEAF0FB),
+                      foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(
-                          color: AppColors.textStrong.withAlpha(70),
-                        ),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    label: Text(
-                      'MASUK ARENA',
-                      style: GoogleFonts.orbitron(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.5,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        const Icon(Icons.sports_esports_rounded, size: 20),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Masuk Arena',
+                          style: GoogleFonts.dmSans(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -72,69 +75,68 @@ class _HowToPlayPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<({IconData icon, String title, String text})>
-    items = <({IconData icon, String title, String text})>[
+    final List<({IconData icon, String title, String text, Color accent})>
+        items =
+        <({IconData icon, String title, String text, Color accent})>[
       (
         icon: Icons.style_rounded,
-        title: 'Pilih kartu',
-        text:
-            'Pilih kartu soal dari tanganmu. Tiap kartu punya damage atau heal berbeda.',
+        title: 'Pilih Kartu',
+        text: 'Pilih kartu soal dari tanganmu — tiap kartu punya damage atau heal berbeda',
+        accent: AppColors.levelUpTeal,
       ),
       (
         icon: Icons.bolt_rounded,
-        title: 'Jawab soal',
-        text:
-            'Jawab benar untuk memberi damage ke menara lawan atau heal menaramu.',
+        title: 'Jawab Soal',
+        text: 'Jawab benar untuk memberi damage ke menara lawan atau heal menaramu',
+        accent: AppColors.fireGold,
       ),
       (
         icon: Icons.account_balance_rounded,
-        title: 'Hancurkan menara',
-        text: 'Hancurkan menara utama lawan sebelum menaramu dihancurkan.',
+        title: 'Hancurkan Menara',
+        text: 'Hancurkan menara utama lawan sebelum menaramu dihancurkan',
+        accent: AppColors.warriorNavy,
       ),
     ];
 
-    return Container(
-      color: Colors.transparent,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            'CARA BERMAIN',
-            style: GoogleFonts.orbitron(
-              color: AppColors.textMuted,
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.6,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 10),
+          child: Text(
+            'Cara Bermain',
+            style: GoogleFonts.dmSans(
+              color: AppColors.textStrong,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          SizedBox(height: compact ? 8 : 10),
-          for (int i = 0; i < items.length; i++) ...<Widget>[
-            _HowToRow(
-              icon: items[i].icon,
-              title: items[i].title,
-              text: items[i].text,
-              accent: i == 0
-                  ? AppColors.levelUpTeal
-                  : i == 1
-                  ? AppColors.fireGold
-                  : AppColors.warriorNavy,
-            ),
-            if (i != items.length - 1) SizedBox(height: compact ? 8 : 8),
-          ],
+        ),
+        for (int i = 0; i < items.length; i++) ...<Widget>[
+          _HowToRow(
+            step: i + 1,
+            icon: items[i].icon,
+            title: items[i].title,
+            text: items[i].text,
+            accent: items[i].accent,
+          ),
+          if (i != items.length - 1) const SizedBox(height: 8),
         ],
-      ),
+      ],
     );
   }
 }
 
 class _HowToRow extends StatelessWidget {
   const _HowToRow({
+    required this.step,
     required this.icon,
     required this.title,
     required this.text,
     required this.accent,
   });
 
+  final int step;
   final IconData icon;
   final String title;
   final String text;
@@ -143,46 +145,68 @@ class _HowToRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.warriorNavy.withAlpha(24)),
+        border: Border.all(color: const Color(0xFFE8ECF2)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Container(
-            width: 38,
-            height: 38,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: accent.withAlpha(24),
-              borderRadius: BorderRadius.circular(12),
+              color: accent.withAlpha(18),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: accent, size: 19),
+            child: Icon(icon, color: accent, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(
-                  title.toUpperCase(),
-                  style: GoogleFonts.orbitron(
-                    color: AppColors.warriorNavy,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.6,
-                  ),
+                Row(
+                  children: <Widget>[
+                    Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: accent.withAlpha(22),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '$step',
+                          style: TextStyle(
+                            color: accent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      title,
+                      style: GoogleFonts.dmSans(
+                        color: AppColors.textStrong,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
                   text,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textMuted,
-                    fontSize: 13,
+                    fontSize: 12.5,
                     fontWeight: FontWeight.w500,
-                    height: 1.35,
+                    height: 1.4,
                   ),
                 ),
               ],
@@ -201,14 +225,20 @@ class _ArenaPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String safePlayerName = playerName.trim().isEmpty
-        ? 'Kamu'
-        : playerName;
+    final String safePlayerName =
+        playerName.trim().isEmpty ? 'Kamu' : playerName;
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F7FC),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            Color(0xFFF7F9FC),
+            Color(0xFFEEF2F9),
+          ],
+        ),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.warriorNavy.withAlpha(30)),
+        border: Border.all(color: const Color(0xFFDDE3ED)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),
@@ -220,33 +250,54 @@ class _ArenaPreview extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 28,
-                  vertical: 24,
+                  vertical: 22,
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
                     _AvatarBadge(label: safePlayerName, isEnemy: false),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEAF0FB),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: AppColors.warriorNavy.withAlpha(80),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: const Color(0xFFDDE3ED),
+                            ),
+                            boxShadow: <BoxShadow>[
+                              BoxShadow(
+                                color: Colors.black.withAlpha(8),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            'VS',
+                            style: GoogleFonts.dmSans(
+                              color: AppColors.textStrong,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        'VS',
-                        style: GoogleFonts.orbitron(
-                          color: AppColors.warriorNavy,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                          letterSpacing: 1.8,
+                        const SizedBox(height: 6),
+                        Container(
+                          width: 32,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: AppColors.fireGold.withAlpha(120),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                     _AvatarBadge(label: 'Lawan', isEnemy: true),
                   ],
@@ -265,29 +316,20 @@ class _ArenaGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color line = AppColors.warriorNavy.withAlpha(26);
-    final Color strong = AppColors.warriorNavy.withAlpha(90);
+    final Color line = const Color(0xFFCDD5E0).withAlpha(50);
 
     return Stack(
       children: <Widget>[
         for (double x in <double>[0.17, 0.34, 0.5, 0.66, 0.83])
           Align(
             alignment: Alignment(x * 2 - 1, 0),
-            child: Container(width: 1, color: line),
+            child: Container(width: 0.8, color: line),
           ),
         for (double y in <double>[0.25, 0.5, 0.75])
           Align(
             alignment: Alignment(0, y * 2 - 1),
-            child: Container(height: 1, color: line),
+            child: Container(height: 0.8, color: line),
           ),
-        Align(
-          alignment: Alignment.center,
-          child: Container(width: 1.2, color: strong.withAlpha(90)),
-        ),
-        Align(
-          alignment: Alignment.center,
-          child: Container(height: 1.2, color: strong.withAlpha(24)),
-        ),
         ...<Widget>[
           _CornerBracket(alignment: Alignment.topLeft),
           _CornerBracket(alignment: Alignment.topRight),
@@ -312,15 +354,15 @@ class _CornerBracket extends StatelessWidget {
     return Align(
       alignment: alignment,
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(16),
         child: SizedBox(
-          width: 34,
-          height: 34,
+          width: 28,
+          height: 28,
           child: CustomPaint(
             painter: _BracketPainter(
               left: left,
               top: top,
-              color: AppColors.warriorNavy.withAlpha(80),
+              color: AppColors.warriorNavy.withAlpha(50),
             ),
           ),
         ),
@@ -337,50 +379,58 @@ class _AvatarBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color tint = isEnemy ? AppColors.fireGold : AppColors.levelUpTeal;
+    final Color tint = isEnemy
+        ? const Color(0xFFE25555)
+        : AppColors.levelUpTeal;
     final String asset = isEnemy ? _enemyAvatarAsset : _playerAvatarAsset;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        SizedBox(
-          width: 104,
-          child: Column(
-            children: <Widget>[
-              CircleAvatar(
-                radius: 34,
-                backgroundColor: Colors.white,
-                child: CircleAvatar(
-                  radius: 30,
-                  backgroundColor: tint.withAlpha(28),
-                  backgroundImage: AssetImage(asset),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                width: 90,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: tint.withAlpha(80),
-                  borderRadius: BorderRadius.circular(999),
-                ),
+        Container(
+          width: 68,
+          height: 68,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white,
+            border: Border.all(color: tint.withAlpha(60), width: 2),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: tint.withAlpha(16),
+                blurRadius: 12,
+                spreadRadius: 2,
               ),
             ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(3),
+            child: CircleAvatar(
+              backgroundColor: tint.withAlpha(12),
+              backgroundImage: AssetImage(asset),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: 40,
+          height: 3,
+          decoration: BoxDecoration(
+            color: tint.withAlpha(60),
+            borderRadius: BorderRadius.circular(999),
           ),
         ),
         const SizedBox(height: 6),
         SizedBox(
-          width: 104,
+          width: 90,
           child: Text(
-            label.toUpperCase(),
+            label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: GoogleFonts.dmSans(
-              color: tint,
-              fontWeight: FontWeight.w700,
+              color: AppColors.textStrong,
+              fontWeight: FontWeight.w600,
               fontSize: 13,
-              letterSpacing: 0.2,
             ),
           ),
         ),
@@ -393,32 +443,27 @@ class _ArenaRingPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final Paint ringPaint = Paint()
-      ..color = AppColors.warriorNavy.withAlpha(36)
+      ..color = AppColors.warriorNavy.withAlpha(20)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    final Paint softPaint = Paint()
-      ..color = AppColors.levelUpTeal.withAlpha(28)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
+      ..strokeWidth = 1.5;
 
     final Rect outerOval = Rect.fromCenter(
       center: Offset(size.width / 2, size.height / 2),
-      width: size.width * 0.72,
-      height: size.height * 0.56,
-    );
-    final Rect innerOval = Rect.fromCenter(
-      center: Offset(size.width / 2, size.height / 2),
-      width: size.width * 0.46,
-      height: size.height * 0.34,
+      width: size.width * 0.7,
+      height: size.height * 0.54,
     );
 
     canvas.drawOval(outerOval, ringPaint);
-    canvas.drawOval(innerOval, softPaint);
 
+    // Small dots at top/bottom
     final Paint dotPaint = Paint()
-      ..color = AppColors.levelUpTeal.withAlpha(110);
-    canvas.drawCircle(Offset(size.width / 2, 28), 5, dotPaint);
-    canvas.drawCircle(Offset(size.width / 2, size.height - 28), 5, dotPaint);
+      ..color = AppColors.levelUpTeal.withAlpha(70);
+    canvas.drawCircle(Offset(size.width / 2, 24), 3.5, dotPaint);
+    canvas.drawCircle(
+      Offset(size.width / 2, size.height - 24),
+      3.5,
+      dotPaint,
+    );
   }
 
   @override
@@ -441,14 +486,14 @@ class _BracketPainter extends CustomPainter {
     final Paint paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2
+      ..strokeWidth = 1.8
       ..strokeCap = StrokeCap.round;
     final Path path = Path();
 
     final double startX = left ? 0 : size.width;
-    final double midX = left ? size.width * 0.65 : size.width * 0.35;
+    final double midX = left ? size.width * 0.6 : size.width * 0.4;
     final double startY = top ? 0 : size.height;
-    final double midY = top ? size.height * 0.65 : size.height * 0.35;
+    final double midY = top ? size.height * 0.6 : size.height * 0.4;
 
     path.moveTo(startX, startY);
     path.lineTo(midX, startY);

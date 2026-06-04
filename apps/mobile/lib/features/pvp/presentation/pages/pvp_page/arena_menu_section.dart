@@ -28,7 +28,7 @@ class _ArenaMenuSectionState extends State<_ArenaMenuSection>
     _transitionController =
         AnimationController(
             vsync: this,
-            duration: const Duration(milliseconds: 1200),
+            duration: const Duration(milliseconds: 1000),
           )
           ..forward().then((_) {
             if (mounted) {
@@ -48,16 +48,15 @@ class _ArenaMenuSectionState extends State<_ArenaMenuSection>
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFF08101F),
+      color: const Color(0xFFF6F8FC),
       child: Stack(
         children: <Widget>[
-          const Positioned.fill(child: _ArenaMenuBackground()),
           SafeArea(
             child: LayoutBuilder(
               builder: (BuildContext context, BoxConstraints constraints) {
                 final bool compact = constraints.maxHeight < 720;
                 return SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(20, compact ? 18 : 28, 20, 18),
+                  padding: EdgeInsets.fromLTRB(20, compact ? 16 : 24, 20, 20),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
                       minHeight: max<double>(0, constraints.maxHeight - 36),
@@ -65,43 +64,48 @@ class _ArenaMenuSectionState extends State<_ArenaMenuSection>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: <Widget>[
-                        _ArenaMenuLogo(compact: compact),
-                        SizedBox(height: compact ? 20 : 28),
-                        _MenuActionButton(
+                        _ArenaMenuHeader(compact: compact),
+                        SizedBox(height: compact ? 22 : 32),
+                        _ModeCard(
                           icon: Icons.smart_toy_outlined,
                           title: 'VS Bot',
-                          subtitle: 'Lawan AI dan kuasai kartu',
-                          colors: const <Color>[
-                            Color(0xFF1A3A6B),
-                            Color(0xFF2563EB),
-                          ],
+                          subtitle: 'Latihan melawan AI',
+                          accentColor: const Color(0xFF2563EB),
+                          bgColor: const Color(0xFFEFF4FF),
+                          borderColor: const Color(0xFFD0DCEF),
                           onTap: widget.onStartBot,
                         ),
-                        const SizedBox(height: 12),
-                        _MenuActionButton(
-                          icon: Icons.public_rounded,
+                        const SizedBox(height: 10),
+                        _ModeCard(
+                          icon: Icons.people_alt_rounded,
                           title: 'VS Player',
                           subtitle: 'Buat room atau join teman',
-                          colors: const <Color>[
-                            Color(0xFF512DA8),
-                            Color(0xFF9333EA),
-                          ],
+                          accentColor: const Color(0xFF7C3AED),
+                          bgColor: const Color(0xFFF3EFFE),
+                          borderColor: const Color(0xFFDDD0F5),
                           onTap: widget.onStartPlayer,
                         ),
-                        const SizedBox(height: 12),
-                        _MenuActionButton(
-                          icon: Icons.home_rounded,
-                          title: 'Kembali ke Halaman Utama',
-                          subtitle: 'Keluar dari arena',
-                          colors: const <Color>[
-                            Color(0xFF14532D),
-                            Color(0xFF16A34A),
-                          ],
-                          onTap: widget.onBackHome,
-                        ),
-                        SizedBox(height: compact ? 18 : 24),
-                        _ArenaTipStrip(
+                        SizedBox(height: compact ? 18 : 26),
+                        _QuickTip(
                           playerDisplayName: widget.playerDisplayName,
+                        ),
+                        SizedBox(height: compact ? 12 : 18),
+                        TextButton.icon(
+                          onPressed: widget.onBackHome,
+                          icon: const Icon(
+                            Icons.arrow_back_rounded,
+                            size: 18,
+                          ),
+                          label: Text(
+                            'Kembali',
+                            style: GoogleFonts.dmSans(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.textMuted,
+                          ),
                         ),
                       ],
                     ),
@@ -110,17 +114,21 @@ class _ArenaMenuSectionState extends State<_ArenaMenuSection>
               },
             ),
           ),
-          // â”€â”€ Entrance transition overlay â”€â”€
+          // Entrance transition overlay
           if (!_transitionDone)
             AnimatedBuilder(
               animation: _transitionController,
               builder: (BuildContext context, Widget? child) {
                 final double t = _transitionController.value;
-                final double fadeOut = t < 0.7
+                final double fadeOut = t < 0.65
                     ? 0
-                    : ((t - 0.7) / 0.3).clamp(0.0, 1.0);
-                final double progressBar = (t / 0.65).clamp(0.0, 1.0);
-                final double iconPulse = 1.0 + sin(t * pi * 4) * 0.08;
+                    : ((t - 0.65) / 0.35).clamp(0.0, 1.0);
+                final double progressBar = (t / 0.6).clamp(0.0, 1.0);
+                final double scale = 0.92 +
+                    Curves.easeOut.transform(
+                          (t / 0.5).clamp(0.0, 1.0),
+                        ) *
+                        0.08;
 
                 return Positioned.fill(
                   child: IgnorePointer(
@@ -128,98 +136,68 @@ class _ArenaMenuSectionState extends State<_ArenaMenuSection>
                     child: Opacity(
                       opacity: (1 - fadeOut).clamp(0.0, 1.0),
                       child: Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: <Color>[
-                              Color(0xFF0D1B3E),
-                              Color(0xFF080E1A),
-                              Color(0xFF0E2A1A),
-                            ],
-                          ),
-                        ),
+                        color: const Color(0xFFF6F8FC),
                         child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              Transform.scale(
-                                scale: iconPulse,
-                                child: Container(
-                                  width: 80,
-                                  height: 80,
+                          child: Transform.scale(
+                            scale: scale,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Container(
+                                  width: 72,
+                                  height: 72,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: const Color(
-                                      0xFFFFD23F,
-                                    ).withAlpha(28),
+                                    color: AppColors.warriorNavy.withAlpha(10),
                                     border: Border.all(
-                                      color: const Color(
-                                        0xFFFFD23F,
-                                      ).withAlpha(120),
-                                      width: 2,
+                                      color: AppColors.warriorNavy.withAlpha(40),
+                                      width: 1.5,
                                     ),
-                                    boxShadow: <BoxShadow>[
-                                      BoxShadow(
-                                        color: const Color(
-                                          0xFFFFD23F,
-                                        ).withAlpha(60),
-                                        blurRadius: 30,
+                                  ),
+                                  child: Icon(
+                                    Icons.shield_rounded,
+                                    color: AppColors.warriorNavy,
+                                    size: 34,
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                Text(
+                                  'Yudha PvP',
+                                  style: GoogleFonts.dmSans(
+                                    color: AppColors.textStrong,
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Memasuki Arena...',
+                                  style: GoogleFonts.dmSans(
+                                    color: AppColors.textMuted,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 28),
+                                SizedBox(
+                                  width: 180,
+                                  height: 3,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(2),
+                                    child: LinearProgressIndicator(
+                                      value: progressBar,
+                                      backgroundColor:
+                                          AppColors.warriorNavy.withAlpha(14),
+                                      valueColor:
+                                          const AlwaysStoppedAnimation<Color>(
+                                        AppColors.warriorNavy,
                                       ),
-                                    ],
-                                  ),
-                                  child: const Icon(
-                                    Icons.military_tech_rounded,
-                                    color: Color(0xFFFFD23F),
-                                    size: 40,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              Text(
-                                'YUDHA PvP',
-                                style: GoogleFonts.orbitron(
-                                  color: const Color(0xFFFFD23F),
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 3,
-                                  shadows: <Shadow>[
-                                    Shadow(
-                                      color: const Color(
-                                        0xFFFFD23F,
-                                      ).withAlpha(120),
-                                      blurRadius: 20,
                                     ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'MEMASUKI ARENA',
-                                style: GoogleFonts.orbitron(
-                                  color: Colors.white.withAlpha(120),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 4,
-                                ),
-                              ),
-                              const SizedBox(height: 32),
-                              SizedBox(
-                                width: 200,
-                                height: 4,
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(2),
-                                  child: LinearProgressIndicator(
-                                    value: progressBar,
-                                    backgroundColor: Colors.white.withAlpha(20),
-                                    valueColor:
-                                        const AlwaysStoppedAnimation<Color>(
-                                          Color(0xFFFFD23F),
-                                        ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -234,8 +212,8 @@ class _ArenaMenuSectionState extends State<_ArenaMenuSection>
   }
 }
 
-class _ArenaMenuLogo extends StatelessWidget {
-  const _ArenaMenuLogo({required this.compact});
+class _ArenaMenuHeader extends StatelessWidget {
+  const _ArenaMenuHeader({required this.compact});
 
   final bool compact;
 
@@ -244,47 +222,40 @@ class _ArenaMenuLogo extends StatelessWidget {
     return Column(
       children: <Widget>[
         Container(
-          width: compact ? 72 : 88,
-          height: compact ? 72 : 88,
+          width: compact ? 64 : 76,
+          height: compact ? 64 : 76,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppColors.fireGold.withAlpha(15),
+            color: AppColors.warriorNavy.withAlpha(8),
             border: Border.all(
-              color: AppColors.fireGold.withAlpha(80),
+              color: AppColors.warriorNavy.withAlpha(30),
               width: 1.5,
             ),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: AppColors.fireGold.withAlpha(30),
-                blurRadius: 20,
-              ),
-            ],
           ),
-          child: const Icon(
-            Icons.military_tech_rounded,
-            color: AppColors.fireGold,
-            size: 46,
+          child: Icon(
+            Icons.shield_rounded,
+            color: AppColors.warriorNavy,
+            size: compact ? 32 : 38,
           ),
         ),
         const SizedBox(height: 14),
         Text(
-          'YUDHA PvP',
+          'Yudha PvP',
           textAlign: TextAlign.center,
-          style: GoogleFonts.orbitron(
-            color: AppColors.fireGold,
-            fontSize: compact ? 30 : 38,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2.4,
+          style: GoogleFonts.dmSans(
+            color: AppColors.textStrong,
+            fontSize: compact ? 28 : 34,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
           ),
         ),
         const SizedBox(height: 4),
         Text(
-          'ARENA PERTEMPURAN',
-          style: TextStyle(
-            color: Colors.white.withAlpha(150),
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 2,
+          'Pilih mode pertandingan',
+          style: GoogleFonts.dmSans(
+            color: AppColors.textMuted,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
@@ -292,57 +263,54 @@ class _ArenaMenuLogo extends StatelessWidget {
   }
 }
 
-class _MenuActionButton extends StatelessWidget {
-  const _MenuActionButton({
+class _ModeCard extends StatelessWidget {
+  const _ModeCard({
     required this.icon,
     required this.title,
     required this.subtitle,
-    required this.colors,
+    required this.accentColor,
+    required this.bgColor,
+    required this.borderColor,
     required this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
-  final List<Color> colors;
+  final Color accentColor;
+  final Color bgColor;
+  final Color borderColor;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         child: Ink(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: colors,
-            ),
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: colors.last.withAlpha(50),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            color: bgColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: borderColor),
           ),
           child: Row(
             children: <Widget>[
               Container(
-                width: 46,
-                height: 46,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(24),
-                  borderRadius: BorderRadius.circular(14),
+                  color: accentColor.withAlpha(16),
+                  borderRadius: BorderRadius.circular(13),
+                  border: Border.all(
+                    color: accentColor.withAlpha(30),
+                  ),
                 ),
-                child: Icon(icon, color: Colors.white, size: 26),
+                child: Icon(icon, color: accentColor, size: 24),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -351,28 +319,36 @@ class _MenuActionButton extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
+                      style: GoogleFonts.dmSans(
+                        color: AppColors.textStrong,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: TextStyle(
-                        color: Colors.white.withAlpha(170),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                      style: GoogleFonts.dmSans(
+                        color: AppColors.textMuted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: Colors.white.withAlpha(160),
-                size: 26,
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: accentColor.withAlpha(14),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.arrow_forward_rounded,
+                  color: accentColor,
+                  size: 16,
+                ),
               ),
             ],
           ),
@@ -382,78 +358,49 @@ class _MenuActionButton extends StatelessWidget {
   }
 }
 
-class _ArenaTipStrip extends StatelessWidget {
-  const _ArenaTipStrip({required this.playerDisplayName});
+class _QuickTip extends StatelessWidget {
+  const _QuickTip({required this.playerDisplayName});
 
   final String playerDisplayName;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withAlpha(14),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withAlpha(26)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE8ECF2)),
       ),
-      child: Text(
-        '$playerDisplayName siap bertarung - jawab cepat, deal damage, rebut victory',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: Colors.white.withAlpha(170),
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          height: 1.25,
-        ),
-      ),
-    );
-  }
-}
-
-class _ArenaMenuBackground extends StatelessWidget {
-  const _ArenaMenuBackground();
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(painter: _ArenaMenuBackgroundPainter());
-  }
-}
-
-class _ArenaMenuBackgroundPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Rect rect = Offset.zero & size;
-    final Paint backgroundPaint = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: <Color>[
-          Color(0xFF0A1628),
-          Color(0xFF111D38),
-          Color(0xFF0C1A2E),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: AppColors.fireGold.withAlpha(18),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.lightbulb_outline_rounded,
+              color: AppColors.fireGold,
+              size: 15,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Jawab cepat & benar untuk deal damage maksimal',
+              style: GoogleFonts.dmSans(
+                color: AppColors.textMuted,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+                height: 1.3,
+              ),
+            ),
+          ),
         ],
-      ).createShader(rect);
-    canvas.drawRect(rect, backgroundPaint);
-
-    // Subtle corner accents only â€” no grid, no orbs
-    final Paint glowBlue = Paint()
-      ..color = const Color(0xFF3EAAFF).withAlpha(18)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 50);
-    final Paint glowGold = Paint()
-      ..color = AppColors.fireGold.withAlpha(20)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 50);
-    canvas.drawCircle(
-      Offset(size.width * 0.1, size.height * 0.15),
-      100,
-      glowBlue,
-    );
-    canvas.drawCircle(
-      Offset(size.width * 0.9, size.height * 0.85),
-      100,
-      glowGold,
+      ),
     );
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
