@@ -1227,3 +1227,179 @@
 ### The Tech Debt
 - The controller still contains a legacy fallback path that can synthesize the current user from local progress if backend current-user data is absent. That is useful as a safety net, but it is still local logic.
 - The leaderboard page still keeps the existing `scope` state machinery even though the backend module is currently global-only. We can trim that once we decide whether the UI should keep a scope toggle at all.
+
+## 2026-06-03 - PvP Arena Menu Duplicate Class Fix
+
+### The Change
+- Removed the stale in-file `_ArenaMenuSection` implementation from `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart`.
+- Kept `apps/mobile/lib/features/pvp/presentation/pages/pvp_page/arena_menu_section.dart` as the single source of truth for the arena menu part implementation.
+- Verified the duplicate class symbols are gone and reran `flutter analyze` on `lib/features/pvp/presentation/pages/pvp_page.dart`, which now completes without the previous frontend compiler crash.
+
+### The Reasoning
+- `pvp_page.dart` already declares `part 'pvp_page/arena_menu_section.dart';`, so keeping another private `_ArenaMenuSection` and `_ArenaMenuSectionState` inside the same library created duplicate canonical names.
+- The Dart frontend crash was a library-structure issue rather than a Gradle issue, so the safest fix was to remove only the duplicated block and preserve the split part-file architecture already in place.
+
+### The Tech Debt
+- `flutter analyze` still reports pre-existing warnings and deprecation infos in `pvp_page.dart` unrelated to this crash, including deprecated color channel accessors and a few unused private elements/parameters.
+- The large `pvp_page.dart` library remains easy to regress when widgets are split out incrementally; if we keep refactoring it into `part` files, we should continue cleaning up the original file immediately after extraction to avoid duplicate declarations.
+
+## 2026-06-03 - PvP Split Part Duplicate Cleanup
+
+### The Change
+- Trimmed `apps/mobile/lib/features/pvp/presentation/pages/pvp_page.dart` down to the shared imports/constants, `part` declarations, and the `PvpPage` orchestration widget.
+- Removed the remaining stale copied declarations for the question sheet, arena entry, in-battle scene, result status section, and their helper widgets/painters from the main library file.
+- Ran `dart format` on the PvP page library and part files after the cleanup.
+- Ran `flutter pub get` to refresh local package resolution, then verified `flutter analyze lib/features/pvp/presentation/pages/pvp_page.dart` and `flutter build apk --debug` both pass.
+
+### The Reasoning
+- The next compiler crash showed `_InBattleSectionState` had the same duplicate canonical-name problem as the arena menu.
+- Because all extracted sections were already included with `part` directives, the clean fix was to keep one declaration owner per private class: the dedicated part file.
+- Clearing all stale copied sections at once prevents the compiler from surfacing the same failure repeatedly for the next duplicated state/helper class.
+
+### The Tech Debt
+- The PvP page is now structurally cleaner, but the part-file library is still large and tightly coupled through private declarations. A future pass could split this into public widgets with explicit imports once the UI stabilizes.
+
+## 2026-06-03 - Auth Signup Error Visibility
+
+### The Change
+- Updated `apps/mobile/lib/features/auth/application/auth_providers.dart` so unexpected login/signup exceptions are logged and surfaced with a more useful banner message instead of always collapsing into the generic "Gagal ... Coba lagi beberapa saat." fallback.
+- Added a friendlier connectivity-specific message for socket/client/host-lookup failures during Supabase auth requests.
+
+### The Reasoning
+- The registration flow in the Flutter app talks directly to Supabase Auth, not to `backend-api`, so a generic fallback hid the real failure mode and made local debugging harder.
+- Preserving unexpected exception text lets us distinguish between Supabase validation errors and runtime/config/network issues on-device.
+
+### The Tech Debt
+- This improves visibility, but it does not change the underlying auth architecture. Mobile signup/login still bypass the backend auth controller entirely.
+
+## 2026-06-03 - ProfileTarget Signup Type Fix
+
+### The Change
+- Updated `apps/mobile/lib/features/auth/application/auth_providers.dart` to accept `ProfileTarget?` in `signUp(...)` instead of `dynamic`.
+- Kept the Supabase signup payload using `target.name`, but now with a statically typed enum value so the getter resolves correctly.
+
+### The Reasoning
+- `ProfileTarget` is an enum, but `target?.name` was being invoked through a `dynamic` parameter. That turns the enum-name access into a runtime dynamic call, which caused `NoSuchMethodError` on registration.
+- Typing the parameter correctly lets Dart resolve the enum `name` getter at compile time and removes the runtime crash.
+
+### The Tech Debt
+- The auth provider still serializes target metadata inline for Supabase user data. If this payload grows, a small dedicated mapper would make the contract clearer.
+
+## 2026-06-03 - Lobby Hero Stat Layout Cleanup
+
+### The Change
+- Removed the temporary settings button from `apps/mobile/lib/features/lobby/presentation/pages/lobby_page.dart` now that profile settings already live on the profile screen.
+- Moved streak into the hero card stat row so winrate, streak, and points are shown together at the same visual level.
+- Simplified the top of the lobby layout by removing the separate streak chip/header row.
+
+### The Reasoning
+- The old top row split related player stats across two different surfaces and kept a settings shortcut that duplicated the profile destination conceptually.
+- Grouping winrate, streak, and points in one row makes the hero card feel more intentional and keeps the player summary easier to scan.
+
+### The Tech Debt
+- The lobby hero card still owns several responsibilities at once: identity, tier progress, and headline stats. If the lobby grows further, it may be worth splitting that card into smaller presentational widgets.
+
+## 2026-06-03 - Profile Logout Action
+
+### The Change
+- Added a logout button below the haptic feedback toggle in `apps/mobile/lib/features/profile/presentation/pages/profile_page.dart`.
+- Wired the button to the existing `authProvider.logout()` flow and redirected back to the login route after sign-out.
+
+### The Reasoning
+- Once profile became the home for account-level controls, logout belonged there as a direct action instead of being hidden elsewhere or left unavailable.
+- Placing it beneath the toggle group keeps account exit behavior close to the rest of profile controls without mixing it into the performance section.
+
+### The Tech Debt
+- Logout currently returns to the login route immediately after local sign-out. If we later add remote session management, account switching, or sign-out confirmation, this action may need a dedicated flow.
+
+## 2026-06-03 - Profile Logout Confirmation Overlay
+
+### The Change
+- Added a confirmation dialog to the logout action in `apps/mobile/lib/features/profile/presentation/pages/profile_page.dart`.
+- The logout button now asks the user to confirm before calling `authProvider.logout()` and routing back to login.
+
+### The Reasoning
+- Logout is a high-impact account action, so it benefits from a small confirmation pause to prevent accidental taps.
+- Reusing a styled dialog keeps the interaction consistent with the rest of the app's modal treatment while preserving the existing logout flow.
+
+### The Tech Debt
+- The confirmation copy and button states are still static. If we later introduce async logout progress, cross-device sessions, or destructive-action patterns app-wide, this dialog should likely move into a shared confirmation component.
+
+## 2026-06-03 - Auth Form Input Guards
+
+### The Change
+- Added a shared auth input validator in `apps/mobile/lib/features/auth/presentation/auth_input_validators.dart`.
+- Updated both `apps/mobile/lib/features/auth/presentation/pages/login_page.dart` and `apps/mobile/lib/features/profile/presentation/pages/profile_onboarding_page.dart` to validate email format and minimum password length before submit.
+- Email now requires a valid `name@provider.domain` shape, and password now requires at least 6 characters.
+
+### The Reasoning
+- The login and signup forms previously only checked for non-empty fields, which let obvious invalid input travel all the way to the auth request layer.
+- Sharing one validator keeps login and signup behavior aligned and makes future auth input rules easier to update in one place.
+
+### The Tech Debt
+- The current email validation is intentionally lightweight and regex-based. If the auth UX gets more complex later, we may want richer per-field validation states or localized rule messaging.
+
+## 2026-06-03 - Auth Error Localization And Reset
+
+### The Change
+- Translated Supabase's `Invalid login credential` auth message into Indonesian in `apps/mobile/lib/features/auth/application/auth_providers.dart`.
+- Added a shared `clearError()` path on the auth notifier so the login/register pages can clear stale banner state when the user switches screens.
+- Cleared the shared auth error state when entering or switching between login and signup screens so a login failure no longer leaks into the register page.
+
+### The Reasoning
+- Login and registration share the same auth notifier, so a failure on one screen can remain visible on the other unless we intentionally reset it.
+- Mapping the most common credential error into Indonesian makes the app feel more local and avoids surfacing backend phrasing directly to users.
+
+### The Tech Debt
+- The auth error mapping is still string-based for the Supabase response message. If we need broader localization later, we may want a small auth error translation layer instead of branching on raw message text.
+
+## 2026-06-03 - Auth Error Reset Timing Fix
+
+### The Change
+- Deferred the login/register `clearError()` calls with `WidgetsBinding.instance.addPostFrameCallback(...)` in `apps/mobile/lib/features/auth/presentation/pages/login_page.dart` and `apps/mobile/lib/features/profile/presentation/pages/profile_onboarding_page.dart`.
+
+### The Reasoning
+- Clearing the shared auth provider directly in `initState` caused a Riverpod mutation-during-build error on screen entry.
+- Moving that reset to the first post-frame callback preserves the stale-banner cleanup behavior without mutating provider state during widget construction.
+
+### The Tech Debt
+- The auth pages still coordinate shared notifier cleanup from the UI layer. If auth screen transitions grow more complex later, this reset behavior may be cleaner as router-level or notifier-owned navigation state handling.
+
+## 2026-06-03 - Email Confirmation Auth Flow
+
+### The Change
+- Added a dedicated confirm-email screen at `apps/mobile/lib/features/auth/presentation/pages/email_confirmation_pending_page.dart` and routed it through `AppRoutes.confirmEmail`.
+- Updated signup so a created-but-not-yet-confirmed account no longer proceeds into the app; it now routes to the confirmation screen when Supabase returns a user without a session.
+- Localized the unconfirmed-email login failure into Indonesian and added a shortcut from the login page to the confirm-email screen for already-registered but unverified users.
+
+### The Reasoning
+- The app previously treated signup as fully complete even when Supabase still required email verification, which left the next user action to fail with a raw auth error.
+- A dedicated confirmation step makes the flow legible both for brand-new signups and for users who already created an account but have not clicked the verification email yet.
+
+### The Tech Debt
+- The current confirmation UX is informational only. If we want a smoother recovery path later, the next improvement would be adding resend-confirmation support from the app.
+
+## 2026-06-04 - Resend Confirmation Email Action
+
+### The Change
+- Added `resendConfirmationEmail(...)` to `apps/mobile/lib/features/auth/application/auth_providers.dart`, backed by Supabase Auth `resend` for signup confirmation emails.
+- Upgraded `apps/mobile/lib/features/auth/presentation/pages/email_confirmation_pending_page.dart` into a stateful auth screen with a resend button, loading state, and inline success/error feedback.
+
+### The Reasoning
+- The confirmation screen already explained what to do next, but it still left the user stuck if the original verification email never arrived.
+- Adding resend directly on the screen makes the confirm-email flow self-recovering without forcing the user to leave the app or restart signup.
+
+### The Tech Debt
+- The resend flow currently reports status inline on the confirmation page only. If we expand account recovery later, it may make sense to centralize confirmation and resend messaging across auth screens.
+
+## 2026-06-04 - Confirmation Page Copy Polish
+
+### The Change
+- Reworded the email verification page copy in `apps/mobile/lib/features/auth/presentation/pages/email_confirmation_pending_page.dart` into more natural Indonesian, including the title, instructions, resend success message, and return-to-login button label.
+
+### The Reasoning
+- The confirmation flow already worked, but the wording still felt partly translated instead of written for Indonesian-speaking users.
+- Tightening the copy makes the next-step instructions easier to follow, especially for first-time signup and resend scenarios.
+
+### The Tech Debt
+- The confirmation copy is now more consistent, but the rest of the auth funnel still mixes a few product-specific English terms with Indonesian UI text. A broader copy pass would make the experience feel more unified.

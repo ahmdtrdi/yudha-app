@@ -1,4 +1,4 @@
-﻿part of '../pvp_page.dart';
+part of '../pvp_page.dart';
 
 class _QuestionBattleSheet extends StatefulWidget {
   const _QuestionBattleSheet({
@@ -362,4 +362,3 @@ class _TimerRing extends StatelessWidget {
     );
   }
 }
-

@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
+import 'package:yudha_mobile/features/auth/presentation/auth_input_validators.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -20,6 +21,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   String? _passwordError;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      ref.read(authProvider.notifier).clearError();
+    });
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
@@ -31,8 +43,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final password = _passwordController.text.trim();
 
     setState(() {
-      _emailError = email.isEmpty ? 'Email wajib diisi.' : null;
-      _passwordError = password.isEmpty ? 'Password wajib diisi.' : null;
+      _emailError = AuthInputValidators.validateEmail(email);
+      _passwordError = AuthInputValidators.validatePassword(password);
     });
 
     if (_emailError != null || _passwordError != null) {
@@ -94,6 +106,26 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     const SizedBox(height: 24),
                     if (authState.errorMessage != null) ...<Widget>[
                       _AuthErrorBanner(message: authState.errorMessage!),
+                      if (authState.errorCode == 'email_not_confirmed') ...<Widget>[
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: () {
+                              ref.read(authProvider.notifier).clearError();
+                              context.go(
+                                AppRoutes.confirmEmail,
+                                extra: _emailController.text.trim(),
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.mark_email_unread_outlined,
+                              size: 18,
+                            ),
+                            label: const Text('Lihat langkah verifikasi email'),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                     ],
                     TextField(
@@ -159,7 +191,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
                     const SizedBox(height: 16),
                     TextButton(
-                      onPressed: () => context.go(AppRoutes.profileSetup),
+                      onPressed: () {
+                        ref.read(authProvider.notifier).clearError();
+                        context.go(AppRoutes.profileSetup);
+                      },
                       child: Text(
                         'Belum punya akun? Daftar',
                         style: GoogleFonts.dmSans(

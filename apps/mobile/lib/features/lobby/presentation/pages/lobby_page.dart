@@ -26,23 +26,6 @@ class LobbyPage extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      _TopStreakChip(streak: progress.streak, compact: compact),
-                      const Spacer(),
-                      _TopSettingsButton(
-                        compact: compact,
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Settings coming soon'),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: compact ? 8 : 10),
                   Expanded(
                     flex: compact ? 6 : 7,
                     child: _LobbyHeroCard(
@@ -51,6 +34,7 @@ class LobbyPage extends ConsumerWidget {
                       tierLabel: progress.tier.label,
                       totalPoints: progress.totalPoints,
                       winRate: progress.winRate,
+                      streak: progress.streak,
                       currentTierPoints:
                           progress.totalPoints - progress.currentTierBasePoints,
                       pointsUntilNextTier: progress.pointsUntilNextTier,
@@ -107,6 +91,7 @@ class _LobbyHeroCard extends StatelessWidget {
     required this.tierLabel,
     required this.totalPoints,
     required this.winRate,
+    required this.streak,
     required this.currentTierPoints,
     required this.pointsUntilNextTier,
     required this.tierProgress,
@@ -117,6 +102,7 @@ class _LobbyHeroCard extends StatelessWidget {
   final String tierLabel;
   final int totalPoints;
   final double winRate;
+  final int streak;
   final int currentTierPoints;
   final int pointsUntilNextTier;
   final double tierProgress;
@@ -146,10 +132,16 @@ class _LobbyHeroCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
-              _HeroPill(label: 'Winrate', value: winRateLabel),
-              _HeroPill(label: 'Points', value: '$totalPoints'),
+              Expanded(
+                child: _HeroPill(label: 'Winrate', value: winRateLabel),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: _HeroPill(label: 'Streak', value: '$streak')),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _HeroPill(label: 'Points', value: '$totalPoints'),
+              ),
             ],
           ),
           SizedBox(height: compact ? 12 : 14),
@@ -256,73 +248,6 @@ class _LobbyHeroCard extends StatelessWidget {
   }
 }
 
-class _TopStreakChip extends StatelessWidget {
-  const _TopStreakChip({required this.streak, required this.compact});
-
-  final int streak;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 12 : 14,
-        vertical: compact ? 8 : 10,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.warriorNavy,
-        borderRadius: BorderRadius.circular(100),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          const Icon(
-            Icons.local_fire_department_rounded,
-            color: AppColors.fireGold,
-            size: 16,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            'Streak $streak',
-            style: GoogleFonts.dmSans(
-              color: AppColors.scholarCream,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TopSettingsButton extends StatelessWidget {
-  const _TopSettingsButton({required this.compact, required this.onTap});
-
-  final bool compact;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.warriorNavy,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: EdgeInsets.all(compact ? 9 : 10),
-          child: const Icon(
-            Icons.settings_outlined,
-            color: AppColors.scholarCream,
-            size: 20,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _HeroPill extends StatelessWidget {
   const _HeroPill({required this.label, required this.value});
 
@@ -340,6 +265,7 @@ class _HeroPill extends StatelessWidget {
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
           Text(
             value,

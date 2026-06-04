@@ -1,4 +1,4 @@
-﻿part of '../pvp_page.dart';
+part of '../pvp_page.dart';
 
 class _InBattleSection extends StatefulWidget {
   const _InBattleSection({
@@ -111,17 +111,21 @@ class _InBattleSectionState extends State<_InBattleSection>
         _addToast(newError, isError: true);
       } else if (actor != null && effect != null) {
         // Contextual toast messages
-        if (actor == BattleActor.opponent && effect != BattleVisualEffect.heal) {
+        if (actor == BattleActor.opponent &&
+            effect != BattleVisualEffect.heal) {
           // Enemy attacked us
           _addToast('Enemy attacking!', isError: true);
           _triggerShake();
-        } else if (actor == BattleActor.player && effect == BattleVisualEffect.heal) {
+        } else if (actor == BattleActor.player &&
+            effect == BattleVisualEffect.heal) {
           // Player healed
           _addToast('Heal!');
-        } else if (actor == BattleActor.player && effect != BattleVisualEffect.heal) {
+        } else if (actor == BattleActor.player &&
+            effect != BattleVisualEffect.heal) {
           // Player attacked correctly
           _addToast('Attack!');
-        } else if (actor == BattleActor.opponent && effect == BattleVisualEffect.heal) {
+        } else if (actor == BattleActor.opponent &&
+            effect == BattleVisualEffect.heal) {
           // Opponent healed (player answered wrong on heal card)
           _addToast('Oh no', isError: true);
         }
@@ -162,7 +166,8 @@ class _InBattleSectionState extends State<_InBattleSection>
 
     // Get replacement cards from the pool (not already in hand)
     final Iterator<BattleQuestion> replacements = widget
-        .state.availableQuestions
+        .state
+        .availableQuestions
         .where((BattleQuestion q) => !handIds.contains(q.id))
         .iterator;
 
@@ -225,7 +230,8 @@ class _InBattleSectionState extends State<_InBattleSection>
       builder: (BuildContext context, Widget? shakeChild) {
         final double shakeOffset = _shakeController.isAnimating
             ? sin(_shakeController.value * pi * 6) *
-                (1 - _shakeController.value) * 6
+                  (1 - _shakeController.value) *
+                  6
             : 0;
         return Transform.translate(
           offset: Offset(shakeOffset, 0),
@@ -257,52 +263,19 @@ class _InBattleSectionState extends State<_InBattleSection>
                   ),
                 ),
               ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: RepaintBoundary(
-                child: AnimatedBuilder(
-                  animation: _ambientController,
-                  builder: (BuildContext context, Widget? child) {
-                    return _HudStrip(
-                      isEnemy: true,
-                      playerName: widget.state.opponentName,
-                      hp: widget.state.opponentHp,
-                      points: widget.state.opponentPoints,
-                      compact: compact,
-                      animationValue: _ambientController.value,
-                    );
-                  },
-                ),
-              ),
-            ),
-            Positioned(
-              right: 10,
-              top: 10,
-              child: _ArenaIconButton(
-                icon: Icons.pause_rounded,
-                tooltip: 'Pause',
-                onPressed: widget.onPause,
-              ),
-            ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                ignoring: !_countdownDone,
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
                 child: RepaintBoundary(
                   child: AnimatedBuilder(
                     animation: _ambientController,
                     builder: (BuildContext context, Widget? child) {
                       return _HudStrip(
-                        isEnemy: false,
-                        playerName: widget.playerDisplayName,
-                        hp: widget.state.playerHp,
-                        points: widget.state.playerPoints,
-                        questions: _hand,
-                        onPickQuestion: widget.onPickQuestion,
+                        isEnemy: true,
+                        playerName: widget.state.opponentName,
+                        hp: widget.state.opponentHp,
+                        points: widget.state.opponentPoints,
                         compact: compact,
                         animationValue: _ambientController.value,
                       );
@@ -310,34 +283,67 @@ class _InBattleSectionState extends State<_InBattleSection>
                   ),
                 ),
               ),
-            ),
-            Positioned(
-              top: 64,
-              left: 16,
-              right: 16,
-              child: Column(
-                children: <Widget>[
-                  for (final _ToastData toast in _toasts)
-                    _GameToast(
-                      key: ValueKey<int>(toast.id),
-                      text: toast.text,
-                      isError: toast.isError,
+              Positioned(
+                right: 10,
+                top: 10,
+                child: _ArenaIconButton(
+                  icon: Icons.pause_rounded,
+                  tooltip: 'Pause',
+                  onPressed: widget.onPause,
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  ignoring: !_countdownDone,
+                  child: RepaintBoundary(
+                    child: AnimatedBuilder(
+                      animation: _ambientController,
+                      builder: (BuildContext context, Widget? child) {
+                        return _HudStrip(
+                          isEnemy: false,
+                          playerName: widget.playerDisplayName,
+                          hp: widget.state.playerHp,
+                          points: widget.state.playerPoints,
+                          questions: _hand,
+                          onPickQuestion: widget.onPickQuestion,
+                          compact: compact,
+                          animationValue: _ambientController.value,
+                        );
+                      },
                     ),
-                ],
+                  ),
+                ),
               ),
-            ),
-            if (!_countdownDone)
-              AnimatedBuilder(
-                animation: _countdownController,
-                builder: (BuildContext context, Widget? child) {
-                  return _CountdownOverlay(
-                    value: _countdownValue,
-                    progress: _countdownController.value,
-                  );
-                },
+              Positioned(
+                top: 64,
+                left: 16,
+                right: 16,
+                child: Column(
+                  children: <Widget>[
+                    for (final _ToastData toast in _toasts)
+                      _GameToast(
+                        key: ValueKey<int>(toast.id),
+                        text: toast.text,
+                        isError: toast.isError,
+                      ),
+                  ],
+                ),
               ),
-          ],
-        );
+              if (!_countdownDone)
+                AnimatedBuilder(
+                  animation: _countdownController,
+                  builder: (BuildContext context, Widget? child) {
+                    return _CountdownOverlay(
+                      value: _countdownValue,
+                      progress: _countdownController.value,
+                    );
+                  },
+                ),
+            ],
+          );
         },
       ),
     );
@@ -643,111 +649,111 @@ class _HudStrip extends StatelessWidget {
         compact ? 7 : 10,
       ),
       child: Column(
+        children: <Widget>[
+          Row(
             children: <Widget>[
-              Row(
-                children: <Widget>[
-                  _ProfileAvatar(
-                    asset: avatarAsset,
-                    isEnemy: isEnemy,
-                    animationValue: animationValue,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              _ProfileAvatar(
+                asset: avatarAsset,
+                isEnemy: isEnemy,
+                animationValue: animationValue,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
                       children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: Text(
-                                playerName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.nunito(
-                                  color: Colors.white.withAlpha(235),
-                                  fontSize: compact ? 12 : 13,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
+                        Expanded(
+                          child: Text(
+                            playerName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.nunito(
+                              color: Colors.white.withAlpha(235),
+                              fontSize: compact ? 12 : 13,
+                              fontWeight: FontWeight.w900,
                             ),
-                            const SizedBox(width: 6),
-                            _RankChip(
-                              label: isEnemy ? 'S' : 'A',
-                              color: sideAccent,
-                            ),
-                          ],
+                          ),
                         ),
-                        const SizedBox(height: 5),
-                        _ProfileHpBar(
-                          safeHp: safeHp,
-                          isEnemy: isEnemy,
-                          animationValue: animationValue,
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: <Widget>[
-                            Icon(
-                              isEnemy
-                                  ? Icons.favorite_rounded
-                                  : Icons.shield_rounded,
-                              color: hpIconColor,
-                              size: 12,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '$displayHp',
-                              style: GoogleFonts.nunito(
-                                color: Colors.white.withAlpha(210),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ],
+                        const SizedBox(width: 6),
+                        _RankChip(
+                          label: isEnemy ? 'S' : 'A',
+                          color: sideAccent,
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ),
-              if (!isEnemy) ...<Widget>[
-                SizedBox(height: compact ? 7 : 9),
-                SizedBox(
-                  height: compact ? 92 : 116,
-                  child: Row(
-                    children: List<Widget>.generate(4, (int index) {
-                      if (index >= questions.length) {
-                        return Expanded(
-                          child: Padding(
-                            padding: EdgeInsets.only(left: index == 0 ? 0 : 8),
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: Colors.white.withAlpha(18),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.white24),
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-
-                      return Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.only(left: index == 0 ? 0 : 8),
-                          child: _BattleCard(
-                            question: questions[index],
-                            index: index,
-                            compact: compact,
-                            animationValue: animationValue,
-                            onTap: () => onPickQuestion?.call(questions[index]),
+                    const SizedBox(height: 5),
+                    _ProfileHpBar(
+                      safeHp: safeHp,
+                      isEnemy: isEnemy,
+                      animationValue: animationValue,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: <Widget>[
+                        Icon(
+                          isEnemy
+                              ? Icons.favorite_rounded
+                              : Icons.shield_rounded,
+                          color: hpIconColor,
+                          size: 12,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$displayHp',
+                          style: GoogleFonts.nunito(
+                            color: Colors.white.withAlpha(210),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
-                      );
-                    }),
-                  ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ],
           ),
+          if (!isEnemy) ...<Widget>[
+            SizedBox(height: compact ? 7 : 9),
+            SizedBox(
+              height: compact ? 92 : 116,
+              child: Row(
+                children: List<Widget>.generate(4, (int index) {
+                  if (index >= questions.length) {
+                    return Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(left: index == 0 ? 0 : 8),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withAlpha(18),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white24),
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(left: index == 0 ? 0 : 8),
+                      child: _BattleCard(
+                        question: questions[index],
+                        index: index,
+                        compact: compact,
+                        animationValue: animationValue,
+                        onTap: () => onPickQuestion?.call(questions[index]),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -1524,7 +1530,10 @@ class _PrototypeAttackPainter extends CustomPainter {
     final Paint sidePaint = Paint()
       ..color = sideColor.withAlpha(_alpha(opacity));
 
-    for (final Offset wheel in const <Offset>[Offset(-17, 14), Offset(17, 14)]) {
+    for (final Offset wheel in const <Offset>[
+      Offset(-17, 14),
+      Offset(17, 14),
+    ]) {
       canvas.drawCircle(
         wheel,
         9,
@@ -1563,9 +1572,9 @@ class _PrototypeAttackPainter extends CustomPainter {
         const Offset(51, 0),
         8 + chargeT * 13,
         Paint()
-          ..color = const Color(0xFFFFD36A).withAlpha(
-            _alpha(chargeT * opacity * 0.45),
-          )
+          ..color = const Color(
+            0xFFFFD36A,
+          ).withAlpha(_alpha(chargeT * opacity * 0.45))
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
       );
       canvas.drawCircle(
@@ -1587,13 +1596,7 @@ class _PrototypeAttackPainter extends CustomPainter {
         : (1 - (progress - 0.58) / 0.25).clamp(0.0, 1.0);
 
     if (wizardOpacity > 0) {
-      _drawWizardCaster(
-        canvas,
-        from,
-        accent,
-        castT,
-        wizardOpacity,
-      );
+      _drawWizardCaster(canvas, from, accent, castT, wizardOpacity);
     }
     if (boltT > 0) {
       _drawLightning(canvas, from, to, boltT, 1 - flashT * 0.8);
@@ -1665,9 +1668,9 @@ class _PrototypeAttackPainter extends CustomPainter {
       const Offset(16, -19),
       6 + castT * 7,
       Paint()
-        ..color = const Color(0xFFB7F4FF).withAlpha(
-          _alpha(opacity * (0.45 + castT * 0.55)),
-        )
+        ..color = const Color(
+          0xFFB7F4FF,
+        ).withAlpha(_alpha(opacity * (0.45 + castT * 0.55)))
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
     );
     canvas.drawCircle(
@@ -1695,16 +1698,22 @@ class _PrototypeAttackPainter extends CustomPainter {
           rune,
           2.4,
           Paint()
-            ..color = const Color(0xFFFFE98A).withAlpha(
-              _alpha(opacity * castT),
-            ),
+            ..color = const Color(
+              0xFFFFE98A,
+            ).withAlpha(_alpha(opacity * castT)),
         );
       }
     }
     canvas.restore();
   }
 
-  void _drawLightning(Canvas canvas, Offset from, Offset to, double boltT, double fade) {
+  void _drawLightning(
+    Canvas canvas,
+    Offset from,
+    Offset to,
+    double boltT,
+    double fade,
+  ) {
     const int segments = 10;
     final int visible = max(2, (segments * boltT).round());
     for (int pass = 0; pass < 3; pass++) {
@@ -1766,17 +1775,15 @@ class _PrototypeAttackPainter extends CustomPainter {
       for (int i = 0; i < 6; i++) {
         final double angle = i * pi / 3 + progress;
         final double length = 20 + 42 * (1 - slamT);
-        final Offset end = to + Offset(
-          cos(angle) * length,
-          sin(angle) * length * 0.65,
-        );
+        final Offset end =
+            to + Offset(cos(angle) * length, sin(angle) * length * 0.65);
         canvas.drawLine(
           to,
           end,
           Paint()
-            ..color = const Color(0xFF7A2D12).withAlpha(
-              _alpha((1 - slamT) * 0.65),
-            )
+            ..color = const Color(
+              0xFF7A2D12,
+            ).withAlpha(_alpha((1 - slamT) * 0.65))
             ..strokeWidth = 2,
         );
       }
@@ -1803,9 +1810,11 @@ class _PrototypeAttackPainter extends CustomPainter {
       Paint()..color = Colors.black.withAlpha(_alpha(opacity * 0.22)),
     );
     final int legSwap = (progress * 12).floor().isEven ? 1 : -1;
-    final Paint dark = Paint()..color = _darken(sideColor).withAlpha(_alpha(opacity));
+    final Paint dark = Paint()
+      ..color = _darken(sideColor).withAlpha(_alpha(opacity));
     final Paint mid = Paint()..color = sideColor.withAlpha(_alpha(opacity));
-    final Paint light = Paint()..color = _lighten(sideColor).withAlpha(_alpha(opacity));
+    final Paint light = Paint()
+      ..color = _lighten(sideColor).withAlpha(_alpha(opacity));
 
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -1839,10 +1848,11 @@ class _PrototypeAttackPainter extends CustomPainter {
       const Offset(0, -3),
       6,
       Paint()
-        ..color = (windupT > 0 || slamT > 0
-                ? const Color(0xFFFFD23F)
-                : const Color(0xFF66E6FF))
-            .withAlpha(_alpha(opacity)),
+        ..color =
+            (windupT > 0 || slamT > 0
+                    ? const Color(0xFFFFD23F)
+                    : const Color(0xFF66E6FF))
+                .withAlpha(_alpha(opacity)),
     );
 
     final double armRaise = windupT * -0.75 + slamT * 0.9;
@@ -2462,12 +2472,13 @@ class _TowerNode extends StatelessWidget {
                           transitionBuilder:
                               (Widget child, Animation<double> animation) {
                                 return ScaleTransition(
-                                  scale: Tween<double>(begin: 0.86, end: 1).animate(
-                                    CurvedAnimation(
-                                      parent: animation,
-                                      curve: Curves.easeOutBack,
-                                    ),
-                                  ),
+                                  scale: Tween<double>(begin: 0.86, end: 1)
+                                      .animate(
+                                        CurvedAnimation(
+                                          parent: animation,
+                                          curve: Curves.easeOutBack,
+                                        ),
+                                      ),
                                   child: FadeTransition(
                                     opacity: animation,
                                     child: child,
@@ -2560,7 +2571,6 @@ class _TowerNode extends StatelessWidget {
   }
 }
 
-
 class _BattlefieldPainter extends CustomPainter {
   const _BattlefieldPainter({required this.time, required this.mode});
 
@@ -2590,10 +2600,7 @@ class _BattlefieldPainter extends CustomPainter {
         final int tx = (x / tileSize).floor();
         final int ty = (y / tileSize).floor();
         if ((tx + ty).isEven) {
-          canvas.drawRect(
-            Rect.fromLTWH(x, y, tileSize, tileSize),
-            tilePaint,
-          );
+          canvas.drawRect(Rect.fromLTWH(x, y, tileSize, tileSize), tilePaint);
         }
       }
     }
@@ -2969,4 +2976,3 @@ class _BattlefieldPainter extends CustomPainter {
     return oldDelegate.time != time || oldDelegate.mode != mode;
   }
 }
-

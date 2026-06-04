@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
+import 'package:yudha_mobile/features/auth/presentation/auth_input_validators.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
@@ -28,6 +29,17 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
   String? _targetError;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      ref.read(authProvider.notifier).clearError();
+    });
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
@@ -42,8 +54,8 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
     final ProfileTarget? target = _selectedTarget;
 
     setState(() {
-      _emailError = email.isEmpty ? 'Email wajib diisi.' : null;
-      _passwordError = password.isEmpty ? 'Password wajib diisi.' : null;
+      _emailError = AuthInputValidators.validateEmail(email);
+      _passwordError = AuthInputValidators.validatePassword(password);
       _nameError = name.isEmpty ? 'Nama wajib diisi.' : null;
       _targetError = target == null ? 'Pilih target belajar.' : null;
     });
@@ -59,7 +71,17 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
     final bool didSignUp = await ref
         .read(authProvider.notifier)
         .signUp(email, password, name, target);
-    if (!mounted || !didSignUp) {
+    if (!mounted) {
+      return;
+    }
+
+    final AppAuthState authState = ref.read(authProvider);
+    if (!didSignUp && authState.errorCode == 'email_confirmation_pending') {
+      context.go(AppRoutes.confirmEmail, extra: email);
+      return;
+    }
+
+    if (!didSignUp) {
       return;
     }
 
@@ -243,7 +265,10 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
                     ),
                     const SizedBox(height: 16),
                     TextButton(
-                      onPressed: () => context.go(AppRoutes.login),
+                      onPressed: () {
+                        ref.read(authProvider.notifier).clearError();
+                        context.go(AppRoutes.login);
+                      },
                       child: Text(
                         'Sudah punya akun? Masuk',
                         style: GoogleFonts.dmSans(
