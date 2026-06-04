@@ -94,3 +94,21 @@
 - `full_name` and `created_at` are not currently present in the generated backend `profiles` type, so leaderboard responses omit `fullName` and use `id` as the final stable tie-breaker.
 - `backend-game` still needs to persist completed match results and update profile stats/rank points after each match.
 - `GET /leaderboard/around-me` is still a future UX endpoint.
+
+## 2026-06-04 - Practice API And Question Session Locking
+
+**The Change:**
+- Added authenticated practice endpoints for dashboard, session creation, session reads, answer submission, early finish, and history.
+- Added the practice v2 Supabase migration and updated `bootstrapv2.sql`/generated database types for `target`, `practice_session_questions`, and `practice_answers.session_question_id`.
+- Added a question import helper for loading `apps/games/data/questions.json` into `public.questions`.
+- Updated backend API config loading to prefer `apps/backend-api/.env` so local runs consistently use the intended Supabase project.
+
+**The Reasoning:**
+- Practice sessions now lock exactly five selected questions so answers are validated against the intended session state instead of re-querying a moving question pool.
+- The backend reads `profiles.target` from the authenticated user and manually scopes all user-owned reads/writes because the service-role client bypasses RLS.
+- The importer keeps the existing game question JSON usable as Supabase seed data without exposing answer metadata through client-facing endpoints.
+
+**The Tech Debt:**
+- The question importer is a script, not an admin API; production content management still needs a protected workflow.
+- Practice dashboard labels currently mirror raw category ids instead of a localized display-name table.
+- The practice repository uses multiple summary reads per dashboard/history request; larger datasets may need aggregate SQL/RPC helpers.
