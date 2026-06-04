@@ -246,20 +246,14 @@ class _InBattleSectionState extends State<_InBattleSection>
             children: <Widget>[
               Positioned.fill(
                 child: RepaintBoundary(
-                  child: AnimatedBuilder(
-                    animation: _ambientController,
-                    builder: (BuildContext context, Widget? child) {
-                      return _ArenaPanel(
-                        playerHp: widget.state.playerHp,
-                        opponentHp: widget.state.opponentHp,
-                        mode: widget.state.mode,
-                        animationValue: _ambientController.value,
-                        visualActor: widget.state.lastActor,
-                        visualEffect: widget.state.lastVisualEffect,
-                        visualCategory: widget.state.lastEventCategory,
-                        eventId: widget.state.battleEventId,
-                      );
-                    },
+                  child: _ArenaPanel(
+                    playerHp: widget.state.playerHp,
+                    opponentHp: widget.state.opponentHp,
+                    mode: widget.state.mode,
+                    visualActor: widget.state.lastActor,
+                    visualEffect: widget.state.lastVisualEffect,
+                    visualCategory: widget.state.lastEventCategory,
+                    eventId: widget.state.battleEventId,
                   ),
                 ),
               ),
@@ -415,61 +409,55 @@ class _GameToastState extends State<_GameToast>
         opacity: _controller,
         child: Padding(
           padding: const EdgeInsets.only(bottom: 6),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(30),
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 9,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 9,
+            ),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(color: accent.withAlpha(100)),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: Colors.black.withAlpha(100),
+                  blurRadius: 18,
+                  offset: const Offset(0, 4),
                 ),
-                decoration: BoxDecoration(
-                  color: bgColor,
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(color: accent.withAlpha(100)),
-                  boxShadow: <BoxShadow>[
-                    BoxShadow(
-                      color: Colors.black.withAlpha(100),
-                      blurRadius: 18,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: accent,
-                        shape: BoxShape.circle,
-                        boxShadow: <BoxShadow>[
-                          BoxShadow(
-                            color: accent.withAlpha(150),
-                            blurRadius: 6,
-                          ),
-                        ],
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    shape: BoxShape.circle,
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: accent.withAlpha(150),
+                        blurRadius: 6,
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: Text(
-                        widget.text,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.nunito(
-                          color: Colors.white.withAlpha(232),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    widget.text,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.nunito(
+                      color: Colors.white.withAlpha(232),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -1123,12 +1111,11 @@ String _questionCardLabel(BattleQuestion question, int index) {
   };
 }
 
-class _ArenaPanel extends StatelessWidget {
+class _ArenaPanel extends StatefulWidget {
   const _ArenaPanel({
     required this.playerHp,
     required this.opponentHp,
     required this.mode,
-    required this.animationValue,
     required this.visualActor,
     required this.visualEffect,
     required this.visualCategory,
@@ -1138,24 +1125,46 @@ class _ArenaPanel extends StatelessWidget {
   final int playerHp;
   final int opponentHp;
   final BattleMode mode;
-  final double animationValue;
   final BattleActor? visualActor;
   final BattleVisualEffect? visualEffect;
   final String? visualCategory;
   final int eventId;
 
   @override
+  State<_ArenaPanel> createState() => _ArenaPanelState();
+}
+
+class _ArenaPanelState extends State<_ArenaPanel>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _fieldController;
+
+  @override
+  void initState() {
+    super.initState();
+    _fieldController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 8000),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _fieldController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final bool enemyMiniLeftDown = opponentHp <= 64;
-    final bool enemyMiniRightDown = opponentHp <= 32;
-    final bool playerMiniLeftDown = playerHp <= 64;
-    final bool playerMiniRightDown = playerHp <= 32;
+    final bool enemyMiniLeftDown = widget.opponentHp <= 64;
+    final bool enemyMiniRightDown = widget.opponentHp <= 32;
+    final bool playerMiniLeftDown = widget.playerHp <= 64;
+    final bool playerMiniRightDown = widget.playerHp <= 32;
     final Alignment visualTarget = _visualTargetAlignment(
-      actor: visualActor,
-      effect: visualEffect,
-      eventId: eventId,
-      playerHp: playerHp,
-      opponentHp: opponentHp,
+      actor: widget.visualActor,
+      effect: widget.visualEffect,
+      eventId: widget.eventId,
+      playerHp: widget.playerHp,
+      opponentHp: widget.opponentHp,
     );
 
     return ClipRRect(
@@ -1164,80 +1173,71 @@ class _ArenaPanel extends StatelessWidget {
           Container(color: const Color(0xFF4B9130)),
           Positioned.fill(
             child: CustomPaint(
-              painter: _BattlefieldPainter(time: animationValue, mode: mode),
+              painter: _BattlefieldPainter(
+                controller: _fieldController,
+                mode: widget.mode,
+              ),
             ),
           ),
           _TowerNode(
             alignment: _enemyMainAlignment,
             imageAsset: _enemyMainTowerAsset,
             destroyedAsset: _enemyMainTowerDestroyedAsset,
-            hpValue: (opponentHp * 30).round(),
-            hpProgress: opponentHp / 100,
+            hpValue: (widget.opponentHp * 30).round(),
+            hpProgress: widget.opponentHp / 100,
             mainTower: true,
-            destroyed: opponentHp <= 0,
-            animationValue: animationValue,
-            animationDelay: 0,
+            destroyed: widget.opponentHp <= 0,
           ),
           _TowerNode(
             alignment: _enemyMiniLeftAlignment,
             imageAsset: _enemyMiniTowerAsset,
             destroyedAsset: _enemyMiniTowerDestroyedAsset,
-            hpValue: enemyMiniLeftDown ? 0 : (opponentHp * 15).round(),
-            hpProgress: enemyMiniLeftDown ? 0 : opponentHp / 100,
+            hpValue: enemyMiniLeftDown ? 0 : (widget.opponentHp * 15).round(),
+            hpProgress: enemyMiniLeftDown ? 0 : widget.opponentHp / 100,
             mainTower: false,
             destroyed: enemyMiniLeftDown,
-            animationValue: animationValue,
-            animationDelay: 0.08,
           ),
           _TowerNode(
             alignment: _enemyMiniRightAlignment,
             imageAsset: _enemyMiniTowerAsset,
             destroyedAsset: _enemyMiniTowerDestroyedAsset,
-            hpValue: enemyMiniRightDown ? 0 : (opponentHp * 15).round(),
-            hpProgress: enemyMiniRightDown ? 0 : opponentHp / 100,
+            hpValue: enemyMiniRightDown ? 0 : (widget.opponentHp * 15).round(),
+            hpProgress: enemyMiniRightDown ? 0 : widget.opponentHp / 100,
             mainTower: false,
             destroyed: enemyMiniRightDown,
-            animationValue: animationValue,
-            animationDelay: 0.16,
           ),
           _TowerNode(
             alignment: _playerMainAlignment,
             imageAsset: _playerMainTowerAsset,
             destroyedAsset: _playerMainTowerDestroyedAsset,
-            hpValue: (playerHp * 30).round(),
-            hpProgress: playerHp / 100,
+            hpValue: (widget.playerHp * 30).round(),
+            hpProgress: widget.playerHp / 100,
             mainTower: true,
-            destroyed: playerHp <= 0,
-            animationValue: animationValue,
-            animationDelay: 0.24,
+            destroyed: widget.playerHp <= 0,
           ),
           _TowerNode(
             alignment: _playerMiniLeftAlignment,
             imageAsset: _playerMiniTowerAsset,
             destroyedAsset: _playerMiniTowerDestroyedAsset,
-            hpValue: playerMiniLeftDown ? 0 : (playerHp * 15).round(),
-            hpProgress: playerMiniLeftDown ? 0 : playerHp / 100,
+            hpValue: playerMiniLeftDown ? 0 : (widget.playerHp * 15).round(),
+            hpProgress: playerMiniLeftDown ? 0 : widget.playerHp / 100,
             mainTower: false,
             destroyed: playerMiniLeftDown,
-            animationValue: animationValue,
-            animationDelay: 0.32,
           ),
           _TowerNode(
             alignment: _playerMiniRightAlignment,
             imageAsset: _playerMiniTowerAsset,
             destroyedAsset: _playerMiniTowerDestroyedAsset,
-            hpValue: playerMiniRightDown ? 0 : (playerHp * 15).round(),
-            hpProgress: playerMiniRightDown ? 0 : playerHp / 100,
+            hpValue: playerMiniRightDown ? 0 : (widget.playerHp * 15).round(),
+            hpProgress: playerMiniRightDown ? 0 : widget.playerHp / 100,
             mainTower: false,
             destroyed: playerMiniRightDown,
-            animationValue: animationValue,
-            animationDelay: 0.4,
           ),
           _BattleEffectOverlay(
-            actor: visualActor,
-            effect: visualEffect,
-            category: visualCategory,
-            eventId: eventId,
+            actor: widget.visualActor,
+            effect: widget.visualEffect,
+            category: widget.visualCategory,
+            eventId: widget.eventId,
             targetAlignment: visualTarget,
           ),
         ],
@@ -2397,8 +2397,6 @@ class _TowerNode extends StatelessWidget {
     required this.hpProgress,
     required this.mainTower,
     required this.destroyed,
-    required this.animationValue,
-    required this.animationDelay,
   });
 
   final Alignment alignment;
@@ -2408,18 +2406,12 @@ class _TowerNode extends StatelessWidget {
   final double hpProgress;
   final bool mainTower;
   final bool destroyed;
-  final double animationValue;
-  final double animationDelay;
 
   @override
   Widget build(BuildContext context) {
     final double towerImageSize = mainTower ? 108 : 80;
     final double padWidth = mainTower ? 118 : 88;
     final double padHeight = mainTower ? 112 : 86;
-    final double phase = (animationValue + animationDelay) * pi * 2;
-    final double bob = destroyed ? 0 : sin(phase) * 3;
-    final double sway = destroyed ? 0 : cos(phase * 0.7) * 1.5;
-    final double pulse = destroyed ? 1.0 : 1.0 + sin(phase * 2) * 0.012;
     final Color hpColor = hpProgress <= 0.32
         ? const Color(0xFFEF4444)
         : hpProgress <= 0.64
@@ -2432,186 +2424,178 @@ class _TowerNode extends StatelessWidget {
 
     return Align(
       alignment: alignment,
-      child: Transform.translate(
-        offset: Offset(sway, bob),
-        child: Transform.scale(
-          scale: pulse,
-          child: SizedBox(
-            width: padWidth,
-            height: padHeight,
-            child: Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
-              children: <Widget>[
-                // Stone platform base (integrated with tower for perfect alignment)
-                Positioned(
-                  bottom: -4,
-                  child: Container(
-                    width: mainTower ? 108 : 80,
-                    height: mainTower ? 48 : 36,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(7),
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: <Color>[
-                          Color(0xFFBEA882),
-                          Color(0xFF9E8A68),
-                          Color(0xFF7A6A4E),
-                        ],
-                      ),
-                      border: Border.all(
-                        color: const Color(0xFF5C4E38),
-                        width: 1.5,
-                      ),
-                      boxShadow: <BoxShadow>[
-                        BoxShadow(
-                          color: Colors.black.withAlpha(80),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                        BoxShadow(
-                          color: teamColor.withAlpha(destroyed ? 8 : 30),
-                          blurRadius: 14,
-                          spreadRadius: 2,
-                        ),
-                      ],
+      child: SizedBox(
+        width: padWidth,
+        height: padHeight,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: <Widget>[
+            // Stone platform base (integrated with tower for perfect alignment)
+            Positioned(
+              bottom: -4,
+              child: Container(
+                width: mainTower ? 108 : 80,
+                height: mainTower ? 48 : 36,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(7),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: <Color>[
+                      Color(0xFFBEA882),
+                      Color(0xFF9E8A68),
+                      Color(0xFF7A6A4E),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: const Color(0xFF5C4E38),
+                    width: 1.5,
+                  ),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: Colors.black.withAlpha(80),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: CustomPaint(
-                        painter: _StonePadGridPainter(),
-                      ),
+                    BoxShadow(
+                      color: teamColor.withAlpha(destroyed ? 8 : 30),
+                      blurRadius: 14,
+                      spreadRadius: 2,
                     ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: CustomPaint(
+                    painter: _StonePadGridPainter(),
                   ),
                 ),
-                // Ground shadow ellipse
-                Positioned(
-                  bottom: -8,
-                  child: Container(
-                    width: mainTower ? 90 : 66,
-                    height: mainTower ? 14 : 10,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(999),
-                      gradient: RadialGradient(
-                        colors: <Color>[
-                          Colors.black.withAlpha(50),
-                          Colors.black.withAlpha(0),
-                        ],
-                      ),
-                    ),
+              ),
+            ),
+            // Ground shadow ellipse
+            Positioned(
+              bottom: -8,
+              child: Container(
+                width: mainTower ? 90 : 66,
+                height: mainTower ? 14 : 10,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  gradient: RadialGradient(
+                    colors: <Color>[
+                      Colors.black.withAlpha(50),
+                      Colors.black.withAlpha(0),
+                    ],
                   ),
                 ),
-                // Tower image
-                Center(
-                  child: SizedBox(
-                    width: towerImageSize,
-                    height: towerImageSize,
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 260),
-                      transitionBuilder:
-                          (Widget child, Animation<double> animation) {
-                            return ScaleTransition(
-                              scale: Tween<double>(begin: 0.86, end: 1)
-                                  .animate(
-                                    CurvedAnimation(
-                                      parent: animation,
-                                      curve: Curves.easeOutBack,
-                                    ),
-                                  ),
-                              child: FadeTransition(
-                                opacity: animation,
-                                child: child,
+              ),
+            ),
+            // Tower image
+            Center(
+              child: SizedBox(
+                width: towerImageSize,
+                height: towerImageSize,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 260),
+                  transitionBuilder:
+                      (Widget child, Animation<double> animation) {
+                        return ScaleTransition(
+                          scale: Tween<double>(begin: 0.86, end: 1)
+                              .animate(
+                                CurvedAnimation(
+                                  parent: animation,
+                                  curve: Curves.easeOutBack,
+                                ),
                               ),
-                            );
-                          },
-                      child: Opacity(
-                        key: ValueKey<String>(
-                          destroyed ? destroyedAsset : imageAsset,
-                        ),
-                        opacity: destroyed ? 0.72 : 1,
-                        child: Image.asset(
-                          destroyed ? destroyedAsset : imageAsset,
-                          fit: BoxFit.contain,
-                          filterQuality: FilterQuality.low,
-                        ),
-                      ),
+                          child: FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          ),
+                        );
+                      },
+                  child: Opacity(
+                    key: ValueKey<String>(
+                      destroyed ? destroyedAsset : imageAsset,
+                    ),
+                    opacity: destroyed ? 0.72 : 1,
+                    child: Image.asset(
+                      destroyed ? destroyedAsset : imageAsset,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.low,
                     ),
                   ),
                 ),
-                // HP bar (positioned below the tower image area)
-                Positioned(
-                  top: padHeight + 2,
-                  left: 0,
-                  right: 0,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+              ),
+            ),
+            // HP bar (positioned below the tower image area)
+            Positioned(
+              top: padHeight + 2,
+              left: 0,
+              right: 0,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Stack(
+                    alignment: Alignment.center,
                     children: <Widget>[
-                      Stack(
-                        alignment: Alignment.center,
-                        children: <Widget>[
-                          if (hpProgress <= 0.32 && !destroyed)
-                            Container(
-                              width: mainTower ? 82 : 62,
-                              height: 11,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(999),
-                                boxShadow: <BoxShadow>[
-                                  BoxShadow(
-                                    color: hpColor.withAlpha(
-                                      (80 + sin(phase * 4) * 40).round().clamp(0, 255),
-                                    ),
-                                    blurRadius: 8,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ClipRRect(
+                      if (hpProgress <= 0.32 && !destroyed)
+                        Container(
+                          width: mainTower ? 82 : 62,
+                          height: 11,
+                          decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(999),
-                            child: Container(
-                              width: mainTower ? 76 : 56,
-                              height: 7,
-                              decoration: BoxDecoration(
-                                color: Colors.black.withAlpha(150),
-                                border: Border.all(color: Colors.white.withAlpha(28)),
+                            boxShadow: <BoxShadow>[
+                              BoxShadow(
+                                color: hpColor.withAlpha(100),
+                                blurRadius: 8,
                               ),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: FractionallySizedBox(
-                                  widthFactor: hpProgress.clamp(0.0, 1.0).toDouble(),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: <Color>[
-                                          hpColor,
-                                          hpColor.withAlpha(200),
-                                        ],
-                                      ),
-                                    ),
+                            ],
+                          ),
+                        ),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          width: mainTower ? 76 : 56,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withAlpha(150),
+                            border: Border.all(color: Colors.white.withAlpha(28)),
+                          ),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: FractionallySizedBox(
+                              widthFactor: hpProgress.clamp(0.0, 1.0).toDouble(),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: <Color>[
+                                      hpColor,
+                                      hpColor.withAlpha(200),
+                                    ],
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ],
-                      ),
-                      Text(
-                        '$hpValue',
-                        style: GoogleFonts.nunito(
-                          color: Colors.white.withAlpha(235),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          shadows: <Shadow>[
-                            Shadow(color: Colors.black.withAlpha(220), blurRadius: 4),
-                          ],
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  Text(
+                    '$hpValue',
+                    style: GoogleFonts.nunito(
+                      color: Colors.white.withAlpha(235),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      shadows: <Shadow>[
+                        Shadow(color: Colors.black.withAlpha(220), blurRadius: 4),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -2644,16 +2628,46 @@ class _StonePadGridPainter extends CustomPainter {
 }
 
 class _BattlefieldPainter extends CustomPainter {
-  const _BattlefieldPainter({required this.time, required this.mode});
+  _BattlefieldPainter({
+    required this.controller,
+    required this.mode,
+  }) : super(repaint: controller);
 
-  final double time;
+  final Animation<double> controller;
   final BattleMode mode;
+
+  static final Paint _tileAPaint = Paint()..color = Colors.white.withAlpha(10);
+  static final Paint _tileBPaint = Paint()..color = Colors.black.withAlpha(8);
+  static final Paint _stripePaint = Paint()..color = Colors.black.withAlpha(6);
+  static final Paint _laneShadowPaint = Paint()..color = Colors.black.withAlpha(28);
+  static final Paint _laneHighlightPaint = Paint()..color = Colors.white.withAlpha(14);
+  static final Paint _cobblePaint = Paint()..color = Colors.black.withAlpha(12);
+  static final Paint _crossEdgePaint = Paint()..color = Colors.black.withAlpha(24);
+  static final Paint _riverShadowPaint = Paint()..color = Colors.black.withAlpha(35);
+  static final Paint _shoreGlowPaint = Paint()
+    ..color = const Color(0xFF60E8FF).withAlpha(20)
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+  static final Paint _shorePaint = Paint()
+    ..color = Colors.white.withAlpha(44)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2;
+  static final Paint _foamPaint = Paint()..color = Colors.white.withAlpha(60);
+  static final Paint _bridgeShadowPaint = Paint()..color = Colors.black.withAlpha(45);
+  static final Paint _bridgeBasePaint = Paint()..color = const Color(0xFF5A3E12);
+  static final Paint _plankAPaint = Paint()..color = const Color(0xFF8B6914);
+  static final Paint _plankBPaint = Paint()..color = const Color(0xFF6E5410);
+  static final Paint _plankGapPaint = Paint()..color = const Color(0xFF3E2A0A);
+  static final Paint _railPaint = Paint()..color = const Color(0xFF4E3510);
+  static final Paint _postPaint = Paint()..color = const Color(0xFF8B6914);
+  static final Paint _innerPostPaint = Paint()..color = const Color(0xFFAA8420);
+  static final Paint _torchPolePaint = Paint()..color = const Color(0xFF6B4520);
 
   @override
   void paint(Canvas canvas, Size size) {
     final double w = size.width;
     final double h = size.height;
     final Rect bounds = Offset.zero & size;
+    final double time = controller.value;
     final double tick = time * pi * 2;
     final double riverOff = time * 80;
 
@@ -2681,8 +2695,8 @@ class _BattlefieldPainter extends CustomPainter {
 
     // Checker grass tiles
     const double tile = 26;
-    final Paint tileA = Paint()..color = Colors.white.withAlpha(10);
-    final Paint tileB = Paint()..color = Colors.black.withAlpha(8);
+    final Paint tileA = _tileAPaint;
+    final Paint tileB = _tileBPaint;
     for (double x = 0; x < w; x += tile) {
       for (double y = 0; y < h; y += tile) {
         final bool even = ((x / tile).floor() + (y / tile).floor()).isEven;
@@ -2694,7 +2708,7 @@ class _BattlefieldPainter extends CustomPainter {
     for (double y = 0; y < h; y += 52) {
       canvas.drawRect(
         Rect.fromLTWH(0, y, w, 3),
-        Paint()..color = Colors.black.withAlpha(6),
+        _stripePaint,
       );
     }
 
@@ -2734,24 +2748,24 @@ class _BattlefieldPainter extends CustomPainter {
     // Lane edge shadows
     canvas.drawRect(
       Rect.fromLTWH(w / 2 - laneW / 2, 0, 4, h),
-      Paint()..color = Colors.black.withAlpha(28),
+      _laneShadowPaint,
     );
     canvas.drawRect(
       Rect.fromLTWH(w / 2 + laneW / 2 - 4, 0, 4, h),
-      Paint()..color = Colors.black.withAlpha(28),
+      _laneShadowPaint,
     );
     // Lane edge highlight (inner)
     canvas.drawRect(
       Rect.fromLTWH(w / 2 - laneW / 2 + 4, 0, 2, h),
-      Paint()..color = Colors.white.withAlpha(14),
+      _laneHighlightPaint,
     );
     canvas.drawRect(
       Rect.fromLTWH(w / 2 + laneW / 2 - 6, 0, 2, h),
-      Paint()..color = Colors.white.withAlpha(14),
+      _laneHighlightPaint,
     );
 
     // Cobblestone pattern on vertical lane
-    final Paint cobble = Paint()..color = Colors.black.withAlpha(12);
+    final Paint cobble = _cobblePaint;
     for (double y = 0; y < h; y += 14) {
       final double xOff = ((y / 14).floor().isEven) ? 7 : 0;
       for (double x = vLane.left + xOff; x < vLane.right - 2; x += 14) {
@@ -2787,11 +2801,11 @@ class _BattlefieldPainter extends CustomPainter {
     );
     canvas.drawRect(
       Rect.fromLTWH(0, midY - crossH / 2, w, 4),
-      Paint()..color = Colors.black.withAlpha(24),
+      _crossEdgePaint,
     );
     canvas.drawRect(
       Rect.fromLTWH(0, midY + crossH / 2 - 4, w, 4),
-      Paint()..color = Colors.black.withAlpha(24),
+      _crossEdgePaint,
     );
 
     // Cobblestone on horizontal lane
@@ -2840,7 +2854,7 @@ class _BattlefieldPainter extends CustomPainter {
     // River shadow
     canvas.drawPath(
       riverPath.shift(const Offset(0, 3)),
-      Paint()..color = Colors.black.withAlpha(35),
+      _riverShadowPaint,
     );
 
     // River gradient fill
@@ -2884,7 +2898,7 @@ class _BattlefieldPainter extends CustomPainter {
     }
 
     // Foam splashes
-    final Paint foamPaint = Paint()..color = Colors.white.withAlpha(60);
+    final Paint foamPaint = _foamPaint;
     for (int i = 0; i < 5; i++) {
       final double cx = ((i * 90 + riverOff * 3.5) % (w + 60)) - 30;
       final double cy = midY + sin(i * 1.3) * (rivH * 0.18);
@@ -2901,10 +2915,7 @@ class _BattlefieldPainter extends CustomPainter {
     }
 
     // Shore edges
-    final Paint shore = Paint()
-      ..color = Colors.white.withAlpha(44)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+    final Paint shore = _shorePaint;
     Path edge = Path()..moveTo(0, midY - rivH / 2);
     for (double x = 0; x <= w; x += 3) {
       edge.lineTo(x, midY - rivH / 2 + sin((x + riverOff) * 0.06) * 4);
@@ -2920,9 +2931,7 @@ class _BattlefieldPainter extends CustomPainter {
     canvas.drawPath(edge, shore);
 
     // Shore glow (grass-water border light)
-    final Paint shoreGlow = Paint()
-      ..color = const Color(0xFF60E8FF).withAlpha(20)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+    final Paint shoreGlow = _shoreGlowPaint;
     canvas.drawRect(
       Rect.fromLTWH(0, midY - rivH / 2 - 6, w, 8),
       shoreGlow,
@@ -3047,7 +3056,7 @@ class _BattlefieldPainter extends CustomPainter {
         Rect.fromCenter(center: Offset(cx, cy + 4), width: bw, height: bh),
         const Radius.circular(4),
       ),
-      Paint()..color = Colors.black.withAlpha(45),
+      _bridgeShadowPaint,
     );
 
     // Base
@@ -3056,14 +3065,14 @@ class _BattlefieldPainter extends CustomPainter {
         Rect.fromCenter(center: Offset(cx, cy), width: bw, height: bh),
         const Radius.circular(3),
       ),
-      Paint()..color = const Color(0xFF5A3E12),
+      _bridgeBasePaint,
     );
 
     // Planks
     final double pTop = cy - bh / 2 + 3;
     final double pBot = cy + bh / 2 - 3;
-    final Paint plankA = Paint()..color = const Color(0xFF8B6914);
-    final Paint plankB = Paint()..color = const Color(0xFF6E5410);
+    final Paint plankA = _plankAPaint;
+    final Paint plankB = _plankBPaint;
     int idx = 0;
     for (double y = pTop; y < pBot; y += 7) {
       canvas.drawRect(
@@ -3073,13 +3082,13 @@ class _BattlefieldPainter extends CustomPainter {
       // Plank gap
       canvas.drawRect(
         Rect.fromLTWH(cx - bw / 2 + 4, y + 5, bw - 8, 1.5),
-        Paint()..color = const Color(0xFF3E2A0A),
+        _plankGapPaint,
       );
       idx++;
     }
 
     // Side rails
-    final Paint railPaint = Paint()..color = const Color(0xFF4E3510);
+    final Paint railPaint = _railPaint;
     canvas.drawRect(
       Rect.fromLTWH(cx - bw / 2, cy - bh / 2, 4, bh),
       railPaint,
@@ -3090,7 +3099,7 @@ class _BattlefieldPainter extends CustomPainter {
     );
 
     // Rail posts with lanterns
-    final Paint postPaint = Paint()..color = const Color(0xFF8B6914);
+    final Paint postPaint = _postPaint;
     for (final double yOff in <double>[-bh / 2 + 3, 0, bh / 2 - 3]) {
       for (final double side in <double>[-1, 1]) {
         canvas.drawCircle(
@@ -3101,7 +3110,7 @@ class _BattlefieldPainter extends CustomPainter {
         canvas.drawCircle(
           Offset(cx + side * bw / 2, cy + yOff),
           2.5,
-          Paint()..color = const Color(0xFFAA8420),
+          _innerPostPaint,
         );
       }
     }
@@ -3131,7 +3140,7 @@ class _BattlefieldPainter extends CustomPainter {
         Rect.fromCenter(center: Offset(x, y + 10), width: 3, height: 14),
         const Radius.circular(1.5),
       ),
-      Paint()..color = const Color(0xFF6B4520),
+      _torchPolePaint,
     );
     // Flame glow
     canvas.drawCircle(
@@ -3371,6 +3380,6 @@ class _BattlefieldPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BattlefieldPainter oldDelegate) {
-    return oldDelegate.time != time || oldDelegate.mode != mode;
+    return oldDelegate.mode != mode || oldDelegate.controller != controller;
   }
 }
