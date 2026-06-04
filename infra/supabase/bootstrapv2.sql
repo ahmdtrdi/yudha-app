@@ -24,6 +24,7 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   username text not null,
   full_name text,
+  target text not null default 'cpns',
   rank_points integer not null default 1000,
   total_matches integer not null default 0,
   wins integer not null default 0,
@@ -42,6 +43,9 @@ create table if not exists public.profiles (
     and winrate >= 0
     and winrate <= 100
     and coins >= 0
+  ),
+  constraint profiles_target_check check (
+    target in ('cpns', 'bumn', 'kedinasan')
   )
 );
 
@@ -50,6 +54,7 @@ create table if not exists public.profiles (
 -- =========================================================
 create table if not exists public.questions (
   id uuid primary key default gen_random_uuid(),
+  target text not null default 'cpns',
   category text not null,
   subcategory text,
   prompt text not null,
@@ -68,6 +73,7 @@ create table if not exists public.questions (
   updated_at timestamptz not null default now(),
   constraint questions_difficulty_check check (difficulty in ('easy', 'medium', 'hard')),
   constraint questions_effect_check check (effect in ('damage', 'heal')),
+  constraint questions_target_check check (target in ('cpns', 'bumn', 'kedinasan')),
   constraint questions_options_array_check check (
     jsonb_typeof(options) = 'array'
     and jsonb_array_length(options) = 4
@@ -87,6 +93,7 @@ create table if not exists public.questions (
 create or replace view public.public_questions as
 select
   id,
+  target,
   category,
   subcategory,
   prompt,
@@ -109,7 +116,9 @@ where is_active = true;
 create table if not exists public.practice_sessions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
+  target text not null default 'cpns',
   category text,
+  subcategory text,
   total_questions integer not null default 0,
   correct_count integer not null default 0,
   total_score integer not null default 0,
@@ -123,7 +132,24 @@ create table if not exists public.practice_sessions (
     and total_score >= 0
     and accuracy >= 0
     and accuracy <= 100
+  ),
+  constraint practice_sessions_target_check check (
+    target in ('cpns', 'bumn', 'kedinasan')
   )
+);
+
+create table if not exists public.practice_session_questions (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null references public.practice_sessions(id) on delete cascade,
+  question_id uuid not null references public.questions(id) on delete cascade,
+  question_order integer not null,
+  created_at timestamptz not null default now(),
+  constraint practice_session_questions_order_check
+    check (question_order between 1 and 5),
+  constraint practice_session_questions_unique_order
+    unique (session_id, question_order),
+  constraint practice_session_questions_unique_question
+    unique (session_id, question_id)
 );
 
 -- =========================================================
@@ -133,6 +159,7 @@ create table if not exists public.practice_answers (
   id uuid primary key default gen_random_uuid(),
   session_id uuid not null references public.practice_sessions(id) on delete cascade,
   user_id uuid not null references public.profiles(id) on delete cascade,
+  session_question_id uuid references public.practice_session_questions(id) on delete cascade,
   question_id uuid references public.questions(id) on delete set null,
   question_order integer,
   selected_option_index integer,
@@ -343,9 +370,13 @@ create table if not exists public.interview_turns (
 -- =========================================================
 create index if not exists profiles_rank_points_idx on public.profiles (rank_points desc);
 create index if not exists questions_active_category_idx on public.questions (is_active, category);
+create index if not exists questions_active_target_category_subcategory_idx on public.questions (is_active, target, category, subcategory);
 create index if not exists practice_sessions_user_started_idx on public.practice_sessions (user_id, started_at desc);
+create index if not exists practice_sessions_user_target_category_started_idx on public.practice_sessions (user_id, target, category, subcategory, started_at desc);
 create index if not exists practice_answers_user_created_idx on public.practice_answers (user_id, created_at desc);
 create index if not exists practice_answers_session_order_idx on public.practice_answers (session_id, question_order);
+create index if not exists practice_session_questions_session_order_idx on public.practice_session_questions (session_id, question_order);
+create unique index if not exists practice_answers_session_question_unique_idx on public.practice_answers (session_question_id) where session_question_id is not null;
 create index if not exists match_results_player_a_idx on public.match_results (player_a_id, created_at desc);
 create index if not exists match_results_player_b_idx on public.match_results (player_b_id, created_at desc);
 create index if not exists match_results_winner_idx on public.match_results (winner_user_id, created_at desc);
@@ -415,6 +446,7 @@ create trigger on_auth_user_created after insert on auth.users for each row exec
 alter table public.profiles enable row level security;
 alter table public.questions enable row level security;
 alter table public.practice_sessions enable row level security;
+alter table public.practice_session_questions enable row level security;
 alter table public.practice_answers enable row level security;
 alter table public.match_results enable row level security;
 alter table public.match_question_pool enable row level security;
@@ -440,6 +472,9 @@ create policy "Users can read their own practice sessions" on public.practice_se
 
 drop policy if exists "Users can manage their own practice sessions" on public.practice_sessions;
 create policy "Users can manage their own practice sessions" on public.practice_sessions for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "Users can read their own practice session questions" on public.practice_session_questions;
+create policy "Users can read their own practice session questions" on public.practice_session_questions for select to authenticated using (exists (select 1 from public.practice_sessions ps where ps.id = practice_session_questions.session_id and ps.user_id = auth.uid()));
 
 drop policy if exists "Users can read their own practice answers" on public.practice_answers;
 create policy "Users can read their own practice answers" on public.practice_answers for select to authenticated using (auth.uid() = user_id);
