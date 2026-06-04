@@ -112,3 +112,21 @@
 - The question importer is a script, not an admin API; production content management still needs a protected workflow.
 - Practice dashboard labels currently mirror raw category ids instead of a localized display-name table.
 - The practice repository uses multiple summary reads per dashboard/history request; larger datasets may need aggregate SQL/RPC helpers.
+
+## 2026-06-04 - Required Registration Target
+
+**The Change:**
+- Updated `POST /auth/register` to require `target` and accept only `cpns` or `bumn`.
+- Kept `fullName` nullable while still forwarding trimmed profile metadata to Supabase Auth.
+- Added a Supabase migration and aligned `bootstrapv2.sql` so the profile signup trigger stores `target` and supports both `full_name` and mobile `display_name`.
+- Updated the auth smoke-test registration payload and added focused auth service tests.
+
+**The Reasoning:**
+- Mobile registration asks for email, password, nama, and target belajar, so backend registration now requires the same target choice.
+- Practice already scopes dashboards and sessions from `profiles.target`, so persisting the selected target at signup prevents new users from silently defaulting to CPNS.
+- Limiting registration to `cpns` and `bumn` keeps the backend contract aligned with the current mobile `ProfileTarget` enum.
+
+**The Tech Debt:**
+- Existing Supabase projects must apply the new migration before registrations without `target` should be considered invalid at the database trigger level.
+- The older schema/docs still mention `kedinasan` in some question/practice target constraints, so a future cleanup should decide whether to remove or reintroduce that target consistently.
+- Mobile still signs up directly through Supabase Auth, so backend and trigger validation must stay in sync until mobile fully uses the backend auth endpoint.
