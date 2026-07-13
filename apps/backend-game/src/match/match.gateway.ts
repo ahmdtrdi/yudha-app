@@ -3,6 +3,7 @@ import {
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -19,7 +20,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 import { MatchService, type MatchServiceResult } from './match.service';
 
 @WebSocketGateway({ namespace: '/match', cors: true })
-export class MatchGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
@@ -27,6 +28,14 @@ export class MatchGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly supabaseService: SupabaseService,
     private readonly matchService: MatchService,
   ) {}
+
+  afterInit(): void {
+    this.matchService.setEmitServer(({ emits }) => {
+      for (const emit of emits) {
+        this.server.to(emit.socketId).emit(emit.event, emit.payload);
+      }
+    });
+  }
 
   async handleConnection(client: Socket) {
     try {

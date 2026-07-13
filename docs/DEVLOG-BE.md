@@ -174,3 +174,27 @@
 - Coin reward amounts (10/3/5) are placeholder — product needs to confirm actual values.
 - No dead-letter queue for failed persistence — if both attempts fail, the match result is only logged, not queued for retry.
 - `match_logs` per-action audit trail and `GET /matches` history endpoint are still separate future tickets.
+
+## 2026-07-13 - Bot Battle Mode (vs Bot)
+
+**The Change:**
+- Extended `JoinQueuePayload.mode` in `contracts/match.payloads.ts` to accept `'bot'` alongside `'ranked'` and `'casual'`.
+- Added `RoomManager.createBotRoom()` that creates a room with the human player as `playerA` and a synthetic bot participant (`userId: 'bot'`, `socketId: null`, `connected: true`) as `playerB`, bypassing the matchmaking queue entirely.
+- Created `BotBattleService` (`apps/backend-game/src/match/bot/bot-battle.service.ts`) that manages the bot match lifecycle: room creation, scheduled bot turns (3.3–5.9s random delay per PRD §3.2), card selection (damage-first, fallback to first available), answer resolution, async event emission to the human player, and timer cleanup on all match-end paths.
+- Branched `MatchService.handleJoinQueue` on `mode === 'bot'` to skip the queue and emit `match_found` + initial `game_state_update` immediately — no `queue_joined` step.
+- Added `cancelBotSchedule(roomId)` calls in `handlePlayCard`, `handleSurrender`, and `handleDisconnect` to prevent leaked timers when a match ends from the human side.
+- Implemented `OnGatewayInit` in `MatchGateway` with an `afterInit()` hook that wires `BotBattleService`'s emit callback to the Socket.IO `Server` instance, enabling async bot turns to push events to the human player's socket outside the normal request/response flow.
+- Updated `MatchResultService.buildRpcParams()` to detect bot matches (`playerB.userId === 'bot'`) and set `p_player_b_id = null`, `p_mode = 'bot'`, and sanitize winner/loser IDs so the literal string `'bot'` never reaches the database.
+- Registered `BotBattleService` in `MatchModule` providers.
+
+**The Reasoning:**
+- The bot passes the card's `correctOptionIndex` directly into `engine.playCard()` as its `selectedOptionIndex`, achieving "always answers correctly" with zero `GameEngine` modifications. All damage/heal math stays centralized in the engine — the bot is just another "player" from the engine's perspective.
+- A single `cancelBotSchedule(roomId)` method is called from every match-end branch (play-card finish, surrender, disconnect) to avoid the most common bug pattern in timer-driven features: a leaked timer firing into a disposed room.
+- Bot matches use `p_mode = 'bot'` in the persistence RPC so the database can distinguish bot results and skip `rank_points` deltas while still awarding coins and updating `total_matches`.
+- The async emit callback pattern (gateway → service → bot service) keeps `BotBattleService` decoupled from the Socket.IO `Server` instance while still allowing timer-driven bot actions to emit events to the human player.
+
+**The Tech Debt:**
+- The bot uses a hardcoded `userId: 'bot'` string — if multiple concurrent bot matches are needed per-user this works fine (keyed by `roomId`), but the `userToRoom` map currently maps `'bot'` to only one room. Concurrent bot matches from different users would need per-room bot IDs (e.g. `bot_${roomId}`).
+- Bot card selection is simple damage-preference only — no HP-aware defensive strategy (heal when low). Product flagged as a potential future enhancement.
+- Question exhaustion and recycling interact with bot matches the same way as PvP — once recycling is implemented, bot matches will inherit it automatically.
+- The `match.service.spec.ts` test may need a mock `BotBattleService` provider added to its test module setup.

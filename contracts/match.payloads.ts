@@ -2,7 +2,7 @@ import type { BattleRole, PublicBattleState } from './battle-state';
 import type { CardEffect } from './question-card';
 
 export type JoinQueuePayload = {
-  mode?: 'ranked' | 'casual';
+  mode?: 'ranked' | 'casual' | 'bot';
 };
 
 export type QueueJoinedPayload = {

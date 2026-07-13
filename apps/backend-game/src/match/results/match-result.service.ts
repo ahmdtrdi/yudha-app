@@ -95,16 +95,18 @@ export class MatchResultService {
       ? Math.round((endedAt.getTime() - startedAt.getTime()) / 1000)
       : null;
 
+    const isBotMatch = players.playerB.userId === 'bot';
+
     // Map internal outcome to DB enum values
     const outcome = this.mapOutcome(result, players.playerA.userId, players.playerB.userId);
 
     return {
       p_room_id: room.roomId,
-      p_mode: 'player', // Bot mode will be added when bot battles are implemented
+      p_mode: isBotMatch ? 'bot' : 'player',
       p_player_a_id: players.playerA.userId,
-      p_player_b_id: players.playerB.userId,
-      p_winner_user_id: result.winnerUserId,
-      p_loser_user_id: result.loserUserId,
+      p_player_b_id: isBotMatch ? null : players.playerB.userId,
+      p_winner_user_id: isBotMatch && result.winnerUserId === 'bot' ? null : result.winnerUserId,
+      p_loser_user_id: isBotMatch && result.loserUserId === 'bot' ? null : result.loserUserId,
       p_outcome: outcome,
       p_reason: result.reason === 'draw' ? 'draw' : result.reason,
       p_player_a_hp: result.finalState.playerA.hp,
