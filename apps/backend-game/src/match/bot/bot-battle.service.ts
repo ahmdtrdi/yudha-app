@@ -33,9 +33,10 @@ export class BotBattleService {
   /**
    * Create a bot match: room creation + schedule the bot's first turn.
    * Returns the created room so the caller can emit match_found + initial state.
+   * Uses the same Supabase-backed question pool as PvP matches.
    */
-  createBotMatch(userId: string, socketId: string): InternalRoomState {
-    const cards = this.questions.getCards();
+  async createBotMatch(userId: string, socketId: string): Promise<InternalRoomState> {
+    const cards = await this.questions.getMatchQuestionPool('cpns');
     const room = this.rooms.createBotRoom(userId, socketId, cards);
     this.logger.log(`Bot match created: room=${room.roomId} player=${userId}`);
     this.scheduleNextBotTurn(room.roomId);

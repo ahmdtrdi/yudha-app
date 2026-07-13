@@ -72,7 +72,7 @@ export class MatchService {
     return { emits: [] };
   }
 
-  handleJoinQueue(userId: string, socketId: string, payload?: JoinQueuePayload): MatchServiceResult {
+  async handleJoinQueue(userId: string, socketId: string, payload?: JoinQueuePayload): Promise<MatchServiceResult> {
     const mode = payload?.mode ?? 'casual';
 
     // Bot mode: skip queue, create match instantly
@@ -80,7 +80,9 @@ export class MatchService {
       return this.handleBotMode(userId, socketId);
     }
 
-    const queueResult = this.rooms.joinQueue(userId, socketId, mode, this.questions.getCards());
+    // Fetch question pool from Supabase (once per match creation)
+    const cards = await this.questions.getMatchQuestionPool('cpns');
+    const queueResult = this.rooms.joinQueue(userId, socketId, mode, cards);
 
     if (queueResult.rejected) {
       return {
@@ -128,7 +130,7 @@ export class MatchService {
     return { emits };
   }
 
-  private handleBotMode(userId: string, socketId: string): MatchServiceResult {
+  private async handleBotMode(userId: string, socketId: string): Promise<MatchServiceResult> {
     // Check if user is already in an active match
     const existingRoom = this.rooms.getRoomForUser(userId);
     if (existingRoom && existingRoom.status === 'active') {
@@ -143,7 +145,7 @@ export class MatchService {
       };
     }
 
-    const room = this.botBattleService.createBotMatch(userId, socketId);
+    const room = await this.botBattleService.createBotMatch(userId, socketId);
 
     const matchFound: MatchFoundPayload = {
       roomId: room.roomId,

@@ -76,10 +76,10 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   }
 
   @SubscribeMessage(CLIENT_MATCH_EVENTS.joinQueue)
-  handleJoinQueue(@ConnectedSocket() client: Socket, @MessageBody() payload?: JoinQueuePayload) {
+  async handleJoinQueue(@ConnectedSocket() client: Socket, @MessageBody() payload?: JoinQueuePayload) {
     const userId = this.requireUser(client);
     if (!userId) return;
-    this.emitAll(this.matchService.handleJoinQueue(userId, client.id, payload));
+    this.emitAll(await this.matchService.handleJoinQueue(userId, client.id, payload));
   }
 
   @SubscribeMessage(CLIENT_MATCH_EVENTS.cancelQueue)

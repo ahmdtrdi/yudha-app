@@ -198,3 +198,28 @@
 - Bot card selection is simple damage-preference only — no HP-aware defensive strategy (heal when low). Product flagged as a potential future enhancement.
 - Question exhaustion and recycling interact with bot matches the same way as PvP — once recycling is implemented, bot matches will inherit it automatically.
 - The `match.service.spec.ts` test may need a mock `BotBattleService` provider added to its test module setup.
+
+## 2026-07-13 - Content Correctness: Supabase Questions + Heal Value Fix
+
+**The Change:**
+- Replaced the 12 hardcoded questions in `QuestionService` with async reads from the Supabase `questions` table via the service-role admin client. Reads go to the base table (not `public_questions` view) because the game backend needs `correct_option_index` server-side for answer validation.
+- Questions are fetched once at match creation (`getMatchQuestionPool(target)`) and cached in room state — no Supabase round-trip occurs during `open_card`/`play_card`.
+- Added `buildBalancedPool()` that distributes questions evenly across TWK/TIU/TKP categories (4/4/4 = 12 pool), shuffles within each, backfills from other categories when one is short, then does a final shuffle so categories aren't grouped in the dealt hand.
+- `damage_value`, `heal_value`, and `time_limit_seconds` now come directly from the DB row — no local recomputation. This removes the heal-value halving bug where `healValue` was `Math.max(5, Math.floor(effectValue / 2))` instead of full impact.
+- Added `SupabaseQuestionRow` and `CategoryDistribution` types to `question.types.ts`. Added `timeLimitSeconds` to `InternalCard`.
+- Made `handleJoinQueue` in both `MatchService` and `MatchGateway` async since question fetch is now an awaited Supabase call.
+- Made `BotBattleService.createBotMatch` async — bot matches use the exact same `getMatchQuestionPool(target)` call as PvP, no separate question-fetch path.
+- Updated `match.service.spec.ts` with mocked `BotBattleService`, `SupabaseService`, and `QuestionService` providers. Stub cards use DB-shaped values (full-impact `healValue`, no halving).
+
+**The Reasoning:**
+- Values must come from the DB because content authors set `damage_value`/`heal_value` at authoring time using the impact formula (`8 + weight × 6`). Local recomputation duplicated this logic and introduced the halving bug for heal values.
+- Reading from the base `questions` table (not the `public_questions` view) is required because the view deliberately hides `correct_option_index` for client-facing reads, but the game backend needs it to validate answers.
+- Category balancing prevents matches where all cards are the same type by chance. The `CATEGORY_DISTRIBUTION` constant is configurable without a code change pattern — just edit the constant.
+- Fetching once at match creation (not per-card) aligns with PRD §6 Risk #1: *"Avoid blocking PostgreSQL queries during active battle rounds."*
+
+**The Tech Debt:**
+- Target is hardcoded to `'cpns'` in both `handleJoinQueue` and `BotBattleService.createBotMatch`. When profile-aware matchmaking lands, it should read the player's `profiles.target` and pass it through.
+- Cross-target PvP matchmaking (cpns vs bumn players) is unresolved — currently both players would get the same `'cpns'` pool. Needs a product decision on whose target wins or whether to enforce same-target pairing.
+- Category distribution (4/4/4) is a best-guess default — product/content team should confirm the intended ratio.
+- Difficulty filtering is not applied for v1 — flagged as a follow-up if load testing or product review requests it.
+- No in-memory cache of recently-fetched pools across near-simultaneous match starts — flagged as a future optimization if load testing shows it's needed.

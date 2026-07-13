@@ -5,14 +5,32 @@ export type InternalCard = PublicQuestionCard & {
   explanation?: string;
   damageValue: number;
   healValue: number;
+  timeLimitSeconds: number;
 };
 
-export type QuestionSeed = {
+/** Shape of a row from the Supabase `questions` table (server-side read) */
+export type SupabaseQuestionRow = {
   id: string;
+  category: string;
+  subcategory?: string;
   prompt: string;
-  options: [string, string, string, string];
-  correctOptionIndex: number;
+  options: string[];
+  correct_option_index: number;
+  explanation?: string;
+  difficulty?: number;
   weight: number;
   effect: CardEffect;
-  explanation?: string;
+  damage_value: number;
+  heal_value: number;
+  time_limit_seconds: number;
+  hint?: string;
+  target: 'cpns' | 'bumn';
+  is_active: boolean;
+};
+
+/** Category distribution config for building balanced match pools */
+export type CategoryDistribution = {
+  TWK: number;
+  TIU: number;
+  TKP: number;
 };
