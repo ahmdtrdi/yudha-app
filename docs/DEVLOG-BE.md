@@ -147,3 +147,30 @@
 **The Tech Debt:**
 - The update payload is intentionally broad for now; future product rules should decide which profile columns are safe for user self-service edits.
 - Database constraints still carry most validation for target/stat fields, so API-level validation may need to be added once profile editing UX is finalized.
+
+## 2026-07-13 - Match Result Persistence + Post-Match Profile Stats
+
+**The Change:**
+- Created SQL migration `infra/supabase/migrations/20260713000000_finalize_match_result.sql` with a Postgres RPC function `finalize_match_result` that atomically inserts a `match_results` row and updates both players' `profiles` rows.
+- Added `getAdminClient()` to the game backend's `SupabaseService` using `SUPABASE_SERVICE_ROLE_KEY` to bypass RLS for server-side writes.
+- Created `MatchResultService` (`apps/backend-game/src/match/results/match-result.service.ts`) that maps `InternalRoomState` to RPC parameters, calls the RPC with retry-once logic (500ms delay), and logs failures without throwing.
+- Created `match-result.constants.ts` with configurable rating/coin reward amounts (Win: +20 rating/10 coins, Lose: -12 rating/3 coins, Draw: 0 rating/5 coins).
+- Hooked `MatchResultService` into `MatchService.handlePlayCard` and `handleSurrender` — persistence runs before `scheduleCleanup` so match data is saved before the 2-second garbage collection.
+- Extended `MatchResultPayload` in `contracts/match.payloads.ts` with optional `ratingDelta` and `coinsDelta` fields per player so Flutter can display stat changes immediately.
+- Made `handlePlayCard`/`handleSurrender` in `MatchGateway` async to properly await the now-async service methods.
+- Updated `.env.example` to document the `SUPABASE_SERVICE_ROLE_KEY` requirement.
+- Fixed `match.service.spec.ts` with a mock `MatchResultService` provider.
+
+**The Reasoning:**
+- Postgres RPC guarantees atomicity — a match is never recorded without its stat update, and vice versa. `ON CONFLICT (room_id) DO NOTHING` provides idempotency against double-fire.
+- `security definer` on the RPC lets it bypass RLS safely for this one controlled write path without exposing a broad service-role key to arbitrary table writes.
+- Fire-and-forget persistence ensures Socket.IO events are never blocked by DB write latency or failures. Errors are logged with `MATCH_PERSIST_FAILED` tag for manual reconciliation.
+- Bot matches are designed to affect coins only (no `rank_points` change) to prevent rating farming, though bot mode is not yet implemented.
+- Rating delta calculation lives exclusively in SQL so backend-api and backend-game can never disagree on reward math.
+
+**The Tech Debt:**
+- The `finalize_match_result` SQL migration must be applied manually to Supabase (SQL editor or `supabase db push`) before match persistence will work.
+- Bot battle mode is not yet implemented — `p_mode` is always `'player'`. When bots are added, `MatchResultService.buildRpcParams()` must be updated.
+- Coin reward amounts (10/3/5) are placeholder — product needs to confirm actual values.
+- No dead-letter queue for failed persistence — if both attempts fail, the match result is only logged, not queued for retry.
+- `match_logs` per-action audit trail and `GET /matches` history endpoint are still separate future tickets.

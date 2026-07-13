@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { SERVER_MATCH_EVENTS } from '../../../../contracts/match.events';
 import type {
   CardActionRejectedPayload,
@@ -11,6 +11,7 @@ import type {
 import { GameEngine } from './engine/game-engine';
 import type { InternalRoomState } from './engine/battle.types';
 import { QuestionService } from './questions/question.service';
+import { MatchResultService } from './results/match-result.service';
 import { RoomManager } from './rooms/room-manager';
 
 type ServerMatchEventName = (typeof SERVER_MATCH_EVENTS)[keyof typeof SERVER_MATCH_EVENTS];
@@ -27,10 +28,13 @@ export type MatchServiceResult = {
 
 @Injectable()
 export class MatchService {
+  private readonly logger = new Logger(MatchService.name);
+
   constructor(
     private readonly engine: GameEngine,
     private readonly questions: QuestionService,
     private readonly rooms: RoomManager,
+    private readonly matchResultService: MatchResultService,
   ) {}
 
   registerSocket(socketId: string, userId: string): void {
@@ -138,7 +142,7 @@ export class MatchService {
     };
   }
 
-  handlePlayCard(userId: string, socketId: string, payload: PlayCardPayload): MatchServiceResult {
+  async handlePlayCard(userId: string, socketId: string, payload: PlayCardPayload): Promise<MatchServiceResult> {
     const room = this.rooms.getRoom(payload.roomId);
     if (!room) return this.reject(socketId, 'play_card', payload.roomId, 'room_not_found', 'Room not found.');
 
@@ -157,6 +161,7 @@ export class MatchService {
     ];
 
     if (result.matchResult) {
+      await this.persistAndEnrich(room);
       emits.push(...this.matchResultEmits(room));
       this.rooms.scheduleCleanup(room.roomId);
     }
@@ -164,7 +169,7 @@ export class MatchService {
     return { emits };
   }
 
-  handleSurrender(userId: string, socketId: string, payload: SurrenderPayload): MatchServiceResult {
+  async handleSurrender(userId: string, socketId: string, payload: SurrenderPayload): Promise<MatchServiceResult> {
     const room = this.rooms.getRoom(payload.roomId);
     if (!room) {
       return {
@@ -191,6 +196,7 @@ export class MatchService {
       };
     }
 
+    await this.persistAndEnrich(room);
     this.rooms.scheduleCleanup(room.roomId);
     return { emits: [...this.stateEmits(room), ...this.matchResultEmits(room)] };
   }
@@ -243,6 +249,26 @@ export class MatchService {
           payload,
         })),
     };
+  }
+
+  /**
+   * Persist match result to Supabase and enrich room.result with rating/coin deltas.
+   * Non-blocking: logs errors but never throws.
+   */
+  private async persistAndEnrich(room: InternalRoomState): Promise<void> {
+    try {
+      const deltas = await this.matchResultService.finalizeMatch(room);
+      if (deltas && room.result) {
+        room.result.finalState.playerA.ratingDelta = deltas.ratingDeltaA;
+        room.result.finalState.playerA.coinsDelta = deltas.coinsDeltaA;
+        room.result.finalState.playerB.ratingDelta = deltas.ratingDeltaB;
+        room.result.finalState.playerB.coinsDelta = deltas.coinsDeltaB;
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to persist match ${room.roomId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   private reject(
