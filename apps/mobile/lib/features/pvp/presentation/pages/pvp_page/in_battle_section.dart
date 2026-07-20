@@ -11,9 +11,9 @@ class _InBattleSection extends StatefulWidget {
 
   final BattleState state;
   final String playerDisplayName;
-  final VoidCallback onPause;
+  final Future<void> Function() onPause;
   final VoidCallback onBotAnswer;
-  final ValueChanged<BattleQuestion> onPickQuestion;
+  final Future<void> Function(BattleQuestion question) onPickQuestion;
 
   @override
   State<_InBattleSection> createState() => _InBattleSectionState();
@@ -22,321 +22,1068 @@ class _InBattleSection extends StatefulWidget {
 class _InBattleSectionState extends State<_InBattleSection>
     with TickerProviderStateMixin {
   late final AnimationController _ambientController;
-  late final AnimationController _countdownController;
+  late final AnimationController _effectController;
   final Random _random = Random();
 
+  Timer? _countdownTimer;
+  Timer? _botTimer;
+  Timer? _noticeTimer;
   int _countdownValue = 3;
   bool _countdownDone = false;
-  final List<_ToastData> _toasts = <_ToastData>[];
-  int _toastIdCounter = 0;
-  int _lastToastEventId = 0;
-  Timer? _botTimer;
+  bool _interactionLocked = false;
+  bool _pauseOpen = false;
   List<BattleQuestion> _hand = const <BattleQuestion>[];
-  late final AnimationController _shakeController;
+  String? _selectedQuestionId;
+  String? _notice;
+  bool _noticeIsError = false;
+
+  BattleActor? _effectActor;
+  BattleVisualEffect? _effectKind;
+  String _effectCategory = 'numerik';
+  int _effectAmount = 0;
+  bool _effectTargetsPlayer = false;
+  bool _effectIsHeal = false;
 
   @override
   void initState() {
     super.initState();
     _ambientController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 8000),
-    )..repeat();
-    _countdownController = AnimationController(
+      duration: const Duration(milliseconds: 3200),
+    )..repeat(reverse: true);
+    _effectController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 700),
+      duration: const Duration(milliseconds: 620),
     );
-    _startCountdown();
     _hand = widget.state.availableQuestions.take(4).toList();
-    _shakeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 400),
-    );
-  }
-
-  void _startCountdown() {
-    _countdownValue = 3;
-    _countdownDone = false;
-    _animateCountdownTick();
-  }
-
-  void _animateCountdownTick() {
-    _countdownController.forward(from: 0).then((_) {
-      if (!mounted) return;
-      if (_countdownValue > 1) {
-        setState(() {
-          _countdownValue--;
-        });
-        _animateCountdownTick();
-      } else {
-        setState(() {
-          _countdownValue = 0;
-        });
-        _countdownController.forward(from: 0).then((_) {
-          if (!mounted) return;
-          setState(() {
-            _countdownDone = true;
-          });
-          _scheduleBotAttack();
-        });
-      }
-    });
-  }
-
-  void _addToast(String text, {bool isError = false}) {
-    final int id = _toastIdCounter++;
-    setState(() {
-      _toasts.add(_ToastData(id: id, text: text, isError: isError));
-    });
-    Future<void>.delayed(const Duration(milliseconds: 2800), () {
-      if (!mounted) return;
-      setState(() {
-        _toasts.removeWhere((_ToastData t) => t.id == id);
-      });
-    });
+    _notice = widget.state.errorMessage ?? widget.state.statusMessage;
+    _noticeIsError = widget.state.errorMessage != null;
+    _startCountdownTimer();
   }
 
   @override
   void didUpdateWidget(covariant _InBattleSection oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _rebuildHand();
+
+    final int playerDelta = widget.state.playerHp - oldWidget.state.playerHp;
+    final int opponentDelta =
+        widget.state.opponentHp - oldWidget.state.opponentHp;
+    if (playerDelta != 0 || opponentDelta != 0) {
+      _prepareBattleEffect(
+        playerDelta: playerDelta,
+        opponentDelta: opponentDelta,
+      );
+    }
+
     final String? newError = widget.state.errorMessage;
-    if (widget.state.battleEventId != _lastToastEventId &&
-        _countdownDone &&
-        widget.state.battleEventId > 0) {
-      _lastToastEventId = widget.state.battleEventId;
-
-      final BattleActor? actor = widget.state.lastActor;
-      final BattleVisualEffect? effect = widget.state.lastVisualEffect;
-
-      if (newError != null) {
-        _addToast(newError, isError: true);
-      } else if (actor != null && effect != null) {
-        // Contextual toast messages
-        if (actor == BattleActor.opponent &&
-            effect != BattleVisualEffect.heal) {
-          // Enemy attacked us
-          _addToast('Enemy attacking!', isError: true);
-          _triggerShake();
-        } else if (actor == BattleActor.player &&
-            effect == BattleVisualEffect.heal) {
-          // Player healed
-          _addToast('Heal!');
-        } else if (actor == BattleActor.player &&
-            effect != BattleVisualEffect.heal) {
-          // Player attacked correctly
-          _addToast('Attack!');
-        } else if (actor == BattleActor.opponent &&
-            effect == BattleVisualEffect.heal) {
-          // Opponent healed (player answered wrong on heal card)
-          _addToast('Oh no', isError: true);
-        }
-      }
+    final String? oldError = oldWidget.state.errorMessage;
+    final String? newStatus = widget.state.statusMessage;
+    final String? oldStatus = oldWidget.state.statusMessage;
+    if (newError != null && newError != oldError) {
+      _showNotice(newError, isError: true);
+    } else if (newStatus != null && newStatus != oldStatus) {
+      _showNotice(newStatus);
     }
 
     if (widget.state.phase != BattlePhase.inBattle ||
         widget.state.mode != BattleMode.bot ||
         widget.state.availableQuestions.isEmpty) {
-      _botTimer?.cancel();
-      _botTimer = null;
+      _cancelBotTimer();
+    } else if (_canBotAct && !(_botTimer?.isActive ?? false)) {
+      _scheduleBotAttack();
+    }
+  }
+
+  bool get _canBotAct {
+    return mounted &&
+        _countdownDone &&
+        !_pauseOpen &&
+        widget.state.phase == BattlePhase.inBattle &&
+        widget.state.mode == BattleMode.bot &&
+        widget.state.availableQuestions.isNotEmpty;
+  }
+
+  void _startCountdownTimer() {
+    _countdownTimer?.cancel();
+    if (_countdownDone || _pauseOpen) {
       return;
     }
 
-    if (_countdownDone && !(_botTimer?.isActive ?? false)) {
-      _scheduleBotAttack();
-    }
-
-    // Rebuild hand: keep existing cards that are still available, fill gaps
-    _rebuildHand();
-  }
-
-  void _rebuildHand() {
-    final Set<String> availableIds = widget.state.availableQuestions
-        .map((BattleQuestion q) => q.id)
-        .toSet();
-
-    // Keep cards that are still in the pool (same position)
-    final List<BattleQuestion?> stable = _hand
-        .map((BattleQuestion q) => availableIds.contains(q.id) ? q : null)
-        .toList();
-
-    // Collect IDs already in hand
-    final Set<String> handIds = <String>{};
-    for (final BattleQuestion? q in stable) {
-      if (q != null) handIds.add(q.id);
-    }
-
-    // Get replacement cards from the pool (not already in hand)
-    final Iterator<BattleQuestion> replacements = widget
-        .state
-        .availableQuestions
-        .where((BattleQuestion q) => !handIds.contains(q.id))
-        .iterator;
-
-    final List<BattleQuestion> newHand = <BattleQuestion>[];
-    for (int i = 0; i < 4; i++) {
-      if (i < stable.length && stable[i] != null) {
-        newHand.add(stable[i]!);
-      } else if (replacements.moveNext()) {
-        newHand.add(replacements.current);
+    _countdownTimer = Timer.periodic(const Duration(milliseconds: 680), (
+      Timer timer,
+    ) {
+      if (!mounted || _pauseOpen) {
+        timer.cancel();
+        return;
       }
-    }
+      if (_countdownValue > 0) {
+        setState(() {
+          _countdownValue -= 1;
+        });
+        return;
+      }
 
-    // If hand is still short, fill from pool
-    while (newHand.length < 4 && replacements.moveNext()) {
-      newHand.add(replacements.current);
-    }
-
-    _hand = newHand;
+      timer.cancel();
+      setState(() {
+        _countdownDone = true;
+      });
+      _scheduleBotAttack();
+    });
   }
 
-  @override
-  void dispose() {
+  void _cancelBotTimer() {
     _botTimer?.cancel();
-    _ambientController.dispose();
-    _countdownController.dispose();
-    _shakeController.dispose();
-    super.dispose();
-  }
-
-  void _triggerShake() {
-    _shakeController.forward(from: 0);
+    _botTimer = null;
   }
 
   void _scheduleBotAttack() {
-    if (!_countdownDone ||
-        widget.state.phase != BattlePhase.inBattle ||
-        widget.state.mode != BattleMode.bot ||
-        widget.state.availableQuestions.isEmpty ||
-        (_botTimer?.isActive ?? false)) {
+    if (!_canBotAct || (_botTimer?.isActive ?? false)) {
       return;
     }
 
-    final int delayMs = 3300 + _random.nextInt(2600);
+    final int delayMs = 4300 + _random.nextInt(1900);
     _botTimer = Timer(Duration(milliseconds: delayMs), () {
-      if (!mounted ||
-          !_countdownDone ||
-          widget.state.phase != BattlePhase.inBattle ||
-          widget.state.mode != BattleMode.bot ||
-          widget.state.availableQuestions.isEmpty) {
+      _botTimer = null;
+      if (!_canBotAct) {
         return;
       }
       widget.onBotAnswer();
     });
   }
 
+  void _rebuildHand() {
+    final Set<String> availableIds = widget.state.availableQuestions
+        .map((BattleQuestion question) => question.id)
+        .toSet();
+    final List<BattleQuestion> nextHand = _hand
+        .where((BattleQuestion question) => availableIds.contains(question.id))
+        .take(4)
+        .toList();
+    final Set<String> retainedIds = nextHand
+        .map((BattleQuestion question) => question.id)
+        .toSet();
+
+    for (final BattleQuestion question in widget.state.availableQuestions) {
+      if (nextHand.length == 4) {
+        break;
+      }
+      if (retainedIds.add(question.id)) {
+        nextHand.add(question);
+      }
+    }
+    _hand = nextHand;
+  }
+
+  void _prepareBattleEffect({
+    required int playerDelta,
+    required int opponentDelta,
+  }) {
+    final bool playerChanged = playerDelta != 0;
+    final int delta = playerChanged ? playerDelta : opponentDelta;
+    _effectAmount = delta.abs();
+    _effectTargetsPlayer = playerChanged;
+    _effectIsHeal = delta > 0;
+    _effectActor =
+        widget.state.lastActor ??
+        (_effectIsHeal
+            ? (_effectTargetsPlayer ? BattleActor.player : BattleActor.opponent)
+            : (_effectTargetsPlayer
+                  ? BattleActor.opponent
+                  : BattleActor.player));
+    _effectKind = _effectIsHeal
+        ? BattleVisualEffect.heal
+        : widget.state.lastVisualEffect ?? BattleVisualEffect.cannon;
+    _effectCategory = widget.state.lastEventCategory ?? 'numerik';
+    _effectController.forward(from: 0);
+  }
+
+  void _showNotice(String text, {bool isError = false}) {
+    _notice = text;
+    _noticeIsError = isError;
+    _noticeTimer?.cancel();
+    _noticeTimer = Timer(const Duration(milliseconds: 2600), () {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _notice = null;
+      });
+    });
+  }
+
+  Future<void> _handlePickQuestion(BattleQuestion question) async {
+    if (!_countdownDone || _interactionLocked || _pauseOpen) {
+      return;
+    }
+
+    setState(() {
+      _interactionLocked = true;
+      _selectedQuestionId = question.id;
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+
+    try {
+      await widget.onPickQuestion(question);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _interactionLocked = false;
+          _selectedQuestionId = null;
+        });
+        _scheduleBotAttack();
+      }
+    }
+  }
+
+  Future<void> _handlePause() async {
+    if (_pauseOpen || _interactionLocked) {
+      return;
+    }
+    _pauseOpen = true;
+    _countdownTimer?.cancel();
+    _cancelBotTimer();
+    try {
+      await widget.onPause();
+    } finally {
+      if (mounted) {
+        _pauseOpen = false;
+        if (!_countdownDone) {
+          _startCountdownTimer();
+        } else {
+          _scheduleBotAttack();
+        }
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    _botTimer?.cancel();
+    _noticeTimer?.cancel();
+    _ambientController.dispose();
+    _effectController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _shakeController,
-      builder: (BuildContext context, Widget? shakeChild) {
-        final double shakeOffset = _shakeController.isAnimating
-            ? sin(_shakeController.value * pi * 6) *
-                  (1 - _shakeController.value) *
-                  6
-            : 0;
-        return Transform.translate(
-          offset: Offset(shakeOffset, 0),
-          child: shakeChild,
-        );
-      },
-      child: LayoutBuilder(
-        builder: (BuildContext context, BoxConstraints constraints) {
-          final bool compact = constraints.maxHeight < 760;
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final bool compact =
+            constraints.maxHeight < 700 || constraints.maxWidth < 380;
 
-          return Stack(
+        return ColoredBox(
+          color: const Color(0xFF0D2A52),
+          child: Stack(
             children: <Widget>[
-              Positioned.fill(
-                child: RepaintBoundary(
-                  child: _ArenaPanel(
-                    playerHp: widget.state.playerHp,
-                    opponentHp: widget.state.opponentHp,
+              Column(
+                children: <Widget>[
+                  _BattleHud(
+                    isOpponent: true,
+                    name: widget.state.opponentName,
+                    hp: widget.state.opponentHp,
+                    points: widget.state.opponentPoints,
                     mode: widget.state.mode,
-                    visualActor: widget.state.lastActor,
-                    visualEffect: widget.state.lastVisualEffect,
-                    visualCategory: widget.state.lastEventCategory,
-                    eventId: widget.state.battleEventId,
+                    compact: compact,
+                    onPause: _handlePause,
                   ),
-                ),
-              ),
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: RepaintBoundary(
-                  child: AnimatedBuilder(
-                    animation: _ambientController,
-                    builder: (BuildContext context, Widget? child) {
-                      return _HudStrip(
-                        isEnemy: true,
-                        playerName: widget.state.opponentName,
-                        hp: widget.state.opponentHp,
-                        points: widget.state.opponentPoints,
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        compact ? 6 : 8,
+                        6,
+                        compact ? 6 : 8,
+                        6,
+                      ),
+                      child: _ArenaBoard(
+                        playerHp: widget.state.playerHp,
+                        opponentHp: widget.state.opponentHp,
                         compact: compact,
-                        animationValue: _ambientController.value,
-                      );
-                    },
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 10,
-                top: 10,
-                child: _ArenaIconButton(
-                  icon: Icons.pause_rounded,
-                  tooltip: 'Pause',
-                  onPressed: widget.onPause,
-                ),
-              ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: IgnorePointer(
-                  ignoring: !_countdownDone,
-                  child: RepaintBoundary(
-                    child: AnimatedBuilder(
-                      animation: _ambientController,
-                      builder: (BuildContext context, Widget? child) {
-                        return _HudStrip(
-                          isEnemy: false,
-                          playerName: widget.playerDisplayName,
-                          hp: widget.state.playerHp,
-                          points: widget.state.playerPoints,
-                          questions: _hand,
-                          onPickQuestion: widget.onPickQuestion,
-                          compact: compact,
-                          animationValue: _ambientController.value,
-                        );
-                      },
+                        ambientAnimation: _ambientController,
+                        effectAnimation: _effectController,
+                        effectActor: _effectActor,
+                        effectKind: _effectKind,
+                        effectCategory: _effectCategory,
+                        effectAmount: _effectAmount,
+                        effectTargetsPlayer: _effectTargetsPlayer,
+                        effectIsHeal: _effectIsHeal,
+                      ),
                     ),
                   ),
-                ),
+                  _BattleHud(
+                    isOpponent: false,
+                    name: widget.playerDisplayName,
+                    hp: widget.state.playerHp,
+                    points: widget.state.playerPoints,
+                    mode: widget.state.mode,
+                    compact: compact,
+                  ),
+                  _BattleHand(
+                    questions: _hand,
+                    compact: compact,
+                    enabled:
+                        _countdownDone && !_interactionLocked && !_pauseOpen,
+                    selectedQuestionId: _selectedQuestionId,
+                    onPickQuestion: _handlePickQuestion,
+                  ),
+                ],
               ),
               Positioned(
-                top: 64,
-                left: 16,
-                right: 16,
-                child: Column(
+                top: compact ? 64 : 72,
+                left: 18,
+                right: 18,
+                child: IgnorePointer(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    child: _notice == null
+                        ? const SizedBox.shrink()
+                        : _ArenaNotice(
+                            key: ValueKey<String>(_notice!),
+                            text: _notice!,
+                            isError: _noticeIsError,
+                          ),
+                  ),
+                ),
+              ),
+              if (!_countdownDone) _CountdownOverlay(value: _countdownValue),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BattleHud extends StatelessWidget {
+  const _BattleHud({
+    required this.isOpponent,
+    required this.name,
+    required this.hp,
+    required this.points,
+    required this.mode,
+    required this.compact,
+    this.onPause,
+  });
+
+  final bool isOpponent;
+  final String name;
+  final int hp;
+  final int points;
+  final BattleMode mode;
+  final bool compact;
+  final VoidCallback? onPause;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color accent = isOpponent
+        ? const Color(0xFFF05E5E)
+        : const Color(0xFF2878F0);
+    final String asset = isOpponent ? _enemyAvatarAsset : _playerAvatarAsset;
+    final int safeHp = hp.clamp(0, 100).toInt();
+
+    return Container(
+      constraints: BoxConstraints(minHeight: compact ? 58 : 66),
+      padding: EdgeInsets.fromLTRB(10, compact ? 6 : 8, 10, compact ? 6 : 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8EC),
+        border: Border(
+          bottom: isOpponent
+              ? BorderSide(color: accent.withAlpha(75), width: 2)
+              : BorderSide.none,
+          top: isOpponent
+              ? BorderSide.none
+              : BorderSide(color: accent.withAlpha(75), width: 2),
+        ),
+      ),
+      child: Row(
+        children: <Widget>[
+          _BattleAvatar(asset: asset, accent: accent, compact: compact),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
                   children: <Widget>[
-                    for (final _ToastData toast in _toasts)
-                      _GameToast(
-                        key: ValueKey<int>(toast.id),
-                        text: toast.text,
-                        isError: toast.isError,
+                    Expanded(
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.fredoka(
+                          color: const Color(0xFF17233F),
+                          fontSize: compact ? 13 : 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (isOpponent)
+                      _ModePill(mode: mode)
+                    else
+                      Text(
+                        'HP $safeHp',
+                        style: GoogleFonts.dmSans(
+                          color: const Color(0xFF66708A),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                   ],
                 ),
-              ),
-              if (!_countdownDone)
-                AnimatedBuilder(
-                  animation: _countdownController,
-                  builder: (BuildContext context, Widget? child) {
-                    return _CountdownOverlay(
-                      value: _countdownValue,
-                      progress: _countdownController.value,
-                    );
-                  },
+                const SizedBox(height: 5),
+                _AnimatedHpBar(value: safeHp / 100, accent: accent),
+              ],
+            ),
+          ),
+          const SizedBox(width: 9),
+          _ScorePill(points: points, accent: accent),
+          if (onPause != null) ...<Widget>[
+            const SizedBox(width: 4),
+            Semantics(
+              button: true,
+              label: 'Opsi battle',
+              child: IconButton(
+                onPressed: onPause,
+                tooltip: 'Opsi battle',
+                visualDensity: VisualDensity.compact,
+                style: IconButton.styleFrom(
+                  foregroundColor: const Color(0xFF17233F),
+                  backgroundColor: const Color(0xFFECE7DA),
                 ),
-            ],
+                icon: const Icon(Icons.pause_rounded, size: 20),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BattleAvatar extends StatelessWidget {
+  const _BattleAvatar({
+    required this.asset,
+    required this.accent,
+    required this.compact,
+  });
+
+  final String asset;
+  final Color accent;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final double size = compact ? 42 : 48;
+    return Container(
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: accent.withAlpha(28),
+        shape: BoxShape.circle,
+        border: Border.all(color: accent, width: 2),
+      ),
+      child: ClipOval(
+        child: Image.asset(
+          asset,
+          fit: BoxFit.cover,
+          alignment: Alignment.topCenter,
+          cacheWidth: 160,
+          filterQuality: FilterQuality.medium,
+        ),
+      ),
+    );
+  }
+}
+
+class _ModePill extends StatelessWidget {
+  const _ModePill({required this.mode});
+
+  final BattleMode mode;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool online = mode == BattleMode.online;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: online ? const Color(0xFFE8F7F1) : const Color(0xFFE9F1FF),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: online ? const Color(0xFF47CFA0) : const Color(0xFF2878F0),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            online ? 'ONLINE' : 'BOT',
+            style: GoogleFonts.dmSans(
+              color: const Color(0xFF17233F),
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScorePill extends StatelessWidget {
+  const _ScorePill({required this.points, required this.accent});
+
+  final int points;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 44),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: accent,
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            '$points',
+            style: GoogleFonts.fredoka(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              height: 1,
+            ),
+          ),
+          Text(
+            'SKOR',
+            style: GoogleFonts.dmSans(
+              color: Colors.white.withAlpha(215),
+              fontSize: 7,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnimatedHpBar extends StatelessWidget {
+  const _AnimatedHpBar({required this.value, required this.accent});
+
+  final double value;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(99),
+      child: SizedBox(
+        height: 10,
+        child: Stack(
+          children: <Widget>[
+            const Positioned.fill(child: ColoredBox(color: Color(0xFFE5E1D7))),
+            Positioned.fill(
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(end: value.clamp(0, 1)),
+                duration: const Duration(milliseconds: 420),
+                curve: Curves.easeOutCubic,
+                builder:
+                    (BuildContext context, double animated, Widget? child) {
+                      return Align(
+                        alignment: Alignment.centerLeft,
+                        child: FractionallySizedBox(
+                          widthFactor: animated,
+                          heightFactor: 1,
+                          child: ColoredBox(color: accent),
+                        ),
+                      );
+                    },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ArenaBoard extends StatelessWidget {
+  const _ArenaBoard({
+    required this.playerHp,
+    required this.opponentHp,
+    required this.compact,
+    required this.ambientAnimation,
+    required this.effectAnimation,
+    required this.effectActor,
+    required this.effectKind,
+    required this.effectCategory,
+    required this.effectAmount,
+    required this.effectTargetsPlayer,
+    required this.effectIsHeal,
+  });
+
+  final int playerHp;
+  final int opponentHp;
+  final bool compact;
+  final Animation<double> ambientAnimation;
+  final Animation<double> effectAnimation;
+  final BattleActor? effectActor;
+  final BattleVisualEffect? effectKind;
+  final String effectCategory;
+  final int effectAmount;
+  final bool effectTargetsPlayer;
+  final bool effectIsHeal;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withAlpha(45),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            final double width = constraints.maxWidth;
+            final double height = constraints.maxHeight;
+            final double mainSize = compact
+                ? (width * 0.29).clamp(88.0, 108.0)
+                : (width * 0.34).clamp(112.0, 142.0);
+            final double miniSize = mainSize * 0.61;
+
+            return Stack(
+              children: <Widget>[
+                const Positioned.fill(
+                  child: CustomPaint(painter: _ClayArenaPainter()),
+                ),
+                Positioned(
+                  top: height * 0.35,
+                  left: 7,
+                  child: const _ArenaPropCluster(accent: Color(0xFFF05E5E)),
+                ),
+                Positioned(
+                  top: height * 0.35,
+                  right: 7,
+                  child: const _ArenaPropCluster(
+                    accent: Color(0xFFF05E5E),
+                    mirrored: true,
+                  ),
+                ),
+                Positioned(
+                  bottom: height * 0.35,
+                  left: 7,
+                  child: const _ArenaPropCluster(accent: Color(0xFF2878F0)),
+                ),
+                Positioned(
+                  bottom: height * 0.35,
+                  right: 7,
+                  child: const _ArenaPropCluster(
+                    accent: Color(0xFF2878F0),
+                    mirrored: true,
+                  ),
+                ),
+                Positioned(
+                  top: -2,
+                  left: (width - mainSize) / 2,
+                  width: mainSize,
+                  height: mainSize,
+                  child: _TowerAsset(
+                    asset: _enemyMainTowerAsset,
+                    destroyed: opponentHp <= 0,
+                    ambientAnimation: ambientAnimation,
+                  ),
+                ),
+                Positioned(
+                  top: height * 0.22,
+                  left: width * 0.17 - miniSize / 2,
+                  width: miniSize,
+                  height: miniSize,
+                  child: _TowerAsset(
+                    asset: _enemyMiniTowerAsset,
+                    destroyed: opponentHp <= 0,
+                    ambientAnimation: ambientAnimation,
+                  ),
+                ),
+                Positioned(
+                  top: height * 0.22,
+                  left: width * 0.83 - miniSize / 2,
+                  width: miniSize,
+                  height: miniSize,
+                  child: _TowerAsset(
+                    asset: _enemyMiniTowerAsset,
+                    destroyed: opponentHp <= 0,
+                    ambientAnimation: ambientAnimation,
+                  ),
+                ),
+                Positioned(
+                  bottom: height * 0.22,
+                  left: width * 0.17 - miniSize / 2,
+                  width: miniSize,
+                  height: miniSize,
+                  child: _TowerAsset(
+                    asset: _playerMiniTowerAsset,
+                    destroyed: playerHp <= 0,
+                    ambientAnimation: ambientAnimation,
+                  ),
+                ),
+                Positioned(
+                  bottom: height * 0.22,
+                  left: width * 0.83 - miniSize / 2,
+                  width: miniSize,
+                  height: miniSize,
+                  child: _TowerAsset(
+                    asset: _playerMiniTowerAsset,
+                    destroyed: playerHp <= 0,
+                    ambientAnimation: ambientAnimation,
+                  ),
+                ),
+                Positioned(
+                  bottom: -2,
+                  left: (width - mainSize) / 2,
+                  width: mainSize,
+                  height: mainSize,
+                  child: _TowerAsset(
+                    asset: _playerMainTowerAsset,
+                    destroyed: playerHp <= 0,
+                    ambientAnimation: ambientAnimation,
+                  ),
+                ),
+                Positioned.fill(
+                  child: _BattleEffectLayer(
+                    animation: effectAnimation,
+                    actor: effectActor,
+                    kind: effectKind,
+                    category: effectCategory,
+                    amount: effectAmount,
+                    targetsPlayer: effectTargetsPlayer,
+                    isHeal: effectIsHeal,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _TowerAsset extends StatelessWidget {
+  const _TowerAsset({
+    required this.asset,
+    required this.destroyed,
+    required this.ambientAnimation,
+  });
+
+  final String asset;
+  final bool destroyed;
+  final Animation<double> ambientAnimation;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: ambientAnimation,
+      builder: (BuildContext context, Widget? child) {
+        final double float = (ambientAnimation.value - 0.5) * 2;
+        return Transform.translate(
+          offset: Offset(0, destroyed ? 4 : float),
+          child: AnimatedRotation(
+            turns: destroyed ? 0.018 : 0,
+            duration: const Duration(milliseconds: 260),
+            child: AnimatedOpacity(
+              opacity: destroyed ? 0.42 : 1,
+              duration: const Duration(milliseconds: 220),
+              child: ColorFiltered(
+                colorFilter: destroyed
+                    ? const ColorFilter.matrix(<double>[
+                        0.32,
+                        0.32,
+                        0.32,
+                        0,
+                        0,
+                        0.32,
+                        0.32,
+                        0.32,
+                        0,
+                        0,
+                        0.32,
+                        0.32,
+                        0.32,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        1,
+                        0,
+                      ])
+                    : const ColorFilter.mode(Colors.transparent, BlendMode.dst),
+                child: child!,
+              ),
+            ),
+          ),
+        );
+      },
+      child: Image.asset(
+        asset,
+        fit: BoxFit.contain,
+        cacheWidth: 320,
+        filterQuality: FilterQuality.medium,
+      ),
+    );
+  }
+}
+
+class _ArenaPropCluster extends StatelessWidget {
+  const _ArenaPropCluster({required this.accent, this.mirrored = false});
+
+  final Color accent;
+  final bool mirrored;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.flip(
+      flipX: mirrored,
+      child: SizedBox(
+        width: 48,
+        height: 38,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: <Widget>[
+            Positioned(
+              left: 3,
+              bottom: 1,
+              child: Container(
+                width: 19,
+                height: 15,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFE0A4),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFD4A85D)),
+                ),
+              ),
+            ),
+            Positioned(
+              right: 2,
+              bottom: 2,
+              child: Container(
+                width: 17,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF7C875),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 8,
+              bottom: 8,
+              child: Container(
+                width: 27,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF45A85C),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: const Color(0xFF2E8845), width: 2),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 25,
+              bottom: 7,
+              child: Container(
+                width: 18,
+                height: 18,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF65BF68),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            Positioned(
+              left: 18,
+              top: 6,
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: accent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BattleEffectLayer extends StatelessWidget {
+  const _BattleEffectLayer({
+    required this.animation,
+    required this.actor,
+    required this.kind,
+    required this.category,
+    required this.amount,
+    required this.targetsPlayer,
+    required this.isHeal,
+  });
+
+  final Animation<double> animation;
+  final BattleActor? actor;
+  final BattleVisualEffect? kind;
+  final String category;
+  final int amount;
+  final bool targetsPlayer;
+  final bool isHeal;
+
+  @override
+  Widget build(BuildContext context) {
+    if (actor == null || kind == null || amount <= 0) {
+      return const SizedBox.shrink();
+    }
+
+    return IgnorePointer(
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          return AnimatedBuilder(
+            animation: animation,
+            builder: (BuildContext context, Widget? child) {
+              final double raw = animation.value;
+              final double travel = Curves.easeInOutCubic.transform(raw);
+              final Offset playerPoint = Offset(
+                constraints.maxWidth * 0.5,
+                constraints.maxHeight * 0.82,
+              );
+              final Offset opponentPoint = Offset(
+                constraints.maxWidth * 0.5,
+                constraints.maxHeight * 0.18,
+              );
+              final Offset start = actor == BattleActor.player
+                  ? playerPoint
+                  : opponentPoint;
+              final Offset target = targetsPlayer ? playerPoint : opponentPoint;
+              final double direction = actor == BattleActor.player ? -1 : 1;
+              final Offset linear = Offset.lerp(start, target, travel)!;
+              final Offset curved = switch (kind!) {
+                BattleVisualEffect.cannon => Offset(
+                  linear.dx +
+                      sin(pi * travel) *
+                          constraints.maxWidth *
+                          0.18 *
+                          direction,
+                  linear.dy - sin(pi * travel) * 22,
+                ),
+                BattleVisualEffect.wizard => Offset(
+                  linear.dx + sin(pi * travel * 4) * 15,
+                  linear.dy - sin(pi * travel) * 11,
+                ),
+                BattleVisualEffect.robot => Offset(
+                  linear.dx + sin(pi * travel * 2) * 4 * direction,
+                  linear.dy - sin(pi * travel) * 7,
+                ),
+                BattleVisualEffect.heal => target,
+              };
+              final double projectileAngle = switch (kind!) {
+                BattleVisualEffect.cannon => direction * (0.18 + raw * 0.45),
+                BattleVisualEffect.wizard => sin(raw * pi * 2) * 0.16,
+                BattleVisualEffect.robot => direction * raw * pi * 2,
+                BattleVisualEffect.heal => 0,
+              };
+              final bool showProjectile = !isHeal && raw < 0.82;
+              final bool showImpact = isHeal || raw >= 0.68;
+              final Color color = _battleEffectColor(kind!, category);
+
+              return Stack(
+                children: <Widget>[
+                  if (showProjectile)
+                    Positioned(
+                      left: curved.dx - 28,
+                      top: curved.dy - 23,
+                      child: Transform.rotate(
+                        angle: projectileAngle,
+                        child: _EffectOrb(kind: kind!, color: color),
+                      ),
+                    ),
+                  if (isHeal)
+                    Positioned(
+                      left: target.dx - 42,
+                      top: target.dy - 42,
+                      child: _HealBloom(progress: raw, color: color),
+                    )
+                  else if (showImpact)
+                    Positioned(
+                      left: target.dx - 35,
+                      top: target.dy - 35,
+                      child: Opacity(
+                        opacity: (1 - ((raw - 0.68).clamp(0, 0.32) / 0.32))
+                            .clamp(0, 1),
+                        child: Transform.scale(
+                          scale: 0.65 + raw * 0.55,
+                          child: Container(
+                            width: 70,
+                            height: 70,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: color.withAlpha(isHeal ? 45 : 30),
+                              border: Border.all(color: color, width: 3),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (raw >= 0.62)
+                    Positioned(
+                      left: target.dx - 38,
+                      top: target.dy - 58 - ((raw - 0.62) * 32),
+                      width: 76,
+                      child: Opacity(
+                        opacity: (1 - ((raw - 0.76).clamp(0, 0.24) / 0.24))
+                            .clamp(0, 1),
+                        child: Text(
+                          '${isHeal ? '+' : '-'}$amount',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.fredoka(
+                            color: color,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            shadows: const <Shadow>[
+                              Shadow(
+                                color: Colors.white,
+                                blurRadius: 2,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           );
         },
       ),
@@ -344,122 +1091,586 @@ class _InBattleSectionState extends State<_InBattleSection>
   }
 }
 
-class _ToastData {
-  const _ToastData({
-    required this.id,
-    required this.text,
-    required this.isError,
-  });
-  final int id;
-  final String text;
-  final bool isError;
-}
+class _EffectOrb extends StatelessWidget {
+  const _EffectOrb({required this.kind, required this.color});
 
-class _GameToast extends StatefulWidget {
-  const _GameToast({super.key, required this.text, required this.isError});
-  final String text;
-  final bool isError;
-
-  @override
-  State<_GameToast> createState() => _GameToastState();
-}
-
-class _GameToastState extends State<_GameToast>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 400),
-    )..forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  final BattleVisualEffect kind;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final Color accent = widget.isError
-        ? const Color(0xFFFF6060)
-        : widget.text.contains('benar') || widget.text.contains('memulihkan')
-        ? const Color(0xFF4ADE80)
-        : widget.text.contains('menerima') || widget.text.contains('Musuh')
-        ? const Color(0xFFFF6060)
-        : const Color(0xFF60A5FA);
-    final Color bgColor = widget.isError
-        ? const Color(0xE0501414)
-        : widget.text.contains('benar') || widget.text.contains('memulihkan')
-        ? const Color(0xE0143214)
-        : widget.text.contains('menerima')
-        ? const Color(0xE0501414)
-        : const Color(0xE0142050);
+    return switch (kind) {
+      BattleVisualEffect.cannon => _NumerikBolt(color: color),
+      BattleVisualEffect.wizard => _VerbalSpell(color: color),
+      BattleVisualEffect.robot => _LogikaCore(color: color),
+      BattleVisualEffect.heal => _HealSeed(color: color),
+    };
+  }
+}
 
-    return SlideTransition(
-      position: Tween<Offset>(begin: const Offset(0, -1), end: Offset.zero)
-          .animate(
-            CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
-          ),
-      child: FadeTransition(
-        opacity: _controller,
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 9,
+class _NumerikBolt extends StatelessWidget {
+  const _NumerikBolt({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 56,
+      height: 42,
+      child: Stack(
+        alignment: Alignment.centerRight,
+        children: <Widget>[
+          Positioned(
+            left: 1,
+            child: Container(
+              width: 9,
+              height: 9,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFC857).withAlpha(135),
+                shape: BoxShape.circle,
+              ),
             ),
+          ),
+          Positioned(
+            left: 10,
+            child: Container(
+              width: 15,
+              height: 15,
+              decoration: BoxDecoration(
+                color: color.withAlpha(150),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          Container(
+            width: 39,
+            height: 31,
             decoration: BoxDecoration(
-              color: bgColor,
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(color: accent.withAlpha(100)),
+              color: color,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white, width: 2),
               boxShadow: <BoxShadow>[
                 BoxShadow(
-                  color: Colors.black.withAlpha(100),
-                  blurRadius: 18,
+                  color: const Color(0xFF17233F).withAlpha(55),
+                  blurRadius: 6,
                   offset: const Offset(0, 4),
                 ),
               ],
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: accent,
-                    shape: BoxShape.circle,
-                    boxShadow: <BoxShadow>[
-                      BoxShadow(
-                        color: accent.withAlpha(150),
-                        blurRadius: 6,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Text(
-                    widget.text,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.nunito(
-                      color: Colors.white.withAlpha(232),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
+            child: const Icon(
+              Icons.bolt_rounded,
+              color: Color(0xFFFFC857),
+              size: 24,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VerbalSpell extends StatelessWidget {
+  const _VerbalSpell({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 50,
+      height: 48,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: <Widget>[
+          Positioned(
+            left: 3,
+            top: 5,
+            child: Container(
+              width: 39,
+              height: 34,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(18),
+                  topRight: Radius.circular(18),
+                  bottomRight: Radius.circular(18),
+                  bottomLeft: Radius.circular(6),
+                ),
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: const Color(0xFF17233F).withAlpha(55),
+                    blurRadius: 6,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.format_quote_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+          ),
+          const Positioned(
+            right: 0,
+            top: 0,
+            child: Icon(
+              Icons.auto_awesome_rounded,
+              color: Color(0xFFFFC857),
+              size: 17,
+            ),
+          ),
+          Positioned(
+            right: 2,
+            bottom: 1,
+            child: Container(
+              width: 9,
+              height: 9,
+              decoration: BoxDecoration(
+                color: color.withAlpha(145),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LogikaCore extends StatelessWidget {
+  const _LogikaCore({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: Stack(
+        alignment: Alignment.center,
+        children: <Widget>[
+          ClipPath(
+            clipper: const _HexagonClipper(),
+            child: Container(
+              width: 45,
+              height: 45,
+              color: color,
+              alignment: Alignment.center,
+              child: Container(
+                width: 29,
+                height: 29,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF2D8),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.extension_rounded, color: color, size: 21),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(painter: _HexagonOutlinePainter()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HealSeed extends StatelessWidget {
+  const _HealSeed({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(22),
+          topRight: Radius.circular(22),
+          bottomLeft: Radius.circular(22),
+          bottomRight: Radius.circular(7),
+        ),
+        border: Border.all(color: Colors.white, width: 2),
+      ),
+      child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 23),
+    );
+  }
+}
+
+class _HealBloom extends StatelessWidget {
+  const _HealBloom({required this.progress, required this.color});
+
+  final double progress;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final double pulse = sin(progress * pi).clamp(0, 1).toDouble();
+    return Opacity(
+      opacity: (1 - progress * 0.55).clamp(0, 1),
+      child: Transform.scale(
+        scale: 0.55 + pulse * 0.65,
+        child: SizedBox(
+          width: 84,
+          height: 84,
+          child: Stack(
+            alignment: Alignment.center,
+            children: <Widget>[
+              Container(
+                width: 76,
+                height: 76,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color.withAlpha(38),
+                  border: Border.all(color: color, width: 3),
+                ),
+              ),
+              Icon(Icons.shield_rounded, color: color, size: 46),
+              const Icon(Icons.favorite_rounded, color: Colors.white, size: 22),
+              Positioned(
+                left: 5,
+                top: 17 - progress * 10,
+                child: Icon(Icons.eco_rounded, color: color, size: 20),
+              ),
+              Positioned(
+                right: 5,
+                top: 22 - progress * 13,
+                child: Transform.flip(
+                  flipX: true,
+                  child: Icon(Icons.eco_rounded, color: color, size: 18),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HexagonClipper extends CustomClipper<Path> {
+  const _HexagonClipper();
+
+  @override
+  Path getClip(Size size) {
+    return Path()
+      ..moveTo(size.width * 0.25, 0)
+      ..lineTo(size.width * 0.75, 0)
+      ..lineTo(size.width, size.height * 0.5)
+      ..lineTo(size.width * 0.75, size.height)
+      ..lineTo(size.width * 0.25, size.height)
+      ..lineTo(0, size.height * 0.5)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(covariant _HexagonClipper oldClipper) => false;
+}
+
+class _HexagonOutlinePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Path path = const _HexagonClipper()
+        .getClip(size)
+        .shift(const Offset(0, -1));
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = Colors.white,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _HexagonOutlinePainter oldDelegate) => false;
+}
+
+class _BattleHand extends StatelessWidget {
+  const _BattleHand({
+    required this.questions,
+    required this.compact,
+    required this.enabled,
+    required this.selectedQuestionId,
+    required this.onPickQuestion,
+  });
+
+  final List<BattleQuestion> questions;
+  final bool compact;
+  final bool enabled;
+  final String? selectedQuestionId;
+  final ValueChanged<BattleQuestion> onPickQuestion;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFFFFF8EC),
+      padding: EdgeInsets.fromLTRB(8, compact ? 6 : 8, 8, compact ? 7 : 10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Text(
+                'Pilih kartu',
+                style: GoogleFonts.fredoka(
+                  color: const Color(0xFF17233F),
+                  fontSize: compact ? 12 : 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                enabled ? 'Jawab untuk bergerak' : 'Bersiap di arena',
+                style: GoogleFonts.dmSans(
+                  color: const Color(0xFF66708A),
+                  fontSize: compact ? 9 : 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: compact ? 5 : 7),
+          SizedBox(
+            height: compact ? 96 : 114,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: List<Widget>.generate(4, (int index) {
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(left: index == 0 ? 0 : 6),
+                    child: index < questions.length
+                        ? _ArenaQuestionCard(
+                            question: questions[index],
+                            compact: compact,
+                            enabled: enabled,
+                            selected: selectedQuestionId == questions[index].id,
+                            onTap: () => onPickQuestion(questions[index]),
+                          )
+                        : const _EmptyCardSlot(),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ArenaQuestionCard extends StatelessWidget {
+  const _ArenaQuestionCard({
+    required this.question,
+    required this.compact,
+    required this.enabled,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final BattleQuestion question;
+  final bool compact;
+  final bool enabled;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = _arenaCategoryColor(question.category, question.effect);
+    final String asset = _arenaCardAsset(question.category, question.effect);
+    final String label = _arenaCategoryLabel(question.category);
+    final int power = question.weight.clamp(1, 4).toInt();
+    final bool heal = question.effect == QuestionEffect.heal;
+
+    return AnimatedScale(
+      scale: selected ? 0.94 : 1,
+      duration: const Duration(milliseconds: 120),
+      child: AnimatedOpacity(
+        opacity: enabled || selected ? 1 : 0.58,
+        duration: const Duration(milliseconds: 140),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            key: ValueKey<String>('question-card-${question.id}'),
+            onTap: enabled ? onTap : null,
+            borderRadius: BorderRadius.circular(16),
+            child: Ink(
+              padding: EdgeInsets.fromLTRB(5, compact ? 5 : 6, 5, 5),
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(color.withAlpha(20), Colors.white),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: color, width: selected ? 2.5 : 1.5),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: const Color(0xFF17233F).withAlpha(24),
+                    blurRadius: 5,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.dmSans(
+                            color: const Color(0xFF17233F),
+                            fontSize: compact ? 8 : 9,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      _PowerPips(value: power, color: color),
+                    ],
+                  ),
+                  Expanded(
+                    child: Image.asset(
+                      asset,
+                      fit: BoxFit.contain,
+                      cacheWidth: 144,
+                      filterQuality: FilterQuality.medium,
+                    ),
+                  ),
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(vertical: compact ? 2 : 3),
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Text(
+                      heal ? 'PULIHKAN' : 'SERANG',
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      style: GoogleFonts.dmSans(
+                        color: Colors.white,
+                        fontSize: compact ? 7 : 8,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.25,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PowerPips extends StatelessWidget {
+  const _PowerPips({required this.value, required this.color});
+
+  final int value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List<Widget>.generate(3, (int index) {
+        return Container(
+          width: 4,
+          height: 4,
+          margin: EdgeInsets.only(left: index == 0 ? 0 : 2),
+          decoration: BoxDecoration(
+            color: index < value.clamp(1, 3) ? color : color.withAlpha(40),
+            shape: BoxShape.circle,
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _EmptyCardSlot extends StatelessWidget {
+  const _EmptyCardSlot();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFEDE8DC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFD8D2C5)),
+      ),
+      child: const Center(
+        child: Icon(Icons.hourglass_empty_rounded, color: Color(0xFF9AA1B2)),
+      ),
+    );
+  }
+}
+
+class _ArenaNotice extends StatelessWidget {
+  const _ArenaNotice({
+    required super.key,
+    required this.text,
+    this.isError = false,
+  });
+
+  final String text;
+  final bool isError;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = isError
+        ? const Color(0xFFF05E5E)
+        : const Color(0xFF2878F0);
+    return Center(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 330),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withAlpha(95)),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: const Color(0xFF17233F).withAlpha(45),
+              blurRadius: 9,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(
+              isError ? Icons.info_rounded : Icons.bolt_rounded,
+              color: color,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.dmSans(
+                  color: const Color(0xFF17233F),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -467,2919 +1678,294 @@ class _GameToastState extends State<_GameToast>
 }
 
 class _CountdownOverlay extends StatelessWidget {
-  const _CountdownOverlay({required this.value, required this.progress});
+  const _CountdownOverlay({required this.value});
+
   final int value;
-  final double progress;
 
   @override
   Widget build(BuildContext context) {
-    final bool isGo = value == 0;
-    final String label = isGo ? 'GO!' : '$value';
-    final double scaleAnim = isGo
-        ? 0.6 + Curves.elasticOut.transform(progress.clamp(0.0, 1.0)) * 0.6
-        : 0.3 + Curves.easeOutBack.transform(progress.clamp(0.0, 1.0)) * 0.9;
-    final double opacityAnim = progress < 0.8
-        ? 1.0
-        : (1.0 - (progress - 0.8) / 0.2);
-    final Color textColor = isGo ? const Color(0xFFFFD23F) : Colors.white;
-
+    final bool ready = value == 0;
     return Positioned.fill(
-      child: IgnorePointer(
-        child: Container(
-          color: Colors.black.withAlpha(isGo ? 80 : 140),
-          child: Center(
-            child: Opacity(
-              opacity: opacityAnim.clamp(0.0, 1.0),
-              child: Transform.scale(
-                scale: scaleAnim.clamp(0.1, 2.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Text(
-                      label,
-                      style: GoogleFonts.orbitron(
-                        color: textColor,
-                        fontSize: isGo ? 72 : 96,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 4,
-                        shadows: <Shadow>[
-                          Shadow(
-                            color: textColor.withAlpha(180),
-                            blurRadius: 40,
-                          ),
-                          Shadow(
-                            color: textColor.withAlpha(100),
-                            blurRadius: 80,
-                          ),
-                          const Shadow(
-                            color: Colors.black,
-                            blurRadius: 10,
-                            offset: Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (!isGo) ...<Widget>[
-                      const SizedBox(height: 12),
-                      Text(
-                        'BERSIAP',
-                        style: GoogleFonts.orbitron(
-                          color: Colors.white.withAlpha(150),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 6,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ArenaIconButton extends StatelessWidget {
-  const _ArenaIconButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.black.withAlpha(140),
-      shape: const CircleBorder(),
-      child: IconButton(
-        onPressed: onPressed,
-        tooltip: tooltip,
-        icon: Icon(icon, color: Colors.white.withAlpha(235), size: 20),
-      ),
-    );
-  }
-}
-
-class _HudStrip extends StatelessWidget {
-  const _HudStrip({
-    required this.isEnemy,
-    required this.playerName,
-    required this.hp,
-    required this.points,
-    required this.animationValue,
-    this.compact = false,
-    this.questions = const <BattleQuestion>[],
-    this.onPickQuestion,
-  });
-
-  final bool isEnemy;
-  final String playerName;
-  final int hp;
-  final int points;
-  final double animationValue;
-  final bool compact;
-  final List<BattleQuestion> questions;
-  final ValueChanged<BattleQuestion>? onPickQuestion;
-
-  @override
-  Widget build(BuildContext context) {
-    final List<Color> colors = isEnemy
-        ? const <Color>[Color(0xC05E080C), Color(0x9A8A3100), Color(0x7321750D)]
-        : const <Color>[
-            Color(0xB0042C6A),
-            Color(0x93257509),
-            Color(0x7A04285C),
-          ];
-    final int safeHp = hp.clamp(0, 100).toInt();
-    final int displayHp = safeHp * 30;
-    final String avatarAsset = isEnemy ? _enemyAvatarAsset : _playerAvatarAsset;
-    final Color sideAccent = isEnemy
-        ? const Color(0xFFFF5555)
-        : const Color(0xFF55AAFF);
-    final Color hpIconColor = isEnemy
-        ? const Color(0xFFFF6A6A)
-        : const Color(0xFF63B6FF);
-
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: colors,
-        ),
-        border: Border(
-          top: isEnemy
-              ? BorderSide.none
-              : BorderSide(color: sideAccent.withAlpha(70)),
-          bottom: isEnemy
-              ? BorderSide(color: sideAccent.withAlpha(70))
-              : BorderSide.none,
-        ),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.black.withAlpha(88),
-            blurRadius: 24,
-            offset: Offset(0, isEnemy ? 6 : -6),
-          ),
-        ],
-      ),
-      padding: EdgeInsets.fromLTRB(
-        12,
-        compact ? 7 : 8,
-        isEnemy ? 62 : 12,
-        compact ? 7 : 10,
-      ),
-      child: Column(
-        children: <Widget>[
-          Row(
+      child: ColoredBox(
+        color: const Color(0xFF0D2A52).withAlpha(205),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              _ProfileAvatar(
-                asset: avatarAsset,
-                isEnemy: isEnemy,
-                animationValue: animationValue,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: Text(
-                            playerName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.nunito(
-                              color: Colors.white.withAlpha(235),
-                              fontSize: compact ? 12 : 13,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        _RankChip(
-                          label: isEnemy ? 'S' : 'A',
-                          color: sideAccent,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    _ProfileHpBar(
-                      safeHp: safeHp,
-                      isEnemy: isEnemy,
-                      animationValue: animationValue,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: <Widget>[
-                        Icon(
-                          isEnemy
-                              ? Icons.favorite_rounded
-                              : Icons.shield_rounded,
-                          color: hpIconColor,
-                          size: 12,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$displayHp',
-                          style: GoogleFonts.nunito(
-                            color: Colors.white.withAlpha(210),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+              Text(
+                ready ? 'Mulai!' : 'Bersiap',
+                style: GoogleFonts.dmSans(
+                  color: Colors.white.withAlpha(205),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.6,
                 ),
               ),
-            ],
-          ),
-          if (!isEnemy) ...<Widget>[
-            SizedBox(height: compact ? 7 : 9),
-            SizedBox(
-              height: compact ? 92 : 116,
-              child: Row(
-                children: List<Widget>.generate(4, (int index) {
-                  if (index >= questions.length) {
-                    return Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.only(left: index == 0 ? 0 : 8),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withAlpha(18),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white24),
-                          ),
-                        ),
-                      ),
-                    );
-                  }
-
-                  return Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(left: index == 0 ? 0 : 8),
-                      child: _BattleCard(
-                        question: questions[index],
-                        index: index,
-                        compact: compact,
-                        animationValue: animationValue,
-                        onTap: () => onPickQuestion?.call(questions[index]),
-                      ),
+              const SizedBox(height: 6),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  return ScaleTransition(
+                    scale: CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutBack,
                     ),
+                    child: FadeTransition(opacity: animation, child: child),
                   );
-                }),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileAvatar extends StatelessWidget {
-  const _ProfileAvatar({
-    required this.asset,
-    required this.isEnemy,
-    required this.animationValue,
-  });
-
-  final String asset;
-  final bool isEnemy;
-  final double animationValue;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color color = isEnemy
-        ? const Color(0xFFFF5555)
-        : const Color(0xFF55AAFF);
-    final double pulse =
-        1 + (sin((animationValue + (isEnemy ? 0 : 0.42)) * pi * 2) * 0.018);
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: <Widget>[
-        Transform.scale(
-          scale: pulse,
-          child: Container(
-            width: 46,
-            height: 46,
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: color.withAlpha(190), width: 2),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: color.withAlpha(95),
-                  blurRadius: 14,
-                  spreadRadius: 1,
-                ),
-                BoxShadow(color: Colors.black.withAlpha(180), blurRadius: 10),
-              ],
-            ),
-            child: CircleAvatar(backgroundImage: AssetImage(asset)),
-          ),
-        ),
-        Positioned(
-          right: -4,
-          bottom: -3,
-          child: Container(
-            width: 18,
-            height: 18,
-            decoration: BoxDecoration(
-              color: Colors.black.withAlpha(160),
-              shape: BoxShape.circle,
-              border: Border.all(color: color.withAlpha(180)),
-            ),
-            child: Icon(
-              isEnemy ? Icons.emoji_events_rounded : Icons.shield_rounded,
-              color: isEnemy
-                  ? const Color(0xFFFFD23F)
-                  : const Color(0xFF62C7FF),
-              size: 12,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _RankChip extends StatelessWidget {
-  const _RankChip({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 22),
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
-      decoration: BoxDecoration(
-        color: color.withAlpha(210),
-        borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: Colors.white.withAlpha(85)),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.nunito(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileHpBar extends StatelessWidget {
-  const _ProfileHpBar({
-    required this.safeHp,
-    required this.isEnemy,
-    required this.animationValue,
-  });
-
-  final int safeHp;
-  final bool isEnemy;
-  final double animationValue;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color shineColor = Colors.white.withAlpha(
-      36 + (sin(animationValue * pi * 2) * 14).round(),
-    );
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        height: 11,
-        decoration: BoxDecoration(
-          color: Colors.black.withAlpha(130),
-          border: Border.all(color: Colors.white.withAlpha(24)),
-        ),
-        child: Stack(
-          children: <Widget>[
-            FractionallySizedBox(
-              widthFactor: safeHp / 100,
-              heightFactor: 1,
-              alignment: Alignment.centerLeft,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isEnemy
-                        ? const <Color>[Color(0xFF9A141A), Color(0xFFFF5B5B)]
-                        : const <Color>[Color(0xFF1552B5), Color(0xFF57B7FF)],
+                },
+                child: Text(
+                  ready ? 'GO' : '$value',
+                  key: ValueKey<int>(value),
+                  style: GoogleFonts.fredoka(
+                    color: ready ? const Color(0xFFFFC857) : Colors.white,
+                    fontSize: ready ? 62 : 76,
+                    fontWeight: FontWeight.w700,
+                    height: 1,
                   ),
                 ),
               ),
-            ),
-            Positioned(
-              top: 2,
-              left: 8,
-              right: 44,
-              child: Container(
-                height: 2,
-                decoration: BoxDecoration(
-                  color: shineColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BattleCard extends StatelessWidget {
-  const _BattleCard({
-    required this.question,
-    required this.index,
-    required this.compact,
-    required this.animationValue,
-    required this.onTap,
-  });
-
-  final BattleQuestion question;
-  final int index;
-  final bool compact;
-  final double animationValue;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool isDamage = question.effect == QuestionEffect.damage;
-    final String cardAsset = isDamage ? _tiuCardAsset : _twkCardAsset;
-    final int impact = BattleStateMachine.impactFromWeight(question.weight);
-    final Color glow = isDamage
-        ? _attackAccentForCategory(question.category, index)
-        : const Color(0xFF4ADE80);
-    final double bob = sin((animationValue + (index * 0.13)) * pi * 2) * -3;
-    final double shinePosition = ((animationValue + index * 0.22) % 1) * 3.4;
-    final String label = _questionCardLabel(question, index);
-
-    return Transform.translate(
-      offset: Offset(0, bob),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          key: ValueKey<String>('question-card-${question.id}'),
-          borderRadius: BorderRadius.circular(13),
-          onTap: onTap,
-          child: Ink(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(13),
-              border: Border.all(color: glow.withAlpha(160), width: 2),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: Colors.black.withAlpha(165),
-                  blurRadius: 14,
-                  offset: const Offset(0, 7),
-                ),
-                BoxShadow(color: glow.withAlpha(80), blurRadius: 16),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(11),
-              child: Stack(
-                children: <Widget>[
-                  Positioned.fill(
-                    child: Image.asset(
-                      cardAsset,
-                      fit: BoxFit.cover,
-                      filterQuality: FilterQuality.low,
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: <Color>[
-                            Colors.transparent,
-                            Colors.black.withAlpha(50),
-                            Colors.black.withAlpha(120),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: Transform.translate(
-                        offset: Offset((-1.4 + shinePosition) * 60, 0),
-                        child: Transform.rotate(
-                          angle: -0.35,
-                          child: FractionallySizedBox(
-                            widthFactor: 0.34,
-                            alignment: Alignment.centerLeft,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: <Color>[
-                                    Colors.transparent,
-                                    Colors.white.withAlpha(44),
-                                    Colors.transparent,
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 5,
-                    left: 5,
-                    child: Icon(
-                      isDamage
-                          ? _attackIconForCategory(question.category, index)
-                          : Icons.favorite_rounded,
-                      color: glow,
-                      size: compact ? 15 : 17,
-                    ),
-                  ),
-                  Positioned(
-                    top: 5,
-                    right: 6,
-                    child: Text(
-                      isDamage ? '$impact' : '+$impact',
-                      style: GoogleFonts.nunito(
-                        color: glow,
-                        fontSize: compact ? 13 : 15,
-                        fontWeight: FontWeight.w900,
-                        shadows: <Shadow>[
-                          Shadow(color: Colors.black, blurRadius: 5),
-                          Shadow(color: glow.withAlpha(180), blurRadius: 8),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 6,
-                    right: 6,
-                    bottom: 6,
-                    child: Container(
-                      height: compact ? 16 : 18,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withAlpha(188),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.white.withAlpha(38)),
-                      ),
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.nunito(
-                          color: Colors.white,
-                          fontSize: compact ? 8 : 9,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: Container(height: 3, color: glow.withAlpha(190)),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-Color _attackAccentForCategory(String category, int index) {
-  return switch (category.toLowerCase()) {
-    'verbal' => const Color(0xFFA855F7),
-    'logika' => const Color(0xFF3EAAFF),
-    'numerik' => const Color(0xFFF59E0B),
-    _ => switch (index % 3) {
-      0 => const Color(0xFFF59E0B),
-      1 => const Color(0xFFA855F7),
-      _ => const Color(0xFF3EAAFF),
-    },
-  };
-}
-
-IconData _attackIconForCategory(String category, int index) {
-  return switch (category.toLowerCase()) {
-    'verbal' => Icons.bolt_rounded,
-    'logika' => Icons.smart_toy_rounded,
-    'numerik' => Icons.local_fire_department_rounded,
-    _ => switch (index % 3) {
-      0 => Icons.local_fire_department_rounded,
-      1 => Icons.bolt_rounded,
-      _ => Icons.smart_toy_rounded,
-    },
-  };
-}
-
-String _questionCardLabel(BattleQuestion question, int index) {
-  if (question.effect == QuestionEffect.heal) {
-    return 'TWK';
-  }
-
-  return switch (question.category.toLowerCase()) {
-    'verbal' => 'VERBAL',
-    'logika' => 'LOGIKA',
-    'numerik' => 'NUMERIK',
-    _ => switch (index % 3) {
-      0 => 'NUMERIK',
-      1 => 'VERBAL',
-      _ => 'LOGIKA',
-    },
-  };
-}
-
-class _ArenaPanel extends StatefulWidget {
-  const _ArenaPanel({
-    required this.playerHp,
-    required this.opponentHp,
-    required this.mode,
-    required this.visualActor,
-    required this.visualEffect,
-    required this.visualCategory,
-    required this.eventId,
-  });
-
-  final int playerHp;
-  final int opponentHp;
-  final BattleMode mode;
-  final BattleActor? visualActor;
-  final BattleVisualEffect? visualEffect;
-  final String? visualCategory;
-  final int eventId;
-
-  @override
-  State<_ArenaPanel> createState() => _ArenaPanelState();
-}
-
-class _ArenaPanelState extends State<_ArenaPanel>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _fieldController;
-
-  @override
-  void initState() {
-    super.initState();
-    _fieldController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 8000),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _fieldController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bool enemyMiniLeftDown = widget.opponentHp <= 64;
-    final bool enemyMiniRightDown = widget.opponentHp <= 32;
-    final bool playerMiniLeftDown = widget.playerHp <= 64;
-    final bool playerMiniRightDown = widget.playerHp <= 32;
-    final Alignment visualTarget = _visualTargetAlignment(
-      actor: widget.visualActor,
-      effect: widget.visualEffect,
-      eventId: widget.eventId,
-      playerHp: widget.playerHp,
-      opponentHp: widget.opponentHp,
-    );
-
-    return ClipRRect(
-      child: Stack(
-        children: <Widget>[
-          Container(color: const Color(0xFF4B9130)),
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _BattlefieldPainter(
-                controller: _fieldController,
-                mode: widget.mode,
-              ),
-            ),
-          ),
-          _TowerNode(
-            alignment: _enemyMainAlignment,
-            imageAsset: _enemyMainTowerAsset,
-            destroyedAsset: _enemyMainTowerDestroyedAsset,
-            hpValue: (widget.opponentHp * 30).round(),
-            hpProgress: widget.opponentHp / 100,
-            mainTower: true,
-            destroyed: widget.opponentHp <= 0,
-          ),
-          _TowerNode(
-            alignment: _enemyMiniLeftAlignment,
-            imageAsset: _enemyMiniTowerAsset,
-            destroyedAsset: _enemyMiniTowerDestroyedAsset,
-            hpValue: enemyMiniLeftDown ? 0 : (widget.opponentHp * 15).round(),
-            hpProgress: enemyMiniLeftDown ? 0 : widget.opponentHp / 100,
-            mainTower: false,
-            destroyed: enemyMiniLeftDown,
-          ),
-          _TowerNode(
-            alignment: _enemyMiniRightAlignment,
-            imageAsset: _enemyMiniTowerAsset,
-            destroyedAsset: _enemyMiniTowerDestroyedAsset,
-            hpValue: enemyMiniRightDown ? 0 : (widget.opponentHp * 15).round(),
-            hpProgress: enemyMiniRightDown ? 0 : widget.opponentHp / 100,
-            mainTower: false,
-            destroyed: enemyMiniRightDown,
-          ),
-          _TowerNode(
-            alignment: _playerMainAlignment,
-            imageAsset: _playerMainTowerAsset,
-            destroyedAsset: _playerMainTowerDestroyedAsset,
-            hpValue: (widget.playerHp * 30).round(),
-            hpProgress: widget.playerHp / 100,
-            mainTower: true,
-            destroyed: widget.playerHp <= 0,
-          ),
-          _TowerNode(
-            alignment: _playerMiniLeftAlignment,
-            imageAsset: _playerMiniTowerAsset,
-            destroyedAsset: _playerMiniTowerDestroyedAsset,
-            hpValue: playerMiniLeftDown ? 0 : (widget.playerHp * 15).round(),
-            hpProgress: playerMiniLeftDown ? 0 : widget.playerHp / 100,
-            mainTower: false,
-            destroyed: playerMiniLeftDown,
-          ),
-          _TowerNode(
-            alignment: _playerMiniRightAlignment,
-            imageAsset: _playerMiniTowerAsset,
-            destroyedAsset: _playerMiniTowerDestroyedAsset,
-            hpValue: playerMiniRightDown ? 0 : (widget.playerHp * 15).round(),
-            hpProgress: playerMiniRightDown ? 0 : widget.playerHp / 100,
-            mainTower: false,
-            destroyed: playerMiniRightDown,
-          ),
-          _BattleEffectOverlay(
-            actor: widget.visualActor,
-            effect: widget.visualEffect,
-            category: widget.visualCategory,
-            eventId: widget.eventId,
-            targetAlignment: visualTarget,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BattleEffectOverlay extends StatelessWidget {
-  const _BattleEffectOverlay({
-    required this.actor,
-    required this.effect,
-    required this.category,
-    required this.eventId,
-    required this.targetAlignment,
-  });
-
-  final BattleActor? actor;
-  final BattleVisualEffect? effect;
-  final String? category;
-  final int eventId;
-  final Alignment targetAlignment;
-
-  @override
-  Widget build(BuildContext context) {
-    if (actor == null || effect == null || eventId <= 0) {
-      return const SizedBox.shrink();
-    }
-
-    final bool isPlayer = actor == BattleActor.player;
-    final Alignment fromAlignment = isPlayer
-        ? _playerMainAlignment
-        : _enemyMainAlignment;
-    final String effectKey = '$eventId-${actor!.name}-${effect!.name}';
-
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: Stack(
-          children: <Widget>[
-            if (effect == BattleVisualEffect.heal)
-              _HealEffect(
-                key: ValueKey<String>('heal-$effectKey'),
-                alignment: targetAlignment,
-              )
-            else
-              _PrototypeAttackEffect(
-                key: ValueKey<String>('attack-$effectKey'),
-                effect: effect!,
-                category: category ?? 'numerik',
-                fromAlignment: fromAlignment,
-                toAlignment: targetAlignment,
-                isEnemy: !isPlayer,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-Alignment _visualTargetAlignment({
-  required BattleActor? actor,
-  required BattleVisualEffect? effect,
-  required int eventId,
-  required int playerHp,
-  required int opponentHp,
-}) {
-  if (actor == null || effect == null) {
-    return _enemyMainAlignment;
-  }
-
-  if (effect == BattleVisualEffect.heal) {
-    if (actor == BattleActor.player) {
-      return playerHp <= 42
-          ? _playerMainAlignment
-          : eventId.isEven
-          ? _playerMiniLeftAlignment
-          : _playerMiniRightAlignment;
-    }
-
-    return opponentHp <= 42
-        ? _enemyMainAlignment
-        : eventId.isEven
-        ? _enemyMiniLeftAlignment
-        : _enemyMiniRightAlignment;
-  }
-
-  if (actor == BattleActor.player) {
-    if (opponentHp <= 38) {
-      return _enemyMainAlignment;
-    }
-    return eventId.isEven ? _enemyMiniLeftAlignment : _enemyMiniRightAlignment;
-  }
-
-  if (playerHp <= 38) {
-    return _playerMainAlignment;
-  }
-  return eventId.isEven ? _playerMiniLeftAlignment : _playerMiniRightAlignment;
-}
-
-class _PrototypeAttackEffect extends StatefulWidget {
-  const _PrototypeAttackEffect({
-    super.key,
-    required this.effect,
-    required this.category,
-    required this.fromAlignment,
-    required this.toAlignment,
-    required this.isEnemy,
-  });
-
-  final BattleVisualEffect effect;
-  final String category;
-  final Alignment fromAlignment;
-  final Alignment toAlignment;
-  final bool isEnemy;
-
-  @override
-  State<_PrototypeAttackEffect> createState() => _PrototypeAttackEffectState();
-}
-
-class _PrototypeAttackEffectState extends State<_PrototypeAttackEffect>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: switch (widget.effect) {
-        BattleVisualEffect.robot => const Duration(milliseconds: 2200),
-        BattleVisualEffect.wizard => const Duration(milliseconds: 980),
-        _ => const Duration(milliseconds: 1500),
-      },
-    )..forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (BuildContext context, Widget? child) {
-        return CustomPaint(
-          size: Size.infinite,
-          painter: _PrototypeAttackPainter(
-            progress: _controller.value,
-            effect: widget.effect,
-            category: widget.category,
-            fromAlignment: widget.fromAlignment,
-            toAlignment: widget.toAlignment,
-            isEnemy: widget.isEnemy,
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _PrototypeAttackPainter extends CustomPainter {
-  const _PrototypeAttackPainter({
-    required this.progress,
-    required this.effect,
-    required this.category,
-    required this.fromAlignment,
-    required this.toAlignment,
-    required this.isEnemy,
-  });
-
-  final double progress;
-  final BattleVisualEffect effect;
-  final String category;
-  final Alignment fromAlignment;
-  final Alignment toAlignment;
-  final bool isEnemy;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Offset from = Offset(
-      (fromAlignment.x + 1) * size.width / 2,
-      (fromAlignment.y + 1) * size.height / 2,
-    );
-    final Offset to = Offset(
-      (toAlignment.x + 1) * size.width / 2,
-      (toAlignment.y + 1) * size.height / 2,
-    );
-    final Color sideColor = isEnemy
-        ? const Color(0xFFFF5050)
-        : const Color(0xFF4AA3FF);
-
-    switch (effect) {
-      case BattleVisualEffect.cannon:
-        _drawCannon(canvas, from, to, sideColor);
-      case BattleVisualEffect.wizard:
-        _drawWizard(canvas, from, to, sideColor);
-      case BattleVisualEffect.robot:
-        _drawRobot(canvas, from, to, sideColor);
-      case BattleVisualEffect.heal:
-        break;
-    }
-  }
-
-  void _drawCannon(Canvas canvas, Offset from, Offset to, Color sideColor) {
-    final Color accent = const Color(0xFFFFA726);
-    final double chargeT = (progress / 0.28).clamp(0.0, 1.0);
-    final double flyT = ((progress - 0.25) / 0.45).clamp(0.0, 1.0);
-    final double impactT = ((progress - 0.62) / 0.38).clamp(0.0, 1.0);
-    final double angle = (to - from).direction;
-    final Offset ball = Offset.lerp(
-      from,
-      to,
-      Curves.easeInCubic.transform(flyT),
-    )!;
-
-    if (progress < 0.66) {
-      _drawCannonTurret(
-        canvas: canvas,
-        center: from,
-        angle: angle,
-        sideColor: sideColor,
-        chargeT: chargeT,
-        opacity: 1 - flyT * 0.7,
-      );
-    }
-
-    if (flyT > 0 && flyT < 1) {
-      for (int i = 0; i < 10; i++) {
-        final double t = (flyT - i * 0.035).clamp(0.0, 1.0);
-        if (t <= 0) {
-          continue;
-        }
-        final Offset pos = Offset.lerp(
-          from,
-          to,
-          Curves.easeInCubic.transform(t),
-        )!;
-        final double fade = (1 - i / 10) * (1 - flyT * 0.35);
-        canvas.drawCircle(
-          pos,
-          3 + (10 - i) * 0.8,
-          Paint()
-            ..color = accent.withAlpha(_alpha(fade * 0.55))
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
-        );
-      }
-
-      canvas.drawCircle(
-        ball,
-        28,
-        Paint()
-          ..color = accent.withAlpha(58)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
-      );
-      canvas.drawCircle(
-        ball,
-        13,
-        Paint()
-          ..shader = RadialGradient(
-            center: const Alignment(-0.35, -0.35),
-            colors: <Color>[
-              const Color(0xFFFFF2B8),
-              accent,
-              const Color(0xFF331000),
             ],
-          ).createShader(Rect.fromCircle(center: ball, radius: 14)),
-      );
-    }
-
-    if (impactT > 0) {
-      _drawImpact(canvas, to, accent, impactT, fire: true);
-    }
-  }
-
-  void _drawCannonTurret({
-    required Canvas canvas,
-    required Offset center,
-    required double angle,
-    required Color sideColor,
-    required double chargeT,
-    required double opacity,
-  }) {
-    canvas.save();
-    canvas.translate(center.dx, center.dy);
-    canvas.scale(0.9);
-    final Paint sidePaint = Paint()
-      ..color = sideColor.withAlpha(_alpha(opacity));
-
-    for (final Offset wheel in const <Offset>[
-      Offset(-17, 14),
-      Offset(17, 14),
-    ]) {
-      canvas.drawCircle(
-        wheel,
-        9,
-        Paint()..color = const Color(0xFF4A2B1A).withAlpha(_alpha(opacity)),
-      );
-      canvas.drawCircle(
-        wheel,
-        5,
-        Paint()..color = const Color(0xFF8B5A2B).withAlpha(_alpha(opacity)),
-      );
-    }
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        const Rect.fromLTWH(-21, -5, 42, 19),
-        const Radius.circular(5),
-      ),
-      sidePaint,
-    );
-    canvas.rotate(angle);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        const Rect.fromLTWH(0, -8, 48, 16),
-        const Radius.circular(6),
-      ),
-      Paint()..color = const Color(0xFFB8C1CC).withAlpha(_alpha(opacity)),
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        const Rect.fromLTWH(38, -6, 10, 12),
-        const Radius.circular(3),
-      ),
-      Paint()..color = const Color(0xFF364151).withAlpha(_alpha(opacity)),
-    );
-    if (chargeT > 0) {
-      canvas.drawCircle(
-        const Offset(51, 0),
-        8 + chargeT * 13,
-        Paint()
-          ..color = const Color(
-            0xFFFFD36A,
-          ).withAlpha(_alpha(chargeT * opacity * 0.45))
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
-      );
-      canvas.drawCircle(
-        const Offset(51, 0),
-        4 + chargeT * 5,
-        Paint()..color = const Color(0xFFFFF0B0).withAlpha(_alpha(opacity)),
-      );
-    }
-    canvas.restore();
-  }
-
-  void _drawWizard(Canvas canvas, Offset from, Offset to, Color sideColor) {
-    final Color accent = const Color(0xFFA855F7);
-    final double castT = (progress / 0.32).clamp(0.0, 1.0);
-    final double boltT = ((progress - 0.24) / 0.24).clamp(0.0, 1.0);
-    final double flashT = ((progress - 0.48) / 0.52).clamp(0.0, 1.0);
-    final double wizardOpacity = progress < 0.58
-        ? 1
-        : (1 - (progress - 0.58) / 0.25).clamp(0.0, 1.0);
-
-    if (wizardOpacity > 0) {
-      _drawWizardCaster(canvas, from, accent, castT, wizardOpacity);
-    }
-    if (boltT > 0) {
-      _drawLightning(canvas, from, to, boltT, 1 - flashT * 0.8);
-    }
-    if (flashT > 0) {
-      _drawImpact(canvas, to, const Color(0xFF8DDCFF), flashT, fire: false);
-    }
-  }
-
-  void _drawWizardCaster(
-    Canvas canvas,
-    Offset center,
-    Color accent,
-    double castT,
-    double opacity,
-  ) {
-    canvas.save();
-    canvas.translate(center.dx, center.dy);
-    if (isEnemy) {
-      canvas.scale(1, -1);
-    }
-    canvas.scale(0.9);
-
-    canvas.drawOval(
-      Rect.fromCenter(center: const Offset(0, 28), width: 34, height: 9),
-      Paint()..color = Colors.black.withAlpha(_alpha(opacity * 0.22)),
-    );
-    final Path robe = Path()
-      ..moveTo(-15, 30)
-      ..quadraticBezierTo(-17, 4, -8, -13)
-      ..lineTo(0, -17)
-      ..lineTo(8, -13)
-      ..quadraticBezierTo(17, 4, 15, 30)
-      ..close();
-    canvas.drawPath(
-      robe,
-      Paint()
-        ..shader = LinearGradient(
-          colors: <Color>[
-            accent.withAlpha(_alpha(opacity)),
-            const Color(0xFF291171).withAlpha(_alpha(opacity)),
-          ],
-        ).createShader(const Rect.fromLTWH(-18, -18, 36, 50)),
-    );
-    canvas.drawOval(
-      Rect.fromCenter(center: const Offset(0, -19), width: 16, height: 19),
-      Paint()..color = const Color(0xFFE8C8A0).withAlpha(_alpha(opacity)),
-    );
-    canvas.drawOval(
-      Rect.fromCenter(center: const Offset(0, -27), width: 28, height: 7),
-      Paint()..color = const Color(0xFF21118F).withAlpha(_alpha(opacity)),
-    );
-    final Path hat = Path()
-      ..moveTo(-13, -27)
-      ..lineTo(13, -27)
-      ..lineTo(3, -53)
-      ..close();
-    canvas.drawPath(
-      hat,
-      Paint()..color = const Color(0xFF3926C9).withAlpha(_alpha(opacity)),
-    );
-
-    final Paint staffPaint = Paint()
-      ..color = const Color(0xFF9B7320).withAlpha(_alpha(opacity))
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(const Offset(16, 28), const Offset(16, -17), staffPaint);
-    canvas.drawCircle(
-      const Offset(16, -19),
-      6 + castT * 7,
-      Paint()
-        ..color = const Color(
-          0xFFB7F4FF,
-        ).withAlpha(_alpha(opacity * (0.45 + castT * 0.55)))
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
-    );
-    canvas.drawCircle(
-      const Offset(16, -19),
-      4 + castT * 3,
-      Paint()..color = Colors.white.withAlpha(_alpha(opacity)),
-    );
-
-    if (castT > 0) {
-      canvas.drawCircle(
-        const Offset(0, 29),
-        22 * castT,
-        Paint()
-          ..color = accent.withAlpha(_alpha(opacity * (1 - castT) * 0.7))
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2,
-      );
-      for (int i = 0; i < 4; i++) {
-        final double angle = i * pi / 2 + progress * pi * 5;
-        final Offset rune = Offset(
-          cos(angle) * 22 * castT,
-          29 + sin(angle) * 22 * castT,
-        );
-        canvas.drawCircle(
-          rune,
-          2.4,
-          Paint()
-            ..color = const Color(
-              0xFFFFE98A,
-            ).withAlpha(_alpha(opacity * castT)),
-        );
-      }
-    }
-    canvas.restore();
-  }
-
-  void _drawLightning(
-    Canvas canvas,
-    Offset from,
-    Offset to,
-    double boltT,
-    double fade,
-  ) {
-    const int segments = 10;
-    final int visible = max(2, (segments * boltT).round());
-    for (int pass = 0; pass < 3; pass++) {
-      final Paint paint = Paint()
-        ..color = (pass == 0 ? const Color(0xFF70B7FF) : Colors.white)
-            .withAlpha(_alpha(fade * (pass == 0 ? 0.34 : 0.88)))
-        ..strokeWidth = pass == 0 ? 9 : (pass == 1 ? 4 : 1.8)
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round;
-      final Path path = Path();
-      for (int i = 0; i <= visible; i++) {
-        final Offset point = _boltPoint(from, to, i / segments, pass);
-        if (i == 0) {
-          path.moveTo(point.dx, point.dy);
-        } else {
-          path.lineTo(point.dx, point.dy);
-        }
-      }
-      canvas.drawPath(path, paint);
-    }
-  }
-
-  Offset _boltPoint(Offset from, Offset to, double t, int branch) {
-    final Offset base = Offset.lerp(from, to, t)!;
-    final Offset delta = to - from;
-    final double length = max(1, delta.distance);
-    final Offset normal = Offset(-delta.dy / length, delta.dx / length);
-    final double zigzag = sin(t * pi * 7 + branch * 1.7 + category.length) * 20;
-    return base + normal * zigzag * sin(t * pi);
-  }
-
-  void _drawRobot(Canvas canvas, Offset from, Offset to, Color sideColor) {
-    final double walkT = (progress / 0.68).clamp(0.0, 1.0);
-    final double windupT = ((progress - 0.68) / 0.12).clamp(0.0, 1.0);
-    final double slamT = ((progress - 0.80) / 0.20).clamp(0.0, 1.0);
-    final Offset current = Offset.lerp(
-      from,
-      to,
-      Curves.easeInOutCubic.transform(walkT),
-    )!;
-    final double bob = sin(progress * pi * 18) * 3 * (1 - slamT);
-    final double stomp =
-        -windupT * (isEnemy ? -12 : 12) + slamT * (isEnemy ? 16 : -16);
-    final double opacity = progress < 0.92
-        ? 1
-        : (1 - (progress - 0.92) / 0.08).clamp(0.0, 1.0);
-
-    _drawRobotBody(
-      canvas,
-      current + Offset(0, bob + stomp),
-      sideColor,
-      opacity,
-      windupT,
-      slamT,
-    );
-
-    if (slamT > 0) {
-      _drawImpact(canvas, to, const Color(0xFFFF8A2A), slamT, fire: true);
-      for (int i = 0; i < 6; i++) {
-        final double angle = i * pi / 3 + progress;
-        final double length = 20 + 42 * (1 - slamT);
-        final Offset end =
-            to + Offset(cos(angle) * length, sin(angle) * length * 0.65);
-        canvas.drawLine(
-          to,
-          end,
-          Paint()
-            ..color = const Color(
-              0xFF7A2D12,
-            ).withAlpha(_alpha((1 - slamT) * 0.65))
-            ..strokeWidth = 2,
-        );
-      }
-    }
-  }
-
-  void _drawRobotBody(
-    Canvas canvas,
-    Offset center,
-    Color sideColor,
-    double opacity,
-    double windupT,
-    double slamT,
-  ) {
-    canvas.save();
-    canvas.translate(center.dx, center.dy);
-    if (isEnemy) {
-      canvas.scale(1, -1);
-    }
-    canvas.scale(0.66);
-
-    canvas.drawOval(
-      Rect.fromCenter(center: const Offset(0, 28), width: 46, height: 10),
-      Paint()..color = Colors.black.withAlpha(_alpha(opacity * 0.22)),
-    );
-    final int legSwap = (progress * 12).floor().isEven ? 1 : -1;
-    final Paint dark = Paint()
-      ..color = _darken(sideColor).withAlpha(_alpha(opacity));
-    final Paint mid = Paint()..color = sideColor.withAlpha(_alpha(opacity));
-    final Paint light = Paint()
-      ..color = _lighten(sideColor).withAlpha(_alpha(opacity));
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(-14, 8, 10, 18 + legSwap * 3),
-        const Radius.circular(3),
-      ),
-      mid,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(4, 8, 10, 18 - legSwap * 3),
-        const Radius.circular(3),
-      ),
-      mid,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        const Rect.fromLTWH(-18, -18, 36, 30),
-        const Radius.circular(6),
-      ),
-      mid,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        const Rect.fromLTWH(-18, -18, 36, 10),
-        const Radius.circular(5),
-      ),
-      light,
-    );
-    canvas.drawCircle(
-      const Offset(0, -3),
-      6,
-      Paint()
-        ..color =
-            (windupT > 0 || slamT > 0
-                    ? const Color(0xFFFFD23F)
-                    : const Color(0xFF66E6FF))
-                .withAlpha(_alpha(opacity)),
-    );
-
-    final double armRaise = windupT * -0.75 + slamT * 0.9;
-    for (final int side in const <int>[-1, 1]) {
-      canvas.save();
-      canvas.translate(side * 23, -10);
-      canvas.rotate(side * armRaise);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          const Rect.fromLTWH(-5, 0, 10, 22),
-          const Radius.circular(4),
-        ),
-        dark,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          const Rect.fromLTWH(-7, 18, 14, 8),
-          const Radius.circular(3),
-        ),
-        dark,
-      );
-      canvas.restore();
-    }
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        const Rect.fromLTWH(-13, -40, 26, 24),
-        const Radius.circular(5),
-      ),
-      light,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        const Rect.fromLTWH(-9, -33, 18, 7),
-        const Radius.circular(2),
-      ),
-      Paint()..color = const Color(0xFFB7F4FF).withAlpha(_alpha(opacity)),
-    );
-    canvas.drawLine(
-      const Offset(0, -40),
-      const Offset(0, -49),
-      Paint()
-        ..color = const Color(0xFFB8C4D6).withAlpha(_alpha(opacity))
-        ..strokeWidth = 2,
-    );
-    canvas.drawCircle(
-      const Offset(0, -51),
-      3,
-      Paint()..color = const Color(0xFFB7F4FF).withAlpha(_alpha(opacity)),
-    );
-    canvas.restore();
-  }
-
-  void _drawImpact(
-    Canvas canvas,
-    Offset center,
-    Color color,
-    double t, {
-    required bool fire,
-  }) {
-    final double fade = (1 - t).clamp(0.0, 1.0);
-    final double flashFade = (1 - t * 2).clamp(0.0, 1.0);
-    if (flashFade > 0) {
-      canvas.drawCircle(
-        center,
-        16 + t * 48,
-        Paint()
-          ..color = Colors.white.withAlpha(_alpha(flashFade * 0.55))
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
-      );
-    }
-
-    canvas.drawCircle(
-      center,
-      18 + t * (fire ? 58 : 70),
-      Paint()
-        ..shader = RadialGradient(
-          colors: fire
-              ? <Color>[
-                  const Color(0xFFFFF0B0).withAlpha(_alpha(fade * 0.88)),
-                  color.withAlpha(_alpha(fade * 0.65)),
-                  Colors.transparent,
-                ]
-              : <Color>[
-                  Colors.white.withAlpha(_alpha(fade * 0.72)),
-                  color.withAlpha(_alpha(fade * 0.5)),
-                  Colors.transparent,
-                ],
-        ).createShader(Rect.fromCircle(center: center, radius: 78)),
-    );
-
-    for (int ring = 0; ring < 3; ring++) {
-      final double rt = ((t - ring * 0.1) / (1 - ring * 0.1)).clamp(0.0, 1.0);
-      if (rt <= 0) {
-        continue;
-      }
-      canvas.drawCircle(
-        center,
-        18 + rt * (86 + ring * 22),
-        Paint()
-          ..color = color.withAlpha(_alpha((1 - rt) * 0.72))
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = (4 - ring) * (1 - rt),
-      );
-    }
-
-    for (int i = 0; i < 10; i++) {
-      final double angle = i * pi * 0.2 + progress * 4;
-      final double distance = t * (46 + i * 5);
-      canvas.drawCircle(
-        center + Offset(cos(angle) * distance, sin(angle) * distance),
-        2.2 + (1 - t) * 3,
-        Paint()..color = color.withAlpha(_alpha(fade * 0.85)),
-      );
-    }
-  }
-
-  int _alpha(double value) {
-    return (value.clamp(0.0, 1.0) * 255).round();
-  }
-
-  Color _darken(Color color) {
-    return Color.fromARGB(
-      color.alpha,
-      (color.red * 0.62).round(),
-      (color.green * 0.62).round(),
-      (color.blue * 0.62).round(),
-    );
-  }
-
-  Color _lighten(Color color) {
-    return Color.fromARGB(
-      color.alpha,
-      min(255, (color.red * 1.22).round()),
-      min(255, (color.green * 1.22).round()),
-      min(255, (color.blue * 1.22).round()),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _PrototypeAttackPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.effect != effect ||
-        oldDelegate.fromAlignment != fromAlignment ||
-        oldDelegate.toAlignment != toAlignment ||
-        oldDelegate.isEnemy != isEnemy;
-  }
-}
-
-class _ProjectileAttackEffect extends StatefulWidget {
-  const _ProjectileAttackEffect({
-    super.key,
-    required this.fromAlignment,
-    required this.toAlignment,
-    required this.color,
-    required this.trailColor,
-  });
-
-  final Alignment fromAlignment;
-  final Alignment toAlignment;
-  final Color color;
-  final Color trailColor;
-
-  @override
-  State<_ProjectileAttackEffect> createState() =>
-      _ProjectileAttackEffectState();
-}
-
-class _ProjectileAttackEffectState extends State<_ProjectileAttackEffect>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1100),
-    )..forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (BuildContext context, Widget? child) {
-        return CustomPaint(
-          size: Size.infinite,
-          painter: _ProjectilePainter(
-            progress: _controller.value,
-            fromAlignment: widget.fromAlignment,
-            toAlignment: widget.toAlignment,
-            color: widget.color,
-            trailColor: widget.trailColor,
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
 
-class _ProjectilePainter extends CustomPainter {
-  const _ProjectilePainter({
-    required this.progress,
-    required this.fromAlignment,
-    required this.toAlignment,
-    required this.color,
-    required this.trailColor,
-  });
-
-  final double progress;
-  final Alignment fromAlignment;
-  final Alignment toAlignment;
-  final Color color;
-  final Color trailColor;
+class _ClayArenaPainter extends CustomPainter {
+  const _ClayArenaPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
-    final Offset from = Offset(
-      (fromAlignment.x + 1) / 2 * size.width,
-      (fromAlignment.y + 1) / 2 * size.height,
-    );
-    final Offset to = Offset(
-      (toAlignment.x + 1) / 2 * size.width,
-      (toAlignment.y + 1) / 2 * size.height,
-    );
-
-    final double travelPhase = 0.6;
-    final double travelT = (progress / travelPhase).clamp(0.0, 1.0);
-    final double curvedTravel = Curves.easeInOutCubic.transform(travelT);
-    final Offset current = Offset.lerp(from, to, curvedTravel)!;
-
-    // â”€â”€ Screen flash on impact â”€â”€
-    final double impactT = ((progress - 0.52) / 0.48).clamp(0.0, 1.0);
-    if (impactT > 0 && impactT < 0.3) {
-      final double flashOpacity = (1 - impactT / 0.3) * 0.15;
-      canvas.drawRect(
-        Offset.zero & size,
-        Paint()..color = color.withAlpha((flashOpacity * 255).round()),
-      );
-    }
-
-    // â”€â”€ Trail particles â”€â”€
-    if (travelT < 1.0) {
-      for (int i = 0; i < 8; i++) {
-        final double trailDelay = i * 0.04;
-        final double trailProgress = ((curvedTravel - trailDelay)).clamp(
-          0.0,
-          1.0,
-        );
-        if (trailProgress <= 0) continue;
-        final Offset trailPos = Offset.lerp(from, to, trailProgress)!;
-        final double trailFade = (1 - (i / 8.0)) * (1 - travelT);
-        final double jitterX = sin(i * 2.3 + progress * 20) * 6;
-        final double jitterY = cos(i * 3.1 + progress * 15) * 4;
-        canvas.drawCircle(
-          trailPos + Offset(jitterX, jitterY),
-          3.5 + (8 - i) * 0.8,
-          Paint()
-            ..color = trailColor.withAlpha((trailFade * 140).round())
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
-        );
-      }
-    }
-
-    // â”€â”€ Projectile orb â”€â”€
-    if (travelT < 1.0) {
-      final double orbSize = 16 + sin(curvedTravel * pi) * 6;
-      final double fadeOut = progress < 0.55
-          ? 1.0
-          : max(0, 1 - (progress - 0.55) / 0.15);
-      // Outer glow
-      canvas.drawCircle(
-        current,
-        orbSize * 2.2,
-        Paint()
-          ..color = color.withAlpha((fadeOut * 60).round())
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18),
-      );
-      // Mid glow
-      canvas.drawCircle(
-        current,
-        orbSize * 1.4,
-        Paint()
-          ..color = color.withAlpha((fadeOut * 150).round())
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
-      );
-      // Core
-      canvas.drawCircle(
-        current,
-        orbSize * 0.7,
-        Paint()..color = Colors.white.withAlpha((fadeOut * 230).round()),
-      );
-    }
-
-    // â”€â”€ Impact: expanding shockwave rings â”€â”€
-    if (impactT > 0) {
-      final double impactFade = max(0, 1 - impactT);
-
-      // Ring 1 â€” fast expanding
-      final double ring1Radius = 20 + impactT * 120;
-      canvas.drawCircle(
-        to,
-        ring1Radius,
-        Paint()
-          ..color = color.withAlpha((impactFade * 160).round())
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 3.5 * impactFade
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
-      );
-
-      // Ring 2 â€” slower
-      final double ring2T = ((impactT - 0.08) / 0.92).clamp(0.0, 1.0);
-      if (ring2T > 0) {
-        final double ring2Fade = max(0, 1 - ring2T);
-        final double ring2Radius = 14 + ring2T * 80;
-        canvas.drawCircle(
-          to,
-          ring2Radius,
-          Paint()
-            ..color = color.withAlpha((ring2Fade * 120).round())
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2.5 * ring2Fade,
-        );
-      }
-
-      // Ring 3 â€” slowest, widest
-      final double ring3T = ((impactT - 0.15) / 0.85).clamp(0.0, 1.0);
-      if (ring3T > 0) {
-        final double ring3Fade = max(0, 1 - ring3T);
-        canvas.drawCircle(
-          to,
-          10 + ring3T * 140,
-          Paint()
-            ..color = color.withAlpha((ring3Fade * 60).round())
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2 * ring3Fade
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
-        );
-      }
-
-      // Central fireball glow
-      if (impactT < 0.5) {
-        final double fireT = impactT / 0.5;
-        final double fireFade = 1 - fireT;
-        canvas.drawCircle(
-          to,
-          12 + fireT * 40,
-          Paint()
-            ..color = color.withAlpha((fireFade * 100).round())
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16),
-        );
-        canvas.drawCircle(
-          to,
-          8 + fireT * 20,
-          Paint()
-            ..color = Colors.white.withAlpha((fireFade * 180).round())
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
-        );
-      }
-
-      // Scatter sparks
-      for (int i = 0; i < 6; i++) {
-        final double angle = i * pi / 3 + impactT * 2;
-        final double dist = impactT * 60 + i * 8;
-        final double sparkFade = max(0, 1 - impactT * 1.2);
-        if (sparkFade <= 0) continue;
-        final Offset sparkPos =
-            to + Offset(cos(angle) * dist, sin(angle) * dist);
-        canvas.drawCircle(
-          sparkPos,
-          2.5 + (1 - impactT) * 2,
-          Paint()
-            ..color = color.withAlpha((sparkFade * 200).round())
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
-        );
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ProjectilePainter oldDelegate) {
-    return oldDelegate.progress != progress;
-  }
-}
-
-class _HealEffect extends StatefulWidget {
-  const _HealEffect({super.key, required this.alignment});
-
-  final Alignment alignment;
-
-  @override
-  State<_HealEffect> createState() => _HealEffectState();
-}
-
-class _HealEffectState extends State<_HealEffect>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    )..forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (BuildContext context, Widget? child) {
-        return CustomPaint(
-          size: Size.infinite,
-          painter: _HealEffectPainter(
-            progress: _controller.value,
-            alignment: widget.alignment,
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _HealEffectPainter extends CustomPainter {
-  const _HealEffectPainter({required this.progress, required this.alignment});
-
-  final double progress;
-  final Alignment alignment;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Offset center = Offset(
-      (alignment.x + 1) / 2 * size.width,
-      (alignment.y + 1) / 2 * size.height,
-    );
-    final double fade = max(0, 1 - progress);
-
-    // â”€â”€ Expanding heal rings â”€â”€
-    for (int i = 0; i < 3; i++) {
-      final double ringDelay = i * 0.12;
-      final double ringT = ((progress - ringDelay) / (1 - ringDelay)).clamp(
-        0.0,
-        1.0,
-      );
-      final double ringFade = max(0, 1 - ringT);
-      final double radius = 18 + ringT * (60 + i * 20);
-      canvas.drawCircle(
-        center,
-        radius,
-        Paint()
-          ..color = const Color(0xFF4ADE80).withAlpha((ringFade * 140).round())
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.5 * ringFade
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
-      );
-    }
-
-    // â”€â”€ Central glow â”€â”€
-    if (progress < 0.6) {
-      final double glowT = progress / 0.6;
-      final double glowFade = 1 - glowT;
-      canvas.drawCircle(
-        center,
-        14 + glowT * 30,
-        Paint()
-          ..color = const Color(0xFF22C55E).withAlpha((glowFade * 80).round())
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14),
-      );
-      canvas.drawCircle(
-        center,
-        8 + glowT * 14,
-        Paint()
-          ..color = Colors.white.withAlpha((glowFade * 150).round())
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
-      );
-    }
-
-    // â”€â”€ Rising heal particles â”€â”€
-    for (int i = 0; i < 8; i++) {
-      final double pDelay = i * 0.06;
-      final double pT = ((progress - pDelay) / (1 - pDelay)).clamp(0.0, 1.0);
-      if (pT <= 0) continue;
-      final double pFade = max(0, 1 - pT);
-      final double angle = i * pi / 4;
-      final double dist = 14 + pT * 50;
-      final Offset pos =
-          center +
-          Offset(cos(angle) * dist * 0.6, -pT * 55 + sin(angle) * dist * 0.3);
-      canvas.drawCircle(
-        pos,
-        3 + (1 - pT) * 3,
-        Paint()
-          ..color = const Color(0xFF4ADE80).withAlpha((pFade * 200).round())
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
-      );
-    }
-
-    // â”€â”€ + symbol â”€â”€
-    if (fade > 0.3) {
-      final double symbolFade = ((fade - 0.3) / 0.7).clamp(0.0, 1.0);
-      final double symbolScale =
-          0.5 + Curves.easeOutBack.transform(min(1, progress * 2)) * 0.7;
-      canvas.save();
-      canvas.translate(center.dx, center.dy);
-      canvas.scale(symbolScale);
-      final Paint plusPaint = Paint()
-        ..color = const Color(0xFF4ADE80).withAlpha((symbolFade * 230).round())
-        ..strokeWidth = 4
-        ..strokeCap = StrokeCap.round;
-      canvas.drawLine(const Offset(-14, 0), const Offset(14, 0), plusPaint);
-      canvas.drawLine(const Offset(0, -14), const Offset(0, 14), plusPaint);
-      canvas.restore();
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _HealEffectPainter oldDelegate) {
-    return oldDelegate.progress != progress;
-  }
-}
-
-class _TowerNode extends StatelessWidget {
-  const _TowerNode({
-    required this.alignment,
-    required this.imageAsset,
-    required this.destroyedAsset,
-    required this.hpValue,
-    required this.hpProgress,
-    required this.mainTower,
-    required this.destroyed,
-  });
-
-  final Alignment alignment;
-  final String imageAsset;
-  final String destroyedAsset;
-  final int hpValue;
-  final double hpProgress;
-  final bool mainTower;
-  final bool destroyed;
-
-  @override
-  Widget build(BuildContext context) {
-    final double towerImageSize = mainTower ? 108 : 80;
-    final double padWidth = mainTower ? 118 : 88;
-    final double padHeight = mainTower ? 112 : 86;
-    final Color hpColor = hpProgress <= 0.32
-        ? const Color(0xFFEF4444)
-        : hpProgress <= 0.64
-        ? const Color(0xFFFFD23F)
-        : const Color(0xFF25C67A);
-    final bool isEnemy = alignment.y < 0;
-    final Color teamColor = isEnemy
-        ? const Color(0xFFFF4444)
-        : const Color(0xFF4488FF);
-
-    return Align(
-      alignment: alignment,
-      child: SizedBox(
-        width: padWidth,
-        height: padHeight,
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.center,
-          children: <Widget>[
-            // Stone platform base (integrated with tower for perfect alignment)
-            Positioned(
-              bottom: -4,
-              child: Container(
-                width: mainTower ? 108 : 80,
-                height: mainTower ? 48 : 36,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(7),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: <Color>[
-                      Color(0xFFBEA882),
-                      Color(0xFF9E8A68),
-                      Color(0xFF7A6A4E),
-                    ],
-                  ),
-                  border: Border.all(
-                    color: const Color(0xFF5C4E38),
-                    width: 1.5,
-                  ),
-                  boxShadow: <BoxShadow>[
-                    BoxShadow(
-                      color: Colors.black.withAlpha(80),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                    BoxShadow(
-                      color: teamColor.withAlpha(destroyed ? 8 : 30),
-                      blurRadius: 14,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: CustomPaint(
-                    painter: _StonePadGridPainter(),
-                  ),
-                ),
-              ),
-            ),
-            // Ground shadow ellipse
-            Positioned(
-              bottom: -8,
-              child: Container(
-                width: mainTower ? 90 : 66,
-                height: mainTower ? 14 : 10,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  gradient: RadialGradient(
-                    colors: <Color>[
-                      Colors.black.withAlpha(50),
-                      Colors.black.withAlpha(0),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // Tower image
-            Center(
-              child: SizedBox(
-                width: towerImageSize,
-                height: towerImageSize,
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 260),
-                  transitionBuilder:
-                      (Widget child, Animation<double> animation) {
-                        return ScaleTransition(
-                          scale: Tween<double>(begin: 0.86, end: 1)
-                              .animate(
-                                CurvedAnimation(
-                                  parent: animation,
-                                  curve: Curves.easeOutBack,
-                                ),
-                              ),
-                          child: FadeTransition(
-                            opacity: animation,
-                            child: child,
-                          ),
-                        );
-                      },
-                  child: Opacity(
-                    key: ValueKey<String>(
-                      destroyed ? destroyedAsset : imageAsset,
-                    ),
-                    opacity: destroyed ? 0.72 : 1,
-                    child: Image.asset(
-                      destroyed ? destroyedAsset : imageAsset,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.low,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            // HP bar (positioned below the tower image area)
-            Positioned(
-              top: padHeight + 2,
-              left: 0,
-              right: 0,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Stack(
-                    alignment: Alignment.center,
-                    children: <Widget>[
-                      if (hpProgress <= 0.32 && !destroyed)
-                        Container(
-                          width: mainTower ? 82 : 62,
-                          height: 11,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(999),
-                            boxShadow: <BoxShadow>[
-                              BoxShadow(
-                                color: hpColor.withAlpha(100),
-                                blurRadius: 8,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(999),
-                        child: Container(
-                          width: mainTower ? 76 : 56,
-                          height: 7,
-                          decoration: BoxDecoration(
-                            color: Colors.black.withAlpha(150),
-                            border: Border.all(color: Colors.white.withAlpha(28)),
-                          ),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: FractionallySizedBox(
-                              widthFactor: hpProgress.clamp(0.0, 1.0).toDouble(),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: <Color>[
-                                      hpColor,
-                                      hpColor.withAlpha(200),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    '$hpValue',
-                    style: GoogleFonts.nunito(
-                      color: Colors.white.withAlpha(235),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      shadows: <Shadow>[
-                        Shadow(color: Colors.black.withAlpha(220), blurRadius: 4),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Painter for the stone grid pattern on tower platforms.
-class _StonePadGridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Paint gridPaint = Paint()
-      ..color = Colors.black.withAlpha(22)
-      ..strokeWidth = 0.8;
-    for (double x = 0; x < size.width; x += 14) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-    for (double y = 0; y < size.height; y += 14) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-    // Subtle highlight on top edge
-    canvas.drawLine(
-      Offset.zero,
-      Offset(size.width, 0),
-      Paint()..color = Colors.white.withAlpha(30)..strokeWidth = 1,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _BattlefieldPainter extends CustomPainter {
-  _BattlefieldPainter({
-    required this.controller,
-    required this.mode,
-  }) : super(repaint: controller);
-
-  final Animation<double> controller;
-  final BattleMode mode;
-
-  static final Paint _tileAPaint = Paint()..color = Colors.white.withAlpha(10);
-  static final Paint _tileBPaint = Paint()..color = Colors.black.withAlpha(8);
-  static final Paint _stripePaint = Paint()..color = Colors.black.withAlpha(6);
-  static final Paint _laneShadowPaint = Paint()..color = Colors.black.withAlpha(28);
-  static final Paint _laneHighlightPaint = Paint()..color = Colors.white.withAlpha(14);
-  static final Paint _cobblePaint = Paint()..color = Colors.black.withAlpha(12);
-  static final Paint _crossEdgePaint = Paint()..color = Colors.black.withAlpha(24);
-  static final Paint _riverShadowPaint = Paint()..color = Colors.black.withAlpha(35);
-  static final Paint _shoreGlowPaint = Paint()
-    ..color = const Color(0xFF60E8FF).withAlpha(20)
-    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-  static final Paint _shorePaint = Paint()
-    ..color = Colors.white.withAlpha(44)
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = 2;
-  static final Paint _foamPaint = Paint()..color = Colors.white.withAlpha(60);
-  static final Paint _bridgeShadowPaint = Paint()..color = Colors.black.withAlpha(45);
-  static final Paint _bridgeBasePaint = Paint()..color = const Color(0xFF5A3E12);
-  static final Paint _plankAPaint = Paint()..color = const Color(0xFF8B6914);
-  static final Paint _plankBPaint = Paint()..color = const Color(0xFF6E5410);
-  static final Paint _plankGapPaint = Paint()..color = const Color(0xFF3E2A0A);
-  static final Paint _railPaint = Paint()..color = const Color(0xFF4E3510);
-  static final Paint _postPaint = Paint()..color = const Color(0xFF8B6914);
-  static final Paint _innerPostPaint = Paint()..color = const Color(0xFFAA8420);
-  static final Paint _torchPolePaint = Paint()..color = const Color(0xFF6B4520);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final double w = size.width;
-    final double h = size.height;
-    final Rect bounds = Offset.zero & size;
-    final double time = controller.value;
-    final double tick = time * pi * 2;
-    final double riverOff = time * 80;
-
-    // ══════════════════════════════════════════
-    // 1. GRASS – rich multi-tone base
-    // ══════════════════════════════════════════
-    canvas.drawRect(
-      bounds,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: <Color>[
-            Color(0xFF3D8526),
-            Color(0xFF4B9B35),
-            Color(0xFF479432),
-            Color(0xFF3A7E24),
-          ],
-          stops: <double>[0, 0.35, 0.65, 1],
-        ).createShader(bounds),
-    );
-
-    canvas.save();
-    canvas.translate(0, -h * _arenaVerticalLiftFraction);
-
-    // Checker grass tiles
-    const double tile = 26;
-    final Paint tileA = _tileAPaint;
-    final Paint tileB = _tileBPaint;
-    for (double x = 0; x < w; x += tile) {
-      for (double y = 0; y < h; y += tile) {
-        final bool even = ((x / tile).floor() + (y / tile).floor()).isEven;
-        canvas.drawRect(Rect.fromLTWH(x, y, tile, tile), even ? tileA : tileB);
-      }
-    }
-
-    // Subtle grass stripe rows for depth
-    for (double y = 0; y < h; y += 52) {
-      canvas.drawRect(
-        Rect.fromLTWH(0, y, w, 3),
-        _stripePaint,
-      );
-    }
-
-    // Cloud shadows
-    _drawCloudShadow(canvas, size, 0.04, 0.18, 0.44, 0.09, 0.07, time);
-    _drawCloudShadow(canvas, size, 0.52, 0.08, 0.36, 0.07, 0.05, time + 0.3);
-    _drawCloudShadow(canvas, size, 0.26, 0.72, 0.50, 0.10, 0.06, time + 0.6);
-
-    // ══════════════════════════════════════════
-    // 2. LANES – cobblestone paths
-    // ══════════════════════════════════════════
-    final double laneW = (w * 0.22).clamp(92.0, 110.0).toDouble();
-    final double midY = h * 0.46;
-    const double crossH = 68;
-
-    // Vertical main lane
-    final Rect vLane = Rect.fromCenter(
-      center: Offset(w / 2, h / 2),
-      width: laneW,
-      height: h,
-    );
-    canvas.drawRect(
-      vLane,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: const <Color>[
-            Color(0xFFA88C56),
-            Color(0xFFC4A866),
-            Color(0xFFC4A866),
-            Color(0xFFA88C56),
-          ],
-        ).createShader(vLane),
-    );
-
-    // Lane edge shadows
-    canvas.drawRect(
-      Rect.fromLTWH(w / 2 - laneW / 2, 0, 4, h),
-      _laneShadowPaint,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(w / 2 + laneW / 2 - 4, 0, 4, h),
-      _laneShadowPaint,
-    );
-    // Lane edge highlight (inner)
-    canvas.drawRect(
-      Rect.fromLTWH(w / 2 - laneW / 2 + 4, 0, 2, h),
-      _laneHighlightPaint,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(w / 2 + laneW / 2 - 6, 0, 2, h),
-      _laneHighlightPaint,
-    );
-
-    // Cobblestone pattern on vertical lane
-    final Paint cobble = _cobblePaint;
-    for (double y = 0; y < h; y += 14) {
-      final double xOff = ((y / 14).floor().isEven) ? 7 : 0;
-      for (double x = vLane.left + xOff; x < vLane.right - 2; x += 14) {
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromLTWH(x + 1, y + 1, 12, 12),
-            const Radius.circular(2),
-          ),
-          cobble,
-        );
-      }
-    }
-
-    // Horizontal cross lane
-    final Rect hLane = Rect.fromCenter(
-      center: Offset(w / 2, midY),
-      width: w,
-      height: crossH,
-    );
-    canvas.drawRect(
-      hLane,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: const <Color>[
-            Color(0xFFA88C56),
-            Color(0xFFC4A866),
-            Color(0xFFC4A866),
-            Color(0xFFA88C56),
-          ],
-        ).createShader(hLane),
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(0, midY - crossH / 2, w, 4),
-      _crossEdgePaint,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(0, midY + crossH / 2 - 4, w, 4),
-      _crossEdgePaint,
-    );
-
-    // Cobblestone on horizontal lane
-    for (double y = hLane.top; y < hLane.bottom - 2; y += 14) {
-      final double xOff = ((y / 14).floor().isEven) ? 7 : 0;
-      for (double x = xOff; x < w - 2; x += 14) {
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromLTWH(x + 1, y + 1, 12, 12),
-            const Radius.circular(2),
-          ),
-          cobble,
-        );
-      }
-    }
-
-    // ══════════════════════════════════════════
-    // 3. KING TOWER ZONE highlights
-    // ══════════════════════════════════════════
-    _drawKingZone(canvas, size, 0.5, 0.19, true);
-    _drawKingZone(canvas, size, 0.5, 0.72, false);
-
-    // ══════════════════════════════════════════
-    // 4. RIVER
-    // ══════════════════════════════════════════
-    final double rivH = (h * 0.11).clamp(54.0, 78.0).toDouble();
-
-    // River body path with wave edges
-    final Path riverPath = Path();
-    riverPath.moveTo(0, midY - rivH / 2);
-    for (double x = 0; x <= w; x += 4) {
-      riverPath.lineTo(
-        x,
-        midY - rivH / 2 + sin((x + riverOff) * 0.06) * 4,
-      );
-    }
-    riverPath.lineTo(w, midY + rivH / 2);
-    for (double x = w; x >= 0; x -= 4) {
-      riverPath.lineTo(
-        x,
-        midY + rivH / 2 + sin((x + riverOff * 0.7) * 0.08) * 3,
-      );
-    }
-    riverPath.close();
-
-    // River shadow
-    canvas.drawPath(
-      riverPath.shift(const Offset(0, 3)),
-      _riverShadowPaint,
-    );
-
-    // River gradient fill
-    final Rect riverRect = Rect.fromCenter(
-      center: Offset(w / 2, midY),
-      width: w,
-      height: rivH + 20,
-    );
-    canvas.drawPath(
-      riverPath,
-      Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: <Color>[
-            Color(0xFF0097B8),
-            Color(0xFF10CCE8),
-            Color(0xFF30E8FF),
-            Color(0xFF10CCE8),
-            Color(0xFF0097B8),
-          ],
-          stops: <double>[0, 0.2, 0.5, 0.8, 1],
-        ).createShader(riverRect),
-    );
-
-    // River surface highlights – moving horizontal streaks
-    for (int i = 0; i < 8; i++) {
-      final double sx = ((i * w / 7 + riverOff * 2.5) % (w + 60)) - 30;
-      final double sy = midY + sin(i * 1.7 + tick) * (rivH * 0.22);
-      final double sw = 28 + sin(i * 2.1) * 10;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(center: Offset(sx, sy), width: sw, height: 2.5),
-          const Radius.circular(2),
-        ),
-        Paint()
-          ..color = Colors.white.withAlpha(
-            (40 + sin(tick * 3 + i) * 18).round().clamp(0, 90),
-          ),
-      );
-    }
-
-    // Foam splashes
-    final Paint foamPaint = _foamPaint;
-    for (int i = 0; i < 5; i++) {
-      final double cx = ((i * 90 + riverOff * 3.5) % (w + 60)) - 30;
-      final double cy = midY + sin(i * 1.3) * (rivH * 0.18);
-      final double p = 0.72 + sin(tick * 3 + i) * 0.16;
-      canvas.save();
-      canvas.translate(cx, cy);
-      canvas.rotate(-0.18);
-      canvas.scale(p);
-      canvas.drawOval(
-        Rect.fromCenter(center: Offset.zero, width: 36, height: 8),
-        foamPaint,
-      );
-      canvas.restore();
-    }
-
-    // Shore edges
-    final Paint shore = _shorePaint;
-    Path edge = Path()..moveTo(0, midY - rivH / 2);
-    for (double x = 0; x <= w; x += 3) {
-      edge.lineTo(x, midY - rivH / 2 + sin((x + riverOff) * 0.06) * 4);
-    }
-    canvas.drawPath(edge, shore);
-    edge = Path()..moveTo(0, midY + rivH / 2);
-    for (double x = 0; x <= w; x += 3) {
-      edge.lineTo(
-        x,
-        midY + rivH / 2 + sin((x + riverOff * 0.7) * 0.08) * 3,
-      );
-    }
-    canvas.drawPath(edge, shore);
-
-    // Shore glow (grass-water border light)
-    final Paint shoreGlow = _shoreGlowPaint;
-    canvas.drawRect(
-      Rect.fromLTWH(0, midY - rivH / 2 - 6, w, 8),
-      shoreGlow,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(0, midY + rivH / 2 - 2, w, 8),
-      shoreGlow,
-    );
-
-    // ══════════════════════════════════════════
-    // 5. WOODEN BRIDGE
-    // ══════════════════════════════════════════
-    _drawWoodenBridge(canvas, w / 2, midY, laneW, rivH, tick);
-
-    // ══════════════════════════════════════════
-    // 6. TORCHES
-    // ══════════════════════════════════════════
-    final double flicker = 0.86 + 0.14 * sin(tick * 12 + 1);
-    _drawTorch(canvas, 10, midY - rivH / 2 - 32, flicker);
-    _drawTorch(canvas, 10, midY + rivH / 2 + 32, flicker * 0.92);
-    _drawTorch(canvas, w - 10, midY - rivH / 2 - 32, flicker * 0.96);
-    _drawTorch(canvas, w - 10, midY + rivH / 2 + 32, flicker);
-
-    // ══════════════════════════════════════════
-    // 7. DECORATIONS
-    // ══════════════════════════════════════════
-    _drawSideTrees(canvas, size, time);
-    _drawBushes(canvas, size, time);
-
-    // ══════════════════════════════════════════
-    // 8. AMBIENT SPARKS
-    // ══════════════════════════════════════════
-    _drawAmbientSpark(canvas, size, 0.18, 0.82, time, const Color(0xFF7DD3FC));
-    _drawAmbientSpark(
-      canvas, size, 0.82, 0.23, time + 0.35, const Color(0xFFFCD34D),
-    );
-    _drawAmbientSpark(
-      canvas, size, 0.52, 0.50, time + 0.62, const Color(0xFF86EFAC),
-    );
-    _drawAmbientSpark(
-      canvas, size, 0.30, 0.12, time + 0.15, const Color(0xFFFCA5A5),
-    );
-    _drawAmbientSpark(
-      canvas, size, 0.72, 0.88, time + 0.78, const Color(0xFFA5B4FC),
-    );
-
-    canvas.restore();
-
-    if (mode == BattleMode.online) {
-      _drawModeBadge(canvas, size);
-    }
-  }
-
-  // ──────────────────────────────────────────
-  // Helper painters
-  // ──────────────────────────────────────────
-
-  void _drawCloudShadow(
-    Canvas canvas,
-    Size size,
-    double xRatio,
-    double yRatio,
-    double wRatio,
-    double hRatio,
-    double alpha,
-    double phase,
-  ) {
-    final double cw = size.width * wRatio;
-    final double ch = size.height * hRatio;
-    final double x =
-        ((size.width * xRatio + phase * 38) % (size.width + cw)) - cw;
-    final double y = size.height * yRatio;
-    final Rect rect = Rect.fromCenter(
-      center: Offset(x + cw / 2, y + ch / 2),
-      width: cw,
-      height: ch,
-    );
-    canvas.drawOval(
-      rect,
-      Paint()
-        ..shader = RadialGradient(
-          colors: <Color>[
-            Colors.black.withAlpha((alpha * 255).round()),
-            Colors.transparent,
-          ],
-        ).createShader(rect),
-    );
-  }
-
-  void _drawKingZone(
-    Canvas canvas,
-    Size size,
-    double xR,
-    double yR,
-    bool isEnemy,
-  ) {
-    final Offset c = Offset(size.width * xR, size.height * yR);
-    final Color zone =
-        isEnemy ? const Color(0xFFBB3333) : const Color(0xFF3366BB);
-    canvas.drawOval(
-      Rect.fromCenter(center: c, width: 140, height: 80),
-      Paint()
-        ..color = zone.withAlpha(14)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 22),
-    );
-  }
-
-  void _drawWoodenBridge(
-    Canvas canvas,
-    double cx,
-    double cy,
-    double laneW,
-    double rivH,
-    double tick,
-  ) {
-    final double bw = laneW + 10;
-    final double bh = rivH + 16;
-
-    // Shadow
+    final Paint paint = Paint()..isAntiAlias = true;
+    final double riverHeight = (size.height * 0.13).clamp(42, 58);
+    final double riverTop = (size.height - riverHeight) / 2;
+
+    paint.color = const Color(0xFF82D279);
+    canvas.drawRect(Offset.zero & size, paint);
+
+    paint
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..color = Colors.white.withAlpha(42);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(cx, cy + 4), width: bw, height: bh),
-        const Radius.circular(4),
+        Rect.fromLTWH(7, 7, size.width - 14, size.height - 14),
+        const Radius.circular(20),
       ),
-      _bridgeShadowPaint,
-    );
-
-    // Base
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(cx, cy), width: bw, height: bh),
-        const Radius.circular(3),
-      ),
-      _bridgeBasePaint,
-    );
-
-    // Planks
-    final double pTop = cy - bh / 2 + 3;
-    final double pBot = cy + bh / 2 - 3;
-    final Paint plankA = _plankAPaint;
-    final Paint plankB = _plankBPaint;
-    int idx = 0;
-    for (double y = pTop; y < pBot; y += 7) {
-      canvas.drawRect(
-        Rect.fromLTWH(cx - bw / 2 + 4, y, bw - 8, 5),
-        idx.isEven ? plankA : plankB,
-      );
-      // Plank gap
-      canvas.drawRect(
-        Rect.fromLTWH(cx - bw / 2 + 4, y + 5, bw - 8, 1.5),
-        _plankGapPaint,
-      );
-      idx++;
-    }
-
-    // Side rails
-    final Paint railPaint = _railPaint;
-    canvas.drawRect(
-      Rect.fromLTWH(cx - bw / 2, cy - bh / 2, 4, bh),
-      railPaint,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(cx + bw / 2 - 4, cy - bh / 2, 4, bh),
-      railPaint,
-    );
-
-    // Rail posts with lanterns
-    final Paint postPaint = _postPaint;
-    for (final double yOff in <double>[-bh / 2 + 3, 0, bh / 2 - 3]) {
-      for (final double side in <double>[-1, 1]) {
-        canvas.drawCircle(
-          Offset(cx + side * bw / 2, cy + yOff),
-          4.5,
-          postPaint,
-        );
-        canvas.drawCircle(
-          Offset(cx + side * bw / 2, cy + yOff),
-          2.5,
-          _innerPostPaint,
-        );
-      }
-    }
-
-    // Lantern glow on top posts
-    final double glow = 1 + 0.12 * sin(tick * 2.5);
-    for (final double side in <double>[-1, 1]) {
-      canvas.drawCircle(
-        Offset(cx + side * bw / 2, cy - bh / 2 + 3),
-        7 * glow,
-        Paint()
-          ..color = const Color(0xFFFFAA00).withAlpha(55)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
-      );
-      canvas.drawCircle(
-        Offset(cx + side * bw / 2, cy - bh / 2 + 3),
-        3 * glow,
-        Paint()..color = const Color(0xFFFFCC44).withAlpha(160),
-      );
-    }
-  }
-
-  void _drawTorch(Canvas canvas, double x, double y, double flicker) {
-    // Torch pole
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(x, y + 10), width: 3, height: 14),
-        const Radius.circular(1.5),
-      ),
-      _torchPolePaint,
-    );
-    // Flame glow
-    canvas.drawCircle(
-      Offset(x, y),
-      18 * flicker,
-      Paint()
-        ..color = const Color(0xFFFFAA00).withAlpha(40)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
-    );
-    // Flame core
-    canvas.drawCircle(
-      Offset(x, y),
-      5 * flicker,
-      Paint()..color = const Color(0xFFFFBB22).withAlpha(230),
-    );
-    canvas.drawCircle(
-      Offset(x, y - 2),
-      3 * flicker,
-      Paint()..color = const Color(0xFFFFF4CC).withAlpha(200),
-    );
-  }
-
-  void _drawAmbientSpark(
-    Canvas canvas,
-    Size size,
-    double xRatio,
-    double yRatio,
-    double phase,
-    Color color,
-  ) {
-    final double progress = phase % 1;
-    final Offset center = Offset(
-      size.width * xRatio + sin(progress * pi * 2) * 12,
-      size.height * yRatio - progress * 54,
-    );
-    final Paint paint = Paint()
-      ..color = color.withAlpha(((1 - progress) * 110).round())
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
-    canvas.drawCircle(center, 3 + progress * 2, paint);
-  }
-
-  void _drawSideTrees(Canvas canvas, Size size, double time) {
-    final List<({double x, double y, double scale, Color dark, Color mid})>
-        trees =
-        <({double x, double y, double scale, Color dark, Color mid})>[
-      (
-        x: 0.02,
-        y: 0.14,
-        scale: 0.9,
-        dark: const Color(0xFF14532D),
-        mid: const Color(0xFF2F8D3A),
-      ),
-      (
-        x: 0.02,
-        y: 0.36,
-        scale: 0.82,
-        dark: const Color(0xFF166534),
-        mid: const Color(0xFF3CA44A),
-      ),
-      (
-        x: 0.02,
-        y: 0.78,
-        scale: 0.94,
-        dark: const Color(0xFF14532D),
-        mid: const Color(0xFF2F8D3A),
-      ),
-      (
-        x: 0.98,
-        y: 0.14,
-        scale: 0.84,
-        dark: const Color(0xFF14532D),
-        mid: const Color(0xFF35A047),
-      ),
-      (
-        x: 0.98,
-        y: 0.38,
-        scale: 0.96,
-        dark: const Color(0xFF166534),
-        mid: const Color(0xFF3CA44A),
-      ),
-      (
-        x: 0.98,
-        y: 0.78,
-        scale: 0.88,
-        dark: const Color(0xFF14532D),
-        mid: const Color(0xFF2F8D3A),
-      ),
-    ];
-
-    for (int i = 0; i < trees.length; i++) {
-      final tree = trees[i];
-      final double sway = sin(time * pi * 2 + i * 1.4) * 2;
-      final Offset base = Offset(size.width * tree.x, size.height * tree.y);
-      canvas.save();
-      canvas.translate(base.dx, base.dy);
-      canvas.scale(tree.scale);
-
-      // Trunk shadow
-      canvas.drawOval(
-        Rect.fromCenter(center: const Offset(0, 22), width: 18, height: 6),
-        Paint()..color = Colors.black.withAlpha(20),
-      );
-      // Trunk
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          const Rect.fromLTWH(-3, 2, 6, 20),
-          const Radius.circular(2),
-        ),
-        Paint()..color = const Color(0xFF6B3F1D),
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          const Rect.fromLTWH(-1, 4, 2, 16),
-          const Radius.circular(1),
-        ),
-        Paint()..color = const Color(0xFF7D4E26),
-      );
-
-      canvas.translate(sway, 0);
-      // Foliage layers
-      canvas.drawCircle(Offset.zero, 14, Paint()..color = tree.dark);
-      canvas.drawCircle(
-        const Offset(-4, -3),
-        10,
-        Paint()..color = tree.mid,
-      );
-      canvas.drawCircle(
-        const Offset(4, -6),
-        9,
-        Paint()..color = tree.mid,
-      );
-      canvas.drawCircle(
-        const Offset(0, -10),
-        8,
-        Paint()..color = const Color(0xFF4FBB50),
-      );
-      canvas.drawCircle(
-        const Offset(0, -16),
-        6,
-        Paint()..color = const Color(0xFF62D462),
-      );
-      // Light dapple
-      canvas.drawCircle(
-        const Offset(-3, -8),
-        3,
-        Paint()..color = Colors.white.withAlpha(16),
-      );
-
-      canvas.restore();
-    }
-  }
-
-  void _drawBushes(Canvas canvas, Size size, double time) {
-    const List<(double, double, double)> bushData = <(double, double, double)>[
-      (0.07, 0.56, 0.85),
-      (0.93, 0.56, 0.75),
-      (0.07, 0.28, 0.7),
-      (0.93, 0.28, 0.8),
-      (0.04, 0.92, 0.65),
-      (0.96, 0.08, 0.6),
-      (0.04, 0.64, 0.55),
-      (0.96, 0.64, 0.6),
-    ];
-
-    for (int i = 0; i < bushData.length; i++) {
-      final (double bx, double by, double bs) = bushData[i];
-      final Offset center = Offset(size.width * bx, size.height * by);
-      final double sway = sin(time * pi * 2 + i * 1.2) * 1.0;
-
-      canvas.save();
-      canvas.translate(center.dx + sway, center.dy);
-      canvas.scale(bs);
-
-      // Shadow
-      canvas.drawOval(
-        Rect.fromCenter(center: const Offset(0, 7), width: 18, height: 5),
-        Paint()..color = Colors.black.withAlpha(16),
-      );
-      // Bush body
-      canvas.drawCircle(
-        Offset.zero,
-        7,
-        Paint()..color = const Color(0xFF2D7A2D),
-      );
-      canvas.drawCircle(
-        const Offset(-4, -1),
-        5,
-        Paint()..color = const Color(0xFF35912A),
-      );
-      canvas.drawCircle(
-        const Offset(4, -1),
-        5,
-        Paint()..color = const Color(0xFF35912A),
-      );
-      canvas.drawCircle(
-        const Offset(0, -4),
-        4,
-        Paint()..color = const Color(0xFF4AAA3A),
-      );
-      // Highlight
-      canvas.drawCircle(
-        const Offset(-2, -3),
-        2,
-        Paint()..color = Colors.white.withAlpha(14),
-      );
-
-      canvas.restore();
-    }
-  }
-
-  void _drawModeBadge(Canvas canvas, Size size) {
-    final Rect rect = Rect.fromCenter(
-      center: Offset(size.width / 2, 14),
-      width: 78,
-      height: 18,
-    );
-    final Paint paint = Paint()..color = const Color(0xAA9333EA);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, const Radius.circular(10)),
       paint,
     );
-    final ui.ParagraphBuilder builder =
-        ui.ParagraphBuilder(
-            ui.ParagraphStyle(textAlign: TextAlign.center, fontSize: 10),
-          )
-          ..pushStyle(
-            ui.TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
-          )
-          ..addText('VS PLAYER');
-    final ui.Paragraph paragraph = builder.build()
-      ..layout(ui.ParagraphConstraints(width: rect.width));
-    canvas.drawParagraph(
-      paragraph,
-      Offset(rect.left, rect.top + (rect.height - paragraph.height) / 2),
+
+    paint.style = PaintingStyle.fill;
+    paint.color = const Color(0x2071B96A);
+    for (final double xFactor in <double>[0.23, 0.77]) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: Offset(size.width * xFactor, size.height / 2),
+            width: (size.width * 0.18).clamp(48, 72),
+            height: size.height * 0.82,
+          ),
+          const Radius.circular(28),
+        ),
+        paint,
+      );
+    }
+
+    paint.color = const Color(0x222878F0);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          10,
+          size.height * 0.56,
+          size.width - 20,
+          size.height * 0.39,
+        ),
+        const Radius.circular(26),
+      ),
+      paint,
+    );
+    paint.color = const Color(0x22F05E5E);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          10,
+          size.height * 0.05,
+          size.width - 20,
+          size.height * 0.39,
+        ),
+        const Radius.circular(26),
+      ),
+      paint,
+    );
+
+    for (final double xFactor in <double>[0.23, 0.77]) {
+      for (final double yFactor in <double>[0.30, 0.39, 0.61, 0.70]) {
+        final Rect stone = Rect.fromCenter(
+          center: Offset(size.width * xFactor, size.height * yFactor),
+          width: (size.width * 0.075).clamp(22, 31),
+          height: 9,
+        );
+        paint.color = const Color(0x28723934);
+        canvas.drawOval(stone.shift(const Offset(0, 3)), paint);
+        paint.color = const Color(0xFFFFE6B7);
+        canvas.drawOval(stone, paint);
+      }
+    }
+
+    paint.color = const Color(0xFF5FAF68);
+    canvas.drawRect(Rect.fromLTWH(0, riverTop - 5, size.width, 5), paint);
+    canvas.drawRect(
+      Rect.fromLTWH(0, riverTop + riverHeight, size.width, 5),
+      paint,
+    );
+
+    paint.color = const Color(0xFF72C8F1);
+    canvas.drawRect(Rect.fromLTWH(0, riverTop, size.width, riverHeight), paint);
+    paint.color = Colors.white.withAlpha(75);
+    canvas.drawRect(Rect.fromLTWH(0, riverTop + 5, size.width, 3), paint);
+    canvas.drawRect(
+      Rect.fromLTWH(0, riverTop + riverHeight - 8, size.width, 3),
+      paint,
+    );
+
+    final Rect bridgeRect = Rect.fromCenter(
+      center: Offset(size.width / 2, size.height / 2),
+      width: (size.width * 0.34).clamp(104, 136),
+      height: riverHeight + 14,
+    );
+    paint.color = const Color(0x330D2A52);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        bridgeRect.shift(const Offset(0, 5)),
+        const Radius.circular(14),
+      ),
+      paint,
+    );
+    paint.color = const Color(0xFFFFE0A4);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bridgeRect, const Radius.circular(14)),
+      paint,
+    );
+    paint.color = const Color(0xFFD8A85A);
+    paint.strokeWidth = 2;
+    for (int index = 1; index < 4; index++) {
+      final double x = bridgeRect.left + bridgeRect.width * index / 4;
+      canvas.drawLine(
+        Offset(x, bridgeRect.top + 5),
+        Offset(x, bridgeRect.bottom - 5),
+        paint,
+      );
+    }
+
+    paint.style = PaintingStyle.fill;
+    for (int index = 0; index < 5; index++) {
+      final double y = size.height * (0.10 + index * 0.20);
+      final Rect leftStone = Rect.fromCenter(
+        center: Offset(5, y),
+        width: 24,
+        height: (size.height * 0.055).clamp(22, 31),
+      );
+      final Rect rightStone = Rect.fromCenter(
+        center: Offset(size.width - 5, y),
+        width: 24,
+        height: (size.height * 0.055).clamp(22, 31),
+      );
+      paint.color = const Color(0x33723934);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          leftStone.shift(const Offset(0, 3)),
+          const Radius.circular(8),
+        ),
+        paint,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          rightStone.shift(const Offset(0, 3)),
+          const Radius.circular(8),
+        ),
+        paint,
+      );
+      paint.color = const Color(0xFFFFD89A);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(leftStone, const Radius.circular(8)),
+        paint,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rightStone, const Radius.circular(8)),
+        paint,
+      );
+    }
+
+    paint.style = PaintingStyle.stroke;
+    paint.strokeWidth = 3;
+    paint.color = Colors.white.withAlpha(45);
+    canvas.drawLine(
+      Offset(size.width * 0.17, size.height * 0.12),
+      Offset(size.width * 0.17, riverTop - 8),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.83, size.height * 0.12),
+      Offset(size.width * 0.83, riverTop - 8),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.17, riverTop + riverHeight + 8),
+      Offset(size.width * 0.17, size.height * 0.88),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.83, riverTop + riverHeight + 8),
+      Offset(size.width * 0.83, size.height * 0.88),
+      paint,
     );
   }
 
   @override
-  bool shouldRepaint(covariant _BattlefieldPainter oldDelegate) {
-    return oldDelegate.mode != mode || oldDelegate.controller != controller;
+  bool shouldRepaint(covariant _ClayArenaPainter oldDelegate) => false;
+}
+
+Color _arenaCategoryColor(String category, QuestionEffect effect) {
+  if (effect == QuestionEffect.heal) {
+    return const Color(0xFF47CFA0);
   }
+  return switch (category.trim().toLowerCase()) {
+    'verbal' => const Color(0xFF8B6FE8),
+    'logika' => const Color(0xFFFF9F43),
+    _ => const Color(0xFF2878F0),
+  };
+}
+
+String _arenaCategoryLabel(String category) {
+  return switch (category.trim().toLowerCase()) {
+    'tiu' || 'numerik' => 'Numerik',
+    'verbal' => 'Verbal',
+    'logika' => 'Logika',
+    'twk' => 'TWK',
+    _ => 'Soal',
+  };
+}
+
+String _arenaCardAsset(String category, QuestionEffect effect) {
+  if (effect == QuestionEffect.heal) {
+    return _twkCardAsset;
+  }
+  return switch (category.trim().toLowerCase()) {
+    'verbal' => _verbalCardAsset,
+    'logika' => _logikaCardAsset,
+    _ => _numerikCardAsset,
+  };
+}
+
+Color _battleEffectColor(BattleVisualEffect effect, String category) {
+  return switch (effect) {
+    BattleVisualEffect.heal => const Color(0xFF47CFA0),
+    BattleVisualEffect.wizard => const Color(0xFF8B6FE8),
+    BattleVisualEffect.robot => const Color(0xFFFF9F43),
+    BattleVisualEffect.cannon => _arenaCategoryColor(
+      category,
+      QuestionEffect.damage,
+    ),
+  };
 }

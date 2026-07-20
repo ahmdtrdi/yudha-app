@@ -82,6 +82,14 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
     }
 
     if (!didSignUp) {
+      final String message =
+          authState.errorMessage ??
+          'Pendaftaran belum berhasil. Periksa kembali data yang kamu isi.';
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+        );
       return;
     }
 

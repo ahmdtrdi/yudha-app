@@ -13,53 +13,78 @@ class _ArenaEntrySection extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final bool compact = constraints.maxHeight < 700;
-        return SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                SizedBox(
-                  height: compact ? 220 : 260,
-                  child: _ArenaPreview(playerName: playerDisplayName),
+        final bool compact = constraints.maxHeight < 650;
+        final String trimmedName = playerDisplayName.trim();
+        final String firstName = trimmedName.isEmpty
+            ? 'Kamu'
+            : trimmedName.split(RegExp(r'\s+')).first;
+
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF8EC),
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              compact ? 14 : 18,
+              16,
+              compact ? 14 : 18,
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: max<double>(
+                  0,
+                  constraints.maxHeight - (compact ? 28 : 36),
                 ),
-                SizedBox(height: compact ? 14 : 20),
-                _HowToPlayPanel(compact: compact),
-                SizedBox(height: compact ? 16 : 22),
-                SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: FilledButton(
-                    onPressed: onEnterArena,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.warriorNavy,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        const Icon(Icons.sports_esports_rounded, size: 20),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Masuk Arena',
-                          style: GoogleFonts.dmSans(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.3,
-                          ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      const _EntryEyebrow(),
+                      SizedBox(height: compact ? 10 : 14),
+                      Text(
+                        'Siap rebut arena,\n$firstName?',
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.fredoka(
+                          color: const Color(0xFF17233F),
+                          fontSize: compact ? 27 : 31,
+                          height: 1.04,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5,
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 7),
+                      Text(
+                        'Pilih kartu terbaikmu, jawab soal, lalu lihat seranganmu melesat.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.dmSans(
+                          color: const Color(0xFF667085),
+                          fontSize: compact ? 12.5 : 13.5,
+                          height: 1.35,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      SizedBox(height: compact ? 12 : 18),
+                      _EntryArenaDiorama(
+                        playerName: firstName,
+                        compact: compact,
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 8),
-              ],
+                  SizedBox(height: compact ? 12 : 18),
+                  const _EntryGameLoopStrip(),
+                  SizedBox(height: compact ? 14 : 20),
+                  _EntryPrimaryButton(onPressed: onEnterArena),
+                ],
+              ),
             ),
           ),
         );
@@ -68,149 +93,133 @@ class _ArenaEntrySection extends StatelessWidget {
   }
 }
 
-class _HowToPlayPanel extends StatelessWidget {
-  const _HowToPlayPanel({required this.compact});
+class _EntryEyebrow extends StatelessWidget {
+  const _EntryEyebrow();
 
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFE8B0),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Icon(
+              Icons.stadium_rounded,
+              size: 15,
+              color: Color(0xFF9A6413),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'YUDHA ARENA',
+              style: GoogleFonts.dmSans(
+                color: const Color(0xFF865710),
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EntryArenaDiorama extends StatelessWidget {
+  const _EntryArenaDiorama({required this.playerName, required this.compact});
+
+  final String playerName;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final List<({IconData icon, String title, String text, Color accent})>
-        items =
-        <({IconData icon, String title, String text, Color accent})>[
-      (
-        icon: Icons.style_rounded,
-        title: 'Pilih Kartu',
-        text: 'Pilih kartu soal dari tanganmu — tiap kartu punya damage atau heal berbeda',
-        accent: AppColors.levelUpTeal,
-      ),
-      (
-        icon: Icons.bolt_rounded,
-        title: 'Jawab Soal',
-        text: 'Jawab benar untuk memberi damage ke menara lawan atau heal menaramu',
-        accent: AppColors.fireGold,
-      ),
-      (
-        icon: Icons.account_balance_rounded,
-        title: 'Hancurkan Menara',
-        text: 'Hancurkan menara utama lawan sebelum menaramu dihancurkan',
-        accent: AppColors.warriorNavy,
-      ),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.only(left: 2, bottom: 10),
-          child: Text(
-            'Cara Bermain',
-            style: GoogleFonts.dmSans(
-              color: AppColors.textStrong,
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        for (int i = 0; i < items.length; i++) ...<Widget>[
-          _HowToRow(
-            step: i + 1,
-            icon: items[i].icon,
-            title: items[i].title,
-            text: items[i].text,
-            accent: items[i].accent,
-          ),
-          if (i != items.length - 1) const SizedBox(height: 8),
-        ],
-      ],
-    );
-  }
-}
-
-class _HowToRow extends StatelessWidget {
-  const _HowToRow({
-    required this.step,
-    required this.icon,
-    required this.title,
-    required this.text,
-    required this.accent,
-  });
-
-  final int step;
-  final IconData icon;
-  final String title;
-  final String text;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      height: compact ? 154 : 184,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE8ECF2)),
+        color: const Color(0xFFEFF4E9),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE0D9C9)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x1A795F3A),
+            blurRadius: 14,
+            offset: Offset(0, 7),
+          ),
+        ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
+        fit: StackFit.expand,
         children: <Widget>[
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: accent.withAlpha(18),
-              borderRadius: BorderRadius.circular(10),
+          CustomPaint(painter: _EntryArenaDioramaPainter()),
+          Positioned(
+            left: 5,
+            bottom: compact ? 5 : 3,
+            width: compact ? 108 : 126,
+            height: compact ? 120 : 146,
+            child: Image.asset(
+              _playerAvatarAsset,
+              fit: BoxFit.contain,
+              alignment: Alignment.bottomCenter,
+              semanticLabel: 'Karakter pemain',
             ),
-            child: Icon(icon, color: accent, size: 18),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Container(
-                      width: 18,
-                      height: 18,
-                      decoration: BoxDecoration(
-                        color: accent.withAlpha(22),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          '$step',
-                          style: TextStyle(
-                            color: accent,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      title,
-                      style: GoogleFonts.dmSans(
-                        color: AppColors.textStrong,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  text,
-                  style: TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w500,
-                    height: 1.4,
-                  ),
-                ),
-              ],
+          Positioned(
+            right: 5,
+            bottom: compact ? 5 : 3,
+            width: compact ? 108 : 126,
+            height: compact ? 120 : 146,
+            child: Image.asset(
+              _enemyAvatarAsset,
+              fit: BoxFit.contain,
+              alignment: Alignment.bottomCenter,
+              semanticLabel: 'Karakter rival',
             ),
+          ),
+          Align(
+            child: Container(
+              width: compact ? 48 : 54,
+              height: compact ? 48 : 54,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFC857),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 4),
+                boxShadow: const <BoxShadow>[
+                  BoxShadow(
+                    color: Color(0x337C5613),
+                    blurRadius: 0,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                'VS',
+                style: GoogleFonts.fredoka(
+                  color: const Color(0xFF51390D),
+                  fontSize: compact ? 17 : 19,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 12,
+            bottom: 10,
+            child: _EntrySideLabel(
+              label: playerName,
+              color: const Color(0xFF2878F0),
+            ),
+          ),
+          const Positioned(
+            right: 12,
+            bottom: 10,
+            child: _EntrySideLabel(label: 'Rival', color: Color(0xFFF05E5E)),
           ),
         ],
       ),
@@ -218,90 +227,76 @@ class _HowToRow extends StatelessWidget {
   }
 }
 
-class _ArenaPreview extends StatelessWidget {
-  const _ArenaPreview({required this.playerName});
+class _EntrySideLabel extends StatelessWidget {
+  const _EntrySideLabel({required this.label, required this.color});
 
-  final String playerName;
+  final String label;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final String safePlayerName =
-        playerName.trim().isEmpty ? 'Kamu' : playerName;
     return Container(
+      constraints: const BoxConstraints(maxWidth: 74),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[
-            Color(0xFFF7F9FC),
-            Color(0xFFEEF2F9),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFDDE3ED)),
+        color: color,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white, width: 2),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: Stack(
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.dmSans(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _EntryGameLoopStrip extends StatelessWidget {
+  const _EntryGameLoopStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Alur bermain: Pilih kartu, Jawab, lalu Serang',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFEAE1D2)),
+        ),
+        child: const Row(
           children: <Widget>[
-            const _ArenaGrid(),
-            Positioned.fill(child: CustomPaint(painter: _ArenaRingPainter())),
-            Positioned.fill(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 22,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: <Widget>[
-                    _AvatarBadge(label: safePlayerName, isEnemy: false),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: const Color(0xFFDDE3ED),
-                            ),
-                            boxShadow: <BoxShadow>[
-                              BoxShadow(
-                                color: Colors.black.withAlpha(8),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            'VS',
-                            style: GoogleFonts.dmSans(
-                              color: AppColors.textStrong,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 16,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Container(
-                          width: 32,
-                          height: 3,
-                          decoration: BoxDecoration(
-                            color: AppColors.fireGold.withAlpha(120),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                      ],
-                    ),
-                    _AvatarBadge(label: 'Lawan', isEnemy: true),
-                  ],
-                ),
+            Expanded(
+              child: _EntryLoopStep(
+                icon: Icons.style_rounded,
+                label: 'Pilih kartu',
+                color: Color(0xFF2878F0),
+                background: Color(0xFFEAF2FE),
+              ),
+            ),
+            _EntryLoopArrow(),
+            Expanded(
+              child: _EntryLoopStep(
+                icon: Icons.quiz_rounded,
+                label: 'Jawab',
+                color: Color(0xFF8B6FE8),
+                background: Color(0xFFF0ECFC),
+              ),
+            ),
+            _EntryLoopArrow(),
+            Expanded(
+              child: _EntryLoopStep(
+                icon: Icons.bolt_rounded,
+                label: 'Serang',
+                color: Color(0xFFF05E5E),
+                background: Color(0xFFFDECEC),
               ),
             ),
           ],
@@ -311,127 +306,42 @@ class _ArenaPreview extends StatelessWidget {
   }
 }
 
-class _ArenaGrid extends StatelessWidget {
-  const _ArenaGrid();
+class _EntryLoopStep extends StatelessWidget {
+  const _EntryLoopStep({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.background,
+  });
 
-  @override
-  Widget build(BuildContext context) {
-    final Color line = const Color(0xFFCDD5E0).withAlpha(50);
-
-    return Stack(
-      children: <Widget>[
-        for (double x in <double>[0.17, 0.34, 0.5, 0.66, 0.83])
-          Align(
-            alignment: Alignment(x * 2 - 1, 0),
-            child: Container(width: 0.8, color: line),
-          ),
-        for (double y in <double>[0.25, 0.5, 0.75])
-          Align(
-            alignment: Alignment(0, y * 2 - 1),
-            child: Container(height: 0.8, color: line),
-          ),
-        ...<Widget>[
-          _CornerBracket(alignment: Alignment.topLeft),
-          _CornerBracket(alignment: Alignment.topRight),
-          _CornerBracket(alignment: Alignment.bottomLeft),
-          _CornerBracket(alignment: Alignment.bottomRight),
-        ],
-      ],
-    );
-  }
-}
-
-class _CornerBracket extends StatelessWidget {
-  const _CornerBracket({required this.alignment});
-
-  final Alignment alignment;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool left = alignment.x < 0;
-    final bool top = alignment.y < 0;
-
-    return Align(
-      alignment: alignment,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: SizedBox(
-          width: 28,
-          height: 28,
-          child: CustomPaint(
-            painter: _BracketPainter(
-              left: left,
-              top: top,
-              color: AppColors.warriorNavy.withAlpha(50),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AvatarBadge extends StatelessWidget {
-  const _AvatarBadge({required this.label, required this.isEnemy});
-
+  final IconData icon;
   final String label;
-  final bool isEnemy;
+  final Color color;
+  final Color background;
 
   @override
   Widget build(BuildContext context) {
-    final Color tint = isEnemy
-        ? const Color(0xFFE25555)
-        : AppColors.levelUpTeal;
-    final String asset = isEnemy ? _enemyAvatarAsset : _playerAvatarAsset;
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Container(
-          width: 68,
-          height: 68,
+          width: 34,
+          height: 34,
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white,
-            border: Border.all(color: tint.withAlpha(60), width: 2),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: tint.withAlpha(16),
-                blurRadius: 12,
-                spreadRadius: 2,
-              ),
-            ],
+            color: background,
+            borderRadius: BorderRadius.circular(11),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(3),
-            child: CircleAvatar(
-              backgroundColor: tint.withAlpha(12),
-              backgroundImage: AssetImage(asset),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: 40,
-          height: 3,
-          decoration: BoxDecoration(
-            color: tint.withAlpha(60),
-            borderRadius: BorderRadius.circular(999),
-          ),
+          child: Icon(icon, color: color, size: 18),
         ),
         const SizedBox(height: 6),
-        SizedBox(
-          width: 90,
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.dmSans(
-              color: AppColors.textStrong,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
+        Text(
+          label,
+          maxLines: 1,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.dmSans(
+            color: const Color(0xFF344054),
+            fontSize: 10.5,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ],
@@ -439,67 +349,132 @@ class _AvatarBadge extends StatelessWidget {
   }
 }
 
-class _ArenaRingPainter extends CustomPainter {
+class _EntryLoopArrow extends StatelessWidget {
+  const _EntryLoopArrow();
+
   @override
-  void paint(Canvas canvas, Size size) {
-    final Paint ringPaint = Paint()
-      ..color = AppColors.warriorNavy.withAlpha(20)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-
-    final Rect outerOval = Rect.fromCenter(
-      center: Offset(size.width / 2, size.height / 2),
-      width: size.width * 0.7,
-      height: size.height * 0.54,
-    );
-
-    canvas.drawOval(outerOval, ringPaint);
-
-    // Small dots at top/bottom
-    final Paint dotPaint = Paint()
-      ..color = AppColors.levelUpTeal.withAlpha(70);
-    canvas.drawCircle(Offset(size.width / 2, 24), 3.5, dotPaint);
-    canvas.drawCircle(
-      Offset(size.width / 2, size.height - 24),
-      3.5,
-      dotPaint,
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(bottom: 21),
+      child: Icon(
+        Icons.arrow_forward_rounded,
+        color: Color(0xFFB4AA9A),
+        size: 15,
+      ),
     );
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class _BracketPainter extends CustomPainter {
-  const _BracketPainter({
-    required this.left,
-    required this.top,
-    required this.color,
-  });
+class _EntryPrimaryButton extends StatelessWidget {
+  const _EntryPrimaryButton({required this.onPressed});
 
-  final bool left;
-  final bool top;
-  final Color color;
+  final VoidCallback onPressed;
 
   @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(color: Color(0xFF1453B7), offset: Offset(0, 5)),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 5),
+        child: SizedBox(
+          height: 56,
+          child: FilledButton(
+            onPressed: onPressed,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF2878F0),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Text(
+                  'Masuk arena',
+                  style: GoogleFonts.fredoka(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 9),
+                const Icon(Icons.arrow_forward_rounded, size: 20),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EntryArenaDioramaPainter extends CustomPainter {
+  @override
   void paint(Canvas canvas, Size size) {
-    final Paint paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8
-      ..strokeCap = StrokeCap.round;
-    final Path path = Path();
+    final Paint shadowPaint = Paint()..color = const Color(0x2B38583E);
+    final Paint basePaint = Paint()..color = const Color(0xFF78B96D);
+    final Paint grassPaint = Paint()..color = const Color(0xFF9BD286);
+    final Paint riverPaint = Paint()..color = const Color(0xFF71C7F2);
+    final Paint bridgePaint = Paint()..color = const Color(0xFFD9AA70);
+    final Paint bridgeLinePaint = Paint()
+      ..color = const Color(0xFFB9834E)
+      ..strokeWidth = 2;
 
-    final double startX = left ? 0 : size.width;
-    final double midX = left ? size.width * 0.6 : size.width * 0.4;
-    final double startY = top ? 0 : size.height;
-    final double midY = top ? size.height * 0.6 : size.height * 0.4;
+    final Rect baseRect = Rect.fromCenter(
+      center: Offset(size.width / 2, size.height * 0.58),
+      width: size.width * 0.88,
+      height: size.height * 0.62,
+    );
+    canvas.drawOval(baseRect.shift(const Offset(0, 7)), shadowPaint);
+    canvas.drawOval(baseRect, basePaint);
 
-    path.moveTo(startX, startY);
-    path.lineTo(midX, startY);
-    path.moveTo(startX, startY);
-    path.lineTo(startX, midY);
-    canvas.drawPath(path, paint);
+    final Rect grassRect = Rect.fromCenter(
+      center: Offset(baseRect.center.dx, baseRect.center.dy - 4),
+      width: baseRect.width * 0.94,
+      height: baseRect.height * 0.84,
+    );
+    canvas.drawOval(grassRect, grassPaint);
+
+    canvas.save();
+    canvas.clipPath(Path()..addOval(grassRect));
+    final Rect riverRect = Rect.fromLTWH(
+      0,
+      grassRect.center.dy - 10,
+      size.width,
+      20,
+    );
+    canvas.drawRect(riverRect, riverPaint);
+    final RRect bridge = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: grassRect.center, width: 40, height: 30),
+      const Radius.circular(5),
+    );
+    canvas.drawRRect(bridge, bridgePaint);
+    for (double y = bridge.top + 6; y < bridge.bottom; y += 7) {
+      canvas.drawLine(
+        Offset(bridge.left + 3, y),
+        Offset(bridge.right - 3, y),
+        bridgeLinePaint,
+      );
+    }
+    canvas.restore();
+
+    final Paint markerPaint = Paint()..color = const Color(0x66FFFFFF);
+    canvas.drawCircle(
+      Offset(size.width * 0.27, size.height * 0.47),
+      6,
+      markerPaint,
+    );
+    canvas.drawCircle(
+      Offset(size.width * 0.73, size.height * 0.69),
+      6,
+      markerPaint,
+    );
   }
 
   @override

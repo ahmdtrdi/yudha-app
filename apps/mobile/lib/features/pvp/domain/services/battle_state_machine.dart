@@ -63,7 +63,10 @@ abstract final class BattleStateMachine {
 
     // Recycle questions when pool is exhausted
     if (remainingQuestions.isEmpty) {
-      remainingQuestions = _recycleQuestions(state.availableQuestions, question);
+      remainingQuestions = _recycleQuestions(
+        state.availableQuestions,
+        question,
+      );
       answeredQuestions = const <String>[];
     }
 
@@ -136,7 +139,10 @@ abstract final class BattleStateMachine {
 
     // Recycle questions when pool is exhausted
     if (remainingQuestions.isEmpty) {
-      remainingQuestions = _recycleQuestions(state.availableQuestions, question);
+      remainingQuestions = _recycleQuestions(
+        state.availableQuestions,
+        question,
+      );
       answeredQuestions = const <String>[];
     }
 
@@ -277,24 +283,35 @@ abstract final class BattleStateMachine {
     };
   }
 
-  /// Recycle all questions with fresh IDs when the pool is exhausted.
+  /// Recycles a fresh question pool when the current pool is exhausted.
+  ///
+  /// Prefer another available source over the card that was just answered. A
+  /// one-card pool has no alternative, so reusing that card is the only way to
+  /// keep an active local battle playable.
   static List<BattleQuestion> _recycleQuestions(
-    List<BattleQuestion> allQuestions,
+    List<BattleQuestion> sourceQuestions,
     BattleQuestion justAnswered,
   ) {
     final int epoch = DateTime.now().millisecondsSinceEpoch;
-    final List<BattleQuestion> recycled = allQuestions
-        .where((BattleQuestion q) => q.id != justAnswered.id)
-        .map((BattleQuestion q) => BattleQuestion(
-              id: '${q.category}-r$epoch-${_recycleRandom.nextInt(99999)}',
-              prompt: q.prompt,
-              options: q.options,
-              correctOptionIndex: q.correctOptionIndex,
-              weight: q.weight,
-              effect: q.effect,
-              category: q.category,
-            ))
-        .toList();
+    final List<BattleQuestion> alternatives = sourceQuestions
+        .where((BattleQuestion item) => item.id != justAnswered.id)
+        .toList(growable: false);
+    final List<BattleQuestion> recycleSource = alternatives.isNotEmpty
+        ? alternatives
+        : <BattleQuestion>[justAnswered];
+    final List<BattleQuestion> recycled = recycleSource
+        .map(
+          (BattleQuestion item) => BattleQuestion(
+            id: '${item.category}-r$epoch-${_recycleRandom.nextInt(99999)}',
+            prompt: item.prompt,
+            options: item.options,
+            correctOptionIndex: item.correctOptionIndex,
+            weight: item.weight,
+            effect: item.effect,
+            category: item.category,
+          ),
+        )
+        .toList(growable: false);
     recycled.shuffle(_recycleRandom);
     return recycled;
   }

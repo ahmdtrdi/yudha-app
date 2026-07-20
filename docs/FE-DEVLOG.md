@@ -1403,3 +1403,21 @@
 
 ### The Tech Debt
 - The confirmation copy is now more consistent, but the rest of the auth funnel still mixes a few product-specific English terms with Indonesian UI text. A broader copy pass would make the experience feel more unified.
+
+## 2026-07-20 - Arena Visual Rebuild And Real-Time Card Flow
+
+### The Change
+- Rebuilt the arena entry, mode selection, battle board, question sheet, and result state around a simpler clay-like chibi visual system documented in `docs/GAME-DESIGN.md`.
+- Replaced the legacy battle PNG set with ten generated hero, tower, turret, and category-card assets under `apps/mobile/assets/game/`, then added larger towers, lane stones, shrubs, river banks, team zones, and a wider bridge to the live arena.
+- Added distinct effects per category: an arcing electric bolt for Numerik, a wavy speech spell for Verbal, a fast spinning puzzle core for Logika, and a protective leaf bloom for TWK.
+- Kept bot turns active while the question sheet is open. The selected question is temporarily reserved so the bot can consume another card without stealing the question being answered, and the sheet closes safely if the match ends underneath it.
+- Recycled exhausted question cards while a battle is still active and added controller/state-machine/widget regressions for recycling, reservation, and real-time bot damage.
+
+### The Reasoning
+- The previous arena mixed many small decorative sprites and generic combat effects, which made the board feel busy yet visually empty at its focal points. Larger landmarks and a smaller set of repeated clay props give the field a clearer hierarchy.
+- Opening a card is part of the combat interaction, not a pause state. Reserving only that card preserves the real-time rule while preventing the UI and bot from resolving the same question concurrently.
+- Category-specific shapes, colors, and trajectories make attacks readable from motion alone and give each card a stronger gameplay identity.
+
+### The Tech Debt
+- The projectile effects are currently Flutter-drawn rather than authored as reusable animation files. If combat timing or art direction grows substantially, moving them to a dedicated animation format would make iteration easier.
+- The arena has behavioral widget coverage but no screenshot/golden baseline yet, so future visual changes still need an emulator pass across the supported phone sizes.

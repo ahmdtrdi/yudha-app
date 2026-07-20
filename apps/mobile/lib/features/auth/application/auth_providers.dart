@@ -46,8 +46,12 @@ class AppAuthState {
       isConfigured: isConfigured,
       isLoading: isLoading ?? this.isLoading,
       session: clearSession ? null : session ?? this.session,
-      errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
-      errorCode: clearError ? null : errorCode ?? this.errorCode,
+      errorMessage: clearError && errorMessage == null
+          ? null
+          : errorMessage ?? this.errorMessage,
+      errorCode: clearError && errorCode == null
+          ? null
+          : errorCode ?? this.errorCode,
     );
   }
 }
@@ -194,10 +198,7 @@ class AuthNotifier extends Notifier<AppAuthState> {
     }
 
     try {
-      await client.auth.resend(
-        type: OtpType.signup,
-        email: email.trim(),
-      );
+      await client.auth.resend(type: OtpType.signup, email: email.trim());
       return null;
     } on AuthException catch (error) {
       return _describeAuthException(
@@ -256,10 +257,37 @@ class AuthNotifier extends Notifier<AppAuthState> {
       return 'Email belum dikonfirmasi. Cek inbox email kamu lalu klik tautan verifikasi sebelum masuk.';
     }
 
+    if (code == 'over_email_send_rate_limit' ||
+        normalized.contains('email rate limit')) {
+      return 'Batas pengiriman email verifikasi Supabase sudah tercapai. Tunggu hingga kuota email tersedia lagi, lalu coba kirim ulang.';
+    }
+
+    if (code == 'over_request_rate_limit' ||
+        error.statusCode == '429' ||
+        normalized.contains('for security purposes')) {
+      return 'Terlalu banyak percobaan dalam waktu singkat. Tunggu beberapa saat, lalu coba lagi.';
+    }
+
+    if (code == 'user_already_exists' ||
+        normalized.contains('user already registered') ||
+        normalized.contains('user already exists')) {
+      return 'Email ini sudah terdaftar. Silakan masuk atau gunakan email lain.';
+    }
+
+    if (code == 'email_provider_disabled' ||
+        normalized.contains('email provider is disabled')) {
+      return 'Pendaftaran dengan email sedang dinonaktifkan di Supabase.';
+    }
+
     return _describeUnexpectedError(error, action: action);
   }
 
   String? _extractAuthErrorCode(AuthException error) {
+    final String? explicitCode = error.code?.trim().toLowerCase();
+    if (explicitCode != null && explicitCode.isNotEmpty) {
+      return explicitCode;
+    }
+
     final String raw = error.toString().toLowerCase();
 
     if (raw.contains('email_not_confirmed')) {

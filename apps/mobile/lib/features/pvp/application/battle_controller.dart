@@ -24,12 +24,15 @@ class BattleController extends StateNotifier<BattleState> {
   final BattleRepository _botRepository;
   final OnlineBattleRepository _onlineRepository;
   late final StreamSubscription<OnlineBattleUpdate> _onlineUpdatesSubscription;
+  bool _acceptOnlineUpdates = false;
+  String? _preparedQuestionId;
 
   void setMode(BattleMode mode) {
     if (state.phase == BattlePhase.inBattle) {
       return;
     }
 
+    _preparedQuestionId = null;
     state = state.copyWith(
       mode: mode,
       phase: state.phase == BattlePhase.arenaMenu
@@ -56,6 +59,7 @@ class BattleController extends StateNotifier<BattleState> {
       return;
     }
 
+    _preparedQuestionId = null;
     state = state.copyWith(
       phase: BattlePhase.arenaMenu,
       outcome: BattleOutcome.inProgress,
@@ -78,6 +82,8 @@ class BattleController extends StateNotifier<BattleState> {
       return;
     }
 
+    _acceptOnlineUpdates = false;
+    _preparedQuestionId = null;
     state = BattleState.initial().copyWith(mode: state.mode);
   }
 
@@ -86,6 +92,8 @@ class BattleController extends StateNotifier<BattleState> {
       return;
     }
 
+    _preparedQuestionId = null;
+    _acceptOnlineUpdates = state.mode == BattleMode.online;
     state = state.copyWith(
       isLoading: true,
       statusMessage: 'Menyiapkan battle...',
@@ -117,6 +125,7 @@ class BattleController extends StateNotifier<BattleState> {
         clearBattleEvent: true,
       );
     } catch (_) {
+      _acceptOnlineUpdates = false;
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Gagal memulai battle. Coba lagi.',
@@ -124,17 +133,17 @@ class BattleController extends StateNotifier<BattleState> {
     }
   }
 
-  Future<void> answerQuestion({
+  Future<bool> answerQuestion({
     required String questionId,
     required int selectedOptionIndex,
   }) async {
     if (!state.isBattleActive || state.isLoading) {
-      return;
+      return false;
     }
 
     final BattleQuestion? question = _findQuestionById(questionId);
     if (question == null) {
-      return;
+      return false;
     }
 
     if (state.mode == BattleMode.online) {
@@ -142,7 +151,7 @@ class BattleController extends StateNotifier<BattleState> {
         state = state.copyWith(
           statusMessage: 'Pilih satu jawaban untuk mengirim kartu ke arena.',
         );
-        return;
+        return false;
       }
 
       try {
@@ -150,16 +159,18 @@ class BattleController extends StateNotifier<BattleState> {
           cardId: questionId,
           selectedOptionIndex: selectedOptionIndex,
         );
+        releasePreparedQuestion(questionId);
         state = state.copyWith(
           statusMessage: 'Jawaban dikirim. Menunggu hasil arena...',
           clearErrorMessage: true,
         );
+        return true;
       } catch (_) {
         state = state.copyWith(
           errorMessage: 'Jawaban gagal dikirim ke arena online.',
         );
+        return false;
       }
-      return;
     }
 
     state = BattleStateMachine.resolveTurn(
@@ -167,6 +178,8 @@ class BattleController extends StateNotifier<BattleState> {
       question: question,
       selectedOptionIndex: selectedOptionIndex,
     );
+    releasePreparedQuestion(questionId);
+    return true;
   }
 
   void answerBotQuestion() {
@@ -192,6 +205,7 @@ class BattleController extends StateNotifier<BattleState> {
       return;
     }
 
+    _preparedQuestionId = null;
     if (state.mode == BattleMode.online) {
       await _onlineRepository.surrender();
       return;
@@ -209,6 +223,8 @@ class BattleController extends StateNotifier<BattleState> {
   }
 
   void resetBattle() {
+    _acceptOnlineUpdates = false;
+    _preparedQuestionId = null;
     state = BattleState.initial().copyWith(
       mode: state.mode,
       phase: BattlePhase.arenaMenu,
@@ -219,11 +235,13 @@ class BattleController extends StateNotifier<BattleState> {
 
   Future<bool> prepareQuestion(BattleQuestion question) async {
     if (state.mode == BattleMode.bot) {
+      _preparedQuestionId = question.id;
       return true;
     }
 
     try {
       await _onlineRepository.openCard(cardId: question.id);
+      _preparedQuestionId = question.id;
       state = state.copyWith(
         statusMessage: 'Kartu arena dibuka. Jawab sekarang.',
         clearErrorMessage: true,
@@ -234,6 +252,12 @@ class BattleController extends StateNotifier<BattleState> {
         errorMessage: 'Kartu arena belum bisa dibuka. Coba lagi.',
       );
       return false;
+    }
+  }
+
+  void releasePreparedQuestion(String questionId) {
+    if (_preparedQuestionId == questionId) {
+      _preparedQuestionId = null;
     }
   }
 
@@ -257,6 +281,9 @@ class BattleController extends StateNotifier<BattleState> {
   }
 
   void _handleOnlineUpdate(OnlineBattleUpdate update) {
+    if (!_acceptOnlineUpdates) {
+      return;
+    }
     switch (update) {
       case QueueJoinedUpdate():
         state = state.copyWith(
@@ -283,7 +310,7 @@ class BattleController extends StateNotifier<BattleState> {
       case GameStateUpdated():
         state = state.copyWith(
           phase: update.phase == 'finished'
-              ? BattlePhase.finished
+              ? state.phase
               : BattlePhase.inBattle,
           opponentName: state.opponentName,
           playerHp: update.playerHp,
@@ -319,9 +346,11 @@ class BattleController extends StateNotifier<BattleState> {
             effectValue: update.effectValue,
           ),
           clearErrorMessage: true,
+          clearBattleEvent: effect == null,
         );
         break;
       case MatchResultUpdate():
+        _preparedQuestionId = null;
         state = state.copyWith(
           phase: BattlePhase.finished,
           outcome: update.outcome,
@@ -356,6 +385,9 @@ class BattleController extends StateNotifier<BattleState> {
   BattleQuestion? _pickBotQuestion() {
     BattleQuestion? fallback;
     for (final BattleQuestion question in state.availableQuestions) {
+      if (question.id == _preparedQuestionId) {
+        continue;
+      }
       fallback ??= question;
       if (question.effect == QuestionEffect.damage) {
         return question;
