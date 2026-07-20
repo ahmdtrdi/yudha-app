@@ -27,12 +27,12 @@ Perubahan kontrak REST/Socket, model inti, atau scope fitur harus dicatat di `PR
 docs/
 ├─ PRD.md                         # sumber utama keputusan produk dan arsitektur
 ├─ MASTER.md                      # peta repo, dokumentasi, dan cara menjalankan app
+├─ AGENTS.md                      # aturan kerja umum agent/developer
 ├─ devlog/
 │  ├─ AI-DEVLOG.md                # riwayat pekerjaan AI
 │  ├─ BE-DEVLOG.md                # riwayat pekerjaan backend
 │  └─ FE-DEVLOG.md                # riwayat pekerjaan frontend
 ├─ agent/
-│  ├─ AGENTS.md                   # aturan kerja umum agent/developer
 │  └─ FE-AGENTS.md                # aturan kerja khusus frontend
 ├─ design/
 │  ├─ FE-DESIGN.md                # design system frontend
@@ -50,7 +50,7 @@ Urutan prioritas ketika dokumen berbeda:
 3. Dokumen di `design/` untuk aturan desain dan `misc/` untuk panduan khusus lainnya.
 4. `devlog/` untuk riwayat dan konteks keputusan, bukan spesifikasi terbaru.
 
-File di `agent/` mengatur cara kerja contributor/agent. Saat struktur atau aturan dokumentasi berubah, perbarui `MASTER.md` dan referensi operasional yang terkait.
+`AGENTS.md` mengatur cara kerja umum contributor/agent, sedangkan file di `agent/` berisi aturan khusus per role. Saat struktur atau aturan dokumentasi berubah, perbarui `MASTER.md` dan referensi operasional yang terkait.
 
 ## 3. Menjalankan Aplikasi
 

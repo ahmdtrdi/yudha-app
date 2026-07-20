@@ -19,7 +19,7 @@ At the completion of a task, you must ask what my role is and check if the corre
 2. **The Reasoning:** Why we made specific structural decisions.
 3. **The Tech Debt:** Any corners we cut that need to be fixed later.
 
-**Goal:** If a new developer (or a new AI session) joins tomorrow, they should be able to read `docs/DEVLOG-*.md` and understand the state of the project immediately.
+**Goal:** If a new developer (or a new AI session) joins tomorrow, they should be able to read `docs/*-DEVLOG.md` and understand the state of the project immediately.
 
 **Operational Rule**
 - After every interaction that includes a code change, you must append an entry to the corresponding file in `docs/devlog/` before finishing. Do not just suggest it. If you truly cannot write to the file (permissions/conflicts), provide the exact snippet the next person should paste. This is mandatory and should be treated as a checklist item for every task.
