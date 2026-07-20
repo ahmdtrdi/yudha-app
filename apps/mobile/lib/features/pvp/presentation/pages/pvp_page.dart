@@ -3,8 +3,16 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
+import 'package:yudha_mobile/features/economy/application/game_economy_providers.dart';
+import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
+import 'package:yudha_mobile/features/economy/domain/entities/arena_visual_theme.dart';
+import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
+import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
+import 'package:yudha_mobile/features/economy/presentation/widgets/economy_widgets.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/pvp/application/battle_controller.dart';
 import 'package:yudha_mobile/features/pvp/application/battle_providers.dart';
@@ -42,6 +50,13 @@ class PvpPage extends ConsumerWidget {
     final String playerDisplayName = ref.watch(
       playerProgressProvider.select((progress) => progress.displayName),
     );
+    final GameEconomyState economy = ref.watch(gameEconomyProvider);
+    final CosmeticItem selectedCharacter =
+        GameEconomyCatalog.findCosmetic(economy.equippedCharacterId) ??
+        GameEconomyCatalog.characters.first;
+    final CosmeticItem selectedArena =
+        GameEconomyCatalog.findCosmetic(economy.equippedArenaId) ??
+        GameEconomyCatalog.arenas.first;
 
     if (state.phase != BattlePhase.preBattle) {
       final bool needsDark = state.phase == BattlePhase.inBattle;
@@ -51,6 +66,9 @@ class PvpPage extends ConsumerWidget {
         state: state,
         controller: controller,
         playerDisplayName: playerDisplayName,
+        economy: economy,
+        selectedCharacter: selectedCharacter,
+        selectedArena: selectedArena,
       );
       return Scaffold(
         backgroundColor: needsDark
@@ -108,6 +126,9 @@ class PvpPage extends ConsumerWidget {
                   state: state,
                   controller: controller,
                   playerDisplayName: playerDisplayName,
+                  economy: economy,
+                  selectedCharacter: selectedCharacter,
+                  selectedArena: selectedArena,
                 ),
               ),
             ],
@@ -123,14 +144,29 @@ class PvpPage extends ConsumerWidget {
     required BattleState state,
     required BattleController controller,
     required String playerDisplayName,
+    required GameEconomyState economy,
+    required CosmeticItem selectedCharacter,
+    required CosmeticItem selectedArena,
   }) {
     if (state.isLoading) {
-      return _ArenaLoadingView(mode: state.mode, message: state.statusMessage);
+      return _ArenaLoadingView(
+        mode: state.mode,
+        message: state.statusMessage,
+        playerAvatarAsset: selectedCharacter.assetPath ?? _playerAvatarAsset,
+      );
     }
 
     if (state.phase == BattlePhase.preBattle) {
       return _ArenaEntrySection(
         playerDisplayName: playerDisplayName,
+        economy: economy,
+        selectedCharacter: selectedCharacter,
+        selectedArena: selectedArena,
+        onSelectCosmetic: (CosmeticItem item) {
+          ref.read(gameEconomyProvider.notifier).equip(item);
+        },
+        onOpenStore: () => context.push(AppRoutes.store),
+        onTopUp: () => showYCoinTopUpSheet(context),
         onEnterArena: controller.enterArena,
       );
     }
@@ -138,6 +174,7 @@ class PvpPage extends ConsumerWidget {
     if (state.phase == BattlePhase.arenaMenu) {
       return _ArenaMenuSection(
         playerDisplayName: playerDisplayName,
+        playerAvatarAsset: selectedCharacter.assetPath ?? _playerAvatarAsset,
         onBackHome: controller.exitArena,
         onStartBot: () {
           controller.setMode(BattleMode.bot);
@@ -171,6 +208,8 @@ class PvpPage extends ConsumerWidget {
     return _InBattleSection(
       state: state,
       playerDisplayName: playerDisplayName,
+      playerAvatarAsset: selectedCharacter.assetPath ?? _playerAvatarAsset,
+      arenaTheme: ArenaVisualTheme.fromId(selectedArena.id),
       onPause: () => _showPauseDialog(
         context: context,
         controller: controller,
@@ -363,9 +402,14 @@ class PvpPage extends ConsumerWidget {
 }
 
 class _ArenaLoadingView extends StatelessWidget {
-  const _ArenaLoadingView({required this.mode, this.message});
+  const _ArenaLoadingView({
+    required this.mode,
+    required this.playerAvatarAsset,
+    this.message,
+  });
 
   final BattleMode mode;
+  final String playerAvatarAsset;
   final String? message;
 
   @override
@@ -389,7 +433,7 @@ class _ArenaLoadingView extends StatelessWidget {
                       left: 4,
                       bottom: 0,
                       child: Image.asset(
-                        _playerAvatarAsset,
+                        playerAvatarAsset,
                         width: 106,
                         height: 106,
                         fit: BoxFit.contain,

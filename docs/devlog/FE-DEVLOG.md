@@ -1421,3 +1421,24 @@
 ### The Tech Debt
 - The projectile effects are currently Flutter-drawn rather than authored as reusable animation files. If combat timing or art direction grows substantially, moving them to a dedicated animation format would make iteration easier.
 - The arena has behavioral widget coverage but no screenshot/golden baseline yet, so future visual changes still need an emulator pass across the supported phone sizes.
+
+## 2026-07-20 - Y-Coin Store, Hired Pass, And PvP Loadouts
+
+### The Change
+- Replaced the Store placeholder with a functional character/arena catalog, permanent local inventory, purchase/equip actions, Y-Coin balance, simulated beta top-up packages, and an unlimited `+100` beta-credit action.
+- Added a Hired Pass route with season progress, daily/weekly mission presentation, free/premium reward tracks, beta premium activation, reward claiming, and cosmetic rewards.
+- Added a persisted PvP loadout step before opponent selection. The selected character is used in the HUD and live arena, the selected arena recolors the responsive battlefield, and both combatants now have restrained ambient avatar motion on the board.
+- Added original violet and teal clay-3D character assets, Lobby shortcuts for Store/Pass/top-up, and unit/widget coverage for purchases, beta credits, Pass rewards, loadout selection, and the existing battle flow.
+- Wrapped Profile settings switch rows in a transparent `Material` so Flutter's current ListTile ink/background assertion no longer breaks the existing profile widget tests.
+- Removed a real-time `Future.delayed` from the Practice widget test fake clock and awaited controller hydration directly, preventing the aggregate Flutter test runner from hanging.
+- Restored the Practice hint tap path by moving the locked hint through its buy state before unlock, matching the visible `-5 poin` action and existing widget expectation.
+
+### The Reasoning
+- A single economy controller keeps balance, ownership, equipped cosmetics, and reward claims consistent across Store, Pass, Lobby, and PvP while the payment/backend integration is still outside the MVP.
+- Loadout selection lives in the existing `preBattle` phase so the battle state machine and Socket.IO contracts remain unchanged. Cosmetics only affect asset and palette selection.
+- Arena skins are expressed as responsive Flutter palettes instead of fixed background images, while generated raster art is reserved for the character skins that benefit from the clay-3D treatment.
+
+### The Tech Debt
+- Economy and Hired Pass state currently persist in SharedPreferences as an explicitly labeled beta sandbox. Production must hydrate from the server-authoritative Store/Hired Pass APIs and never trust client-side balance mutation.
+- Paid top-up prices are presentation-only simulations until a payment gateway, receipt verification, ledger, and idempotent server credit flow are implemented.
+- Pass mission progress is demo data; practice, battle, streak, and interview completion still need to feed server-owned seasonal mission counters.

@@ -4,6 +4,8 @@ class _InBattleSection extends StatefulWidget {
   const _InBattleSection({
     required this.state,
     required this.playerDisplayName,
+    required this.playerAvatarAsset,
+    required this.arenaTheme,
     required this.onPause,
     required this.onBotAnswer,
     required this.onPickQuestion,
@@ -11,6 +13,8 @@ class _InBattleSection extends StatefulWidget {
 
   final BattleState state;
   final String playerDisplayName;
+  final String playerAvatarAsset;
+  final ArenaVisualTheme arenaTheme;
   final Future<void> Function() onPause;
   final VoidCallback onBotAnswer;
   final Future<void> Function(BattleQuestion question) onPickQuestion;
@@ -282,6 +286,7 @@ class _InBattleSectionState extends State<_InBattleSection>
                 children: <Widget>[
                   _BattleHud(
                     isOpponent: true,
+                    avatarAsset: _enemyAvatarAsset,
                     name: widget.state.opponentName,
                     hp: widget.state.opponentHp,
                     points: widget.state.opponentPoints,
@@ -300,6 +305,8 @@ class _InBattleSectionState extends State<_InBattleSection>
                       child: _ArenaBoard(
                         playerHp: widget.state.playerHp,
                         opponentHp: widget.state.opponentHp,
+                        playerAvatarAsset: widget.playerAvatarAsset,
+                        arenaTheme: widget.arenaTheme,
                         compact: compact,
                         ambientAnimation: _ambientController,
                         effectAnimation: _effectController,
@@ -314,6 +321,7 @@ class _InBattleSectionState extends State<_InBattleSection>
                   ),
                   _BattleHud(
                     isOpponent: false,
+                    avatarAsset: widget.playerAvatarAsset,
                     name: widget.playerDisplayName,
                     hp: widget.state.playerHp,
                     points: widget.state.playerPoints,
@@ -359,6 +367,7 @@ class _InBattleSectionState extends State<_InBattleSection>
 class _BattleHud extends StatelessWidget {
   const _BattleHud({
     required this.isOpponent,
+    required this.avatarAsset,
     required this.name,
     required this.hp,
     required this.points,
@@ -368,6 +377,7 @@ class _BattleHud extends StatelessWidget {
   });
 
   final bool isOpponent;
+  final String avatarAsset;
   final String name;
   final int hp;
   final int points;
@@ -380,7 +390,6 @@ class _BattleHud extends StatelessWidget {
     final Color accent = isOpponent
         ? const Color(0xFFF05E5E)
         : const Color(0xFF2878F0);
-    final String asset = isOpponent ? _enemyAvatarAsset : _playerAvatarAsset;
     final int safeHp = hp.clamp(0, 100).toInt();
 
     return Container(
@@ -399,7 +408,7 @@ class _BattleHud extends StatelessWidget {
       ),
       child: Row(
         children: <Widget>[
-          _BattleAvatar(asset: asset, accent: accent, compact: compact),
+          _BattleAvatar(asset: avatarAsset, accent: accent, compact: compact),
           const SizedBox(width: 9),
           Expanded(
             child: Column(
@@ -626,6 +635,8 @@ class _ArenaBoard extends StatelessWidget {
   const _ArenaBoard({
     required this.playerHp,
     required this.opponentHp,
+    required this.playerAvatarAsset,
+    required this.arenaTheme,
     required this.compact,
     required this.ambientAnimation,
     required this.effectAnimation,
@@ -639,6 +650,8 @@ class _ArenaBoard extends StatelessWidget {
 
   final int playerHp;
   final int opponentHp;
+  final String playerAvatarAsset;
+  final ArenaVisualTheme arenaTheme;
   final bool compact;
   final Animation<double> ambientAnimation;
   final Animation<double> effectAnimation;
@@ -675,8 +688,8 @@ class _ArenaBoard extends StatelessWidget {
 
             return Stack(
               children: <Widget>[
-                const Positioned.fill(
-                  child: CustomPaint(painter: _ClayArenaPainter()),
+                Positioned.fill(
+                  child: CustomPaint(painter: _ClayArenaPainter(arenaTheme)),
                 ),
                 Positioned(
                   top: height * 0.35,
@@ -702,6 +715,26 @@ class _ArenaBoard extends StatelessWidget {
                   child: const _ArenaPropCluster(
                     accent: Color(0xFF2878F0),
                     mirrored: true,
+                  ),
+                ),
+                Positioned(
+                  top: height * 0.12,
+                  right: width * 0.03,
+                  width: mainSize * 0.72,
+                  height: mainSize * 0.78,
+                  child: _ArenaHeroAsset(
+                    asset: _enemyAvatarAsset,
+                    ambientAnimation: ambientAnimation,
+                  ),
+                ),
+                Positioned(
+                  bottom: height * 0.12,
+                  left: width * 0.03,
+                  width: mainSize * 0.72,
+                  height: mainSize * 0.78,
+                  child: _ArenaHeroAsset(
+                    asset: playerAvatarAsset,
+                    ambientAnimation: ambientAnimation,
                   ),
                 ),
                 Positioned(
@@ -785,6 +818,38 @@ class _ArenaBoard extends StatelessWidget {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class _ArenaHeroAsset extends StatelessWidget {
+  const _ArenaHeroAsset({required this.asset, required this.ambientAnimation});
+
+  final String asset;
+  final Animation<double> ambientAnimation;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return AnimatedBuilder(
+      animation: ambientAnimation,
+      builder: (BuildContext context, Widget? child) {
+        final double wave = reduceMotion
+            ? 0
+            : sin(ambientAnimation.value * pi * 2);
+        return Transform.translate(
+          offset: Offset(0, wave * 2.5),
+          child: Transform.rotate(angle: wave * 0.018, child: child),
+        );
+      },
+      child: Image.asset(
+        asset,
+        fit: BoxFit.contain,
+        alignment: Alignment.bottomCenter,
+        cacheWidth: 280,
+        filterQuality: FilterQuality.medium,
+        semanticLabel: 'Avatar karakter di arena',
       ),
     );
   }
@@ -1733,7 +1798,9 @@ class _CountdownOverlay extends StatelessWidget {
 }
 
 class _ClayArenaPainter extends CustomPainter {
-  const _ClayArenaPainter();
+  const _ClayArenaPainter(this.theme);
+
+  final ArenaVisualTheme theme;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1741,7 +1808,7 @@ class _ClayArenaPainter extends CustomPainter {
     final double riverHeight = (size.height * 0.13).clamp(42, 58);
     final double riverTop = (size.height - riverHeight) / 2;
 
-    paint.color = const Color(0xFF82D279);
+    paint.color = theme.field;
     canvas.drawRect(Offset.zero & size, paint);
 
     paint
@@ -1757,7 +1824,7 @@ class _ClayArenaPainter extends CustomPainter {
     );
 
     paint.style = PaintingStyle.fill;
-    paint.color = const Color(0x2071B96A);
+    paint.color = theme.fieldAccent.withAlpha(36);
     for (final double xFactor in <double>[0.23, 0.77]) {
       canvas.drawRRect(
         RRect.fromRectAndRadius(
@@ -1772,7 +1839,7 @@ class _ClayArenaPainter extends CustomPainter {
       );
     }
 
-    paint.color = const Color(0x222878F0);
+    paint.color = theme.playerWash;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(
@@ -1785,7 +1852,7 @@ class _ClayArenaPainter extends CustomPainter {
       ),
       paint,
     );
-    paint.color = const Color(0x22F05E5E);
+    paint.color = theme.opponentWash;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(
@@ -1813,14 +1880,14 @@ class _ClayArenaPainter extends CustomPainter {
       }
     }
 
-    paint.color = const Color(0xFF5FAF68);
+    paint.color = theme.riverEdge;
     canvas.drawRect(Rect.fromLTWH(0, riverTop - 5, size.width, 5), paint);
     canvas.drawRect(
       Rect.fromLTWH(0, riverTop + riverHeight, size.width, 5),
       paint,
     );
 
-    paint.color = const Color(0xFF72C8F1);
+    paint.color = theme.river;
     canvas.drawRect(Rect.fromLTWH(0, riverTop, size.width, riverHeight), paint);
     paint.color = Colors.white.withAlpha(75);
     canvas.drawRect(Rect.fromLTWH(0, riverTop + 5, size.width, 3), paint);
@@ -1842,12 +1909,12 @@ class _ClayArenaPainter extends CustomPainter {
       ),
       paint,
     );
-    paint.color = const Color(0xFFFFE0A4);
+    paint.color = theme.bridge;
     canvas.drawRRect(
       RRect.fromRectAndRadius(bridgeRect, const Radius.circular(14)),
       paint,
     );
-    paint.color = const Color(0xFFD8A85A);
+    paint.color = theme.bridgeLine;
     paint.strokeWidth = 2;
     for (int index = 1; index < 4; index++) {
       final double x = bridgeRect.left + bridgeRect.width * index / 4;
@@ -1886,7 +1953,7 @@ class _ClayArenaPainter extends CustomPainter {
         ),
         paint,
       );
-      paint.color = const Color(0xFFFFD89A);
+      paint.color = theme.boundary;
       canvas.drawRRect(
         RRect.fromRectAndRadius(leftStone, const Radius.circular(8)),
         paint,
@@ -1923,7 +1990,9 @@ class _ClayArenaPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _ClayArenaPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _ClayArenaPainter oldDelegate) {
+    return oldDelegate.theme.id != theme.id;
+  }
 }
 
 Color _arenaCategoryColor(String category, QuestionEffect effect) {

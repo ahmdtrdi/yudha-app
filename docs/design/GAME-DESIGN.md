@@ -21,6 +21,7 @@ The experience should feel handcrafted, playful, and modern—not like a collect
 
 ```text
 Arena entry
+  → Choose owned character and arena loadout
   → Choose mode
   → Match intro and 3-second countdown
   → Choose 1 of 4 cards
@@ -130,6 +131,7 @@ Purpose: make the loop understandable in under five seconds.
 
 - Warm, uncluttered canvas with a compact top bar and back action.
 - A single hero diorama shows the two chibi contenders facing a miniature arena marker.
+- The entry screen includes compact selectors for owned characters and arenas. Locked choices route to Store/Hired Pass, while the currently selected loadout is previewed before mode selection.
 - Headline: a short invitation to battle; one supporting sentence only.
 - A compact three-step strip communicates: `Pilih kartu → Jawab → Serang`.
 - One dominant `Masuk arena` button sits near the thumb zone.
@@ -229,6 +231,8 @@ Generated source art is exported at high resolution, chroma-keyed to transparent
 |---|---|---|
 | `arena_hero_blue.png` | Friendly blue-team cadet | Bust/waist-up, facing slightly right. |
 | `arena_hero_coral.png` | Friendly coral-team rival | Bust/waist-up, facing slightly left. |
+| `arena_hero_violet.png` | Violet-team striker skin | Waist-up, facing slightly right. |
+| `arena_hero_teal.png` | Teal strategist Hired Pass skin | Waist-up, facing slightly right. |
 | `arena_tower_blue.png` | Blue main crown tower | Front 3/4 view, chunky and symmetrical. |
 | `arena_tower_coral.png` | Coral main crown tower | Same camera and proportions as blue. |
 | `arena_turret_blue.png` | Blue mini tower | Compact, same camera as main tower. |

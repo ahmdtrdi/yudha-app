@@ -737,34 +737,37 @@ class _SettingsSwitchTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SwitchListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      activeThumbColor: AppColors.levelUpTeal,
-      activeTrackColor: AppColors.levelUpTeal.withValues(alpha: 0.2),
-      inactiveThumbColor: Colors.grey.shade400,
-      inactiveTrackColor: Colors.grey.shade200,
-      secondary: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: iconColor.withValues(alpha: 0.1),
-          shape: BoxShape.circle,
+    return Material(
+      color: Colors.transparent,
+      child: SwitchListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        activeThumbColor: AppColors.levelUpTeal,
+        activeTrackColor: AppColors.levelUpTeal.withValues(alpha: 0.2),
+        inactiveThumbColor: Colors.grey.shade400,
+        inactiveTrackColor: Colors.grey.shade200,
+        secondary: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: iconColor, size: 20),
         ),
-        child: Icon(icon, color: iconColor, size: 20),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          color: AppColors.textStrong,
-          fontWeight: FontWeight.bold,
-          fontSize: 14,
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.textStrong,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
         ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+        ),
+        value: value,
+        onChanged: onChanged,
       ),
-      subtitle: Text(
-        subtitle,
-        style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
-      ),
-      value: value,
-      onChanged: onChanged,
     );
   }
 }

@@ -11,4 +11,5 @@ abstract final class AppRoutes {
   static const String profile = '/profile';
   static const String interview = '/interview';
   static const String store = '/store';
+  static const String hiredPass = '/hired-pass';
 }
