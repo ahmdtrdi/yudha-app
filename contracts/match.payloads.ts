@@ -73,11 +73,15 @@ export type MatchResultPayload = {
       userId: string;
       hp: number;
       points: number;
+      ratingDelta?: number;
+      coinsDelta?: number;
     };
     playerB: {
       userId: string;
       hp: number;
       points: number;
+      ratingDelta?: number;
+      coinsDelta?: number;
     };
   };
 };

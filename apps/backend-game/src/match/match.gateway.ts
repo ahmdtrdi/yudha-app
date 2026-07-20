@@ -88,17 +88,17 @@ export class MatchGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage(CLIENT_MATCH_EVENTS.playCard)
-  handlePlayCard(@ConnectedSocket() client: Socket, @MessageBody() payload: PlayCardPayload) {
+  async handlePlayCard(@ConnectedSocket() client: Socket, @MessageBody() payload: PlayCardPayload) {
     const userId = this.requireUser(client);
     if (!userId) return;
-    this.emitAll(this.matchService.handlePlayCard(userId, client.id, payload));
+    this.emitAll(await this.matchService.handlePlayCard(userId, client.id, payload));
   }
 
   @SubscribeMessage(CLIENT_MATCH_EVENTS.surrender)
-  handleSurrender(@ConnectedSocket() client: Socket, @MessageBody() payload: SurrenderPayload) {
+  async handleSurrender(@ConnectedSocket() client: Socket, @MessageBody() payload: SurrenderPayload) {
     const userId = this.requireUser(client);
     if (!userId) return;
-    this.emitAll(this.matchService.handleSurrender(userId, client.id, payload));
+    this.emitAll(await this.matchService.handleSurrender(userId, client.id, payload));
   }
 
   private emitAll(result: MatchServiceResult): void {

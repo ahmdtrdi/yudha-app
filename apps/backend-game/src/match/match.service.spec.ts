@@ -3,14 +3,26 @@ import { MatchService } from './match.service';
 import { GameEngine } from './engine/game-engine';
 import { QuestionDealer } from './engine/question-dealer';
 import { QuestionService } from './questions/question.service';
+import { MatchResultService } from './results/match-result.service';
 import { RoomManager } from './rooms/room-manager';
+
+const mockMatchResultService = {
+  finalizeMatch: jest.fn().mockResolvedValue(null),
+};
 
 describe('MatchService', () => {
   let service: MatchService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [MatchService, GameEngine, QuestionDealer, QuestionService, RoomManager],
+      providers: [
+        MatchService,
+        GameEngine,
+        QuestionDealer,
+        QuestionService,
+        RoomManager,
+        { provide: MatchResultService, useValue: mockMatchResultService },
+      ],
     }).compile();
 
     service = module.get<MatchService>(MatchService);
