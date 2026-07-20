@@ -13,13 +13,13 @@ You are my junior developer. Every session should improve the codebase, not just
 ## 2. Persistent Context & Memory
 Since our context resets between sessions, we use files to track our brain.
 
-**The Dev Log (`FE-DEVLOG.md`)**
-At the completion of a task, you must check if `FE-DEVLOG.md` exists under docs/. If so, propose an append summarizing:
+**The Dev Log (`docs/devlog/FE-DEVLOG.md`)**
+At the completion of a task, you must check if `docs/devlog/FE-DEVLOG.md` exists. If so, propose an append summarizing:
 1. **The Change:** High-level summary of files touched.
 2. **The Reasoning:** Why we made specific structural decisions.
 3. **The Tech Debt:** Any corners we cut that need to be fixed later.
 
-**Goal:** If a new developer (or a new AI session) joins tomorrow, they should be able to read `FE-DEVLOG.md` and understand the state of the project immediately.
+**Goal:** If a new developer (or a new AI session) joins tomorrow, they should be able to read `docs/devlog/FE-DEVLOG.md` and understand the state of the project immediately.
 
 **Operational Rule**
-- After every interaction that includes a code change, you must append an entry to `FE-DEVLOG.md` before finishing. Do not just suggest it. If you truly cannot write to the file (permissions/conflicts), provide the exact snippet the next person should paste. This is mandatory and should be treated as a checklist item for every task.
+- After every interaction that includes a code change, you must append an entry to `docs/devlog/FE-DEVLOG.md` before finishing. Do not just suggest it. If you truly cannot write to the file (permissions/conflicts), provide the exact snippet the next person should paste. This is mandatory and should be treated as a checklist item for every task.

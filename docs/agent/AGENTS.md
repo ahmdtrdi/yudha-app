@@ -13,8 +13,8 @@ You are a developer. Every session should improve the codebase, not just add to 
 ## 2. Persistent Context & Memory
 Since our context resets between sessions, we use files to track our brain.
 
-**The Dev Log (`docs/DEVLOG-*.md`)**
-At the completion of a task, you must ask what my role is and check if `docs/DEVLOG-*.md` of the corresponding role exists under `docs/` (example: `docs/DEVLOG-FE.md` for frontend). If not, create one. If so, propose an append summarizing:
+**The Dev Log (`docs/devlog/*.md`)**
+At the completion of a task, you must ask what my role is and check if the corresponding role log exists under `docs/devlog/` (example: `docs/devlog/FE-DEVLOG.md` for frontend). If not, create one. If so, propose an append summarizing:
 1. **The Change:** High-level summary of files touched.
 2. **The Reasoning:** Why we made specific structural decisions.
 3. **The Tech Debt:** Any corners we cut that need to be fixed later.
@@ -22,4 +22,4 @@ At the completion of a task, you must ask what my role is and check if `docs/DEV
 **Goal:** If a new developer (or a new AI session) joins tomorrow, they should be able to read `docs/DEVLOG-*.md` and understand the state of the project immediately.
 
 **Operational Rule**
-- After every interaction that includes a code change, you must append an entry to `docs/DEVLOG-*.md` before finishing. Do not just suggest it. If you truly cannot write to the file (permissions/conflicts), provide the exact snippet the next person should paste. This is mandatory and should be treated as a checklist item for every task.
+- After every interaction that includes a code change, you must append an entry to the corresponding file in `docs/devlog/` before finishing. Do not just suggest it. If you truly cannot write to the file (permissions/conflicts), provide the exact snippet the next person should paste. This is mandatory and should be treated as a checklist item for every task.

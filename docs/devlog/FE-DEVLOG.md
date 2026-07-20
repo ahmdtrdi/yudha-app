@@ -11,7 +11,7 @@
   - `lib/features` (`pvp`, `lobby`, `leaderboard`, `practice`, `profile`, `interview`, `store`) each with `domain`, `data`, `application`, `presentation`
   - `assets` (`images`, `icons`, `lottie`, `fonts`)
   - `test` (`unit`, `widget`, `integration`)
-- Added new `docs/FE-DEVLOG.md` to persist frontend implementation decisions.
+- Added new `docs/devlog/FE-DEVLOG.md` to persist frontend implementation decisions.
 - Added dependency setup in `pubspec.yaml`:
   - `flutter_riverpod`
   - `go_router`
@@ -152,7 +152,7 @@
 ## 2026-03-18 - Revised FE design guide to conflict-free v1.1 (light-first + 60/40)
 
 ### The Change
-- Rewrote `docs/FE-DESIGN.md` into a clean, conflict-free design guide (`v1.1`).
+- Rewrote `docs/design/FE-DESIGN.md` into a clean, conflict-free design guide (`v1.1`).
 - Locked user decisions into the guide:
   - Logo wordmark uses `Logam` (logo only).
   - Brand balance fixed to `60% professional / 40% game`.
@@ -367,7 +367,7 @@
 ### The Reasoning
 - The previous layout technically fit the viewport, but visual weight was uneven: large blank hero areas and compressed lower sections reduced perceived quality.
 - Controlled hero height plus centered composition preserves the requested "hero-first" lobby while keeping no-scroll behavior stable.
-- Light card separation aligns better with the 60/40 professional-game balance in `FE-DESIGN.md`.
+- Light card separation aligns better with the 60/40 professional-game balance in `docs/design/FE-DESIGN.md`.
 
 ### The Tech Debt
 - Current hero still uses icon placeholder instead of branded character art and motion treatment.
@@ -1407,7 +1407,7 @@
 ## 2026-07-20 - Arena Visual Rebuild And Real-Time Card Flow
 
 ### The Change
-- Rebuilt the arena entry, mode selection, battle board, question sheet, and result state around a simpler clay-like chibi visual system documented in `docs/GAME-DESIGN.md`.
+- Rebuilt the arena entry, mode selection, battle board, question sheet, and result state around a simpler clay-like chibi visual system documented in `docs/design/GAME-DESIGN.md`.
 - Replaced the legacy battle PNG set with ten generated hero, tower, turret, and category-card assets under `apps/mobile/assets/game/`, then added larger towers, lane stones, shrubs, river banks, team zones, and a wider bridge to the live arena.
 - Added distinct effects per category: an arcing electric bolt for Numerik, a wavy speech spell for Verbal, a fast spinning puzzle core for Logika, and a protective leaf bloom for TWK.
 - Kept bot turns active while the question sheet is open. The selected question is temporarily reserved so the bot can consume another card without stealing the question being answered, and the sheet closes safely if the match ends underneath it.
