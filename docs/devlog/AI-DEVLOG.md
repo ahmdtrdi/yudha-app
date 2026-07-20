@@ -100,7 +100,7 @@
 
 ### The Change
 
-- Added `docs/INTERVIEW-AI-CLI.md` with local Groq harness setup, commands, flags, output interpretation, and troubleshooting.
+- Added `docs/misc/INTERVIEW-AI-CLI.md` with local Groq harness setup, commands, flags, output interpretation, and troubleshooting.
 - Linked the guide from `apps/backend-api/README.md`.
 
 ### The Reasoning
@@ -131,7 +131,7 @@
 - Updated session responses so question payloads expose `audioAvailable` when voice mode is active.
 - Added interview repository turn lookup needed for safe per-question TTS.
 - Added speech-related environment variables to `apps/backend-api/.env.example`.
-- Added `docs/INTERVIEW-SPEECH-ARCHITECTURE.md`.
+- Added `docs/misc/INTERVIEW-SPEECH-ARCHITECTURE.md`.
 - Validation passed:
   - `npm run build`
   - `npm run lint`

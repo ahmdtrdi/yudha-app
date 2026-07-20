@@ -37,6 +37,8 @@ YUDHA turns exam prep into a mobile-first arena experience:
 
 ## Repository Structure
 
+Mulai dari [`docs/MASTER.md`](docs/MASTER.md) untuk memahami cara kerja repo, menjalankan aplikasi, dan membaca dokumentasi.
+
 ```text
 yudha-app/
 |- apps/
@@ -47,7 +49,7 @@ yudha-app/
 |  |  |- data/        # Question data source
 |- contracts/         # Shared API/socket contracts
 |- infra/             # Deployment and infra setup
-|- docs/              # Product + technical docs
+|- docs/              # PRD, panduan repo, devlog, agent rules, dan dokumen pendukung
 ```
 
 ## Tech Stack
