@@ -15,6 +15,7 @@ import { MatchResultService } from './results/match-result.service';
 import { RoomManager } from './rooms/room-manager';
 import { MatchLogBuffer } from './logs/match-log-buffer';
 import { BotBattleService } from './bot/bot-battle.service';
+import { CardTimeoutService } from './timeout/card-timeout.service';
 
 type ServerMatchEventName = (typeof SERVER_MATCH_EVENTS)[keyof typeof SERVER_MATCH_EVENTS];
 
@@ -40,11 +41,12 @@ export class MatchService {
     private readonly matchResultService: MatchResultService,
     private readonly logBuffer: MatchLogBuffer,
     private readonly botBattleService: BotBattleService,
+    private readonly cardTimeoutService: CardTimeoutService,
   ) {}
 
   /**
    * Set by the gateway once the Server instance is available.
-   * Enables async bot turns to emit events to clients.
+   * Enables async bot turns and card timeout callbacks to emit events to clients.
    */
   setEmitServer(callback: (result: MatchServiceResult) => void): void {
     this.emitServer = callback;
@@ -65,10 +67,11 @@ export class MatchService {
       return { emits: [] };
     }
     if (result.type === 'active_presence') {
-      // Cancel bot timer if this is a bot match and the human disconnected
+      // Cancel timers if human disconnected
       if (this.botBattleService.isBotMatch(result.room)) {
         this.botBattleService.cancelBotSchedule(result.room.roomId);
       }
+      this.cardTimeoutService.cancelAllTimersForRoom(result.room.roomId);
       return this.emitPresence(result.room);
     }
     return { emits: [] };
@@ -192,6 +195,21 @@ export class MatchService {
       cardId: payload.cardId,
     });
 
+    // Schedule per-card turn timeout if this is a human player
+    if (userId !== 'bot') {
+      const player = this.engine.getPlayer(room, userId);
+      const card = player?.hand.find((c) => c.id === payload.cardId);
+      this.cardTimeoutService.scheduleTimeout(
+        payload.roomId,
+        userId,
+        payload.cardId,
+        card?.timeLimitSeconds,
+        (rId, uId, cId) => {
+          void this.handleCardTimeout(rId, uId, cId);
+        },
+      );
+    }
+
     return {
       emits: [
         {
@@ -207,6 +225,9 @@ export class MatchService {
   async handlePlayCard(userId: string, socketId: string, payload: PlayCardPayload): Promise<MatchServiceResult> {
     const room = this.rooms.getRoom(payload.roomId);
     if (!room) return this.reject(socketId, 'play_card', payload.roomId, 'room_not_found', 'Room not found.');
+
+    // Clear card timeout timer before executing answer
+    this.cardTimeoutService.clearTimeout(payload.roomId, userId);
 
     const result = this.engine.playCard(room, userId, payload.cardId, payload.selectedOptionIndex);
     if (!result.ok) {
@@ -233,12 +254,47 @@ export class MatchService {
 
     if (result.matchResult) {
       this.botBattleService.cancelBotSchedule(room.roomId);
+      this.cardTimeoutService.cancelAllTimersForRoom(room.roomId);
       await this.persistAndEnrich(room);
       emits.push(...this.matchResultEmits(room));
       this.rooms.scheduleCleanup(room.roomId);
     }
 
     return { emits };
+  }
+
+  async handleCardTimeout(roomId: string, userId: string, cardId: string): Promise<void> {
+    const room = this.rooms.getRoom(roomId);
+    if (!room || room.status !== 'active') return;
+
+    const result = this.engine.timeoutCard(room, userId, cardId);
+    if (!result.ok) return;
+
+    // Log the timeout action
+    this.logBuffer.record(roomId, userId, 'timeout', { cardId });
+
+    const emits: MatchEmit[] = [...this.stateEmits(room)];
+
+    const socketId = this.rooms.getSocketIdForUser(userId);
+    if (socketId) {
+      emits.unshift({
+        socketId,
+        event: SERVER_MATCH_EVENTS.playCardResult,
+        payload: result.playResult,
+      });
+    }
+
+    if (result.matchResult) {
+      this.botBattleService.cancelBotSchedule(room.roomId);
+      this.cardTimeoutService.cancelAllTimersForRoom(room.roomId);
+      await this.persistAndEnrich(room);
+      emits.push(...this.matchResultEmits(room));
+      this.rooms.scheduleCleanup(room.roomId);
+    }
+
+    if (this.emitServer && emits.length > 0) {
+      this.emitServer({ emits });
+    }
   }
 
   async handleSurrender(userId: string, socketId: string, payload: SurrenderPayload): Promise<MatchServiceResult> {
@@ -278,6 +334,7 @@ export class MatchService {
     });
 
     this.botBattleService.cancelBotSchedule(room.roomId);
+    this.cardTimeoutService.cancelAllTimersForRoom(room.roomId);
     await this.persistAndEnrich(room);
     this.rooms.scheduleCleanup(room.roomId);
     return { emits: [...this.stateEmits(room), ...this.matchResultEmits(room)] };
