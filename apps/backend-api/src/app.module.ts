@@ -8,6 +8,7 @@ import { ProfileModule } from './profile/profile.module';
 import { AuthModule } from './auth/auth.module';
 import { LeaderboardModule } from './leaderboard/leaderboard.module';
 import { PracticeModule } from './practice/practice.module';
+import { MatchesModule } from './matches/matches.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { PracticeModule } from './practice/practice.module';
     LeaderboardModule,
     PracticeModule,
     InterviewModule,
+    MatchesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

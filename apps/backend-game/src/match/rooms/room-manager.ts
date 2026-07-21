@@ -52,6 +52,7 @@ export class RoomManager {
     socketId: string,
     mode: 'ranked' | 'casual',
     cards: InternalCard[],
+    reserveCards: InternalCard[] = [],
   ): { queued: QueueEntry; queueDepth: number; match?: MatchCreated; rejected?: string } {
     const existingRoom = this.getRoomForUser(userId);
     if (existingRoom && existingRoom.status === 'active') {
@@ -76,7 +77,7 @@ export class RoomManager {
     }
 
     const [opponent] = this.queue.splice(opponentIndex, 1);
-    const room = this.createRoom(opponent, queued, cards);
+    const room = this.createRoom(opponent, queued, cards, reserveCards);
     return { queued, queueDepth: this.queue.length, match: { room, playerA: opponent, playerB: queued } };
   }
 
@@ -125,10 +126,16 @@ export class RoomManager {
     this.cleanupTimers.delete(roomId);
   }
 
-  private createRoom(playerA: QueueEntry, playerB: QueueEntry, cards: InternalCard[]): InternalRoomState {
+  private createRoom(
+    playerA: QueueEntry,
+    playerB: QueueEntry,
+    cards: InternalCard[],
+    reserveCards: InternalCard[] = [],
+  ): InternalRoomState {
     const roomId = `room_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const sharedQueue = this.dealer.createSharedQueue(cards);
-    const room = this.engine.createRoom(roomId, playerA.userId, playerB.userId, sharedQueue);
+    const reserveQueue = this.dealer.createSharedQueue(reserveCards);
+    const room = this.engine.createRoom(roomId, playerA.userId, playerB.userId, sharedQueue, reserveQueue);
     room.players.playerA.socketId = playerA.socketId;
     room.players.playerB.socketId = playerB.socketId;
     this.rooms.set(roomId, room);

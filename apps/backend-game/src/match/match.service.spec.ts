@@ -5,6 +5,7 @@ import { QuestionDealer } from './engine/question-dealer';
 import { QuestionService } from './questions/question.service';
 import { MatchResultService } from './results/match-result.service';
 import { RoomManager } from './rooms/room-manager';
+import { MatchLogBuffer } from './logs/match-log-buffer';
 import { BotBattleService } from './bot/bot-battle.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import type { InternalCard } from './questions/question.types';
@@ -52,6 +53,7 @@ describe('MatchService', () => {
         GameEngine,
         QuestionDealer,
         RoomManager,
+        MatchLogBuffer,
         { provide: QuestionService, useValue: mockQuestionService },
         { provide: MatchResultService, useValue: mockMatchResultService },
         { provide: BotBattleService, useValue: mockBotBattleService },

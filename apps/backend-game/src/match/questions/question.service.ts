@@ -18,8 +18,52 @@ const CATEGORY_DISTRIBUTION: CategoryDistribution = {
   TKP: 4,
 };
 
+/** Shape returned by getCardPool — split into active and reserve sets */
+export type CardPool = {
+  /** Cards for the main shared queue (dealt into hands) */
+  active: InternalCard[];
+  /** Reserve buffer for recycling when main queue is exhausted */
+  reserve: InternalCard[];
+};
+
 @Injectable()
 export class QuestionService {
+  /**
+   * Get the full card pool, split into active and reserve sets.
+   * The active set feeds the main shared queue; the reserve is used
+   * for recycling when the active pool is exhausted (PRD §3.1 step 6).
+   *
+   * When backed by Supabase (future), this will fetch 2x the pool size
+   * and split it — no mid-battle DB query.
+   */
+  getCardPool(): CardPool {
+    const allCards = this.buildAllCards();
+    const active = allCards.slice(0, ACTIVE_POOL_SIZE);
+    const reserve = allCards.slice(ACTIVE_POOL_SIZE);
+    return { active, reserve };
+  }
+
+  /** Legacy method — returns just the active pool (backward compat for existing callers) */
+  getCards(): InternalCard[] {
+    return this.getCardPool().active;
+  }
+
+  private buildAllCards(): InternalCard[] {
+    return LOCAL_QUESTIONS.map((question, index) => {
+      this.validateQuestion(question);
+      const effectValue = this.effectValue(question.weight);
+      return {
+        id: `card_${index + 1}`,
+        prompt: question.prompt,
+        options: [...question.options],
+        correctOptionIndex: question.correctOptionIndex,
+        weight: question.weight,
+        effect: question.effect,
+        explanation: question.explanation,
+        damageValue: question.effect === 'damage' ? effectValue : 0,
+        healValue: question.effect === 'heal' ? Math.max(5, Math.floor(effectValue / 2)) : 0,
+      };
+    });
   private readonly logger = new Logger(QuestionService.name);
 
   constructor(private readonly supabaseService: SupabaseService) {}
