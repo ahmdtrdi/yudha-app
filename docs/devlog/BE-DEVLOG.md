@@ -166,7 +166,7 @@
 - `security definer` on the RPC lets it bypass RLS safely for this one controlled write path without exposing a broad service-role key to arbitrary table writes.
 - Fire-and-forget persistence ensures Socket.IO events are never blocked by DB write latency or failures. Errors are logged with `MATCH_PERSIST_FAILED` tag for manual reconciliation.
 - Bot matches are designed to affect coins only (no `rank_points` change) to prevent rating farming, though bot mode is not yet implemented.
-- Rating delta calculation lives exclusively in SQL so backend-api and backend-game can never disagree on reward math.
+- Rating delta calculation lives exclusively in SQL so backend-api and backend-game can never disagree on reward math opreation
 
 **The Tech Debt:**
 - The `finalize_match_result` SQL migration must be applied manually to Supabase (SQL editor or `supabase db push`) before match persistence will work.
@@ -174,6 +174,55 @@
 - Coin reward amounts (10/3/5) are placeholder — product needs to confirm actual values.
 - No dead-letter queue for failed persistence — if both attempts fail, the match result is only logged, not queued for retry.
 - `match_logs` per-action audit trail and `GET /matches` history endpoint are still separate future tickets.
+
+## 2026-07-13 - Bot Battle Mode (vs Bot)
+
+**The Change:**
+- Extended `JoinQueuePayload.mode` in `contracts/match.payloads.ts` to accept `'bot'` alongside `'ranked'` and `'casual'`.
+- Added `RoomManager.createBotRoom()` that creates a room with the human player as `playerA` and a synthetic bot participant (`userId: 'bot'`, `socketId: null`, `connected: true`) as `playerB`, bypassing the matchmaking queue entirely.
+- Created `BotBattleService` (`apps/backend-game/src/match/bot/bot-battle.service.ts`) that manages the bot match lifecycle: room creation, scheduled bot turns (3.3–5.9s random delay per PRD §3.2), card selection (damage-first, fallback to first available), answer resolution, async event emission to the human player, and timer cleanup on all match-end paths.
+- Branched `MatchService.handleJoinQueue` on `mode === 'bot'` to skip the queue and emit `match_found` + initial `game_state_update` immediately — no `queue_joined` step.
+- Added `cancelBotSchedule(roomId)` calls in `handlePlayCard`, `handleSurrender`, and `handleDisconnect` to prevent leaked timers when a match ends from the human side.
+- Implemented `OnGatewayInit` in `MatchGateway` with an `afterInit()` hook that wires `BotBattleService`'s emit callback to the Socket.IO `Server` instance, enabling async bot turns to push events to the human player's socket outside the normal request/response flow.
+- Updated `MatchResultService.buildRpcParams()` to detect bot matches (`playerB.userId === 'bot'`) and set `p_player_b_id = null`, `p_mode = 'bot'`, and sanitize winner/loser IDs so the literal string `'bot'` never reaches the database.
+- Registered `BotBattleService` in `MatchModule` providers.
+
+**The Reasoning:**
+- The bot passes the card's `correctOptionIndex` directly into `engine.playCard()` as its `selectedOptionIndex`, achieving "always answers correctly" with zero `GameEngine` modifications. All damage/heal math stays centralized in the engine — the bot is just another "player" from the engine's perspective.
+- A single `cancelBotSchedule(roomId)` method is called from every match-end branch (play-card finish, surrender, disconnect) to avoid the most common bug pattern in timer-driven features: a leaked timer firing into a disposed room.
+- Bot matches use `p_mode = 'bot'` in the persistence RPC so the database can distinguish bot results and skip `rank_points` deltas while still awarding coins and updating `total_matches`.
+- The async emit callback pattern (gateway → service → bot service) keeps `BotBattleService` decoupled from the Socket.IO `Server` instance while still allowing timer-driven bot actions to emit events to the human player.
+
+**The Tech Debt:**
+- The bot uses a hardcoded `userId: 'bot'` string — if multiple concurrent bot matches are needed per-user this works fine (keyed by `roomId`), but the `userToRoom` map currently maps `'bot'` to only one room. Concurrent bot matches from different users would need per-room bot IDs (e.g. `bot_${roomId}`).
+- Bot card selection is simple damage-preference only — no HP-aware defensive strategy (heal when low). Product flagged as a potential future enhancement.
+- Question exhaustion and recycling interact with bot matches the same way as PvP — once recycling is implemented, bot matches will inherit it automatically.
+- The `match.service.spec.ts` test may need a mock `BotBattleService` provider added to its test module setup.
+
+## 2026-07-13 - Content Correctness: Supabase Questions + Heal Value Fix
+
+**The Change:**
+- Replaced the 12 hardcoded questions in `QuestionService` with async reads from the Supabase `questions` table via the service-role admin client. Reads go to the base table (not `public_questions` view) because the game backend needs `correct_option_index` server-side for answer validation.
+- Questions are fetched once at match creation (`getMatchQuestionPool(target)`) and cached in room state — no Supabase round-trip occurs during `open_card`/`play_card`.
+- Added `buildBalancedPool()` that distributes questions evenly across TWK/TIU/TKP categories (4/4/4 = 12 pool), shuffles within each, backfills from other categories when one is short, then does a final shuffle so categories aren't grouped in the dealt hand.
+- `damage_value`, `heal_value`, and `time_limit_seconds` now come directly from the DB row — no local recomputation. This removes the heal-value halving bug where `healValue` was `Math.max(5, Math.floor(effectValue / 2))` instead of full impact.
+- Added `SupabaseQuestionRow` and `CategoryDistribution` types to `question.types.ts`. Added `timeLimitSeconds` to `InternalCard`.
+- Made `handleJoinQueue` in both `MatchService` and `MatchGateway` async since question fetch is now an awaited Supabase call.
+- Made `BotBattleService.createBotMatch` async — bot matches use the exact same `getMatchQuestionPool(target)` call as PvP, no separate question-fetch path.
+- Updated `match.service.spec.ts` with mocked `BotBattleService`, `SupabaseService`, and `QuestionService` providers. Stub cards use DB-shaped values (full-impact `healValue`, no halving).
+
+**The Reasoning:**
+- Values must come from the DB because content authors set `damage_value`/`heal_value` at authoring time using the impact formula (`8 + weight × 6`). Local recomputation duplicated this logic and introduced the halving bug for heal values.
+- Reading from the base `questions` table (not the `public_questions` view) is required because the view deliberately hides `correct_option_index` for client-facing reads, but the game backend needs it to validate answers.
+- Category balancing prevents matches where all cards are the same type by chance. The `CATEGORY_DISTRIBUTION` constant is configurable without a code change pattern — just edit the constant.
+- Fetching once at match creation (not per-card) aligns with PRD §6 Risk #1: *"Avoid blocking PostgreSQL queries during active battle rounds."*
+
+**The Tech Debt:**
+- Target is hardcoded to `'cpns'` in both `handleJoinQueue` and `BotBattleService.createBotMatch`. When profile-aware matchmaking lands, it should read the player's `profiles.target` and pass it through.
+- Cross-target PvP matchmaking (cpns vs bumn players) is unresolved — currently both players would get the same `'cpns'` pool. Needs a product decision on whose target wins or whether to enforce same-target pairing.
+- Category distribution (4/4/4) is a best-guess default — product/content team should confirm the intended ratio.
+- Difficulty filtering is not applied for v1 — flagged as a follow-up if load testing or product review requests it.
+- No in-memory cache of recently-fetched pools across near-simultaneous match starts — flagged as a future optimization if load testing shows it's needed..
 
 ## 2026-07-21 - Supporting Features: Match Logs + Match History API + Question Recycling
 
@@ -217,3 +266,4 @@
 - `opponentUsername` in match history is either "Bot" or `null` — a join against `profiles` for the real username is deferred until the UI needs it.
 - Log entries for bot actions are not yet wired (depends on the bot battle service integration).
 - Log persistence is a separate insert after the RPC, not in the same transaction — if the RPC succeeds but the log insert fails, logs are lost (logged but not retried).
+
