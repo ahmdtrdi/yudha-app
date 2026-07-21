@@ -3,14 +3,18 @@ import { SupabaseService } from '../../supabase/supabase.service';
 import type { InternalCard, SupabaseQuestionRow, CategoryDistribution } from './question.types';
 
 /**
- * Target pool size per match. Each match draws from this many questions.
- * Configurable here rather than hardcoded in multiple places.
+ * Default active pool size per match.
  */
-const MATCH_POOL_SIZE = 12;
+const DEFAULT_ACTIVE_POOL_SIZE = 12;
 
 /**
- * Category distribution: how many questions of each category to include.
- * Must sum to MATCH_POOL_SIZE. Even split across TWK/TIU/TKP.
+ * Default reserve pool size for question recycling when active pool is exhausted.
+ */
+const DEFAULT_RESERVE_POOL_SIZE = 12;
+
+/**
+ * Category distribution ratio for building balanced match pools.
+ * For a pool of 12, this gives 4 TWK, 4 TIU, 4 TKP.
  */
 const CATEGORY_DISTRIBUTION: CategoryDistribution = {
   TWK: 4,
@@ -18,9 +22,9 @@ const CATEGORY_DISTRIBUTION: CategoryDistribution = {
   TKP: 4,
 };
 
-/** Shape returned by getCardPool — split into active and reserve sets */
+/** Shape returned when fetching active + reserve card pools */
 export type CardPool = {
-  /** Cards for the main shared queue (dealt into hands) */
+  /** Cards for the main shared queue (dealt into starting hands and normal draws) */
   active: InternalCard[];
   /** Reserve buffer for recycling when main queue is exhausted */
   reserve: InternalCard[];
@@ -28,60 +32,30 @@ export type CardPool = {
 
 @Injectable()
 export class QuestionService {
-  /**
-   * Get the full card pool, split into active and reserve sets.
-   * The active set feeds the main shared queue; the reserve is used
-   * for recycling when the active pool is exhausted (PRD §3.1 step 6).
-   *
-   * When backed by Supabase (future), this will fetch 2x the pool size
-   * and split it — no mid-battle DB query.
-   */
-  getCardPool(): CardPool {
-    const allCards = this.buildAllCards();
-    const active = allCards.slice(0, ACTIVE_POOL_SIZE);
-    const reserve = allCards.slice(ACTIVE_POOL_SIZE);
-    return { active, reserve };
-  }
-
-  /** Legacy method — returns just the active pool (backward compat for existing callers) */
-  getCards(): InternalCard[] {
-    return this.getCardPool().active;
-  }
-
-  private buildAllCards(): InternalCard[] {
-    return LOCAL_QUESTIONS.map((question, index) => {
-      this.validateQuestion(question);
-      const effectValue = this.effectValue(question.weight);
-      return {
-        id: `card_${index + 1}`,
-        prompt: question.prompt,
-        options: [...question.options],
-        correctOptionIndex: question.correctOptionIndex,
-        weight: question.weight,
-        effect: question.effect,
-        explanation: question.explanation,
-        damageValue: question.effect === 'damage' ? effectValue : 0,
-        healValue: question.effect === 'heal' ? Math.max(5, Math.floor(effectValue / 2)) : 0,
-      };
-    });
   private readonly logger = new Logger(QuestionService.name);
 
   constructor(private readonly supabaseService: SupabaseService) {}
 
   /**
-   * Fetch a balanced question pool from Supabase for a match.
+   * Fetch a balanced question pool from Supabase for a match, returning both
+   * active queue cards and reserve recycling cards.
+   *
    * Reads from the base `questions` table (not `public_questions` view)
    * because the game backend needs `correct_option_index` server-side.
-   *
-   * Questions are fetched once at match creation and cached in room state —
-   * no Supabase round-trip happens during open_card/play_card.
    */
-  async getMatchQuestionPool(target: 'cpns' | 'bumn', poolSize = MATCH_POOL_SIZE): Promise<InternalCard[]> {
+  async getMatchQuestionPoolWithReserve(
+    target: 'cpns' | 'bumn' = 'cpns',
+    activeSize = DEFAULT_ACTIVE_POOL_SIZE,
+    reserveSize = DEFAULT_RESERVE_POOL_SIZE,
+  ): Promise<CardPool> {
+    const totalNeeded = activeSize + reserveSize;
     const adminClient = this.supabaseService.getAdminClient();
 
     const { data, error } = await adminClient
       .from('questions')
-      .select('id, category, subcategory, prompt, options, correct_option_index, explanation, difficulty, weight, effect, damage_value, heal_value, time_limit_seconds, hint, target, is_active')
+      .select(
+        'id, category, subcategory, prompt, options, correct_option_index, explanation, difficulty, weight, effect, damage_value, heal_value, time_limit_seconds, hint, target, is_active',
+      )
       .eq('target', target)
       .eq('is_active', true);
 
@@ -93,8 +67,24 @@ export class QuestionService {
       throw new Error(`No active questions found for target: ${target}`);
     }
 
-    const pool = this.buildBalancedPool(data as SupabaseQuestionRow[], poolSize);
-    return pool.map((row, index) => this.mapToInternalCard(row, index));
+    const poolRows = this.buildBalancedPool(data as SupabaseQuestionRow[], totalNeeded);
+    const allCards = poolRows.map((row, index) => this.mapToInternalCard(row, index));
+
+    const active = allCards.slice(0, activeSize);
+    const reserve = allCards.slice(activeSize);
+
+    return { active, reserve };
+  }
+
+  /**
+   * Fetch only active question pool (convenience wrapper).
+   */
+  async getMatchQuestionPool(
+    target: 'cpns' | 'bumn' = 'cpns',
+    poolSize = DEFAULT_ACTIVE_POOL_SIZE,
+  ): Promise<InternalCard[]> {
+    const pool = await this.getMatchQuestionPoolWithReserve(target, poolSize, 0);
+    return pool.active;
   }
 
   /**
@@ -122,34 +112,37 @@ export class QuestionService {
     const pool: SupabaseQuestionRow[] = [];
     const remaining: SupabaseQuestionRow[] = [];
 
+    // Scale category target based on requested pool size
+    const scale = poolSize / DEFAULT_ACTIVE_POOL_SIZE;
+
     // Draw from each configured category
     for (const [cat, count] of Object.entries(CATEGORY_DISTRIBUTION) as [string, number][]) {
+      const targetCount = Math.round(count * scale);
       const available = byCategory.get(cat) ?? [];
-      const drawn = available.splice(0, count);
+      const drawn = available.splice(0, targetCount);
       pool.push(...drawn);
-      // Track leftover questions for backfill
       remaining.push(...available);
     }
 
-    // Add any uncategorized questions to the remaining pool
+    // Add any uncategorized categories to remaining
     for (const [cat, cards] of byCategory) {
       if (!(cat in CATEGORY_DISTRIBUTION)) {
         remaining.push(...cards);
       }
     }
 
-    // Backfill if we didn't hit poolSize (some categories had fewer questions)
+    // Backfill if we didn't hit poolSize
     if (pool.length < poolSize) {
       this.shuffle(remaining);
       pool.push(...remaining.slice(0, poolSize - pool.length));
     }
 
-    // Final shuffle so categories aren't grouped together in the dealt hand
+    // Final shuffle so categories aren't grouped sequentially in hand
     this.shuffle(pool);
 
     if (pool.length < poolSize) {
       this.logger.warn(
-        `Question pool only has ${pool.length}/${poolSize} questions — some categories may be underrepresented`,
+        `Question pool only has ${pool.length}/${poolSize} questions — content pool is small.`,
       );
     }
 
@@ -158,8 +151,7 @@ export class QuestionService {
 
   /**
    * Map a Supabase question row directly to the engine's InternalCard.
-   * damage_value, heal_value, and time_limit_seconds come straight from the DB —
-   * no local recomputation.
+   * damage_value, heal_value, and time_limit_seconds come straight from DB.
    */
   private mapToInternalCard(row: SupabaseQuestionRow, index: number): InternalCard {
     return {

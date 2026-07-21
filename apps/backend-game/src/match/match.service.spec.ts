@@ -29,6 +29,7 @@ const mockMatchResultService = {
 
 const mockQuestionService = {
   getMatchQuestionPool: jest.fn().mockResolvedValue(STUB_CARDS),
+  getMatchQuestionPoolWithReserve: jest.fn().mockResolvedValue({ active: STUB_CARDS, reserve: [] }),
 };
 
 const mockBotBattleService = {

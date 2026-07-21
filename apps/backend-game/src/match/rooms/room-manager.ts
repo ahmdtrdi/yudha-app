@@ -144,10 +144,16 @@ export class RoomManager {
     return room;
   }
 
-  createBotRoom(userId: string, socketId: string, cards: InternalCard[]): InternalRoomState {
+  createBotRoom(
+    userId: string,
+    socketId: string,
+    cards: InternalCard[],
+    reserveCards: InternalCard[] = [],
+  ): InternalRoomState {
     const roomId = `room_bot_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const sharedQueue = this.dealer.createSharedQueue(cards);
-    const room = this.engine.createRoom(roomId, userId, 'bot', sharedQueue);
+    const reserveQueue = this.dealer.createSharedQueue(reserveCards);
+    const room = this.engine.createRoom(roomId, userId, 'bot', sharedQueue, reserveQueue);
     room.players.playerA.socketId = socketId;
     room.players.playerB.socketId = null;
     room.players.playerB.connected = true;

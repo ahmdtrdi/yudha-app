@@ -83,8 +83,8 @@ export class MatchService {
     }
 
     // Fetch question pool from Supabase (once per match creation)
-    const cards = await this.questions.getMatchQuestionPool('cpns');
-    const queueResult = this.rooms.joinQueue(userId, socketId, mode, cards);
+    const { active, reserve } = await this.questions.getMatchQuestionPoolWithReserve('cpns');
+    const queueResult = this.rooms.joinQueue(userId, socketId, mode, active, reserve);
 
     if (queueResult.rejected) {
       return {
