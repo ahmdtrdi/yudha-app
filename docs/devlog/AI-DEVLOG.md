@@ -150,3 +150,98 @@
 - TTS responses are not cached yet, so replaying the same interviewer question will call ElevenLabs again.
 - Audio uploads are validated after multipart parsing. Add tighter transport-level file limits if abuse or large uploads become a concern.
 - Transcript metadata is returned to the client but not persisted yet. Add per-turn speech metadata storage only if replay, analytics, or auditability justify the schema growth.
+
+## 2026-07-21 - Dedicated AI Interview PRD and High-Efficiency Architecture Specs
+
+### The Change
+
+- Created dedicated AI Mock Interview PRD & Technical Spec in [`docs/PRD-AI-INTERVIEW.md`](file:/*/PRD-AI-INTERVIEW.md).
+- Updated parent [`docs/PRD.md`](file:*/docs/PRD.md) Section 4 to link directly to `docs/PRD-AI-INTERVIEW.md`.
+- Documented token efficiency strategy yielding **75%–85% total token reduction** (Anthropic Contextual Retrieval RAG top-2 chunks, Gemini Context Caching, Rolling Summary & Candidate Facts state compression).
+- Documented latency budget and protocol analysis (HTTP/2 REST + SSE for Text-to-Text streaming, WebSocket / Socket.IO for Speech-to-Speech live streaming, rejecting unnecessary client-facing gRPC complexity).
+
+### The Reasoning
+
+- Isolating the AI Interview specification into `PRD-AI-INTERVIEW.md` prevents bloated PRD documents while providing AI Engineers with deep, actionable technical benchmarks.
+- Protocol analysis shows that 90%+ of latency in Speech/Text AI comes from LLM inference (~300-500ms) and TTS synthesis (~300ms), making gRPC transport overhead savings (~10-20ms) irrelevant compared to the added Flutter/Mobile gRPC-Web proxy complexity. SSE and WebSocket provide optimal perceived latency for streaming tokens and audio chunks.
+
+### The Tech Debt
+
+- Refactor `GroqLlmService` into `GeminiLlmService` supporting Native Gemini API (`@google/genai`) and Context Caching.
+- Implement SSE endpoint in NestJS for Text-to-Text token streaming and WebSocket event handlers for voice audio streaming.
+
+## 2026-07-21 - Gemini Flash Reasoning & Modular TTS Provider Architecture
+
+### The Change
+
+- Added `GeminiLlmService` (`apps/backend-api/src/interview/services/gemini-llm.service.ts`) implementing `InterviewLlmClient`:
+  - Uses Google Gemini Flash REST API (`gemini-2.5-flash` / `gemini-3.5-flash`) with strict `INTERVIEW_EVALUATION_SCHEMA` validation.
+  - Implemented Free Tier rate-limit backoff handling (exponential backoff with jitter on HTTP `429` & `5xx` errors).
+- Added `GroqTtsService` (`apps/backend-api/src/interview/services/groq-tts.service.ts`) implementing `InterviewSpeechSynthesisClient`.
+- Configured dynamic provider factory injection in `InterviewModule` (`apps/backend-api/src/interview/interview.module.ts`):
+  - `INTERVIEW_LLM_CLIENT`: Switchable via `INTERVIEW_LLM_PROVIDER=gemini` (default) vs `groq`.
+  - `INTERVIEW_SPEECH_SYNTHESIS_CLIENT`: Switchable via `INTERVIEW_TTS_PROVIDER=groq` (default) vs `elevenlabs`.
+- Added unit tests: `gemini-llm.service.spec.ts` and `groq-tts.service.spec.ts`.
+- Updated `apps/backend-api/.env.example` with Gemini API configuration and TTS provider toggles.
+
+### The Reasoning
+
+- Isolating LLM and TTS implementations behind injection tokens (`INTERVIEW_LLM_CLIENT`, `INTERVIEW_SPEECH_SYNTHESIS_CLIENT`) allows instantaneous switching between providers (e.g. from free Groq TTS to premium ElevenLabs, or from Groq LLM to Gemini Flash) via simple `.env` flags without changing any orchestration or business logic.
+- Gemini Flash Reasoning offers superior context processing and JSON schema adherence for interview rubrics while staying well within Free Tier rate limits through smart retry backoffs.
+
+### The Tech Debt
+
+- Add native Gemini v1beta context cache registration endpoint when session duration exceeds default 30-minute window.
+- Implement SSE streaming controller methods for token-by-token real-time feedback rendering.
+
+## 2026-07-21 - Supabase Company Profile SQL Seed & Automation Generator
+
+### The Change
+
+- Created SQL seed script [`infra/supabase/seed_interview_companies.sql`](file:///Users/tri/Documents/code/yudha-app/infra/supabase/seed_interview_companies.sql) covering all 9 BUMN & Ministry JSON fixtures (`adhi-karya`, `bank-indonesia`, `bank-mandiri`, `garuda-indonesia`, `injourney`, `kementerian-keuangan`, `kereta-api-indonesia`, `pertamina`, `perusahaan-listrik-negara`).
+- Created JavaScript generator [`apps/backend-api/src/interview/harness/generate-company-seed.js`](file:///Users/tri/Documents/code/yudha-app/apps/backend-api/src/interview/harness/generate-company-seed.js).
+- Added Automated Supabase Seeder [`apps/backend-api/src/interview/harness/seed-supabase-companies.ts`](file:///Users/tri/Documents/code/yudha-app/apps/backend-api/src/interview/harness/seed-supabase-companies.ts) and NPM script `"interview:seed"`.
+- Added diagnostic validation for `GEMINI_API_KEY` format (verifying `AIzaSy` prefix) in `GeminiLlmService`.
+- Added automatic fallback to `response_format: { type: "json_object" }` on Groq retries to bypass server-side strict schema rejections when Groq generates string numbers like `"forty"`.
+- Enhanced `InterviewEvaluationValidator` with robust score coercing for word numbers and string numbers.
+
+### The Reasoning
+
+- Identifies root cause of HTTP 404 errors related to API key format validation.
+- Prevents 400 Bad Request `json_validate_failed` errors from Groq when LLMs produce word strings for numeric schema properties.
+
+## 2026-07-21 - LLM Fallback Chain Fix & Modular Provider Resilience
+
+### The Change
+
+- Fixed `GeminiLlmService` authentication: switched from deprecated `?key=` query parameter to `x-goog-api-key` HTTP header, required for new Google Auth Keys (`AQ.` prefix format).
+- Fixed `INTERVIEW_GEMINI_BASE_URL`: removed `/openai` suffix that conflicted with native Gemini `generateContent` endpoint format.
+- Updated default model from retired `gemini-1.5-flash` to `gemini-2.5-flash`.
+- Replaced hardcoded fallback model list (`gemini-1.5-flash`, `gemini-1.5-pro`, `gemini-2.0-flash-exp` — all retired) with configurable `INTERVIEW_GEMINI_FALLBACK_MODELS` env variable.
+- Updated API key validation to accept both legacy `AIzaSy` and new `AQ.` key formats.
+- Added auto-detection and stripping of `/openai` suffix from base URL with warning log.
+- Added `"Respond with a valid JSON object."` to system prompt in `InterviewPromptService` to fix Groq `json_object` response format compatibility.
+- Created `FallbackLlmService` (`apps/backend-api/src/interview/services/fallback-llm.service.ts`):
+  - Implements `InterviewLlmClient` interface.
+  - Wraps primary + fallback provider with automatic failover and structured logging.
+- Updated `InterviewModule` to wire `FallbackLlmService` as `INTERVIEW_LLM_CLIENT`:
+  - Primary provider based on `INTERVIEW_LLM_PROVIDER` (default: gemini).
+  - Fallback is always the other provider (groq when gemini is primary, vice versa).
+- Simplified `local-interview-harness.ts`: removed manual try/catch fallback logic, now uses `FallbackLlmService` matching production behavior.
+
+### The Reasoning
+
+- Three bugs were compounding: invalid auth method for new `AQ.` keys + wrong base URL path + retired models = every Gemini request returned HTTP 404.
+- The 404 was misinterpreted as "quota exhausted" triggering Groq fallback, which also failed because Groq's `json_object` format requires the word "json" in messages.
+- `FallbackLlmService` eliminates duplicated fallback logic between harness and production module, ensuring consistent resilience behavior.
+- Configurable fallback models via env variable prevents future breakage when Google retires models.
+
+### The Tech Debt
+
+- `gemini-2.5-flash` is scheduled for retirement on October 16, 2026. Plan migration to `gemini-3.5-flash` before then.
+- `FallbackLlmService` currently supports exactly 2 providers. If a third provider is added, consider a chain-of-responsibility pattern.
+- Add health check endpoint that validates LLM provider connectivity on startup.
+
+
+
+

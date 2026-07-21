@@ -267,3 +267,18 @@
 - Log entries for bot actions are not yet wired (depends on the bot battle service integration).
 - Log persistence is a separate insert after the RPC, not in the same transaction — if the RPC succeeds but the log insert fails, logs are lost (logged but not retried).
 
+## 2026-07-21 - Modular AI Interview Providers & Gemini Flash Integration
+
+**The Change:**
+- Integrated `GeminiLlmService` and `GroqTtsService` into `apps/backend-api/src/interview`.
+- Re-wired `InterviewModule` provider factories to support runtime dynamic switching of LLM (`INTERVIEW_LLM_PROVIDER=gemini|groq`) and TTS (`INTERVIEW_TTS_PROVIDER=groq|elevenlabs`).
+- Updated `apps/backend-api/.env.example` with Gemini API configuration keys and TTS toggles.
+
+**The Reasoning:**
+- Keeps backend service architecture modular and decoupled from specific AI vendor APIs.
+- Default configuration uses free-tier friendly Groq (for STT/TTS) and Gemini 2.5 Flash (for Reasoning), with zero code changes required when switching to ElevenLabs for paid tiers.
+
+**The Tech Debt:**
+- Streaming SSE endpoints for real-time text tokens and WebSocket handlers for audio chunks to be added in the next integration phase.
+
+

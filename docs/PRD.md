@@ -395,6 +395,8 @@ Weight 1 → 14, Weight 2 → 20, Weight 3 → 26, Weight 4 → 32.
 
 ## STEP 4 — AI MOCK INTERVIEW ARCHITECTURE
 
+> **Detailed Specification:** Detailed architecture, token optimization strategy (75%-85% reduction), latency benchmarks, and protocol specifications live in [`docs/PRD-AI-INTERVIEW.md`](file:*/PRD-AI-INTERVIEW.md).
+
 ### 4.1 Interview Modes
 
 | Mode | Behavior |
@@ -404,21 +406,20 @@ Weight 1 → 14, Weight 2 → 20, Weight 3 → 26, Weight 4 → 32.
 
 ### 4.2 LLM Strategy
 
-- **Provider:** Groq API with configurable model (currently `openai/gpt-oss-120b`).
+- **Reasoning Provider:** Gemini Flash 3.5 / 2.5 API with native Context Caching and JSON Schema Enforcement.
 - **Deterministic opening question** avoids wasting an LLM call on a predictable prompt.
-- **Rolling summary** compresses conversation history to keep prompts within token budgets.
-- **Candidate facts** (name, education, field of study) are extracted and preserved in the rolling summary for natural follow-ups.
+- **Rolling summary & Candidate Facts** compresses conversation history to keep prompts within fixed token budgets (~450 tokens history).
+- **Anthropic Contextual Retrieval:** Top-2 chunk contextual injection for company profiles (~400 tokens context).
 - **Company context** is snapshotted from `interview_company_contexts` at session start so prompt behavior stays stable.
-- **Structured output** with strict JSON Schema validation and bounded retry for `json_validate_failed`.
 - **Idempotent answer submission** via `idempotencyKey` prevents duplicate LLM evaluations.
 
-### 4.3 Voice Interaction Layer
+### 4.3 Voice & Protocol Layer
 
 Audio is an input-output UX layer, not a source of truth.
 
-- **STT (Groq Whisper):** candidate records audio → uploads to transcription endpoint → receives text transcript → reviews/edits → submits as normal text answer.
-- **TTS (ElevenLabs):** interviewer question text is synthesized to audio on demand → streamed to client.
-- Both providers are abstracted behind injection tokens (`INTERVIEW_SPEECH_TRANSCRIPTION_CLIENT`, `INTERVIEW_SPEECH_SYNTHESIS_CLIENT`) so they can be swapped without touching orchestration code.
+- **STT (Groq Whisper):** candidate records audio → uploads to transcription endpoint (`whisper-large-v3-turbo`) → receives text transcript → reviews/edits → submits as text answer.
+- **TTS (Groq / ElevenLabs):** interviewer question text is synthesized to audio on demand → streamed to client.
+- **Protocol:** HTTP/2 REST + SSE for Text-to-Text streaming, WebSocket (Socket.IO) for Speech-to-Speech live streaming.
 
 ---
 
