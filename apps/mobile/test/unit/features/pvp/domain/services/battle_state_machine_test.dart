@@ -29,8 +29,8 @@ void main() {
 
       expect(resolved.opponentHp, 80);
       expect(resolved.playerPoints, 20);
-      expect(resolved.phase, BattlePhase.finished);
-      expect(resolved.outcome, BattleOutcome.win);
+      expect(resolved.phase, BattlePhase.inBattle);
+      expect(resolved.outcome, BattleOutcome.inProgress);
     });
 
     test('caps heal at 100 when answer is correct', () {
@@ -81,6 +81,62 @@ void main() {
         BattleStateMachine.impactFromWeight(highWeight.weight),
         greaterThan(BattleStateMachine.impactFromWeight(lowWeight.weight)),
       );
+    });
+
+    test('recycles the final player card while battle remains active', () {
+      const BattleQuestion finalQuestion = BattleQuestion(
+        id: 'q-final-player',
+        prompt: 'Final player question',
+        options: <String>['A', 'B'],
+        correctOptionIndex: 0,
+        weight: 1,
+        effect: QuestionEffect.damage,
+        category: 'verbal',
+      );
+      final BattleState initial = BattleState.initial().copyWith(
+        phase: BattlePhase.inBattle,
+        availableQuestions: const <BattleQuestion>[finalQuestion],
+        answeredQuestionIds: const <String>['q-before'],
+      );
+
+      final BattleState resolved = BattleStateMachine.resolveTurn(
+        state: initial,
+        question: finalQuestion,
+        selectedOptionIndex: 1,
+      );
+
+      expect(resolved.phase, BattlePhase.inBattle);
+      expect(resolved.availableQuestions, hasLength(1));
+      expect(resolved.availableQuestions.single.prompt, finalQuestion.prompt);
+      expect(resolved.availableQuestions.single.id, isNot(finalQuestion.id));
+      expect(resolved.answeredQuestionIds, isEmpty);
+    });
+
+    test('recycles the final bot card while battle remains active', () {
+      const BattleQuestion finalQuestion = BattleQuestion(
+        id: 'q-final-bot',
+        prompt: 'Final bot question',
+        options: <String>['A', 'B'],
+        correctOptionIndex: 0,
+        weight: 1,
+        effect: QuestionEffect.damage,
+        category: 'numerik',
+      );
+      final BattleState initial = BattleState.initial().copyWith(
+        phase: BattlePhase.inBattle,
+        availableQuestions: const <BattleQuestion>[finalQuestion],
+      );
+
+      final BattleState resolved = BattleStateMachine.resolveOpponentTurn(
+        state: initial,
+        question: finalQuestion,
+      );
+
+      expect(resolved.phase, BattlePhase.inBattle);
+      expect(resolved.availableQuestions, hasLength(1));
+      expect(resolved.availableQuestions.single.prompt, finalQuestion.prompt);
+      expect(resolved.availableQuestions.single.id, isNot(finalQuestion.id));
+      expect(resolved.answeredQuestionIds, isEmpty);
     });
   });
 }

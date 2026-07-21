@@ -1,0 +1,271 @@
+# YUDHA Arena — Game Design
+
+Status: redesign source of truth
+Updated: July 20, 2026
+
+## 1. Product Promise
+
+YUDHA Arena turns a short practice session into a friendly one-on-one battle. The player always understands three things at a glance: whose turn pressure is rising, what each of the four cards will do, and what changed after an answer.
+
+The experience should feel handcrafted, playful, and modern—not like a collection of unrelated game templates. It uses a small, repeatable visual language: chunky clay objects, bright solid colors, soft depth, clear typography, and restrained motion.
+
+## 2. Design Pillars
+
+1. **One glance, one action.** Each screen has one dominant decision. Supporting information stays quiet.
+2. **The answer drives the action.** Cards lead to questions; answers immediately become attacks, heals, HP changes, and score feedback.
+3. **Cute competition.** The arena is energetic without looking aggressive or visually noisy.
+4. **Chunky and tactile.** Objects look like simple 3D toys made from clay-plastic shapes, with soft studio light and minimal texture.
+5. **Consistent, not generated-looking.** Assets share the same camera angle, proportions, palette, edge softness, and light direction. UI avoids excessive gradients, glows, glass panels, and decorative labels.
+
+## 3. Player Flow
+
+```text
+Arena entry
+  → Choose mode
+  → Match intro and 3-second countdown
+  → Choose 1 of 4 cards
+  → Answer the card's question
+  → Resolve answer and launch attack/heal
+  → Refill the hand and repeat
+  → Match result
+  → Claim reward, replay, or return to mode selection
+```
+
+The existing phase model remains the implementation contract:
+
+| Phase | Player purpose |
+|---|---|
+| `preBattle` | Understand the game and enter with confidence. |
+| `arenaMenu` | Pick Bot or Player mode. |
+| `inBattle` | Choose, answer, and watch the result resolve. |
+| `finished` | Understand the outcome and choose the next action. |
+
+## 4. Core Match Rules
+
+### Four-card hand
+
+- Exactly four card slots remain visible whenever enough questions are available. Online sessions may hold more cards server-side; four is the deliberate mobile presentation limit.
+- A card communicates category, effect, and power before it is tapped.
+- Selecting a card lifts it briefly, then opens its question.
+- Opening a question never pauses the battle. Opponent attacks and incoming HP changes continue in real time behind the sheet.
+- The selected question is reserved while it is open so the local bot cannot consume that exact card; all other bot actions continue normally.
+- Answered cards leave the hand and are refilled from the pool.
+- A disabled or resolving card cannot be tapped twice.
+
+### Answer resolution
+
+Bot sessions keep the current local-domain formula:
+
+```text
+impact = 8 + (weight clamped from 1 to 4 × 6)
+```
+
+| Bot card result | Battle result |
+|---|---|
+| Correct damage answer | Full damage to opponent; full points to player. |
+| Wrong damage answer or timeout | Half damage reflected to player. |
+| Correct heal answer | Full heal to player; half-impact points. |
+| Wrong heal answer | Half heal to opponent. |
+| Bot damage turn | Full damage to player. |
+| Bot heal turn | Full heal to opponent. |
+
+HP remains clamped from 0 to 100. A match ends when either side reaches 0 HP. Rating deltas stay `+20` for win, `-12` for loss, and `0` for draw.
+
+Online sessions are server-authoritative and asynchronous: both players may answer independently, public cards do not expose their correct option, and the server decides their final damage/heal. The client therefore shows power pips rather than promising an exact impact, waits for the server result before correctness feedback, and animates incoming HP deltas even when attack metadata is unavailable.
+
+### Category identity
+
+| Category | Role | Object language | Accent |
+|---|---|---|---|
+| Numerik / TIU | Damage | Chunky calculator-bolt | Cobalt blue |
+| Verbal | Damage | Speech-bubble spell book | Violet |
+| Logika | Damage | Friendly robot puzzle core | Orange |
+| TWK | Heal | Leaf-and-star guardian shield | Mint green |
+
+Category art is illustrative only. Text labels and gameplay values are rendered by Flutter so they stay sharp, localizable, and accessible.
+
+## 5. Visual Direction
+
+### Asset style
+
+All generated game objects follow this shared art brief:
+
+> Simple cartoon 3D chibi game asset, chunky basic shapes, smooth clay-plastic material, bright solid colors, soft studio lighting from upper left, low detail, minimal texture, cute proportions, clean silhouette, centered object, transparent background, polished mobile arena-game energy, no text, no logo, no frame, no scenery.
+
+Do not imitate existing characters, towers, or emblems from another game. The desired reference is the clarity and playful energy of a modern mobile arena battler, expressed through YUDHA's own shapes and colors.
+
+### Palette
+
+| Token | Color | Use |
+|---|---:|---|
+| Ink navy | `#17233F` | Primary text and deepest arena contrast. |
+| Deep navy | `#0D2A52` | Header surfaces and modal backdrop. |
+| Player blue | `#2878F0` | Player side, primary action, numerik. |
+| Rival coral | `#F05E5E` | Opponent side and danger feedback. |
+| Arena grass | `#7ECF72` | Main play field. |
+| River sky | `#71C7F2` | Arena divider and calm secondary accent. |
+| Heal mint | `#47CFA0` | Heal and positive feedback. |
+| Logic orange | `#FF9F43` | Logika and energetic highlights. |
+| Verbal violet | `#8B6FE8` | Verbal category. |
+| Reward gold | `#FFC857` | Rewards, power, and victory. |
+| Warm canvas | `#FFF8EC` | Before/after-match background. |
+| Surface | `#FFFFFF` | Cards and readable content. |
+
+Colors are predominantly solid. Gradients are reserved for subtle lighting within the arena sky/field and must not carry information.
+
+### Shape, type, and depth
+
+- Use an 8-point spacing rhythm.
+- Main panels use 20–24 px corner radii; controls use 14–18 px.
+- Shadows are short, soft, and slightly colored. Avoid neon glows.
+- Use `Fredoka` for short game headings and scores; use `DM Sans` for instructions, questions, and button labels.
+- Use sentence case for player-facing copy. Avoid shouting except the short result word if required by an existing test.
+- Borders are purposeful: category color, selection, or focus only.
+
+## 6. Screen Specifications
+
+### A. Arena entry — before the match
+
+Purpose: make the loop understandable in under five seconds.
+
+- Warm, uncluttered canvas with a compact top bar and back action.
+- A single hero diorama shows the two chibi contenders facing a miniature arena marker.
+- Headline: a short invitation to battle; one supporting sentence only.
+- A compact three-step strip communicates: `Pilih kartu → Jawab → Serang`.
+- One dominant `Masuk arena` button sits near the thumb zone.
+- No long tutorial cards, ornamental chips, or repeated explanations.
+
+### B. Mode selection
+
+Purpose: choose an opponent without ambiguity.
+
+- Retain the same visual shell as entry for continuity.
+- Two large, tactile mode tiles:
+  - **Lawan Bot** — clearly available and recommended for quick play.
+  - **Lawan Player** — clearly described as random online matchmaking.
+- Each tile contains one generated character/object, a one-line description, and a small status pill.
+- Selected/tapped state compresses slightly before transition.
+- Back is secondary and visually quiet.
+
+### C. Active battle
+
+Purpose: make the four-card decision and its consequence the visual center.
+
+The portrait screen is divided into three stable zones:
+
+1. **Opponent HUD** — avatar, name, concise HP bar, and score.
+2. **Arena** — simple clay-like field, one river, one bridge, two main towers, and two mini towers per side. Decorative detail stays low.
+3. **Player deck** — player HUD followed by four readable cards inside a calm bottom tray.
+
+Arena principles:
+
+- The battlefield uses responsive Flutter drawing for grass, river, bridge, lanes, and soft shadows.
+- Generated PNG assets provide the contenders, towers, and card emblems.
+- Towers are deliberately large, readable targets. Paired shrubs, clay boundary stones, lane pads, and stepping stones keep the field lively without returning to noisy tile decoration.
+- Red and blue side ownership is obvious without tinting the entire screen.
+- Countdown uses one large number with a short scale/pop animation.
+- Damage uses one clear projectile, a small target bump, and a floating value. Numerik travels as a chunky bolt capsule, Verbal as a wavy speech spell, and Logika as a spinning hexagonal puzzle core.
+- Heal uses a mint pulse and one floating positive value.
+- Particles are sparse and disappear quickly.
+- The screen never stacks more than one banner, one projectile effect, and one number effect at once.
+
+Card anatomy:
+
+```text
+category label        power pips
+        3D emblem
+effect label          impact value
+```
+
+- Cards have individual category colors but the same layout.
+- Damage/heal and approximate power are visible before selection.
+- A selected card rises 8 px and gains a crisp colored outline.
+- Used cards fade/slide before the replacement enters.
+
+### D. Question overlay
+
+Purpose: answer quickly without losing match context.
+
+- Use a centered/bottom-adaptive sheet over a dimmed but still recognizable arena.
+- Top row: category, effect, power, and—only for Bot sessions—a compact circular timer.
+- Prompt uses the largest readable block after the title.
+- Four answer options use letters `A–D`, generous touch targets, and a consistent neutral state.
+- In Bot mode, reveal correct/wrong color briefly before battle resolution. In Player mode, keep the choice neutral until the server responds.
+- Timeout copy is direct and non-judgmental.
+- Once the online server accepts an opened card, the sheet cannot be dismissed and has no client-only timeout; it must resolve through a valid answer or an explicit server rule.
+
+### E. Match result — after the match
+
+Purpose: explain the outcome, reward the session, and offer a clear next action.
+
+- Warm canvas reuses the entry shell and characters.
+- One outcome object/badge and one outcome color: gold/blue for win, coral for loss, violet/blue for draw.
+- Show the result word, a human one-line message, and a clean score comparison.
+- One compact reward card contains rating delta and claim state.
+- Primary action: `Klaim hadiah` until claimed, then `Main lagi`.
+- Secondary actions: `Pilih mode` and `Kembali`.
+- Avoid confetti floods, multiple stat grids, glowing panels, and generic motivational filler.
+
+## 7. Motion Language
+
+| Moment | Motion | Duration |
+|---|---|---:|
+| Button press | Scale to 0.97, then release | 120 ms |
+| Screen content enter | Fade + 12 px rise | 220–280 ms |
+| Card select | 8 px lift + slight tilt correction | 160 ms |
+| Question sheet | Fade + rise | 220 ms |
+| Projectile | Curved travel with squash/stretch | 450–650 ms |
+| Impact | Target bump + value rise | 260–420 ms |
+| Heal | Soft scale pulse | 500 ms |
+| Result badge | Small overshoot pop | 380 ms |
+
+Motion must communicate state, not decorate idle time. Repeating ambient motion is limited to a very slow character float or flag sway. Respect reduced-motion settings by replacing travel and overshoot with short fades.
+
+## 8. Generated Asset Set
+
+Generated source art is exported at high resolution, chroma-keyed to transparent PNG, then displayed smaller in Flutter.
+
+| File | Subject | Composition |
+|---|---|---|
+| `arena_hero_blue.png` | Friendly blue-team cadet | Bust/waist-up, facing slightly right. |
+| `arena_hero_coral.png` | Friendly coral-team rival | Bust/waist-up, facing slightly left. |
+| `arena_tower_blue.png` | Blue main crown tower | Front 3/4 view, chunky and symmetrical. |
+| `arena_tower_coral.png` | Coral main crown tower | Same camera and proportions as blue. |
+| `arena_turret_blue.png` | Blue mini tower | Compact, same camera as main tower. |
+| `arena_turret_coral.png` | Coral mini tower | Compact, same camera as main tower. |
+| `card_numerik.png` | Calculator-bolt emblem | Icon-scale, broad silhouette. |
+| `card_verbal.png` | Spell-book speech emblem | Icon-scale, broad silhouette. |
+| `card_logika.png` | Robot puzzle-core emblem | Icon-scale, broad silhouette. |
+| `card_twk.png` | Leaf-and-star shield emblem | Icon-scale, broad silhouette. |
+
+The main and mini towers use one undamaged asset each. Destroyed state is created consistently in Flutter using desaturation, scale, tilt, a dark overlay, and a small smoke effect; separate mismatched destroyed images are not required.
+
+## 9. Accessibility and Responsive Rules
+
+- Interactive targets are at least 44 × 44 logical pixels.
+- Important text and HP information meet readable contrast against their surfaces.
+- Color is never the only signal: labels, icons, numbers, and shapes reinforce it.
+- Cards remain usable at the supported narrow-phone width without horizontal scrolling.
+- Long names and localized copy use truncation or flexible layout, never overlap.
+- The question sheet can scroll on short screens and remains visible above the keyboard/system insets.
+- Safe areas are respected on every phase.
+
+## 10. Technical Boundaries
+
+- Preserve `BattleController`, `BattleStateMachine`, repository contracts, reward behavior, route `/pvp`, and current test-visible flow.
+- `PvpPage` remains the phase router.
+- Keep visual widgets in `features/pvp/presentation/pages/pvp_page/`.
+- Keep rules out of widgets; animation may react to state but may not decide battle outcomes.
+- `VS Player` keeps the existing Socket.IO random-matchmaking and server-authoritative contracts; the visual redesign does not replace them with a local simulation or room code.
+- Assets live under `apps/mobile/assets/game/` and contain no baked-in UI text.
+
+## 11. Acceptance Criteria
+
+- Entry, mode selection, battle, question, and result screens all use one cohesive visual system.
+- The player can explain the loop from the entry screen without opening extra help.
+- Four distinct cards are readable and tappable on a medium Android phone.
+- Choosing a card opens its question; resolving the answer produces a visible attack/heal and HP update.
+- Win, loss, and draw states are visually distinct and expose the correct next actions.
+- Existing PvP unit and widget tests pass; added widget tests cover key before/battle/after labels and all four card slots.
+- `flutter analyze` introduces no new warnings in the redesigned files.
+- The final screen is visually checked on `emulator-5554` at the entry, mode, battle, question, and result phases.

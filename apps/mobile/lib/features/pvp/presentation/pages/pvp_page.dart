@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,59 +19,22 @@ part 'pvp_page/arena_menu_section.dart';
 part 'pvp_page/in_battle_section.dart';
 part 'pvp_page/result_status_section.dart';
 
-const String _enemyAvatarAsset = 'assets/game/red_avatar.png';
-const String _playerAvatarAsset = 'assets/game/blue_avatar.png';
-const String _enemyMainTowerAsset = 'assets/game/red_maintower.png';
-const String _enemyMiniTowerAsset = 'assets/game/red_minitower.png';
-const String _playerMainTowerAsset = 'assets/game/blue_maintower.png';
-const String _playerMiniTowerAsset = 'assets/game/blue_minitower.png';
-const String _enemyMainTowerDestroyedAsset =
-    'assets/game/red_maintower_destroyed.png';
-const String _enemyMiniTowerDestroyedAsset =
-    'assets/game/red_minitower_destroyed.png';
-const String _playerMainTowerDestroyedAsset =
-    'assets/game/blue_maintower_destroyed.png';
-const String _playerMiniTowerDestroyedAsset =
-    'assets/game/blue_minitower_destroyed.png';
-const String _tiuCardAsset = 'assets/game/tiu_card.png';
-const String _twkCardAsset = 'assets/game/twk_card.png';
-// Attack effects are now rendered via CustomPainter (no PNG assets needed).
-
-const double _arenaVerticalLiftFraction = 0.05;
-const double _arenaAlignmentLift = _arenaVerticalLiftFraction * 2;
-
-const Alignment _enemyMainAlignment = Alignment(
-  0,
-  -0.59 - _arenaAlignmentLift,
-);
-const Alignment _enemyMiniLeftAlignment = Alignment(
-  -0.74,
-  -0.418 - _arenaAlignmentLift,
-);
-const Alignment _enemyMiniRightAlignment = Alignment(
-  0.74,
-  -0.418 - _arenaAlignmentLift,
-);
-const Alignment _playerMainAlignment = Alignment(
-  0,
-  0.392 - _arenaAlignmentLift,
-);
-const Alignment _playerMiniLeftAlignment = Alignment(
-  -0.74,
-  0.222 - _arenaAlignmentLift,
-);
-const Alignment _playerMiniRightAlignment = Alignment(
-  0.74,
-  0.222 - _arenaAlignmentLift,
-);
+const String _enemyAvatarAsset = 'assets/game/arena_hero_coral.png';
+const String _playerAvatarAsset = 'assets/game/arena_hero_blue.png';
+const String _enemyMainTowerAsset = 'assets/game/arena_tower_coral.png';
+const String _enemyMiniTowerAsset = 'assets/game/arena_turret_coral.png';
+const String _playerMainTowerAsset = 'assets/game/arena_tower_blue.png';
+const String _playerMiniTowerAsset = 'assets/game/arena_turret_blue.png';
+const String _numerikCardAsset = 'assets/game/card_numerik.png';
+const String _verbalCardAsset = 'assets/game/card_verbal.png';
+const String _logikaCardAsset = 'assets/game/card_logika.png';
+const String _twkCardAsset = 'assets/game/card_twk.png';
 
 class PvpPage extends ConsumerWidget {
   const PvpPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Toast notifications are now handled by _InBattleSectionState.
-
     final BattleState state = ref.watch(battleControllerProvider);
     final BattleController controller = ref.read(
       battleControllerProvider.notifier,
@@ -82,35 +44,48 @@ class PvpPage extends ConsumerWidget {
     );
 
     if (state.phase != BattlePhase.preBattle) {
-      // In-battle and arena menu use their own backgrounds
       final bool needsDark = state.phase == BattlePhase.inBattle;
+      final Widget content = _buildBattleContent(
+        context: context,
+        ref: ref,
+        state: state,
+        controller: controller,
+        playerDisplayName: playerDisplayName,
+      );
       return Scaffold(
         backgroundColor: needsDark
-            ? const Color(0xFF04060F)
-            : const Color(0xFFF6F8FC),
+            ? const Color(0xFF0D2A52)
+            : const Color(0xFFFFF8EC),
         body: SafeArea(
-          child: _buildBattleContent(
-            context: context,
-            ref: ref,
-            state: state,
-            controller: controller,
-            playerDisplayName: playerDisplayName,
+          child: Stack(
+            children: <Widget>[
+              Positioned.fill(child: content),
+              if (!state.isLoading &&
+                  state.phase == BattlePhase.arenaMenu &&
+                  state.errorMessage != null)
+                Positioned(
+                  top: 10,
+                  left: 16,
+                  right: 16,
+                  child: _StatusBanner(
+                    text: state.errorMessage!,
+                    isError: true,
+                  ),
+                ),
+            ],
           ),
         ),
       );
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: const Color(0xFFFFF8EC),
       appBar: AppBar(
         title: Text(
-          'Battle Arena',
-          style: GoogleFonts.dmSans(
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
-          ),
+          'Arena Yudha',
+          style: GoogleFonts.fredoka(fontWeight: FontWeight.w600, fontSize: 20),
         ),
-        backgroundColor: const Color(0xFFF6F8FC),
+        backgroundColor: const Color(0xFFFFF8EC),
         foregroundColor: AppColors.textStrong,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -150,7 +125,7 @@ class PvpPage extends ConsumerWidget {
     required String playerDisplayName,
   }) {
     if (state.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return _ArenaLoadingView(mode: state.mode, message: state.statusMessage);
     }
 
     if (state.phase == BattlePhase.preBattle) {
@@ -196,18 +171,27 @@ class PvpPage extends ConsumerWidget {
     return _InBattleSection(
       state: state,
       playerDisplayName: playerDisplayName,
-      onPause: () => _showPauseDialog(context: context, controller: controller),
+      onPause: () => _showPauseDialog(
+        context: context,
+        controller: controller,
+        mode: state.mode,
+      ),
       onBotAnswer: controller.answerBotQuestion,
       onPickQuestion: (BattleQuestion question) async {
         final bool ready = await controller.prepareQuestion(question);
         if (!ready || !context.mounted) {
           return;
         }
-        await _showQuestionSheet(
-          context: context,
-          controller: controller,
-          question: question,
-        );
+        try {
+          await _showQuestionSheet(
+            context: context,
+            controller: controller,
+            question: question,
+            mode: state.mode,
+          );
+        } finally {
+          controller.releasePreparedQuestion(question.id);
+        }
       },
     );
   }
@@ -216,20 +200,42 @@ class PvpPage extends ConsumerWidget {
     required BuildContext context,
     required BattleController controller,
     required BattleQuestion question,
+    required BattleMode mode,
   }) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      isDismissible: mode != BattleMode.online,
+      enableDrag: mode != BattleMode.online,
       backgroundColor: Colors.transparent,
       builder: (BuildContext sheetContext) {
-        return _QuestionBattleSheet(
-          question: question,
-          onAnswered: (int selectedOptionIndex) async {
-            await controller.answerQuestion(
-              questionId: question.id,
-              selectedOptionIndex: selectedOptionIndex,
+        return Consumer(
+          builder: (BuildContext context, WidgetRef ref, Widget? child) {
+            final BattlePhase phase = ref.watch(
+              battleControllerProvider.select(
+                (BattleState current) => current.phase,
+              ),
             );
+            if (phase != BattlePhase.inBattle) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                final ModalRoute<void>? route = ModalRoute.of(sheetContext);
+                if (route != null && route.isActive) {
+                  Navigator.of(sheetContext).removeRoute(route);
+                }
+              });
+            }
+            return child!;
           },
+          child: _QuestionBattleSheet(
+            question: question,
+            isOnline: mode == BattleMode.online,
+            onAnswered: (int selectedOptionIndex) {
+              return controller.answerQuestion(
+                questionId: question.id,
+                selectedOptionIndex: selectedOptionIndex,
+              );
+            },
+          ),
         );
       },
     );
@@ -238,7 +244,9 @@ class PvpPage extends ConsumerWidget {
   Future<void> _showPauseDialog({
     required BuildContext context,
     required BattleController controller,
+    required BattleMode mode,
   }) async {
+    final bool online = mode == BattleMode.online;
     final String? action = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
@@ -246,43 +254,58 @@ class PvpPage extends ConsumerWidget {
           backgroundColor: Colors.transparent,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(28, 30, 28, 24),
+            padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
             decoration: BoxDecoration(
-              color: Colors.white.withAlpha(18),
+              color: const Color(0xFFFFF8EC),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white.withAlpha(34)),
+              border: Border.all(color: const Color(0xFFDCD5C7)),
               boxShadow: <BoxShadow>[
-                BoxShadow(color: Colors.black.withAlpha(160), blurRadius: 28),
+                BoxShadow(
+                  color: const Color(0xFF17233F).withAlpha(55),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
               ],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                const Icon(
-                  Icons.pause_circle_filled_rounded,
-                  color: AppColors.fireGold,
-                  size: 48,
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2878F0).withAlpha(20),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Icon(
+                    Icons.pause_rounded,
+                    color: Color(0xFF2878F0),
+                    size: 30,
+                  ),
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'PAUSED',
-                  style: GoogleFonts.orbitron(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 2,
+                  online ? 'Opsi battle' : 'Battle dijeda',
+                  style: GoogleFonts.fredoka(
+                    color: const Color(0xFF17233F),
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Arena dihentikan sementara',
-                  style: TextStyle(
-                    color: Colors.white.withAlpha(150),
+                  online
+                      ? 'Lawan online tetap dapat bergerak selama menu ini terbuka.'
+                      : 'Timer bot berhenti sampai kamu melanjutkan.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.dmSans(
+                    color: const Color(0xFF66708A),
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
+                    height: 1.35,
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
                   height: 48,
@@ -290,18 +313,15 @@ class PvpPage extends ConsumerWidget {
                     onPressed: () => Navigator.of(context).pop('resume'),
                     icon: const Icon(Icons.play_arrow_rounded, size: 20),
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.fireGold,
-                      foregroundColor: const Color(0xFF1A0A00),
+                      backgroundColor: const Color(0xFF2878F0),
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                     label: Text(
-                      'LANJUT',
-                      style: GoogleFonts.orbitron(
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1,
-                      ),
+                      'Lanjutkan',
+                      style: GoogleFonts.dmSans(fontWeight: FontWeight.w800),
                     ),
                   ),
                 ),
@@ -311,19 +331,17 @@ class PvpPage extends ConsumerWidget {
                   height: 46,
                   child: OutlinedButton.icon(
                     onPressed: () => Navigator.of(context).pop('menu'),
-                    icon: const Icon(Icons.exit_to_app_rounded, size: 18),
+                    icon: const Icon(Icons.flag_rounded, size: 18),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFFF8888),
-                      side: BorderSide(
-                        color: const Color(0xFFFF6060).withAlpha(120),
-                      ),
+                      foregroundColor: const Color(0xFFF05E5E),
+                      side: const BorderSide(color: Color(0xFFF2B8B5)),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    label: const Text(
-                      'Keluar ke Menu',
-                      style: TextStyle(fontWeight: FontWeight.w800),
+                    label: Text(
+                      online ? 'Menyerah & keluar' : 'Akhiri battle',
+                      style: GoogleFonts.dmSans(fontWeight: FontWeight.w800),
                     ),
                   ),
                 ),
@@ -335,7 +353,114 @@ class PvpPage extends ConsumerWidget {
     );
 
     if (action == 'menu') {
-      controller.resetBattle();
+      try {
+        await controller.surrenderBattle();
+      } finally {
+        controller.resetBattle();
+      }
     }
+  }
+}
+
+class _ArenaLoadingView extends StatelessWidget {
+  const _ArenaLoadingView({required this.mode, this.message});
+
+  final BattleMode mode;
+  final String? message;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool online = mode == BattleMode.online;
+    return ColoredBox(
+      color: const Color(0xFFFFF8EC),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              SizedBox(
+                width: 210,
+                height: 116,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: <Widget>[
+                    Positioned(
+                      left: 4,
+                      bottom: 0,
+                      child: Image.asset(
+                        _playerAvatarAsset,
+                        width: 106,
+                        height: 106,
+                        fit: BoxFit.contain,
+                        cacheWidth: 280,
+                      ),
+                    ),
+                    Positioned(
+                      right: 4,
+                      bottom: 0,
+                      child: Image.asset(
+                        _enemyAvatarAsset,
+                        width: 106,
+                        height: 106,
+                        fit: BoxFit.contain,
+                        cacheWidth: 280,
+                      ),
+                    ),
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFC857),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.white, width: 3),
+                      ),
+                      child: const Icon(
+                        Icons.bolt_rounded,
+                        color: Color(0xFF17233F),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
+              Text(
+                online ? 'Mencari lawan...' : 'Menyiapkan arena...',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.fredoka(
+                  color: const Color(0xFF17233F),
+                  fontSize: 25,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message ??
+                    (online
+                        ? 'Matchmaking akan dimulai begitu lawan tersedia.'
+                        : 'Empat kartu pertamamu sedang dibagikan.'),
+                textAlign: TextAlign.center,
+                style: GoogleFonts.dmSans(
+                  color: const Color(0xFF66708A),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 22),
+              const SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  color: Color(0xFF2878F0),
+                  backgroundColor: Color(0xFFDDE8FA),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
