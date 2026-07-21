@@ -11,13 +11,12 @@ import type {
 const WEAK_SUBCATEGORY_ACCURACY_THRESHOLD = 60.0;
 const WEAK_SUBCATEGORY_MIN_SAMPLE_SIZE = 5;
 
-type AnswerWithQuestion = {
-  is_correct: boolean;
-  response_time_ms: number | null;
-  questions: {
-    category: string;
-    subcategory: string | null;
-  } | null;
+type RpcAnalyticsRow = {
+  category: string;
+  subcategory: string | null;
+  total_answered: number;
+  total_correct: number;
+  avg_response_time_ms: number | null;
 };
 
 @Injectable()
@@ -29,14 +28,13 @@ export class AnalyticsService {
   async getPerformanceAnalytics(userId: string): Promise<{ data: PerformanceAnalyticsResponse }> {
     const client = this.supabaseService.getClient();
 
-    // Fetch practice answer history with question categories
-    const { data: answersData, error: answersError } = await (client as any)
-      .from('practice_answers')
-      .select('is_correct, response_time_ms, questions(category, subcategory)')
-      .eq('user_id', userId);
+    // Call Supabase RPC for aggregated practice statistics
+    const { data: rpcData, error: rpcError } = await (client as any).rpc('get_practice_analytics', {
+      p_user_id: userId,
+    });
 
-    if (answersError) {
-      this.logger.error(`Failed to fetch practice answers for analytics (user=${userId}): ${answersError.message}`);
+    if (rpcError) {
+      this.logger.error(`RPC get_practice_analytics failed for user=${userId}: ${rpcError.message}`);
     }
 
     // Fetch profile battle statistics
@@ -50,7 +48,7 @@ export class AnalyticsService {
       this.logger.error(`Failed to fetch profile stats for analytics (user=${userId}): ${profileError.message}`);
     }
 
-    const practice = this.computePracticeAnalytics((answersData as AnswerWithQuestion[]) ?? []);
+    const practice = this.computePracticeAnalytics((rpcData as unknown as RpcAnalyticsRow[]) ?? []);
     const battle = this.computeBattleAnalytics(profileData);
 
     return {
@@ -61,8 +59,8 @@ export class AnalyticsService {
     };
   }
 
-  private computePracticeAnalytics(answers: AnswerWithQuestion[]): PracticeAnalytics {
-    if (answers.length === 0) {
+  private computePracticeAnalytics(rows: RpcAnalyticsRow[]): PracticeAnalytics {
+    if (rows.length === 0) {
       return {
         overallAccuracy: 0,
         totalAnswered: 0,
@@ -72,46 +70,53 @@ export class AnalyticsService {
       };
     }
 
-    const totalAnswered = answers.length;
-    const correctCount = answers.filter((a) => a.is_correct).length;
-    const overallAccuracy = Number(((correctCount / totalAnswered) * 100).toFixed(2));
+    let totalAnswered = 0;
+    let totalCorrect = 0;
+    let weightedResponseTimeSum = 0;
+    let totalTimeAnswered = 0;
 
-    // Response time
-    const validTimes = answers
-      .map((a) => a.response_time_ms)
-      .filter((t): t is number => typeof t === 'number' && t >= 0);
-    const avgResponseTimeMs =
-      validTimes.length === 0
-        ? 0
-        : Math.round(validTimes.reduce((sum, val) => sum + val, 0) / validTimes.length);
-
-    // Grouping by category and subcategory
     const catStats = new Map<string, { total: number; correct: number }>();
     const subcatStats = new Map<string, { total: number; correct: number }>();
 
-    for (const answer of answers) {
-      const category = answer.questions?.category ?? 'UNKNOWN';
-      const subcategory = answer.questions?.subcategory;
+    for (const row of rows) {
+      const answered = Number(row.total_answered ?? 0);
+      const correct = Number(row.total_correct ?? 0);
+      const category = row.category ?? 'UNKNOWN';
+      const subcategory = row.subcategory;
 
-      // Category
+      totalAnswered += answered;
+      totalCorrect += correct;
+
+      if (row.avg_response_time_ms != null && answered > 0) {
+        weightedResponseTimeSum += Number(row.avg_response_time_ms) * answered;
+        totalTimeAnswered += answered;
+      }
+
+      // Roll up Category
       const cat = catStats.get(category) ?? { total: 0, correct: 0 };
-      cat.total += 1;
-      if (answer.is_correct) cat.correct += 1;
+      cat.total += answered;
+      cat.correct += correct;
       catStats.set(category, cat);
 
-      // Subcategory
+      // Roll up Subcategory
       if (subcategory) {
         const sub = subcatStats.get(subcategory) ?? { total: 0, correct: 0 };
-        sub.total += 1;
-        if (answer.is_correct) sub.correct += 1;
+        sub.total += answered;
+        sub.correct += correct;
         subcatStats.set(subcategory, sub);
       }
     }
 
+    const overallAccuracy =
+      totalAnswered === 0 ? 0 : Number(((totalCorrect / totalAnswered) * 100).toFixed(2));
+
+    const avgResponseTimeMs =
+      totalTimeAnswered === 0 ? 0 : Math.round(weightedResponseTimeSum / totalTimeAnswered);
+
     // Build category breakdown
     const categoryBreakdown: CategoryAccuracy[] = Array.from(catStats.entries()).map(([category, stats]) => ({
       category,
-      accuracy: Number(((stats.correct / stats.total) * 100).toFixed(2)),
+      accuracy: stats.total === 0 ? 0 : Number(((stats.correct / stats.total) * 100).toFixed(2)),
       totalAnswered: stats.total,
     }));
 
@@ -119,7 +124,7 @@ export class AnalyticsService {
     const weakSubcategories: WeakSubcategory[] = Array.from(subcatStats.entries())
       .map(([subcategory, stats]) => ({
         subcategory,
-        accuracy: Number(((stats.correct / stats.total) * 100).toFixed(2)),
+        accuracy: stats.total === 0 ? 0 : Number(((stats.correct / stats.total) * 100).toFixed(2)),
         totalAnswered: stats.total,
       }))
       .filter(

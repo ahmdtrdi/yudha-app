@@ -309,4 +309,4 @@
 
 **The Tech Debt:**
 - Weak subcategory threshold parameters (60% accuracy, minimum sample size of 5) are hardcoded constants in `AnalyticsService` — could be moved to config or environment variables if dynamic tuning is needed.
-- Analytics calculations currently aggregate in application code from `practice_answers` query results — for high-volume active users in production, moving this to a dedicated Postgres view or RPC can optimize query performance.
+- `get_practice_analytics` SQL migration (`infra/supabase/migrations/20260721000000_get_practice_analytics.sql`) needs to be run on remote Supabase instance (`supabase db push` or SQL editor) for production environment deployment.
