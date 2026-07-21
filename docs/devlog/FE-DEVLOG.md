@@ -1442,3 +1442,24 @@
 - Economy and Hired Pass state currently persist in SharedPreferences as an explicitly labeled beta sandbox. Production must hydrate from the server-authoritative Store/Hired Pass APIs and never trust client-side balance mutation.
 - Paid top-up prices are presentation-only simulations until a payment gateway, receipt verification, ledger, and idempotent server credit flow are implemented.
 - Pass mission progress is demo data; practice, battle, streak, and interview completion still need to feed server-owned seasonal mission counters.
+
+## 2026-07-20 - PvP Cast, Stable Hand, And Arena Audio Polish
+
+### The Change
+- Removed normal correct/wrong status banners from the active arena while retaining the top surface for actionable errors.
+- Replaced both main-tower focal points with clay-like 3D podiums for the equipped hero and opponent, and added character anticipation/lunge motion before each attack or heal.
+- Slowed the combat sequence from 620 ms to 1050 ms and gave the projectile a dedicated post-cast travel phase before impact and the floating HP value.
+- Stopped bot turns from consuming the player's question pool. Incoming attacks now preserve every visible card; only the card answered by the player is removed and refilled, for either a correct or wrong answer.
+- Added a local procedural arena loop and six supporting cues for countdown, card pick, cast, projectile, impact, and heal. The seven mono WAV files total about 441 KiB, are pre-cached, honor Profile sound settings, pause with the arena/app lifecycle, and release their players on exit.
+- Added `audioplayers` for asset playback, a reproducible `tool/generate_arena_audio.dart` generator, and image pre-caching for the active hero, tower, and card assets.
+- Migrated Supabase initialization from the deprecated `anonKey` argument to `publishableKey` after the updated dependency surfaced the warning.
+
+### The Reasoning
+- Combat feedback is clearer when the hero's cast, projectile, impact, HP bar, and floating value carry the result instead of a banner covering the top of the battlefield.
+- The hand is a player-owned decision surface. Letting an unrelated incoming hit replace a visible choice made the battle feel random and could invalidate a card the player was considering.
+- Bundled low-sample-rate audio keeps the arena responsive and usable offline while three small SFX players allow cast and impact cues to overlap without creating a new player for every event.
+
+### The Tech Debt
+- The procedural soundtrack is intentionally compact and original, but it should receive a dedicated audio-design/mastering pass before production release.
+- Online hand replacement remains server-authoritative; the game backend must preserve the same player-owned-hand rule in every `game_state_update` payload.
+- The arena still has no screenshot/golden baseline, so podium proportions and cast motion should be visually checked on the target emulator sizes before final art sign-off.

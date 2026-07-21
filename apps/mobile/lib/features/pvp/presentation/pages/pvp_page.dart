@@ -14,12 +14,14 @@ import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart
 import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
 import 'package:yudha_mobile/features/economy/presentation/widgets/economy_widgets.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
+import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 import 'package:yudha_mobile/features/pvp/application/battle_controller.dart';
 import 'package:yudha_mobile/features/pvp/application/battle_providers.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_question.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_state.dart';
 import 'package:yudha_mobile/features/pvp/domain/services/battle_state_machine.dart';
+import 'package:yudha_mobile/features/pvp/presentation/audio/arena_audio_controller.dart';
 
 part 'pvp_page/question_battle_sheet.dart';
 part 'pvp_page/arena_entry_section.dart';
@@ -29,9 +31,7 @@ part 'pvp_page/result_status_section.dart';
 
 const String _enemyAvatarAsset = 'assets/game/arena_hero_coral.png';
 const String _playerAvatarAsset = 'assets/game/arena_hero_blue.png';
-const String _enemyMainTowerAsset = 'assets/game/arena_tower_coral.png';
 const String _enemyMiniTowerAsset = 'assets/game/arena_turret_coral.png';
-const String _playerMainTowerAsset = 'assets/game/arena_tower_blue.png';
 const String _playerMiniTowerAsset = 'assets/game/arena_turret_blue.png';
 const String _numerikCardAsset = 'assets/game/card_numerik.png';
 const String _verbalCardAsset = 'assets/game/card_verbal.png';
@@ -51,6 +51,9 @@ class PvpPage extends ConsumerWidget {
       playerProgressProvider.select((progress) => progress.displayName),
     );
     final GameEconomyState economy = ref.watch(gameEconomyProvider);
+    final bool soundEnabled = ref.watch(
+      profileSettingsProvider.select((settings) => settings.soundEnabled),
+    );
     final CosmeticItem selectedCharacter =
         GameEconomyCatalog.findCosmetic(economy.equippedCharacterId) ??
         GameEconomyCatalog.characters.first;
@@ -69,6 +72,7 @@ class PvpPage extends ConsumerWidget {
         economy: economy,
         selectedCharacter: selectedCharacter,
         selectedArena: selectedArena,
+        soundEnabled: soundEnabled,
       );
       return Scaffold(
         backgroundColor: needsDark
@@ -129,6 +133,7 @@ class PvpPage extends ConsumerWidget {
                   economy: economy,
                   selectedCharacter: selectedCharacter,
                   selectedArena: selectedArena,
+                  soundEnabled: soundEnabled,
                 ),
               ),
             ],
@@ -147,6 +152,7 @@ class PvpPage extends ConsumerWidget {
     required GameEconomyState economy,
     required CosmeticItem selectedCharacter,
     required CosmeticItem selectedArena,
+    required bool soundEnabled,
   }) {
     if (state.isLoading) {
       return _ArenaLoadingView(
@@ -210,6 +216,7 @@ class PvpPage extends ConsumerWidget {
       playerDisplayName: playerDisplayName,
       playerAvatarAsset: selectedCharacter.assetPath ?? _playerAvatarAsset,
       arenaTheme: ArenaVisualTheme.fromId(selectedArena.id),
+      soundEnabled: soundEnabled,
       onPause: () => _showPauseDialog(
         context: context,
         controller: controller,

@@ -365,6 +365,7 @@ Unlike a simple quiz format, YUDHA uses a **card-based battle system** inspired 
 4. The answer is resolved and effects are applied.
 5. Answered cards are consumed; gaps in the hand are filled from the remaining pool.
 6. When the pool is exhausted, questions are recycled with fresh IDs.
+7. Incoming opponent or bot attacks never consume or reshuffle the local player's visible hand; a visible card changes only after that player uses it, regardless of whether the answer is correct or wrong.
 
 **Card effects:**
 
@@ -394,6 +395,7 @@ Weight 1 → 14, Weight 2 → 20, Weight 3 → 26, Weight 4 → 32.
 - Bot mode uses `BotBattleRepository` and schedules automated turns every 3.3–5.9 seconds.
 - Bot prefers damage cards when available; falls back to first available card.
 - Bot always answers correctly (damage is full impact, heal is full impact).
+- Bot actions resolve independently from the player's visible four-card hand so real-time incoming damage cannot replace a card the player has not played.
 
 ---
 

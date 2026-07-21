@@ -49,8 +49,8 @@ The existing phase model remains the implementation contract:
 - A card communicates category, effect, and power before it is tapped.
 - Selecting a card lifts it briefly, then opens its question.
 - Opening a question never pauses the battle. Opponent attacks and incoming HP changes continue in real time behind the sheet.
-- The selected question is reserved while it is open so the local bot cannot consume that exact card; all other bot actions continue normally.
-- Answered cards leave the hand and are refilled from the pool.
+- The selected question is reserved while it is open. Bot actions use their own logical action source and never consume, replace, or reshuffle the player's visible cards.
+- A player card leaves the hand only after that player answers it. Correct and wrong answers both consume the used card, then refill only its gap from the remaining pool.
 - A disabled or resolving card cannot be tapped twice.
 
 ### Answer resolution
@@ -156,20 +156,20 @@ Purpose: make the four-card decision and its consequence the visual center.
 The portrait screen is divided into three stable zones:
 
 1. **Opponent HUD** — avatar, name, concise HP bar, and score.
-2. **Arena** — simple clay-like field, one river, one bridge, two main towers, and two mini towers per side. Decorative detail stays low.
+2. **Arena** — simple clay-like field, one river, one bridge, one hero podium, and two mini towers per side. Decorative detail stays low.
 3. **Player deck** — player HUD followed by four readable cards inside a calm bottom tray.
 
 Arena principles:
 
 - The battlefield uses responsive Flutter drawing for grass, river, bridge, lanes, and soft shadows.
-- Generated PNG assets provide the contenders, towers, and card emblems.
-- Towers are deliberately large, readable targets. Paired shrubs, clay boundary stones, lane pads, and stepping stones keep the field lively without returning to noisy tile decoration.
+- Generated PNG assets provide the contenders, mini towers, and card emblems. Each contender stands at the main focal point on a Flutter-drawn, clay-like general podium instead of a main tower.
+- Hero podiums and mini towers are deliberately large, readable targets. Paired shrubs, clay boundary stones, lane pads, and stepping stones keep the field lively without returning to noisy tile decoration.
 - Red and blue side ownership is obvious without tinting the entire screen.
 - Countdown uses one large number with a short scale/pop animation.
-- Damage uses one clear projectile, a small target bump, and a floating value. Numerik travels as a chunky bolt capsule, Verbal as a wavy speech spell, and Logika as a spinning hexagonal puzzle core.
+- Damage starts with a short hero cast/lunge, then uses one clear projectile, a small target bump, and a floating value. Numerik travels as a chunky bolt capsule, Verbal as a wavy speech spell, and Logika as a spinning hexagonal puzzle core.
 - Heal uses a mint pulse and one floating positive value.
 - Particles are sparse and disappear quickly.
-- The screen never stacks more than one banner, one projectile effect, and one number effect at once.
+- Correct/wrong result banners are not shown over the arena; the cast, impact, HP movement, and floating value carry normal combat feedback. A single top banner remains reserved for actionable errors only.
 
 Card anatomy:
 
@@ -216,14 +216,22 @@ Purpose: explain the outcome, reward the session, and offer a clear next action.
 | Screen content enter | Fade + 12 px rise | 220–280 ms |
 | Card select | 8 px lift + slight tilt correction | 160 ms |
 | Question sheet | Fade + rise | 220 ms |
-| Projectile | Curved travel with squash/stretch | 450–650 ms |
+| Character cast | Anticipation + short lunge toward target | 180–480 ms |
+| Projectile | Curved travel after cast anticipation | 620–700 ms |
 | Impact | Target bump + value rise | 260–420 ms |
 | Heal | Soft scale pulse | 500 ms |
 | Result badge | Small overshoot pop | 380 ms |
 
 Motion must communicate state, not decorate idle time. Repeating ambient motion is limited to a very slow character float or flag sway. Respect reduced-motion settings by replacing travel and overshoot with short fades.
 
-## 8. Generated Asset Set
+## 8. Arena Audio
+
+- Active PvP uses a low-volume, seamless arena loop plus short cues for countdown, card selection, cast, projectile, impact, and heal.
+- Audio follows the persisted Profile `soundEnabled` preference, pauses with the pause dialog or app lifecycle, and disposes when the player leaves the battle.
+- Arena audio is bundled locally as lightweight mono WAV assets; playback never depends on a network request and audio failure never blocks battle input or state resolution.
+- Music stays below combat cues so questions, motion, HP, and card decisions remain the focus.
+
+## 9. Generated Asset Set
 
 Generated source art is exported at high resolution, chroma-keyed to transparent PNG, then displayed smaller in Flutter.
 
@@ -242,9 +250,9 @@ Generated source art is exported at high resolution, chroma-keyed to transparent
 | `card_logika.png` | Robot puzzle-core emblem | Icon-scale, broad silhouette. |
 | `card_twk.png` | Leaf-and-star shield emblem | Icon-scale, broad silhouette. |
 
-The main and mini towers use one undamaged asset each. Destroyed state is created consistently in Flutter using desaturation, scale, tilt, a dark overlay, and a small smoke effect; separate mismatched destroyed images are not required.
+Main-tower art remains available for catalog/legacy use, but the active arena uses the hero podium as its primary focal point. Mini towers use one undamaged asset each; destroyed state is created consistently in Flutter using desaturation, scale, and tilt rather than separate mismatched images.
 
-## 9. Accessibility and Responsive Rules
+## 10. Accessibility and Responsive Rules
 
 - Interactive targets are at least 44 × 44 logical pixels.
 - Important text and HP information meet readable contrast against their surfaces.
@@ -254,16 +262,16 @@ The main and mini towers use one undamaged asset each. Destroyed state is create
 - The question sheet can scroll on short screens and remains visible above the keyboard/system insets.
 - Safe areas are respected on every phase.
 
-## 10. Technical Boundaries
+## 11. Technical Boundaries
 
 - Preserve `BattleController`, `BattleStateMachine`, repository contracts, reward behavior, route `/pvp`, and current test-visible flow.
 - `PvpPage` remains the phase router.
 - Keep visual widgets in `features/pvp/presentation/pages/pvp_page/`.
 - Keep rules out of widgets; animation may react to state but may not decide battle outcomes.
 - `VS Player` keeps the existing Socket.IO random-matchmaking and server-authoritative contracts; the visual redesign does not replace them with a local simulation or room code.
-- Assets live under `apps/mobile/assets/game/` and contain no baked-in UI text.
+- Visual assets live under `apps/mobile/assets/game/`; arena audio lives under `apps/mobile/assets/audio/`. Neither depends on runtime downloads.
 
-## 11. Acceptance Criteria
+## 12. Acceptance Criteria
 
 - Entry, mode selection, battle, question, and result screens all use one cohesive visual system.
 - The player can explain the loop from the entry screen without opening extra help.

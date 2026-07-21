@@ -77,7 +77,7 @@ void main() {
 
   group('BattleController question reservation', () {
     test(
-      'bot consumes an alternative while selected question is open',
+      'bot attacks without consuming the selected or alternative card',
       () async {
         final BattleController controller = createController(
           const <BattleQuestion>[selectedQuestion, botQuestion],
@@ -95,8 +95,9 @@ void main() {
         );
         expect(
           controller.state.availableQuestions.map((question) => question.id),
-          isNot(contains(botQuestion.id)),
+          contains(botQuestion.id),
         );
+        expect(controller.state.availableQuestions, hasLength(2));
         expect(controller.state.playerHp, lessThan(100));
       },
     );
