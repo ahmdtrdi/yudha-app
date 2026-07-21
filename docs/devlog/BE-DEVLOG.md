@@ -267,3 +267,17 @@
 - Log entries for bot actions are not yet wired (depends on the bot battle service integration).
 - Log persistence is a separate insert after the RPC, not in the same transaction — if the RPC succeeds but the log insert fails, logs are lost (logged but not retried).
 
+## 2026-07-21 - Fix 5 cards handsize to 4 cards
+
+**The Change:**
+- Modified `QuestionDealer.ts` (line 6) `HAND_SIZE` from `5` to `4`.
+- No structural impact to other services or types — just reducing the number of cards dealt to each player.
+
+**The Reasoning:**
+- The hand size was hardcoded to 5 in `QuestionDealer` and not configurable via PRD.
+- Changed to 4 to match PRD requirement.
+- No downstream impact as no other services depend on the hand size.
+
+**The Tech Debt:**
+- The hand size is hardcoded to 4 in `QuestionDealer` — would be better to move this to a constant in `match.constants.ts` or similar if it needs to be configurable.
+- No impact on other services or types.
