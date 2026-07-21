@@ -1,41 +1,112 @@
 {
-  "profile": {
-    "id": "bank-mandiri",
-    "name": "PT Bank Mandiri (Persero) Tbk",
-    "summary": "Bank Mandiri adalah perusahaan perbankan yang menyediakan layanan keuangan bagi nasabah individu dan bisnis serta mengembangkan solusi perbankan digital.",
-    "contentVersion": "official-web-2026-06-02",
-    "defaultTargetRole": "Officer Development Program"
+  "company_name": "PT Bank Mandiri (Persero) Tbk",
+  "overview": {
+    "description": "PT Bank Mandiri (Persero) Tbk adalah bank terbesar di Indonesia yang berfokus pada layanan perbankan komersial, ritel, dan digital. Didirikan melalui merger empat bank BUMN pada 1998, Bank Mandiri menjadi salah satu pilar utama perekonomian Indonesia dengan transformasi digital yang kuat.",
+    "established": "2 Oktober 1998",
+    "headquarters": "Plaza Mandiri, Jl. Jenderal Gatot Subroto Kav. 36-38, Jakarta 12190, Indonesia",
+    "website": "https://www.bankmandiri.co.id",
+    "key_financials": {
+      "sustainable_portfolio_2024": "Rp293 Triliun",
+      "green_portfolio_2024": "Rp149 Triliun",
+      "employees": "Sekitar 40.000+ orang"
+    },
+    "slogan": "Terdepan, Terpercaya, Tumbuh Bersama Anda"
   },
-  "contexts": [
-    {
-      "category": "Vision",
-      "content": "Menjadi partner finansial pilihan utama Anda.",
-      "priority": 10
-    },
-    {
-      "category": "Mission",
-      "content": "Menyediakan solusi perbankan digital yang handal dan simple yang menjadi bagian hidup nasabah.",
-      "priority": 20
-    },
-    {
-      "category": "Values",
-      "content": "Bank Mandiri menerapkan core values BUMN AKHLAK: Amanah, Kompeten, Harmonis, Loyal, Adaptif, dan Kolaboratif.",
-      "priority": 30
-    },
-    {
-      "category": "Interview focus",
-      "content": "Gunakan konteks perusahaan hanya saat relevan. Untuk tahap awal, gali latar belakang, motivasi, pengalaman umum, orientasi layanan, kemampuan belajar, kolaborasi, dan ketertarikan pada layanan keuangan atau digital.",
-      "priority": 40
-    }
+  "vision": "Menjadi The Best Financial Institution in Southeast Asia melalui fondasi operasional kelas dunia, kapabilitas digital terdepan, dan budaya inovasi berkelanjutan.",
+  "mission": "Menyediakan solusi keuangan terintegrasi dan inovatif berbasis teknologi dengan pelayanan unggul, fokus pada kepuasan nasabah, inklusi keuangan, dan peningkatan nilai bagi pemegang saham untuk mendorong pertumbuhan ekonomi Indonesia.",
+  "history": [
+    "1998: Didirikan melalui merger Bank Bumi Daya, Bank Dagang Negara, Bank Exim, dan Bapindo",
+    "1999: Merger resmi dan mulai beroperasi",
+    "2003-2005: Fase Domestic Power House",
+    "2015-2020: Fase The Best Bank in ASEAN",
+    "2020-2024: Fase To Be Your Preferred Financial Partner",
+    "2025-2029: Fase The Best Financial Institution in Southeast Asia"
   ],
-  "sources": [
-    {
-      "title": "Bank Mandiri - Company Profile",
-      "url": "https://www.bankmandiri.co.id/en/profil-perusahaan"
-    },
-    {
-      "title": "Bank Mandiri - AKHLAK",
-      "url": "https://www.bankmandiri.co.id/en/web/guest/akhlak"
+  "corporate_culture": {
+    "slogan": "Terdepan, Terpercaya, Tumbuh Bersama Anda",
+    "description": "Budaya kerja Bank Mandiri dibangun di atas semangat profesionalisme, integritas, inovasi, dan kolaborasi. Perusahaan menekankan lingkungan kerja yang inspiratif, progresif, dan mendukung pengembangan karyawan.",
+    "core_values": {
+      "Terdepan": "Kerja keras, profesionalisme, dan semangat menjadi yang terbaik",
+      "Terpercaya": "Integritas tinggi, transparansi, dan kepercayaan stakeholder",
+      "Tumbuh Bersama Anda": "Kolaborasi dan pertumbuhan bersama karyawan, nasabah, serta masyarakat"
     }
-  ]
+  },
+  "leadership_development_programs": {
+    "description": "Bank Mandiri memiliki komitmen kuat terhadap pengembangan kepemimpinan (Leadership Development) sebagai bagian dari strategi talenta dan suksesi kepemimpinan untuk mendukung transformasi digital dan pertumbuhan berkelanjutan.",
+    "key_programs": [
+      {
+        "name": "Mandiri Leadership Development Program",
+        "target": "High Potential Talent dan calon pemimpin masa depan",
+        "focus": "Pengembangan kompetensi kepemimpinan, strategic thinking, dan digital leadership"
+      },
+      {
+        "name": "Executive Leadership Program",
+        "target": "Direktur dan Top Management",
+        "focus": "Global leadership, business transformation, dan sustainable finance"
+      },
+      {
+        "name": "Succession Planning & Talent Pool",
+        "target": "Karyawan berpotensi tinggi",
+        "focus": "Persiapan suksesi jabatan kunci melalui rotasi tugas dan mentoring"
+      },
+      {
+        "name": "Digital Leadership Academy",
+        "target": "Leader di era digital",
+        "focus": "Innovative mindset, data-driven decision making, dan agile leadership"
+      },
+      {
+        "name": "Mandiri Young Leader Program",
+        "target": "Generasi muda berbakat",
+        "focus": "Early career leadership development dan exposure ke proyek strategis"
+      }
+    ],
+    "approach": [
+      "Kombinasi classroom learning, on-the-job training, mentoring oleh senior leader, dan exposure internasional",
+      "Kolaborasi dengan institusi pendidikan ternama dan platform e-learning",
+      "Penilaian berkala melalui Leadership Assessment dan 360-degree feedback",
+      "Fokus pada pengembangan soft skills, financial acumen, dan sustainability leadership"
+    ],
+    "objective": "Membangun generasi pemimpin yang visioner, adaptif terhadap perubahan teknologi, dan mampu membawa Bank Mandiri menjadi yang terbaik di Asia Tenggara."
+  },
+  "esg": {
+    "vision": "Becoming Indonesia’s Sustainability Champion for a Better Future",
+    "commitment": "Net Zero Emission operasional pada 2030 dan pembiayaan pada 2060 atau lebih cepat",
+    "key_initiatives": [
+      "Sustainable Banking, Sustainable Operations, dan Sustainability Beyond Banking",
+      "Green financing dan transisi ke ekonomi rendah karbon",
+      "Digital Carbon Tracking",
+      "ESG Festival dan carbon insetting"
+    ]
+  },
+  "digital_and_energy_transition_strategy": {
+    "description": "Bank Mandiri fokus pada transformasi digital dan sustainable finance untuk mendukung ekonomi Indonesia yang inklusif dan hijau.",
+    "key_pillars": [
+      "Super App Livin’ by Mandiri",
+      "KOPRA by Mandiri",
+      "Open Banking dan kolaborasi fintech",
+      "Sustainable Finance Action Plan 2025-2029"
+    ]
+  },
+  "structure": {
+    "main_business": "Perbankan komersial, ritel, wholesale, treasury, dan digital banking",
+    "key_subsidiaries": [
+      "Bank Syariah Indonesia (BSI)",
+      "Mandiri Sekuritas",
+      "Mandiri Tunas Finance",
+      "Mandiri Inhealth",
+      "Mandiri Capital Indonesia"
+    ]
+  },
+  "key_initiatives": [
+    "Transformasi Digital melalui Livin’ dan KOPRA",
+    "Sustainable Finance dan Green Banking",
+    "Inklusi Keuangan",
+    "Pengembangan Talenta & Kepemimpinan"
+  ],
+  "governance": {
+    "ownership": "Mayoritas dimiliki Pemerintah Republik Indonesia",
+    "principles": "Good Corporate Governance dengan rating tinggi"
+  },
+  "commitment": "Menjadi mitra finansial pilihan utama dan katalisator pertumbuhan ekonomi Indonesia yang berkelanjutan.",
+  "source": "Situs resmi bankmandiri.co.id, Laporan Tahunan, dan Sustainability Report 2024"
 }

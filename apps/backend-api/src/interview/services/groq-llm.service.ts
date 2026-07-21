@@ -57,7 +57,7 @@ export class GroqLlmService implements InterviewLlmClient {
     this.timeoutMs = this.getPositiveInteger(
       configService,
       'INTERVIEW_LLM_TIMEOUT_MS',
-      15000,
+      25000,
     );
     this.maxOutputTokens = this.getPositiveInteger(
       configService,
@@ -67,7 +67,7 @@ export class GroqLlmService implements InterviewLlmClient {
     this.maxRetries = this.getNonNegativeInteger(
       configService,
       'INTERVIEW_LLM_MAX_RETRIES',
-      1,
+      2,
     );
     this.reasoningEffort = configService.get<string>(
       'INTERVIEW_LLM_REASONING_EFFORT',
@@ -92,7 +92,26 @@ export class GroqLlmService implements InterviewLlmClient {
 
       this.logUsage(completion, startedAt);
 
-      return this.evaluationValidator.parse(JSON.parse(content) as unknown);
+      const parsedEvaluation = this.evaluationValidator.parse(
+        JSON.parse(content) as unknown,
+      );
+      const latencyMs = Date.now() - startedAt;
+      const usage = completion.usage;
+      const promptTokens = usage?.prompt_tokens ?? 0;
+      const completionTokens = usage?.completion_tokens ?? 0;
+      const totalTokens =
+        usage?.total_tokens ?? promptTokens + completionTokens;
+
+      return Object.assign(parsedEvaluation, {
+        _metrics: {
+          provider: 'groq',
+          model: this.model,
+          latencyMs,
+          promptTokens,
+          completionTokens,
+          totalTokens,
+        },
+      });
     } catch (error) {
       if (error instanceof ServiceUnavailableException) {
         throw error;
@@ -111,6 +130,19 @@ export class GroqLlmService implements InterviewLlmClient {
 
   private async requestCompletion(input: InterviewLlmInput): Promise<Response> {
     for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
+      // Use strict json_schema on attempt 0, fallback to flexible json_object on retries to avoid json_validate_failed errors
+      const responseFormat =
+        attempt === 0
+          ? {
+              type: 'json_schema',
+              json_schema: {
+                name: 'interview_evaluation',
+                strict: true,
+                schema: INTERVIEW_EVALUATION_SCHEMA,
+              },
+            }
+          : { type: 'json_object' };
+
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -122,14 +154,7 @@ export class GroqLlmService implements InterviewLlmClient {
           messages: this.promptService.buildEvaluationMessages(input),
           max_completion_tokens: this.maxOutputTokens,
           reasoning_effort: this.reasoningEffort,
-          response_format: {
-            type: 'json_schema',
-            json_schema: {
-              name: 'interview_evaluation',
-              strict: true,
-              schema: INTERVIEW_EVALUATION_SCHEMA,
-            },
-          },
+          response_format: responseFormat,
         }),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
@@ -154,7 +179,13 @@ export class GroqLlmService implements InterviewLlmClient {
         );
       }
 
-      await this.sleep(this.getRetryDelayMs(response, attempt));
+      const delayMs = this.getRetryDelayMs(response, attempt);
+      this.logger.warn(
+        `Groq issue (${response.status}). Retrying with flexible json_object attempt ${
+          attempt + 1
+        }/${this.maxRetries} after ${delayMs}ms...`,
+      );
+      await this.sleep(delayMs);
     }
 
     throw new ServiceUnavailableException(
@@ -173,10 +204,10 @@ export class GroqLlmService implements InterviewLlmClient {
   private getRetryDelayMs(response: Response, attempt: number): number {
     const retryAfterSeconds = Number(response.headers.get('retry-after'));
     if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds >= 0) {
-      return Math.min(retryAfterSeconds * 1000, 1500);
+      return Math.min(retryAfterSeconds * 1000, 5000);
     }
 
-    return Math.min(250 * 2 ** attempt + Math.random() * 100, 1500);
+    return Math.min(1000 * 2 ** attempt + Math.random() * 200, 5000);
   }
 
   private async sleep(delayMs: number): Promise<void> {
