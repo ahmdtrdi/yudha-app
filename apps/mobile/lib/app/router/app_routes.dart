@@ -9,6 +9,7 @@ abstract final class AppRoutes {
   static const String practice = '/practice';
   static const String practiceQuiz = '/practice/quiz';
   static const String profile = '/profile';
+  static const String interviewSetup = '/interview/setup';
   static const String interview = '/interview';
   static const String store = '/store';
   static const String hiredPass = '/hired-pass';

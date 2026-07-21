@@ -3,7 +3,7 @@ import type { InternalCard } from '../questions/question.types';
 
 @Injectable()
 export class QuestionDealer {
-  static readonly HAND_SIZE = 5;
+  static readonly HAND_SIZE = 4;
 
   createSharedQueue(cards: InternalCard[]): InternalCard[] {
     return cards.map((card) => ({ ...card, options: [...card.options] }));

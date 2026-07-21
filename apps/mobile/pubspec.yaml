@@ -40,6 +40,8 @@ dependencies:
   flutter_svg: ^2.2.1
   google_fonts: ^6.2.1
   http: ^1.2.2
+  just_audio: ^0.9.42
+  record: ^6.2.1
   shared_preferences: ^2.3.3
   socket_io_client: ^3.1.2
   supabase_flutter: ^2.10.3

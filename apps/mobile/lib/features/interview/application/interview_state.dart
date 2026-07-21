@@ -19,6 +19,9 @@ class InterviewState {
     this.errorMessage,
     this.latestEvaluation,
     this.finalSummary,
+    this.isRecording = false,
+    this.isTranscribing = false,
+    this.transcriptionText,
   });
 
   factory InterviewState.initial(InterviewLaunchConfig config) {
@@ -36,9 +39,12 @@ class InterviewState {
   final String? errorMessage;
   final InterviewEvaluation? latestEvaluation;
   final InterviewFinalSummary? finalSummary;
+  final bool isRecording;
+  final bool isTranscribing;
+  final String? transcriptionText;
 
   bool get canSubmit =>
-      status == InterviewViewStatus.active && sessionId != null;
+      status == InterviewViewStatus.active && sessionId != null && !isTranscribing;
 
   InterviewMessage? get currentQuestion {
     for (final InterviewMessage message in messages.reversed) {
@@ -57,8 +63,12 @@ class InterviewState {
     String? errorMessage,
     InterviewEvaluation? latestEvaluation,
     InterviewFinalSummary? finalSummary,
+    bool? isRecording,
+    bool? isTranscribing,
+    String? transcriptionText,
     bool clearError = false,
     bool clearLatestEvaluation = false,
+    bool clearTranscriptionText = false,
   }) {
     return InterviewState(
       status: status ?? this.status,
@@ -70,6 +80,11 @@ class InterviewState {
           ? null
           : latestEvaluation ?? this.latestEvaluation,
       finalSummary: finalSummary ?? this.finalSummary,
+      isRecording: isRecording ?? this.isRecording,
+      isTranscribing: isTranscribing ?? this.isTranscribing,
+      transcriptionText: clearTranscriptionText
+          ? null
+          : transcriptionText ?? this.transcriptionText,
     );
   }
 }

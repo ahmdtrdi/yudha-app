@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service';
 import type { InternalRoomState } from '../engine/battle.types';
+import type { MatchLogRpcEntry } from '../logs/match-log.types';
 
 /** Shape returned by the finalize_match_result RPC */
 export type FinalizeResult = {
@@ -30,10 +31,11 @@ export class MatchResultService {
 
   /**
    * Persist match result to Supabase and update profile stats.
+   * Also bulk-inserts buffered match logs if a matchResultId is obtained.
    * Fire-and-forget — logs errors but never throws so Socket.IO flow is not blocked.
    * Returns computed deltas if successful, null otherwise.
    */
-  async finalizeMatch(room: InternalRoomState): Promise<PersistedDeltas | null> {
+  async finalizeMatch(room: InternalRoomState, logEntries: MatchLogRpcEntry[] = []): Promise<PersistedDeltas | null> {
     if (!room.result) {
       this.logger.warn(`finalizeMatch called on room ${room.roomId} with no result`);
       return null;
@@ -43,15 +45,59 @@ export class MatchResultService {
 
     // First attempt
     let result = await this.callRpc(params, room.roomId);
-    if (result) return this.extractDeltas(result);
+    if (result) {
+      await this.persistLogs(result.matchResultId, logEntries, room.roomId);
+      return this.extractDeltas(result);
+    }
 
     // Retry once after delay
     this.logger.warn(`Retrying finalize for room ${room.roomId} after ${MatchResultService.RETRY_DELAY_MS}ms`);
     await this.delay(MatchResultService.RETRY_DELAY_MS);
     result = await this.callRpc(params, room.roomId);
-    if (result) return this.extractDeltas(result);
+    if (result) {
+      await this.persistLogs(result.matchResultId, logEntries, room.roomId);
+      return this.extractDeltas(result);
+    }
 
     return null;
+  }
+
+  /**
+   * Bulk-insert match log entries into `match_logs` using the matchResultId as FK.
+   * Runs as a follow-up after the RPC returns the match result ID.
+   * Non-blocking — logs errors but doesn't throw.
+   */
+  private async persistLogs(
+    matchResultId: string | undefined,
+    logEntries: MatchLogRpcEntry[],
+    roomId: string,
+  ): Promise<void> {
+    if (!matchResultId || logEntries.length === 0) return;
+
+    try {
+      const adminClient = this.supabaseService.getAdminClient();
+      const rows = logEntries.map((entry) => ({
+        match_id: matchResultId,
+        user_id: entry.user_id,
+        action: entry.action,
+        payload: entry.payload,
+        created_at: entry.created_at,
+      }));
+
+      const { error } = await adminClient.from('match_logs').insert(rows);
+
+      if (error) {
+        this.logger.error(
+          `MATCH_LOGS_PERSIST_FAILED room=${roomId} matchId=${matchResultId} error=${error.message}`,
+        );
+      } else {
+        this.logger.log(`Match logs persisted: room=${roomId} matchId=${matchResultId} count=${rows.length}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `MATCH_LOGS_PERSIST_FAILED room=${roomId} exception=${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   private async callRpc(
@@ -95,16 +141,18 @@ export class MatchResultService {
       ? Math.round((endedAt.getTime() - startedAt.getTime()) / 1000)
       : null;
 
+    const isBotMatch = players.playerB.userId === 'bot';
+
     // Map internal outcome to DB enum values
     const outcome = this.mapOutcome(result, players.playerA.userId, players.playerB.userId);
 
     return {
       p_room_id: room.roomId,
-      p_mode: 'player', // Bot mode will be added when bot battles are implemented
+      p_mode: isBotMatch ? 'bot' : 'player',
       p_player_a_id: players.playerA.userId,
-      p_player_b_id: players.playerB.userId,
-      p_winner_user_id: result.winnerUserId,
-      p_loser_user_id: result.loserUserId,
+      p_player_b_id: isBotMatch ? null : players.playerB.userId,
+      p_winner_user_id: isBotMatch && result.winnerUserId === 'bot' ? null : result.winnerUserId,
+      p_loser_user_id: isBotMatch && result.loserUserId === 'bot' ? null : result.loserUserId,
       p_outcome: outcome,
       p_reason: result.reason === 'draw' ? 'draw' : result.reason,
       p_player_a_hp: result.finalState.playerA.hp,

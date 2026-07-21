@@ -31,6 +31,10 @@ export type InternalRoomState = {
     playerB: InternalPlayerState;
   };
   sharedQueue: InternalCard[];
+  /** Reserve buffer for recycling — pre-fetched questions beyond the initial pool */
+  reserveQueue: InternalCard[];
+  /** Counter for generating unique card-instance IDs for recycled cards */
+  nextRecycleId: number;
   startedAt: Date;
   endedAt?: Date;
   result?: MatchResultPayload;

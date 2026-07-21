@@ -13,6 +13,7 @@ import type {
   SurrenderSuccess,
 } from './battle.types';
 import { toPublicCard } from './battle.types';
+import type { InternalCard } from '../questions/question.types';
 
 @Injectable()
 export class GameEngine {
@@ -20,11 +21,13 @@ export class GameEngine {
   static readonly MAX_HP = 100;
   private readonly dealer = new QuestionDealer();
 
-  createRoom(roomId: string, playerAUserId: string, playerBUserId: string, sharedQueue: ReturnType<QuestionDealer['createSharedQueue']>): InternalRoomState {
+  createRoom(roomId: string, playerAUserId: string, playerBUserId: string, sharedQueue: ReturnType<QuestionDealer['createSharedQueue']>, reserveQueue: InternalCard[] = []): InternalRoomState {
     return {
       roomId,
       status: 'active',
       sharedQueue,
+      reserveQueue,
+      nextRecycleId: sharedQueue.length + reserveQueue.length + 1,
       startedAt: new Date(),
       players: {
         playerA: this.createPlayer(playerAUserId, 'playerA', sharedQueue),
@@ -99,10 +102,18 @@ export class GameEngine {
     player.hand.splice(cardIndex, 1);
     player.answeredCardIds.add(cardId);
     player.openedCardId = undefined;
-    const nextCard = this.dealer.drawAt(room.sharedQueue, player.nextDrawIndex);
+
+    // Try drawing from main shared queue first
+    let nextCard = this.dealer.drawAt(room.sharedQueue, player.nextDrawIndex);
     if (nextCard) {
       player.hand.push(nextCard);
       player.nextDrawIndex += 1;
+    } else {
+      // Main queue exhausted — try recycling from reserve buffer with a fresh card ID
+      nextCard = this.drawFromReserve(room);
+      if (nextCard) {
+        player.hand.push(nextCard);
+      }
     }
 
     const matchResult = this.resolveMatchEnd(room, opponent.hp <= 0 ? 'hp_zero' : undefined);
@@ -243,21 +254,34 @@ export class GameEngine {
   }
 
   private isQuestionExhausted(room: InternalRoomState): boolean {
-    const allDrawn =
+    const mainQueueExhausted =
       room.players.playerA.nextDrawIndex >= room.sharedQueue.length &&
       room.players.playerB.nextDrawIndex >= room.sharedQueue.length;
+    const reserveExhausted = room.reserveQueue.length === 0;
     const noPlayableCards =
       room.players.playerA.hand.length === 0 && room.players.playerB.hand.length === 0;
     const noOpenedCards =
       !room.players.playerA.openedCardId && !room.players.playerB.openedCardId;
-    return allDrawn && noPlayableCards && noOpenedCards;
+    return mainQueueExhausted && reserveExhausted && noPlayableCards && noOpenedCards;
   }
 
-  private getPlayer(room: InternalRoomState, userId: string): InternalPlayerState | undefined {
+  /**
+   * Draw a card from the reserve buffer with a fresh card-instance ID.
+   * Returns undefined if reserve is also exhausted.
+   */
+  private drawFromReserve(room: InternalRoomState): InternalCard | undefined {
+    if (room.reserveQueue.length === 0) return undefined;
+    const card = room.reserveQueue.shift()!;
+    const freshId = `card_r${room.nextRecycleId}`;
+    room.nextRecycleId += 1;
+    return { ...card, id: freshId, options: [...card.options] };
+  }
+
+  getPlayer(room: InternalRoomState, userId: string): InternalPlayerState | undefined {
     return Object.values(room.players).find((player) => player.userId === userId);
   }
 
-  private getOpponent(room: InternalRoomState, userId: string): InternalPlayerState | undefined {
+  getOpponent(room: InternalRoomState, userId: string): InternalPlayerState | undefined {
     return Object.values(room.players).find((player) => player.userId !== userId);
   }
 

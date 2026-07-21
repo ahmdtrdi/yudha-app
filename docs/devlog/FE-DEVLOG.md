@@ -1463,3 +1463,89 @@
 - The procedural soundtrack is intentionally compact and original, but it should receive a dedicated audio-design/mastering pass before production release.
 - Online hand replacement remains server-authoritative; the game backend must preserve the same player-owned-hand rule in every `game_state_update` payload.
 - The arena still has no screenshot/golden baseline, so podium proportions and cast motion should be visually checked on the target emulator sizes before final art sign-off.
+## 2026-07-20 - AI Interview Setup, Text Fixes, And Voice Wiring
+
+### The Change
+- Added a pre-interview setup flow in `apps/mobile/lib/features/interview/presentation/pages/interview_setup_page.dart` and routed Practice through `/interview/setup` before launching the chat screen.
+- Extended `InterviewLaunchConfig` with `responseStyle`, passed it through `BackendInterviewRepository.startSession(...)`, and stopped hardcoding interview sessions to text mode.
+- Added `audioAvailable` to `InterviewMessage` and preserved backend audio availability when mapping live questions and historical transcript turns.
+- Updated the interview screen with voice-mode affordances:
+  - speaker playback on interviewer bubbles via `just_audio`
+  - microphone recording/transcription via `record`
+  - transcript review in the existing answer composer before submit.
+- Improved text-mode bugs from the AI Interview plan: `_humanizeCompanyId(...)` now handles hyphenated slugs, completed sessions hide the composer behind a finished-session banner, and retry resumes an existing session when possible instead of always creating a new one.
+- Expanded the interview repository/controller contract with session resume, STT upload, and question audio URL helpers, plus a controller regression test for retry/resume behavior.
+
+### The Reasoning
+- The backend already exposes `responseStyle`, speech transcription, and question-audio endpoints, so the frontend needed to stop flattening every interview into the old hardcoded text path.
+- Putting company, mode, and response-style selection in a setup screen keeps the interview chat focused on the session itself while giving the backend the right launch payload up front.
+- Treating voice capture as transcript-first keeps the answer submission contract unchanged: audio becomes editable text, then flows through the same `submitAnswer(...)` path as typed answers.
+- Resuming by `sessionId` on retry is safer than blindly starting over because network failures can happen after the backend has already created a session.
+
+### The Tech Debt
+- The setup company list is static and should eventually come from backend-owned `interview_company_profiles` data.
+- Voice playback/recording needs emulator/device verification, especially Android microphone permission behavior, temp-file handling, and authenticated audio streaming headers.
+- The current audio UI is functional but local to `interview_page.dart`; if voice mode grows, playback and recording should move into smaller reusable widgets/services.
+- Dependency resolution for `record` needs a follow-up check because the current locked Linux plugin/platform-interface combination can fail Dart compilation even when building Android.
+
+## 2026-07-20 - AI Interview Compile Error Fixes
+
+### The Change
+- Added the missing `InterviewSessionDetailRecord` import to `apps/mobile/lib/features/interview/application/interview_controller.dart` so retry/session-resume code can see the detail model.
+- Updated `apps/mobile/pubspec.yaml` from `record: ^5.2.0` to `record: ^6.2.1` and refreshed `apps/mobile/pubspec.lock`, moving the package graph to `record_linux 1.3.1` with `record_platform_interface 1.6.0`.
+
+### The Reasoning
+- `InterviewSessionDetailRecord` already existed in the interview domain layer; the controller compile error was just a missing import after adding retry/resume behavior.
+- The previous `record 5.2.1` graph allowed an incompatible mix of `record_linux 0.7.2` and `record_platform_interface 1.6.0`, where Linux did not implement the newer interface methods. `record 6.2.1` keeps the app within the current Dart SDK constraint while resolving Linux to an implementation that matches the newer platform interface.
+
+### The Tech Debt
+- Sandbox validation could not complete because local Flutter/Dart commands either hung through the shell shim or exited after dependency resolution while trying to write Dart telemetry outside the workspace. The next local check should be `flutter pub get`, then `flutter analyze`, then `flutter run` on the Android emulator.
+
+## 2026-07-20 - AI Interview Analyzer Cleanup
+
+### The Change
+- Replaced the deprecated `DropdownButtonFormField.value` usage with `initialValue` in `apps/mobile/lib/features/interview/presentation/pages/interview_setup_page.dart`.
+- Updated the interview controller test fake repository to implement the new voice contract methods: `transcribeAnswerAudio(...)` and `getQuestionAudioUrl(...)`.
+
+### The Reasoning
+- Flutter 3.33 deprecated `value` for form-field initial state, so the setup screen needed the new API to keep analyzer clean.
+- The repository abstraction expanded for voice mode, and test doubles must implement the full interface even when a test only exercises text/retry behavior.
+
+### The Tech Debt
+- The fake repository returns static voice responses. Broader voice-flow tests should cover transcription success/failure and question-audio URL behavior once the emulator path is stable.
+
+## 2026-07-21 - Debug Cleartext Audio Playback Allowance
+
+### The Change
+- Added a debug-only Android network security config at `apps/mobile/android/app/src/debug/res/xml/debug_network_security_config.xml`.
+- Updated `apps/mobile/android/app/src/debug/AndroidManifest.xml` so debug builds permit cleartext HTTP traffic to local development hosts used by the emulator.
+
+### The Reasoning
+- Interview TTS playback streams audio through `just_audio`/ExoPlayer from the local NestJS backend during development.
+- Android blocks cleartext HTTP media by default, so local `http://10.0.2.2:3000` audio URLs failed even though the backend route and auth flow were reachable.
+- Keeping this in the debug source set avoids loosening release networking policy.
+
+### The Tech Debt
+- Production audio playback should use HTTPS URLs. If we add staging builds, they should get their own explicit network-security policy instead of reusing debug allowances.
+
+## 2026-07-21 - Voice Interview Room UI
+
+### The Change
+- Added a voice-mode room surface in `apps/mobile/lib/features/interview/presentation/pages/interview_page.dart` for sessions launched with `responseStyle == 'voice'`.
+- Replaced the voice-mode transcript list area with a navy/teal visual panel containing:
+  - current listening/thinking state copy
+  - a simple animated audio visualizer orb
+  - the current interviewer question
+  - a compact latest-answer preview
+  - the existing TTS play action for the current question.
+- Kept the existing bottom answer composer available in voice mode so users can either record speech or type manually.
+- Synced recorder start/stop events into `InterviewState.isRecording` so the voice room can react while the mic is active.
+
+### The Reasoning
+- Voice mode needed to feel distinct from text chat without changing the underlying interview flow.
+- The room layout keeps the primary interaction focused on listening/responding while preserving the typed fallback at the bottom.
+- Using existing brand colors avoids introducing a purple voice-assistant theme that would clash with the YUDHA visual system.
+
+### The Tech Debt
+- The visualizer is decorative and timer-driven; it does not yet react to live microphone amplitude.
+- The transcript/history still exists in text mode and history sheets, but voice mode does not currently expose an inline full transcript while the session is active.

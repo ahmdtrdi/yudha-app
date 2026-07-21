@@ -16,6 +16,17 @@ abstract class InterviewRepository {
   });
 
   Future<InterviewFinalSummary> completeSession(String sessionId);
+
+  Future<String> transcribeAnswerAudio({
+    required String sessionId,
+    required List<int> audioBytes,
+    required String filename,
+  });
+
+  String getQuestionAudioUrl({
+    required String sessionId,
+    required String turnId,
+  });
 }
 
 class InterviewStartResult {

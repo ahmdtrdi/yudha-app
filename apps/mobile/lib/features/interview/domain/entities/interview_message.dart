@@ -7,6 +7,7 @@ class InterviewMessage {
     required this.text,
     required this.createdAt,
     this.evaluation,
+    this.audioAvailable = false,
   });
 
   final String id;
@@ -14,6 +15,7 @@ class InterviewMessage {
   final String text;
   final DateTime createdAt;
   final InterviewEvaluation? evaluation;
+  final bool audioAvailable;
 }
 
 class InterviewEvaluation {

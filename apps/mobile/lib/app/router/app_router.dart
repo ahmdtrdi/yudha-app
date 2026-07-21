@@ -6,6 +6,7 @@ import 'package:yudha_mobile/features/auth/presentation/pages/email_confirmation
 import 'package:yudha_mobile/features/auth/presentation/pages/login_page.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/presentation/pages/interview_page.dart';
+import 'package:yudha_mobile/features/interview/presentation/pages/interview_setup_page.dart';
 import 'package:yudha_mobile/features/leaderboard/presentation/pages/leaderboard_page.dart';
 import 'package:yudha_mobile/features/lobby/presentation/pages/lobby_page.dart';
 import 'package:yudha_mobile/features/onboarding/presentation/pages/splash_page.dart';
@@ -69,6 +70,10 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
             builder: (context, state) => const ProfilePage(),
           ),
         ],
+      ),
+      GoRoute(
+        path: AppRoutes.interviewSetup,
+        builder: (context, state) => const InterviewSetupPage(),
       ),
       GoRoute(
         path: AppRoutes.interview,
