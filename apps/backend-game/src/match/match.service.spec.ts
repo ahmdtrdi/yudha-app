@@ -5,6 +5,7 @@ import { QuestionDealer } from './engine/question-dealer';
 import { QuestionService } from './questions/question.service';
 import { MatchResultService } from './results/match-result.service';
 import { RoomManager } from './rooms/room-manager';
+import { MatchLogBuffer } from './logs/match-log-buffer';
 
 const mockMatchResultService = {
   finalizeMatch: jest.fn().mockResolvedValue(null),
@@ -21,6 +22,7 @@ describe('MatchService', () => {
         QuestionDealer,
         QuestionService,
         RoomManager,
+        MatchLogBuffer,
         { provide: MatchResultService, useValue: mockMatchResultService },
       ],
     }).compile();

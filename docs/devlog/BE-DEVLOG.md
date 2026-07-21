@@ -174,3 +174,46 @@
 - Coin reward amounts (10/3/5) are placeholder — product needs to confirm actual values.
 - No dead-letter queue for failed persistence — if both attempts fail, the match result is only logged, not queued for retry.
 - `match_logs` per-action audit trail and `GET /matches` history endpoint are still separate future tickets.
+
+## 2026-07-21 - Supporting Features: Match Logs + Match History API + Question Recycling
+
+**The Change:**
+
+### Part A — Match Logs (per-action audit trail)
+- Created `MatchLogBuffer` (`apps/backend-game/src/match/logs/match-log-buffer.ts`) — an in-memory per-room buffer that records every `open_card`, `play_card`, and `surrender` action during a match with no DB writes mid-battle.
+- Created `match-log.types.ts` with `MatchLogEntry`, `MatchLogAction`, and `MatchLogRpcEntry` types.
+- Hooked `.record()` calls into `MatchService.handleOpenCard`, `handlePlayCard`, and `handleSurrender` with consistent payload shapes per action type.
+- Extended `MatchResultService.finalizeMatch()` to accept a `logEntries` parameter. After the RPC returns a `matchResultId`, logs are bulk-inserted into `match_logs` using the FK.
+- `MatchService.persistAndEnrich()` drains the buffer and passes entries to `finalizeMatch` — the buffer is always cleared, even if persistence fails (no memory leak).
+- Made `GameEngine.getPlayer()` and `getOpponent()` public so the surrender handler can capture HP state for logging.
+- Registered `MatchLogBuffer` in `MatchModule` providers.
+
+### Part B — Match History API
+- Created `MatchesModule`, `MatchesController`, `MatchesService`, and `matches.types.ts` in `apps/backend-api/src/matches/`.
+- `GET /matches?limit=&offset=` — authenticated endpoint using `SupabaseAuthGuard`, reads from `match_results` where the user is `player_a_id` or `player_b_id`.
+- `toHistoryDto()` derives self-relative `outcome` (win/lose/draw) from `winner_user_id`, maps final state (HP/score) relative to the requesting user, and sets `isBotMatch: true` with `opponentUsername: "Bot"` when `player_b_id` is null or mode is bot.
+- Pagination follows the exact pattern from `/leaderboard` — `parseNonNegativeInteger`, `defaultLimit: 20`, `maxLimit: 50`.
+- Registered `MatchesModule` in `AppModule`.
+
+### Part C — Question Recycling
+- Added `reserveQueue: InternalCard[]` and `nextRecycleId: number` to `InternalRoomState`.
+- Updated `GameEngine.createRoom()` to accept an optional `reserveQueue` parameter.
+- Updated `playCard()` draw logic: when the main `sharedQueue` is exhausted, cards are drawn from `reserveQueue` with fresh card-instance IDs (`card_r${nextRecycleId}`) to avoid ID collision with previously-dealt cards.
+- Updated `isQuestionExhausted()` to check both `sharedQueue` and `reserveQueue` — only triggers `question_exhaustion` when both are empty and no playable cards remain.
+- Added `getCardPool()` to `QuestionService` returning `{ active, reserve }` — the active set feeds the shared queue, the reserve feeds recycling. Kept `getCards()` as legacy backward-compat.
+- Updated `RoomManager.joinQueue()` and `createRoom()` to accept and pass reserve cards.
+- Updated `MatchService.handleJoinQueue()` to use `getCardPool()`.
+
+**The Reasoning:**
+- Buffering logs in memory during the match (not writing per-action) satisfies PRD §6 Risk #1: "Avoid blocking PostgreSQL queries during active battle rounds." Logs are only flushed at match-end in the same persistence flow.
+- Match history lives in `backend-api` (not `backend-game`) per PRD §2.4 service boundaries — REST endpoints for the Flutter client belong on the App Backend, keeping the two backends decoupled.
+- Question recycling uses reading (b) from the plan: genuinely different questions from a larger pre-fetched buffer, not repeated content. This avoids the "memorize the answer, get free points on recycle" exploit. The reserve is part of the initial fetch — no mid-battle Supabase query.
+- Fresh card-instance IDs on recycled cards (`card_r${n}`) prevent client-side tracking collisions with previously-answered card IDs.
+
+**The Tech Debt:**
+- The `timeout` log action type is defined but not wired — it will be connected when timeout/reflected-damage engine logic is implemented.
+- `match_results` is not yet in the backend-api generated `database.types.ts` — the Supabase query uses `client as any` until types are regenerated.
+- The local question pool only has 12 questions, so the reserve buffer is currently empty. When backed by Supabase, `getMatchQuestionPool` should fetch 2× the pool size and split into active/reserve.
+- `opponentUsername` in match history is either "Bot" or `null` — a join against `profiles` for the real username is deferred until the UI needs it.
+- Log entries for bot actions are not yet wired (depends on the bot battle service integration).
+- Log persistence is a separate insert after the RPC, not in the same transaction — if the RPC succeeds but the log insert fails, logs are lost (logged but not retried).

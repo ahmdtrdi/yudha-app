@@ -13,6 +13,7 @@ import type { InternalRoomState } from './engine/battle.types';
 import { QuestionService } from './questions/question.service';
 import { MatchResultService } from './results/match-result.service';
 import { RoomManager } from './rooms/room-manager';
+import { MatchLogBuffer } from './logs/match-log-buffer';
 
 type ServerMatchEventName = (typeof SERVER_MATCH_EVENTS)[keyof typeof SERVER_MATCH_EVENTS];
 
@@ -35,6 +36,7 @@ export class MatchService {
     private readonly questions: QuestionService,
     private readonly rooms: RoomManager,
     private readonly matchResultService: MatchResultService,
+    private readonly logBuffer: MatchLogBuffer,
   ) {}
 
   registerSocket(socketId: string, userId: string): void {
@@ -58,7 +60,8 @@ export class MatchService {
 
   handleJoinQueue(userId: string, socketId: string, payload?: JoinQueuePayload): MatchServiceResult {
     const mode = payload?.mode ?? 'casual';
-    const queueResult = this.rooms.joinQueue(userId, socketId, mode, this.questions.getCards());
+    const { active, reserve } = this.questions.getCardPool();
+    const queueResult = this.rooms.joinQueue(userId, socketId, mode, active, reserve);
 
     if (queueResult.rejected) {
       return {
@@ -130,6 +133,11 @@ export class MatchService {
       return this.reject(socketId, 'open_card', payload.roomId, result.reason, result.message, result.recoverable);
     }
 
+    // Log the open_card action
+    this.logBuffer.record(payload.roomId, userId, 'open_card', {
+      cardId: payload.cardId,
+    });
+
     return {
       emits: [
         {
@@ -150,6 +158,15 @@ export class MatchService {
     if (!result.ok) {
       return this.reject(socketId, 'play_card', payload.roomId, result.reason, result.message, result.recoverable);
     }
+
+    // Log the play_card action
+    this.logBuffer.record(payload.roomId, userId, 'play_card', {
+      cardId: payload.cardId,
+      selectedOptionIndex: payload.selectedOptionIndex,
+      correct: result.playResult.correct,
+      effect: result.playResult.effect,
+      effectValue: result.playResult.effectValue,
+    });
 
     const emits: MatchEmit[] = [
       {
@@ -183,6 +200,9 @@ export class MatchService {
       };
     }
 
+    const player = this.engine.getPlayer(room, userId);
+    const opponent = this.engine.getOpponent(room, userId);
+
     const result = this.engine.surrender(room, userId);
     if (!result.ok) {
       return {
@@ -195,6 +215,12 @@ export class MatchService {
         ],
       };
     }
+
+    // Log the surrender action
+    this.logBuffer.record(payload.roomId, userId, 'surrender', {
+      atHpSelf: player?.hp ?? 0,
+      atHpOpponent: opponent?.hp ?? 0,
+    });
 
     await this.persistAndEnrich(room);
     this.rooms.scheduleCleanup(room.roomId);
@@ -253,11 +279,16 @@ export class MatchService {
 
   /**
    * Persist match result to Supabase and enrich room.result with rating/coin deltas.
+   * Also flushes the match log buffer into Supabase alongside the result.
    * Non-blocking: logs errors but never throws.
    */
   private async persistAndEnrich(room: InternalRoomState): Promise<void> {
+    // Drain log buffer before persistence
+    const logEntries = this.logBuffer.drain(room.roomId);
+    const rpcLogs = this.logBuffer.toRpcEntries(logEntries);
+
     try {
-      const deltas = await this.matchResultService.finalizeMatch(room);
+      const deltas = await this.matchResultService.finalizeMatch(room, rpcLogs);
       if (deltas && room.result) {
         room.result.finalState.playerA.ratingDelta = deltas.ratingDeltaA;
         room.result.finalState.playerA.coinsDelta = deltas.coinsDeltaA;
