@@ -166,7 +166,7 @@
 - `security definer` on the RPC lets it bypass RLS safely for this one controlled write path without exposing a broad service-role key to arbitrary table writes.
 - Fire-and-forget persistence ensures Socket.IO events are never blocked by DB write latency or failures. Errors are logged with `MATCH_PERSIST_FAILED` tag for manual reconciliation.
 - Bot matches are designed to affect coins only (no `rank_points` change) to prevent rating farming, though bot mode is not yet implemented.
-- Rating delta calculation lives exclusively in SQL so backend-api and backend-game can never disagree on reward math.
+- Rating delta calculation lives exclusively in SQL so backend-api and backend-game can never disagree on reward math opreation
 
 **The Tech Debt:**
 - The `finalize_match_result` SQL migration must be applied manually to Supabase (SQL editor or `supabase db push`) before match persistence will work.
@@ -222,4 +222,4 @@
 - Cross-target PvP matchmaking (cpns vs bumn players) is unresolved — currently both players would get the same `'cpns'` pool. Needs a product decision on whose target wins or whether to enforce same-target pairing.
 - Category distribution (4/4/4) is a best-guess default — product/content team should confirm the intended ratio.
 - Difficulty filtering is not applied for v1 — flagged as a follow-up if load testing or product review requests it.
-- No in-memory cache of recently-fetched pools across near-simultaneous match starts — flagged as a future optimization if load testing shows it's needed.
+- No in-memory cache of recently-fetched pools across near-simultaneous match starts — flagged as a future optimization if load testing shows it's needed..
