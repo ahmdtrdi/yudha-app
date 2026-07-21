@@ -128,24 +128,6 @@ abstract final class BattleStateMachine {
     playerHp = _clampHp(playerHp);
     opponentHp = _clampHp(opponentHp);
 
-    List<BattleQuestion> remainingQuestions = state.availableQuestions
-        .where((BattleQuestion item) => item.id != question.id)
-        .toList(growable: false);
-
-    List<String> answeredQuestions = <String>[
-      ...state.answeredQuestionIds,
-      'bot:${question.id}',
-    ];
-
-    // Recycle questions when pool is exhausted
-    if (remainingQuestions.isEmpty) {
-      remainingQuestions = _recycleQuestions(
-        state.availableQuestions,
-        question,
-      );
-      answeredQuestions = const <String>[];
-    }
-
     final ({BattlePhase phase, BattleOutcome outcome, int ratingDelta}) finish =
         _resolvePhase(
           playerHp: playerHp,
@@ -162,8 +144,10 @@ abstract final class BattleStateMachine {
       opponentHp: opponentHp,
       playerPoints: playerPoints,
       opponentPoints: opponentPoints,
-      availableQuestions: remainingQuestions,
-      answeredQuestionIds: answeredQuestions,
+      // The visible question pool belongs to the player. An incoming attack
+      // must never consume or reshuffle a card the player has not used.
+      availableQuestions: state.availableQuestions,
+      answeredQuestionIds: state.answeredQuestionIds,
       battleEventId: state.battleEventId + 1,
       lastActor: BattleActor.opponent,
       lastVisualEffect: question.effect == QuestionEffect.heal

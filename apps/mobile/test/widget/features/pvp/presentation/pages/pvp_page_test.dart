@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yudha_mobile/features/economy/application/game_economy_providers.dart';
+import 'package:yudha_mobile/features/economy/application/game_economy_storage.dart';
+import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
+import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
 import 'package:yudha_mobile/features/pvp/application/battle_providers.dart';
 import 'package:yudha_mobile/features/pvp/data/repositories/online_battle_repository.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
@@ -43,6 +47,54 @@ class _FakeBattleRepository extends OnlineBattleRepository {
 }
 
 void main() {
+  testWidgets('selects owned character and arena before entering PvP', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(411, 914));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        gameEconomyStorageProvider.overrideWithValue(_MemoryEconomyStorage()),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final economy = container.read(gameEconomyProvider.notifier);
+    economy.topUp(GameEconomyCatalog.topUpPackages[2]);
+    economy.purchase(GameEconomyCatalog.characters[1]);
+    economy.purchase(GameEconomyCatalog.arenas[1]);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: PvpPage()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Siapkan loadout, Kamu'), findsOneWidget);
+    expect(find.text('Violet Striker'), findsWidgets);
+    expect(find.text('Sunset Canyon'), findsWidgets);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('loadout-character-cadet-blue')),
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('loadout-arena-training-garden')),
+    );
+    await tester.pump();
+
+    expect(
+      container.read(gameEconomyProvider).equippedCharacterId,
+      GameEconomyCatalog.defaultCharacterId,
+    );
+    expect(
+      container.read(gameEconomyProvider).equippedArenaId,
+      GameEconomyCatalog.defaultArenaId,
+    );
+  });
+
   testWidgets('transitions from pre-battle to result', (
     WidgetTester tester,
   ) async {
@@ -230,4 +282,12 @@ void main() {
     expect(container.read(battleControllerProvider).playerHp, lessThan(100));
     expect(find.text('Pertanyaan yang sedang dijawab'), findsOneWidget);
   });
+}
+
+class _MemoryEconomyStorage implements GameEconomyStorage {
+  @override
+  Future<GameEconomyState?> load() async => null;
+
+  @override
+  Future<void> save(GameEconomyState state) async {}
 }

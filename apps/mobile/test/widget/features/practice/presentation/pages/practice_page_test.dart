@@ -112,8 +112,9 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    await Future<void>.delayed(const Duration(milliseconds: 100));
-    container.read(practiceControllerProvider.notifier).startQuestionOfDay();
+    final controller = container.read(practiceControllerProvider.notifier);
+    await controller.load();
+    controller.startQuestionOfDay();
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -132,7 +133,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('PETUNJUK'), findsOneWidget);
-    expect(find.text('Only one number is not prime.'), findsOneWidget);
+    expect(find.text('Multiply by 2 each step.'), findsOneWidget);
     expect(find.text('Lihat petunjuk'), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());

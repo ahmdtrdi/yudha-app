@@ -3,12 +3,14 @@ part of '../pvp_page.dart';
 class _ArenaMenuSection extends StatelessWidget {
   const _ArenaMenuSection({
     required this.playerDisplayName,
+    required this.playerAvatarAsset,
     required this.onBackHome,
     required this.onStartBot,
     required this.onStartPlayer,
   });
 
   final String playerDisplayName;
+  final String playerAvatarAsset;
   final VoidCallback onBackHome;
   final VoidCallback onStartBot;
   final VoidCallback onStartPlayer;
@@ -79,6 +81,7 @@ class _ArenaMenuSection extends StatelessWidget {
                       softColor: const Color(0xFFEAF2FE),
                       statusColor: const Color(0xFF228C62),
                       type: _MenuOpponentType.bot,
+                      playerAvatarAsset: playerAvatarAsset,
                       compact: compact,
                       onTap: onStartBot,
                     ),
@@ -91,6 +94,7 @@ class _ArenaMenuSection extends StatelessWidget {
                       softColor: const Color(0xFFF0ECFC),
                       statusColor: const Color(0xFF7559D4),
                       type: _MenuOpponentType.player,
+                      playerAvatarAsset: playerAvatarAsset,
                       compact: compact,
                       onTap: onStartPlayer,
                     ),
@@ -177,6 +181,7 @@ class _ArenaModeTile extends StatefulWidget {
     required this.softColor,
     required this.statusColor,
     required this.type,
+    required this.playerAvatarAsset,
     required this.compact,
     required this.onTap,
   });
@@ -188,6 +193,7 @@ class _ArenaModeTile extends StatefulWidget {
   final Color softColor;
   final Color statusColor;
   final _MenuOpponentType type;
+  final String playerAvatarAsset;
   final bool compact;
   final VoidCallback onTap;
 
@@ -241,6 +247,7 @@ class _ArenaModeTileState extends State<_ArenaModeTile> {
                   children: <Widget>[
                     _MenuOpponentIllustration(
                       type: widget.type,
+                      playerAvatarAsset: widget.playerAvatarAsset,
                       accent: widget.accent,
                       softColor: widget.softColor,
                       compact: widget.compact,
@@ -350,12 +357,14 @@ class _MenuStatusPill extends StatelessWidget {
 class _MenuOpponentIllustration extends StatelessWidget {
   const _MenuOpponentIllustration({
     required this.type,
+    required this.playerAvatarAsset,
     required this.accent,
     required this.softColor,
     required this.compact,
   });
 
   final _MenuOpponentType type;
+  final String playerAvatarAsset;
   final Color accent;
   final Color softColor;
   final bool compact;
@@ -414,7 +423,7 @@ class _MenuOpponentIllustration extends StatelessWidget {
                   width: size * 0.66,
                   height: size * 0.9,
                   child: Image.asset(
-                    _playerAvatarAsset,
+                    playerAvatarAsset,
                     fit: BoxFit.contain,
                     alignment: Alignment.bottomCenter,
                     semanticLabel: 'Karakter pemain',

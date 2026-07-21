@@ -1422,6 +1422,47 @@
 - The projectile effects are currently Flutter-drawn rather than authored as reusable animation files. If combat timing or art direction grows substantially, moving them to a dedicated animation format would make iteration easier.
 - The arena has behavioral widget coverage but no screenshot/golden baseline yet, so future visual changes still need an emulator pass across the supported phone sizes.
 
+## 2026-07-20 - Y-Coin Store, Hired Pass, And PvP Loadouts
+
+### The Change
+- Replaced the Store placeholder with a functional character/arena catalog, permanent local inventory, purchase/equip actions, Y-Coin balance, simulated beta top-up packages, and an unlimited `+100` beta-credit action.
+- Added a Hired Pass route with season progress, daily/weekly mission presentation, free/premium reward tracks, beta premium activation, reward claiming, and cosmetic rewards.
+- Added a persisted PvP loadout step before opponent selection. The selected character is used in the HUD and live arena, the selected arena recolors the responsive battlefield, and both combatants now have restrained ambient avatar motion on the board.
+- Added original violet and teal clay-3D character assets, Lobby shortcuts for Store/Pass/top-up, and unit/widget coverage for purchases, beta credits, Pass rewards, loadout selection, and the existing battle flow.
+- Wrapped Profile settings switch rows in a transparent `Material` so Flutter's current ListTile ink/background assertion no longer breaks the existing profile widget tests.
+- Removed a real-time `Future.delayed` from the Practice widget test fake clock and awaited controller hydration directly, preventing the aggregate Flutter test runner from hanging.
+- Restored the Practice hint tap path by moving the locked hint through its buy state before unlock, matching the visible `-5 poin` action and existing widget expectation.
+
+### The Reasoning
+- A single economy controller keeps balance, ownership, equipped cosmetics, and reward claims consistent across Store, Pass, Lobby, and PvP while the payment/backend integration is still outside the MVP.
+- Loadout selection lives in the existing `preBattle` phase so the battle state machine and Socket.IO contracts remain unchanged. Cosmetics only affect asset and palette selection.
+- Arena skins are expressed as responsive Flutter palettes instead of fixed background images, while generated raster art is reserved for the character skins that benefit from the clay-3D treatment.
+
+### The Tech Debt
+- Economy and Hired Pass state currently persist in SharedPreferences as an explicitly labeled beta sandbox. Production must hydrate from the server-authoritative Store/Hired Pass APIs and never trust client-side balance mutation.
+- Paid top-up prices are presentation-only simulations until a payment gateway, receipt verification, ledger, and idempotent server credit flow are implemented.
+- Pass mission progress is demo data; practice, battle, streak, and interview completion still need to feed server-owned seasonal mission counters.
+
+## 2026-07-20 - PvP Cast, Stable Hand, And Arena Audio Polish
+
+### The Change
+- Removed normal correct/wrong status banners from the active arena while retaining the top surface for actionable errors.
+- Replaced both main-tower focal points with clay-like 3D podiums for the equipped hero and opponent, and added character anticipation/lunge motion before each attack or heal.
+- Slowed the combat sequence from 620 ms to 1050 ms and gave the projectile a dedicated post-cast travel phase before impact and the floating HP value.
+- Stopped bot turns from consuming the player's question pool. Incoming attacks now preserve every visible card; only the card answered by the player is removed and refilled, for either a correct or wrong answer.
+- Added a local procedural arena loop and six supporting cues for countdown, card pick, cast, projectile, impact, and heal. The seven mono WAV files total about 441 KiB, are pre-cached, honor Profile sound settings, pause with the arena/app lifecycle, and release their players on exit.
+- Added `audioplayers` for asset playback, a reproducible `tool/generate_arena_audio.dart` generator, and image pre-caching for the active hero, tower, and card assets.
+- Migrated Supabase initialization from the deprecated `anonKey` argument to `publishableKey` after the updated dependency surfaced the warning.
+
+### The Reasoning
+- Combat feedback is clearer when the hero's cast, projectile, impact, HP bar, and floating value carry the result instead of a banner covering the top of the battlefield.
+- The hand is a player-owned decision surface. Letting an unrelated incoming hit replace a visible choice made the battle feel random and could invalidate a card the player was considering.
+- Bundled low-sample-rate audio keeps the arena responsive and usable offline while three small SFX players allow cast and impact cues to overlap without creating a new player for every event.
+
+### The Tech Debt
+- The procedural soundtrack is intentionally compact and original, but it should receive a dedicated audio-design/mastering pass before production release.
+- Online hand replacement remains server-authoritative; the game backend must preserve the same player-owned-hand rule in every `game_state_update` payload.
+- The arena still has no screenshot/golden baseline, so podium proportions and cast motion should be visually checked on the target emulator sizes before final art sign-off.
 ## 2026-07-20 - AI Interview Setup, Text Fixes, And Voice Wiring
 
 ### The Change
