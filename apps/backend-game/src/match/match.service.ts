@@ -13,6 +13,7 @@ import type { InternalRoomState } from './engine/battle.types';
 import { QuestionService } from './questions/question.service';
 import { MatchResultService } from './results/match-result.service';
 import { RoomManager } from './rooms/room-manager';
+import { BotBattleService } from './bot/bot-battle.service';
 
 type ServerMatchEventName = (typeof SERVER_MATCH_EVENTS)[keyof typeof SERVER_MATCH_EVENTS];
 
@@ -29,13 +30,24 @@ export type MatchServiceResult = {
 @Injectable()
 export class MatchService {
   private readonly logger = new Logger(MatchService.name);
+  private emitServer: ((result: MatchServiceResult) => void) | null = null;
 
   constructor(
     private readonly engine: GameEngine,
     private readonly questions: QuestionService,
     private readonly rooms: RoomManager,
     private readonly matchResultService: MatchResultService,
+    private readonly botBattleService: BotBattleService,
   ) {}
+
+  /**
+   * Set by the gateway once the Server instance is available.
+   * Enables async bot turns to emit events to clients.
+   */
+  setEmitServer(callback: (result: MatchServiceResult) => void): void {
+    this.emitServer = callback;
+    this.botBattleService.setEmitCallback(callback);
+  }
 
   registerSocket(socketId: string, userId: string): void {
     this.rooms.registerSocket(socketId, userId);
@@ -51,14 +63,26 @@ export class MatchService {
       return { emits: [] };
     }
     if (result.type === 'active_presence') {
+      // Cancel bot timer if this is a bot match and the human disconnected
+      if (this.botBattleService.isBotMatch(result.room)) {
+        this.botBattleService.cancelBotSchedule(result.room.roomId);
+      }
       return this.emitPresence(result.room);
     }
     return { emits: [] };
   }
 
-  handleJoinQueue(userId: string, socketId: string, payload?: JoinQueuePayload): MatchServiceResult {
+  async handleJoinQueue(userId: string, socketId: string, payload?: JoinQueuePayload): Promise<MatchServiceResult> {
     const mode = payload?.mode ?? 'casual';
-    const queueResult = this.rooms.joinQueue(userId, socketId, mode, this.questions.getCards());
+
+    // Bot mode: skip queue, create match instantly
+    if (mode === 'bot') {
+      return this.handleBotMode(userId, socketId);
+    }
+
+    // Fetch question pool from Supabase (once per match creation)
+    const cards = await this.questions.getMatchQuestionPool('cpns');
+    const queueResult = this.rooms.joinQueue(userId, socketId, mode, cards);
 
     if (queueResult.rejected) {
       return {
@@ -104,6 +128,37 @@ export class MatchService {
     );
 
     return { emits };
+  }
+
+  private async handleBotMode(userId: string, socketId: string): Promise<MatchServiceResult> {
+    // Check if user is already in an active match
+    const existingRoom = this.rooms.getRoomForUser(userId);
+    if (existingRoom && existingRoom.status === 'active') {
+      return {
+        emits: [
+          {
+            socketId,
+            event: SERVER_MATCH_EVENTS.error,
+            payload: { message: 'You are already in an active match.' },
+          },
+        ],
+      };
+    }
+
+    const room = await this.botBattleService.createBotMatch(userId, socketId);
+
+    const matchFound: MatchFoundPayload = {
+      roomId: room.roomId,
+      opponentUserId: 'bot',
+      role: 'playerA',
+    };
+
+    return {
+      emits: [
+        { socketId, event: SERVER_MATCH_EVENTS.matchFound, payload: matchFound },
+        ...this.stateEmits(room),
+      ],
+    };
   }
 
   handleCancelQueue(userId: string, socketId: string): MatchServiceResult {
@@ -161,6 +216,7 @@ export class MatchService {
     ];
 
     if (result.matchResult) {
+      this.botBattleService.cancelBotSchedule(room.roomId);
       await this.persistAndEnrich(room);
       emits.push(...this.matchResultEmits(room));
       this.rooms.scheduleCleanup(room.roomId);
@@ -196,6 +252,7 @@ export class MatchService {
       };
     }
 
+    this.botBattleService.cancelBotSchedule(room.roomId);
     await this.persistAndEnrich(room);
     this.rooms.scheduleCleanup(room.roomId);
     return { emits: [...this.stateEmits(room), ...this.matchResultEmits(room)] };
