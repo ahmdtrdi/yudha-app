@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { LeaderboardModule } from './leaderboard/leaderboard.module';
 import { PracticeModule } from './practice/practice.module';
 import { MatchesModule } from './matches/matches.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { MatchesModule } from './matches/matches.module';
     PracticeModule,
     InterviewModule,
     MatchesModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

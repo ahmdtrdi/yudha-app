@@ -7,6 +7,7 @@ import { MatchResultService } from './results/match-result.service';
 import { RoomManager } from './rooms/room-manager';
 import { MatchLogBuffer } from './logs/match-log-buffer';
 import { BotBattleService } from './bot/bot-battle.service';
+import { CardTimeoutService } from './timeout/card-timeout.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import type { InternalCard } from './questions/question.types';
 
@@ -55,6 +56,7 @@ describe('MatchService', () => {
         QuestionDealer,
         RoomManager,
         MatchLogBuffer,
+        CardTimeoutService,
         { provide: QuestionService, useValue: mockQuestionService },
         { provide: MatchResultService, useValue: mockMatchResultService },
         { provide: BotBattleService, useValue: mockBotBattleService },

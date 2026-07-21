@@ -267,18 +267,46 @@
 - Log entries for bot actions are not yet wired (depends on the bot battle service integration).
 - Log persistence is a separate insert after the RPC, not in the same transaction — if the RPC succeeds but the log insert fails, logs are lost (logged but not retried).
 
-## 2026-07-21 - Modular AI Interview Providers & Gemini Flash Integration
+## 2026-07-21 - Fix 5 cards handsize to 4 cards
 
 **The Change:**
-- Integrated `GeminiLlmService` and `GroqTtsService` into `apps/backend-api/src/interview`.
-- Re-wired `InterviewModule` provider factories to support runtime dynamic switching of LLM (`INTERVIEW_LLM_PROVIDER=gemini|groq`) and TTS (`INTERVIEW_TTS_PROVIDER=groq|elevenlabs`).
-- Updated `apps/backend-api/.env.example` with Gemini API configuration keys and TTS toggles.
+- Modified `QuestionDealer.ts` (line 6) `HAND_SIZE` from `5` to `4`.
+- No structural impact to other services or types — just reducing the number of cards dealt to each player.
 
 **The Reasoning:**
-- Keeps backend service architecture modular and decoupled from specific AI vendor APIs.
-- Default configuration uses free-tier friendly Groq (for STT/TTS) and Gemini 2.5 Flash (for Reasoning), with zero code changes required when switching to ElevenLabs for paid tiers.
+- The hand size was hardcoded to 5 in `QuestionDealer` and not configurable via PRD.
+- Changed to 4 to match PRD requirement.
+- No downstream impact as no other services depend on the hand size.
 
 **The Tech Debt:**
-- Streaming SSE endpoints for real-time text tokens and WebSocket handlers for audio chunks to be added in the next integration phase.
+- The hand size is hardcoded to 4 in `QuestionDealer` — would be better to move this to a constant in `match.constants.ts` or similar if it needs to be configurable.
+- No impact on other services or types.
 
+## 2026-07-21 - Card Timer/Timeout + Performance Analytics Endpoint
 
+**The Change:**
+
+### Part A — Server-Enforced Per-Card Timeout (`apps/backend-game`)
+- Created `CardTimeoutService` (`apps/backend-game/src/match/timeout/card-timeout.service.ts`) managing per-card turn timers keyed by `${roomId}:${userId}`.
+- Added `GameEngine.timeoutCard()` to handle card turn expiry (resolves as incorrect with 0 effect, splices card from hand, logs `action: 'timeout'`, draws next card from main or reserve queue, and checks match win conditions).
+- Integrated timer scheduling into `MatchService.handleOpenCard()` using `card.timeLimitSeconds` (defaulting to 10s fallback).
+- Added `cardTimeoutService.clearTimeout()` call at the start of `MatchService.handlePlayCard()` to prevent race conditions when a manual answer arrives just before timeout.
+- Added `cardTimeoutService.cancelAllTimersForRoom()` cleanup in `handleDisconnect`, `handleSurrender`, `handleCardTimeout`, and `persistAndEnrich` to prevent leaked timers.
+- Registered `CardTimeoutService` in `MatchModule` and updated unit test setup.
+
+### Part B — Performance Analytics Endpoint (`apps/backend-api`)
+- Created `AnalyticsModule`, `AnalyticsController`, `AnalyticsService`, and `analytics.types.ts` in `apps/backend-api/src/analytics/`.
+- Endpoint `GET /analytics` protected by `SupabaseAuthGuard`.
+- Aggregates practice performance data: `overallAccuracy`, `totalAnswered`, `categoryBreakdown` (TWK, TIU, TKP), `weakSubcategories` (accuracy < 60% with minimum sample size of 5), and `avgResponseTimeMs`.
+- Aggregates battle performance data from `profiles`: `winrate`, `wins`, `losses`, `totalMatches`.
+- Gracefully returns clean zeroed data structure for new users with no history.
+- Registered `AnalyticsModule` in `AppModule`.
+
+**The Reasoning:**
+- Server-enforced per-card timeouts ensure that matches cannot stall indefinitely when a player opens a card and becomes idle or drops connection.
+- Keying timers by `${roomId}:${userId}` avoids timer collision across concurrent active matches.
+- Returning practice category breakdowns, weak subcategories (sample-size filtered), average response time, and battle stats in a single `GET /analytics` call allows the Flutter client to render a comprehensive performance dashboard without multiple round-trips.
+
+**The Tech Debt:**
+- Weak subcategory threshold parameters (60% accuracy, minimum sample size of 5) are hardcoded constants in `AnalyticsService` — could be moved to config or environment variables if dynamic tuning is needed.
+- `get_practice_analytics` SQL migration (`infra/supabase/migrations/20260721000000_get_practice_analytics.sql`) needs to be run on remote Supabase instance (`supabase db push` or SQL editor) for production environment deployment.

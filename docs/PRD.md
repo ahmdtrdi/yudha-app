@@ -79,6 +79,8 @@ Splash Screen
 
 **Loop:** Battle → Analytics captures weak points → Analytics recommends next practice/interview → back into Practice/Battle. This closed loop is the product's core mechanic — don't break it when scoping tickets.
 
+Before choosing Bot or Player mode, the PvP entry screen now acts as a **loadout step**. Players choose one owned character and one owned arena; that selection persists across sessions and is rendered in the live battle. Locked cosmetics route back to the Store or Hired Pass. Loadout remains presentation-only and may not alter battle rules.
+
 ### 1.3 Hired Pass & Cosmetic Store
 
 **Hired Pass** is a monthly progression track tied to real learning activity. Daily and weekly missions—such as completing practice sessions, finishing battles, maintaining a streak, or completing an interview—award **Pass Points**. Every player can claim the standard free-track rewards. Players with an active Hired Pass also receive:
@@ -90,6 +92,8 @@ Splash Screen
 Free-tier players may see mandatory ads only at safe breaks outside active questions and battles. An active Hired Pass removes those mandatory ads. Hired Pass must remain **non-pay-to-win**: it cannot increase damage, HP, answer time, score, rank points, matchmaking priority, or question accuracy. For the MVP, pass activation and ad behavior may use server-controlled flags until payment and ads SDK integrations are implemented.
 
 The **Store** sells cosmetic-only items using coins earned in the app. Its initial categories are character skins, arena skins, and tower skins. Purchases are permanent, duplicate purchases are rejected, and owned items can be equipped or changed from the Store/Profile. Cosmetic rarity and visual quality may differ, but no item may change battle or learning outcomes.
+
+The player-facing name for `profiles.coins` is **Y-Coin**. During the mobile beta, the client exposes simulated top-up packages plus an unlimited `+100 Y-Coin` beta-credit action so the catalog can be tested without real payment. These simulated credits, purchases, loadouts, Hired Pass activation, points, and reward claims are persisted locally on-device until the server-authoritative Store/Hired Pass endpoints are wired. The UI must label simulated payment clearly; production balance mutation remains server-owned.
 
 ---
 
@@ -361,6 +365,7 @@ Unlike a simple quiz format, YUDHA uses a **card-based battle system** inspired 
 4. The answer is resolved and effects are applied.
 5. Answered cards are consumed; gaps in the hand are filled from the remaining pool.
 6. When the pool is exhausted, questions are recycled with fresh IDs.
+7. Incoming opponent or bot attacks never consume or reshuffle the local player's visible hand; a visible card changes only after that player uses it, regardless of whether the answer is correct or wrong.
 
 **Card effects:**
 
@@ -390,6 +395,7 @@ Weight 1 → 14, Weight 2 → 20, Weight 3 → 26, Weight 4 → 32.
 - Bot mode uses `BotBattleRepository` and schedules automated turns every 3.3–5.9 seconds.
 - Bot prefers damage cards when available; falls back to first available card.
 - Bot always answers correctly (damage is full impact, heal is full impact).
+- Bot actions resolve independently from the player's visible four-card hand so real-time incoming damage cannot replace a card the player has not played.
 
 ---
 

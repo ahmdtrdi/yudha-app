@@ -128,6 +128,59 @@ export class GameEngine {
     return { ok: true, room, playResult, matchResult };
   }
 
+  timeoutCard(
+    room: InternalRoomState,
+    userId: string,
+    cardId: string,
+  ): BattleActionResult<PlayCardSuccess> {
+    const player = this.getPlayer(room, userId);
+    const opponent = this.getOpponent(room, userId);
+    if (!player || !opponent) return this.reject('not_in_room', 'Player is not in this room.');
+    if (room.status !== 'active') return this.reject('room_not_active', 'Room is not active.');
+    if (player.openedCardId !== cardId) {
+      return this.reject('card_not_opened', 'Card is not opened.');
+    }
+
+    const cardIndex = player.hand.findIndex((card) => card.id === cardId);
+    if (cardIndex === -1) return this.reject('card_not_in_hand', 'Card is not in your hand.');
+    if (player.answeredCardIds.has(cardId)) {
+      return this.reject('card_already_answered', 'Card was already answered.');
+    }
+
+    // Timeout is a wrong answer: 0 damage, 0 heal
+    const correct = false;
+    const effect: 'damage' | 'heal' | 'none' = 'none';
+    const effectValue = 0;
+
+    player.hand.splice(cardIndex, 1);
+    player.answeredCardIds.add(cardId);
+    player.openedCardId = undefined;
+
+    // Try drawing from main shared queue first
+    let nextCard = this.dealer.drawAt(room.sharedQueue, player.nextDrawIndex);
+    if (nextCard) {
+      player.hand.push(nextCard);
+      player.nextDrawIndex += 1;
+    } else {
+      // Main queue exhausted — try recycling from reserve buffer
+      nextCard = this.drawFromReserve(room);
+      if (nextCard) {
+        player.hand.push(nextCard);
+      }
+    }
+
+    const matchResult = this.resolveMatchEnd(room, opponent.hp <= 0 ? 'hp_zero' : undefined);
+    const playResult = {
+      roomId: room.roomId,
+      cardId,
+      correct,
+      effect,
+      effectValue,
+    };
+
+    return { ok: true, room, playResult, matchResult };
+  }
+
   surrender(room: InternalRoomState, userId: string): BattleActionResult<SurrenderSuccess> {
     const player = this.getPlayer(room, userId);
     if (!player) return this.reject('not_in_room', 'Player is not in this room.');
