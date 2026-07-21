@@ -82,7 +82,7 @@ class BackendInterviewRepository implements InterviewRepository {
           'targetRole': config.targetRole,
           'companyId': config.companyId,
           'language': config.language,
-          'responseStyle': 'text',
+          'responseStyle': config.responseStyle,
         });
 
     final Map<String, dynamic> question =
@@ -138,6 +138,50 @@ class BackendInterviewRepository implements InterviewRepository {
       return InterviewFinalSummary.fromJson(finalSummaryJson);
     }
     throw const InterviewApiException('Session summary is not available yet.');
+  }
+
+  @override
+  Future<String> transcribeAnswerAudio({
+    required String sessionId,
+    required List<int> audioBytes,
+    required String filename,
+  }) async {
+    _ensureAuthenticated();
+
+    final Uri uri = Uri.parse(
+      '${_config.baseUrl}/interview/sessions/$sessionId/speech/transcriptions',
+    );
+    final http.MultipartRequest request = http.MultipartRequest('POST', uri);
+    request.headers.addAll(<String, String>{
+      'authorization': 'Bearer ${_config.accessToken}',
+    });
+    request.files.add(
+      http.MultipartFile.fromBytes('audio', audioBytes, filename: filename),
+    );
+
+    final http.StreamedResponse streamedResponse = await _client.send(request);
+    final http.Response response =
+        await http.Response.fromStream(streamedResponse);
+    final Map<String, dynamic> decoded = _decodeResponse(response);
+
+    final Object? transcriptObj = decoded['transcript'];
+    if (transcriptObj is Map<String, dynamic>) {
+      return transcriptObj['text'] as String? ?? '';
+    }
+    final Object? answerObj = decoded['answer'];
+    if (answerObj is Map<String, dynamic>) {
+      return answerObj['text'] as String? ?? '';
+    }
+
+    throw const InterviewApiException('Transkripsi audio gagal diproses.');
+  }
+
+  @override
+  String getQuestionAudioUrl({
+    required String sessionId,
+    required String turnId,
+  }) {
+    return '${_config.baseUrl}/interview/sessions/$sessionId/speech/questions/$turnId/audio';
   }
 
   Future<Map<String, dynamic>> _post(
@@ -199,10 +243,11 @@ class BackendInterviewRepository implements InterviewRepository {
 
   InterviewMessage _questionFromJson(Map<String, dynamic> json) {
     return InterviewMessage(
-      id: json['turnId'] as String,
+      id: json['turnId'] as String? ?? json['id'] as String? ?? '',
       author: InterviewMessageAuthor.interviewer,
-      text: json['text'] as String,
+      text: json['text'] as String? ?? '',
       createdAt: DateTime.now(),
+      audioAvailable: json['audioAvailable'] as bool? ?? false,
     );
   }
 
@@ -241,6 +286,7 @@ class BackendInterviewRepository implements InterviewRepository {
               json['evaluation'] as Map<String, dynamic>,
             )
           : null,
+      audioAvailable: json['audioAvailable'] as bool? ?? false,
     );
   }
 

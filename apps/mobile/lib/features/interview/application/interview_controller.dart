@@ -3,6 +3,7 @@ import 'package:yudha_mobile/features/interview/application/interview_state.dart
 import 'package:yudha_mobile/features/interview/data/repositories/interview_repository.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_message.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_session_record.dart';
 
 class InterviewController extends StateNotifier<InterviewState> {
   InterviewController({
@@ -39,6 +40,34 @@ class InterviewController extends StateNotifier<InterviewState> {
         status: InterviewViewStatus.error,
         errorMessage: error.toString(),
       );
+    }
+  }
+
+  Future<void> retry() async {
+    final String? sessionId = state.sessionId;
+    if (sessionId != null) {
+      state = state.copyWith(
+        status: InterviewViewStatus.starting,
+        clearError: true,
+      );
+      try {
+        final InterviewSessionDetailRecord detail =
+            await _repository.getSession(sessionId);
+        state = state.copyWith(
+          status: detail.status == 'completed'
+              ? InterviewViewStatus.completed
+              : InterviewViewStatus.active,
+          messages: detail.messages,
+          finalSummary: detail.finalSummary,
+        );
+      } catch (error) {
+        state = state.copyWith(
+          status: InterviewViewStatus.error,
+          errorMessage: error.toString(),
+        );
+      }
+    } else {
+      await start();
     }
   }
 
@@ -109,5 +138,51 @@ class InterviewController extends StateNotifier<InterviewState> {
         errorMessage: error.toString(),
       );
     }
+  }
+
+  void setRecording(bool isRecording) {
+    state = state.copyWith(isRecording: isRecording);
+  }
+
+  Future<String?> transcribeAudio(List<int> bytes, String filename) async {
+    final String? sessionId = state.sessionId;
+    if (sessionId == null) {
+      return null;
+    }
+
+    state = state.copyWith(
+      isTranscribing: true,
+      clearError: true,
+    );
+
+    try {
+      final String transcript = await _repository.transcribeAnswerAudio(
+        sessionId: sessionId,
+        audioBytes: bytes,
+        filename: filename,
+      );
+      state = state.copyWith(
+        isTranscribing: false,
+        transcriptionText: transcript,
+      );
+      return transcript;
+    } catch (error) {
+      state = state.copyWith(
+        isTranscribing: false,
+        errorMessage: error.toString(),
+      );
+      return null;
+    }
+  }
+
+  String? getQuestionAudioUrl(String turnId) {
+    final String? sessionId = state.sessionId;
+    if (sessionId == null) {
+      return null;
+    }
+    return _repository.getQuestionAudioUrl(
+      sessionId: sessionId,
+      turnId: turnId,
+    );
   }
 }
