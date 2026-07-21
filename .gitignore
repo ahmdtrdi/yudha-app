@@ -5,3 +5,4 @@ docs-archive/
 .codex-*.tsbuildinfo
 **/dist/
 *.tsbuildinfo
+apps/backend-api/src/interview/harness/fixtures

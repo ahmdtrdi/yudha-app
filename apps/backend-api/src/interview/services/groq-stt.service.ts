@@ -71,6 +71,7 @@ export class GroqSttService implements InterviewSpeechTranscriptionClient {
         formData.append('prompt', input.prompt.slice(0, 500));
       }
 
+      const startedAt = Date.now();
       const response = await fetch(`${this.baseUrl}/audio/transcriptions`, {
         method: 'POST',
         headers: {
@@ -100,6 +101,11 @@ export class GroqSttService implements InterviewSpeechTranscriptionClient {
           'Speech transcription returned empty text.',
         );
       }
+
+      const latencyMs = Date.now() - startedAt;
+      this.logger.log(
+        `🎙️ [STT METRICS] Provider: Groq (${this.model}) | Latency: ${latencyMs}ms | Duration: ${payload?.duration ?? 'unknown'}s`,
+      );
 
       return {
         text,

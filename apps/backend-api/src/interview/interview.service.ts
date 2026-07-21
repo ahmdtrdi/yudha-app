@@ -332,10 +332,13 @@ export class InterviewService {
   private buildOpeningQuestion(
     companyName: string,
     targetRole: string,
+    candidateName?: string,
   ): string {
+    const greeting = candidateName ? `Halo ${candidateName}! ` : 'Halo! ';
     return [
-      'Ceritakan tentang diri Anda dan alasan Anda tertarik melamar sebagai',
-      `${targetRole} di ${companyName}.`,
+      `${greeting}Selamat datang di simulasi wawancara kerja ${companyName}.`,
+      `Saya adalah AI Interviewer Anda untuk posisi ${targetRole}.`,
+      `Senang bisa berdiskusi dengan Anda hari ini. Sebagai permulaan, silakan perkenalkan diri Anda dan jelaskan latar belakang serta motivasi Anda melamar posisi ini.`,
     ].join(' ');
   }
 
