@@ -29,6 +29,19 @@ void main() {
     );
     expect(controller.state.latestEvaluation?.overallScore, 82);
   });
+
+  test('retry resumes session when sessionId is available', () async {
+    final InterviewController controller = InterviewController(
+      repository: _FakeInterviewRepository(),
+      config: InterviewLaunchConfig.bumnDefault(),
+    );
+
+    await controller.start();
+    expect(controller.state.sessionId, 'session-1');
+
+    await controller.retry();
+    expect(controller.state.status, InterviewViewStatus.completed);
+  });
 }
 
 class _FakeInterviewRepository implements InterviewRepository {
@@ -48,6 +61,23 @@ class _FakeInterviewRepository implements InterviewRepository {
   @override
   Future<List<InterviewSessionSummaryRecord>> listSessions() async {
     return const <InterviewSessionSummaryRecord>[];
+  }
+
+  @override
+  String getQuestionAudioUrl({
+    required String sessionId,
+    required String turnId,
+  }) {
+    return 'https://example.test/interview/$sessionId/questions/$turnId/audio';
+  }
+
+  @override
+  Future<String> transcribeAnswerAudio({
+    required String sessionId,
+    required List<int> audioBytes,
+    required String filename,
+  }) async {
+    return 'Transkrip jawaban suara.';
   }
 
   @override

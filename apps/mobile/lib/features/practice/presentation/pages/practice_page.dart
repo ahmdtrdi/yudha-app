@@ -43,7 +43,7 @@ class PracticePage extends ConsumerWidget {
     }
 
     void openInterviewPractice() {
-      context.push(AppRoutes.interview, extra: interviewConfig);
+      context.push(AppRoutes.interviewSetup);
     }
 
     return Scaffold(

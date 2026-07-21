@@ -5,6 +5,7 @@ class InterviewLaunchConfig {
     required this.targetRole,
     this.mode = 'coaching',
     this.language = 'id',
+    this.responseStyle = 'text',
   });
 
   factory InterviewLaunchConfig.bumnDefault() {
@@ -12,6 +13,9 @@ class InterviewLaunchConfig {
       companyId: 'bank-mandiri',
       companyName: 'PT Bank Mandiri',
       targetRole: 'Officer Development Program',
+      mode: 'coaching',
+      language: 'id',
+      responseStyle: 'text',
     );
   }
 
@@ -20,6 +24,9 @@ class InterviewLaunchConfig {
       companyId: 'kementerian-keuangan',
       companyName: 'Kementerian Keuangan',
       targetRole: 'Staf Pengelola Keuangan Negara',
+      mode: 'coaching',
+      language: 'id',
+      responseStyle: 'text',
     );
   }
 
@@ -28,6 +35,7 @@ class InterviewLaunchConfig {
   final String targetRole;
   final String mode;
   final String language;
+  final String responseStyle;
 
   @override
   bool operator ==(Object other) {
@@ -37,10 +45,17 @@ class InterviewLaunchConfig {
             other.companyName == companyName &&
             other.targetRole == targetRole &&
             other.mode == mode &&
-            other.language == language;
+            other.language == language &&
+            other.responseStyle == responseStyle;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(companyId, companyName, targetRole, mode, language);
+  int get hashCode => Object.hash(
+        companyId,
+        companyName,
+        targetRole,
+        mode,
+        language,
+        responseStyle,
+      );
 }
