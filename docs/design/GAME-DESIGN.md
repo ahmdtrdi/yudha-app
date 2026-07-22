@@ -1,7 +1,7 @@
 # YUDHA Arena — Game Design
 
 Status: redesign source of truth
-Updated: July 20, 2026
+Updated: July 21, 2026
 
 ## 1. Product Promise
 
@@ -72,6 +72,13 @@ impact = 8 + (weight clamped from 1 to 4 × 6)
 
 HP remains clamped from 0 to 100. A match ends when either side reaches 0 HP. Rating deltas stay `+20` for win, `-12` for loss, and `0` for draw.
 
+### Visual combo chain
+
+- Every battle starts at `COMBO x1`; the first successful attack uses `proj1`.
+- A correct answer advances the next projectile to `x2`, then `x3`, and refreshes a seven-second countdown.
+- A wrong answer or an incoming hit lowers the combo by one level. Countdown expiry resets it to `x1`.
+- `x1`, `x2`, and `x3` select the equipped character's `proj1`, `proj2`, and `proj3` art respectively. Combo is visual feedback and never changes damage, healing, score, or rating.
+
 Online sessions are server-authoritative and asynchronous: both players may answer independently, public cards do not expose their correct option, and the server decides their final damage/heal. The client therefore shows power pips rather than promising an exact impact, waits for the server result before correctness feedback, and animates incoming HP deltas even when attack metadata is unavailable.
 
 ### Category identity
@@ -131,7 +138,9 @@ Purpose: make the loop understandable in under five seconds.
 
 - Warm, uncluttered canvas with a compact top bar and back action.
 - A single hero diorama shows the two chibi contenders facing a miniature arena marker.
-- The entry screen includes compact selectors for owned characters and arenas. Locked choices route to Store/Hired Pass, while the currently selected loadout is previewed before mode selection.
+- The entry screen gives character selection the dominant space: idle art appears in the character list, while a large selected preview uses the ready pose and a clear `READY` state. Locked choices route to Store/Hired Pass.
+- Character rarity is presented as Basic, Rare, or Legend. The selector exposes Basic Squire/Pip, Rare Ignis/Brock, and Legend Drakor/Luna because all six characters have complete idle, ready, attack, hit, and projectile 1–3 sets.
+- Arena selection remains compact below the character selector, and the combined loadout is previewed before mode selection.
 - Headline: a short invitation to battle; one supporting sentence only.
 - A compact three-step strip communicates: `Pilih kartu → Jawab → Serang`.
 - One dominant `Masuk arena` button sits near the thumb zone.
@@ -166,7 +175,10 @@ Arena principles:
 - Hero podiums and mini towers are deliberately large, readable targets. Paired shrubs, clay boundary stones, lane pads, and stepping stones keep the field lively without returning to noisy tile decoration.
 - Red and blue side ownership is obvious without tinting the entire screen.
 - Countdown uses one large number with a short scale/pop animation.
-- Damage starts with a short hero cast/lunge, then uses one clear projectile, a small target bump, and a floating value. Numerik travels as a chunky bolt capsule, Verbal as a wavy speech spell, and Logika as a spinning hexagonal puzzle core.
+- Characters enter the arena in `idle`, switch to `ready` while the 10-second question is open, use `attack` after a correct answer, and use `hit` when taking damage.
+- Hit interrupts `ready`. If a character is already attacking, the attack finishes before its queued hit pose begins.
+- Damage starts with the character's attack pose, then launches the equipped character's combo projectile (`proj1`–`proj3`), followed by impact and a floating value.
+- Each podium has a contact shadow directly below the character's feet so the sprite reads as standing on the surface instead of floating above it.
 - Heal uses a mint pulse and one floating positive value.
 - Particles are sparse and disappear quickly.
 - Correct/wrong result banners are not shown over the arena; the cast, impact, HP movement, and floating value carry normal combat feedback. A single top banner remains reserved for actionable errors only.
@@ -237,10 +249,18 @@ Generated source art is exported at high resolution, chroma-keyed to transparent
 
 | File | Subject | Composition |
 |---|---|---|
-| `arena_hero_blue.png` | Friendly blue-team cadet | Bust/waist-up, facing slightly right. |
-| `arena_hero_coral.png` | Friendly coral-team rival | Bust/waist-up, facing slightly left. |
-| `arena_hero_violet.png` | Violet-team striker skin | Waist-up, facing slightly right. |
-| `arena_hero_teal.png` | Teal strategist Hired Pass skin | Waist-up, facing slightly right. |
+| `basic_squire_{idle,ready,attack,hit}.png` | Basic Squire pose set | Full-body state art used by selector and arena. |
+| `basic_squire_proj{1,2,3}.png` | Basic Squire projectile set | Combo levels 1–3. |
+| `basic_pip_{idle,ready,attack,hit}.png` | Basic Pip pose set | Full-body state art used by selector and arena. |
+| `basic_pip_proj{1,2,3}.png` | Basic Pip projectile set | Combo levels 1–3. |
+| `rare_ignis_{idle,ready,attack,hit}.png` | Rare Ignis pose set | Full-body state art used by selector and arena. |
+| `rare_ignis_proj{1,2,3}.png` | Rare Ignis projectile set | Combo levels 1–3. |
+| `rare_brock_{idle,ready,attack,hit}.png` | Rare Brock pose set | Full-body state art used by selector and arena. |
+| `rare_brock_proj{1,2,3}.png` | Rare Brock projectile set | Combo levels 1–3. |
+| `legend_drakor_{idle,ready,attack,hit}.png` | Legend Drakor pose set | Full-body state art used by selector and arena. |
+| `legend_drakor_proj{1,2,3}.png` | Legend Drakor projectile set | Combo levels 1–3. |
+| `legend_luna_{idle,ready,attack,hit}.png` | Legend Luna pose set | Full-body state art used by selector and arena. |
+| `legend_luna_proj{1,2,3}.png` | Legend Luna projectile set | Combo levels 1–3. |
 | `arena_tower_blue.png` | Blue main crown tower | Front 3/4 view, chunky and symmetrical. |
 | `arena_tower_coral.png` | Coral main crown tower | Same camera and proportions as blue. |
 | `arena_turret_blue.png` | Blue mini tower | Compact, same camera as main tower. |
@@ -277,6 +297,8 @@ Main-tower art remains available for catalog/legacy use, but the active arena us
 - The player can explain the loop from the entry screen without opening extra help.
 - Four distinct cards are readable and tappable on a medium Android phone.
 - Choosing a card opens its question; resolving the answer produces a visible attack/heal and HP update.
+- Character art follows idle, ready, attack, and hit state priority, and the podium contact shadow keeps both feet visually grounded.
+- Consecutive correct answers expose combo projectiles 1–3; wrong answers, incoming hits, and timeout lower or reset the combo as specified.
 - Win, loss, and draw states are visually distinct and expose the correct next actions.
 - Existing PvP unit and widget tests pass; added widget tests cover key before/battle/after labels and all four card slots.
 - `flutter analyze` introduces no new warnings in the redesigned files.

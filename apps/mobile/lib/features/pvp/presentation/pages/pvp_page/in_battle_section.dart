@@ -1,10 +1,34 @@
 part of '../pvp_page.dart';
 
+enum _CharacterPose { idle, ready, attack, hit }
+
+class _BattleEffectEvent {
+  const _BattleEffectEvent({
+    required this.actor,
+    required this.kind,
+    required this.category,
+    required this.amount,
+    required this.targetsPlayer,
+    required this.isHeal,
+    required this.projectileLevel,
+  });
+
+  final BattleActor actor;
+  final BattleVisualEffect kind;
+  final String category;
+  final int amount;
+  final bool targetsPlayer;
+  final bool isHeal;
+  final int projectileLevel;
+}
+
 class _InBattleSection extends StatefulWidget {
   const _InBattleSection({
     required this.state,
     required this.playerDisplayName,
-    required this.playerAvatarAsset,
+    required this.playerCharacter,
+    required this.opponentCharacter,
+    required this.playerTowerAsset,
     required this.arenaTheme,
     required this.soundEnabled,
     required this.onPause,
@@ -14,7 +38,9 @@ class _InBattleSection extends StatefulWidget {
 
   final BattleState state;
   final String playerDisplayName;
-  final String playerAvatarAsset;
+  final CharacterVisualAssets playerCharacter;
+  final CharacterVisualAssets opponentCharacter;
+  final String playerTowerAsset;
   final ArenaVisualTheme arenaTheme;
   final bool soundEnabled;
   final Future<void> Function() onPause;
@@ -36,6 +62,7 @@ class _InBattleSectionState extends State<_InBattleSection>
   Timer? _botTimer;
   Timer? _noticeTimer;
   final List<Timer> _effectSoundTimers = <Timer>[];
+  final List<_BattleEffectEvent> _pendingEffects = <_BattleEffectEvent>[];
   int _countdownValue = 3;
   bool _countdownDone = false;
   bool _interactionLocked = false;
@@ -45,6 +72,13 @@ class _InBattleSectionState extends State<_InBattleSection>
   String? _notice;
   bool _noticeIsError = false;
   bool _imagesPrecached = false;
+  bool _playerQuestionReady = false;
+  _CharacterPose _playerPose = _CharacterPose.idle;
+  _CharacterPose _opponentPose = _CharacterPose.idle;
+  Timer? _playerPoseTimer;
+  Timer? _opponentPoseTimer;
+  bool _playerHitQueued = false;
+  bool _opponentHitQueued = false;
 
   BattleActor? _effectActor;
   BattleVisualEffect? _effectKind;
@@ -52,6 +86,7 @@ class _InBattleSectionState extends State<_InBattleSection>
   int _effectAmount = 0;
   bool _effectTargetsPlayer = false;
   bool _effectIsHeal = false;
+  int _effectProjectileLevel = 1;
 
   @override
   void initState() {
@@ -66,7 +101,7 @@ class _InBattleSectionState extends State<_InBattleSection>
     _effectController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1050),
-    );
+    )..addStatusListener(_handleEffectStatus);
     _hand = widget.state.availableQuestions.take(4).toList();
     _notice = widget.state.errorMessage;
     _noticeIsError = true;
@@ -82,10 +117,10 @@ class _InBattleSectionState extends State<_InBattleSection>
     }
     _imagesPrecached = true;
     for (final String asset in <String>[
-      widget.playerAvatarAsset,
-      _enemyAvatarAsset,
+      ...widget.playerCharacter.all,
+      ...widget.opponentCharacter.all,
       _enemyMiniTowerAsset,
-      _playerMiniTowerAsset,
+      widget.playerTowerAsset,
       _numerikCardAsset,
       _verbalCardAsset,
       _logikaCardAsset,
@@ -217,20 +252,60 @@ class _InBattleSectionState extends State<_InBattleSection>
   }) {
     final bool playerChanged = playerDelta != 0;
     final int delta = playerChanged ? playerDelta : opponentDelta;
-    _effectAmount = delta.abs();
-    _effectTargetsPlayer = playerChanged;
-    _effectIsHeal = delta > 0;
-    _effectActor =
+    final bool isHeal = delta > 0;
+    final BattleActor actor =
         widget.state.lastActor ??
-        (_effectIsHeal
-            ? (_effectTargetsPlayer ? BattleActor.player : BattleActor.opponent)
-            : (_effectTargetsPlayer
-                  ? BattleActor.opponent
-                  : BattleActor.player));
-    _effectKind = _effectIsHeal
+        (isHeal
+            ? (playerChanged ? BattleActor.player : BattleActor.opponent)
+            : (playerChanged ? BattleActor.opponent : BattleActor.player));
+    final BattleVisualEffect kind = isHeal
         ? BattleVisualEffect.heal
         : widget.state.lastVisualEffect ?? BattleVisualEffect.cannon;
-    _effectCategory = widget.state.lastEventCategory ?? 'numerik';
+    _pendingEffects.add(
+      _BattleEffectEvent(
+        actor: actor,
+        kind: kind,
+        category: widget.state.lastEventCategory ?? 'numerik',
+        amount: delta.abs(),
+        targetsPlayer: playerChanged,
+        isHeal: isHeal,
+        projectileLevel: widget.state.lastProjectileLevel,
+      ),
+    );
+    _playNextBattleEffect();
+  }
+
+  void _handleEffectStatus(AnimationStatus status) {
+    if (status != AnimationStatus.completed || !mounted) {
+      return;
+    }
+    _effectController.reset();
+    if (_pendingEffects.isEmpty) {
+      setState(() {
+        _effectActor = null;
+        _effectKind = null;
+      });
+      return;
+    }
+    _playNextBattleEffect();
+  }
+
+  void _playNextBattleEffect() {
+    if (!mounted || _effectController.isAnimating || _pendingEffects.isEmpty) {
+      return;
+    }
+
+    final _BattleEffectEvent event = _pendingEffects.removeAt(0);
+    setState(() {
+      _effectActor = event.actor;
+      _effectKind = event.kind;
+      _effectCategory = event.category;
+      _effectAmount = event.amount;
+      _effectTargetsPlayer = event.targetsPlayer;
+      _effectIsHeal = event.isHeal;
+      _effectProjectileLevel = event.projectileLevel;
+    });
+    _playAttackPose(event.actor);
     for (final Timer timer in _effectSoundTimers) {
       timer.cancel();
     }
@@ -238,19 +313,112 @@ class _InBattleSectionState extends State<_InBattleSection>
     _arenaAudio.playCast();
     _effectSoundTimers.add(
       Timer(const Duration(milliseconds: 230), () {
-        if (_effectIsHeal) {
+        if (event.isHeal) {
           _arenaAudio.playHeal();
         } else {
           _arenaAudio.playProjectile();
         }
       }),
     );
-    if (!_effectIsHeal) {
+    if (!event.isHeal) {
       _effectSoundTimers.add(
-        Timer(const Duration(milliseconds: 860), _arenaAudio.playImpact),
+        Timer(const Duration(milliseconds: 860), () {
+          _arenaAudio.playImpact();
+          _playHitPose(
+            event.targetsPlayer ? BattleActor.player : BattleActor.opponent,
+          );
+        }),
       );
     }
     _effectController.forward(from: 0);
+  }
+
+  void _playAttackPose(BattleActor actor) {
+    final Timer? currentTimer = actor == BattleActor.player
+        ? _playerPoseTimer
+        : _opponentPoseTimer;
+    currentTimer?.cancel();
+    setState(() {
+      if (actor == BattleActor.player) {
+        _playerPose = _CharacterPose.attack;
+      } else {
+        _opponentPose = _CharacterPose.attack;
+      }
+    });
+
+    final Timer timer = Timer(const Duration(milliseconds: 780), () {
+      if (!mounted) {
+        return;
+      }
+      final bool hitQueued = actor == BattleActor.player
+          ? _playerHitQueued
+          : _opponentHitQueued;
+      if (hitQueued) {
+        if (actor == BattleActor.player) {
+          _playerHitQueued = false;
+        } else {
+          _opponentHitQueued = false;
+        }
+        _startHitPose(actor);
+        return;
+      }
+      setState(() => _setRestingPose(actor));
+    });
+    if (actor == BattleActor.player) {
+      _playerPoseTimer = timer;
+    } else {
+      _opponentPoseTimer = timer;
+    }
+  }
+
+  void _playHitPose(BattleActor actor) {
+    final _CharacterPose pose = actor == BattleActor.player
+        ? _playerPose
+        : _opponentPose;
+    if (pose == _CharacterPose.attack) {
+      if (actor == BattleActor.player) {
+        _playerHitQueued = true;
+      } else {
+        _opponentHitQueued = true;
+      }
+      return;
+    }
+    _startHitPose(actor);
+  }
+
+  void _startHitPose(BattleActor actor) {
+    final Timer? currentTimer = actor == BattleActor.player
+        ? _playerPoseTimer
+        : _opponentPoseTimer;
+    currentTimer?.cancel();
+    setState(() {
+      if (actor == BattleActor.player) {
+        _playerPose = _CharacterPose.hit;
+      } else {
+        _opponentPose = _CharacterPose.hit;
+      }
+    });
+    final Timer timer = Timer(const Duration(milliseconds: 480), () {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _setRestingPose(actor));
+    });
+    if (actor == BattleActor.player) {
+      _playerPoseTimer = timer;
+    } else {
+      _opponentPoseTimer = timer;
+    }
+  }
+
+  void _setRestingPose(BattleActor actor) {
+    if (actor == BattleActor.player) {
+      _playerPose = _playerQuestionReady
+          ? _CharacterPose.ready
+          : _CharacterPose.idle;
+    } else {
+      _opponentPose = _CharacterPose.idle;
+    }
   }
 
   void _showNotice(String text, {bool isError = false}) {
@@ -275,6 +443,11 @@ class _InBattleSectionState extends State<_InBattleSection>
     setState(() {
       _interactionLocked = true;
       _selectedQuestionId = question.id;
+      _playerQuestionReady = true;
+      if (_playerPose == _CharacterPose.idle ||
+          _playerPose == _CharacterPose.ready) {
+        _playerPose = _CharacterPose.ready;
+      }
     });
     _arenaAudio.playCardPick();
     await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -286,6 +459,10 @@ class _InBattleSectionState extends State<_InBattleSection>
         setState(() {
           _interactionLocked = false;
           _selectedQuestionId = null;
+          _playerQuestionReady = false;
+          if (_playerPose == _CharacterPose.ready) {
+            _playerPose = _CharacterPose.idle;
+          }
         });
         _scheduleBotAttack();
       }
@@ -324,6 +501,8 @@ class _InBattleSectionState extends State<_InBattleSection>
     for (final Timer timer in _effectSoundTimers) {
       timer.cancel();
     }
+    _playerPoseTimer?.cancel();
+    _opponentPoseTimer?.cancel();
     _ambientController.dispose();
     _effectController.dispose();
     unawaited(_arenaAudio.dispose());
@@ -354,7 +533,7 @@ class _InBattleSectionState extends State<_InBattleSection>
                 children: <Widget>[
                   _BattleHud(
                     isOpponent: true,
-                    avatarAsset: _enemyAvatarAsset,
+                    avatarAsset: widget.opponentCharacter.idle,
                     name: widget.state.opponentName,
                     hp: widget.state.opponentHp,
                     points: widget.state.opponentPoints,
@@ -373,7 +552,11 @@ class _InBattleSectionState extends State<_InBattleSection>
                       child: _ArenaBoard(
                         playerHp: widget.state.playerHp,
                         opponentHp: widget.state.opponentHp,
-                        playerAvatarAsset: widget.playerAvatarAsset,
+                        playerCharacter: widget.playerCharacter,
+                        opponentCharacter: widget.opponentCharacter,
+                        playerTowerAsset: widget.playerTowerAsset,
+                        playerPose: _playerPose,
+                        opponentPose: _opponentPose,
                         arenaTheme: widget.arenaTheme,
                         compact: compact,
                         ambientAnimation: _ambientController,
@@ -384,17 +567,20 @@ class _InBattleSectionState extends State<_InBattleSection>
                         effectAmount: _effectAmount,
                         effectTargetsPlayer: _effectTargetsPlayer,
                         effectIsHeal: _effectIsHeal,
+                        effectProjectileLevel: _effectProjectileLevel,
                       ),
                     ),
                   ),
                   _BattleHud(
                     isOpponent: false,
-                    avatarAsset: widget.playerAvatarAsset,
+                    avatarAsset: widget.playerCharacter.idle,
                     name: widget.playerDisplayName,
                     hp: widget.state.playerHp,
                     points: widget.state.playerPoints,
                     mode: widget.state.mode,
                     compact: compact,
+                    comboLevel: widget.state.comboLevel,
+                    comboSecondsRemaining: widget.state.comboSecondsRemaining,
                   ),
                   _BattleHand(
                     questions: _hand,
@@ -442,6 +628,8 @@ class _BattleHud extends StatelessWidget {
     required this.mode,
     required this.compact,
     this.onPause,
+    this.comboLevel,
+    this.comboSecondsRemaining,
   });
 
   final bool isOpponent;
@@ -452,6 +640,8 @@ class _BattleHud extends StatelessWidget {
   final BattleMode mode;
   final bool compact;
   final VoidCallback? onPause;
+  final int? comboLevel;
+  final int? comboSecondsRemaining;
 
   @override
   Widget build(BuildContext context) {
@@ -516,6 +706,14 @@ class _BattleHud extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 9),
+          if (!isOpponent && comboLevel != null) ...<Widget>[
+            _ComboBadge(
+              level: comboLevel!,
+              secondsRemaining: comboSecondsRemaining ?? 0,
+              compact: compact,
+            ),
+            const SizedBox(width: 6),
+          ],
           _ScorePill(points: points, accent: accent),
           if (onPause != null) ...<Widget>[
             const SizedBox(width: 4),
@@ -535,6 +733,65 @@ class _BattleHud extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _ComboBadge extends StatelessWidget {
+  const _ComboBadge({
+    required this.level,
+    required this.secondsRemaining,
+    required this.compact,
+  });
+
+  final int level;
+  final int secondsRemaining;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool active = level > 1 && secondsRemaining > 0;
+    final Color accent = switch (level) {
+      3 => const Color(0xFFF05E5E),
+      2 => const Color(0xFFFF9F43),
+      _ => const Color(0xFF66708A),
+    };
+    return Semantics(
+      label: 'Combo serangan',
+      value: active ? 'x$level, $secondsRemaining detik' : 'x1',
+      child: Container(
+        key: const ValueKey<String>('combo-meter'),
+        constraints: BoxConstraints(minWidth: compact ? 45 : 50),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+        decoration: BoxDecoration(
+          color: accent.withAlpha(20),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: accent.withAlpha(90)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              'COMBO x$level',
+              maxLines: 1,
+              style: GoogleFonts.dmSans(
+                color: accent,
+                fontSize: compact ? 7 : 7.5,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            Text(
+              active ? '${secondsRemaining}s' : 'PROJ 1',
+              style: GoogleFonts.jetBrainsMono(
+                color: const Color(0xFF17233F),
+                fontSize: compact ? 8 : 9,
+                fontWeight: FontWeight.w800,
+                height: 1.1,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -584,35 +841,28 @@ class _ModePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool online = mode == BattleMode.online;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: online ? const Color(0xFFE8F7F1) : const Color(0xFFE9F1FF),
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: online ? const Color(0xFF47CFA0) : const Color(0xFF2878F0),
-              shape: BoxShape.circle,
-            ),
+    final Color accent = online
+        ? const Color(0xFF238963)
+        : const Color(0xFF2878F0);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Icon(
+          online ? Icons.wifi_rounded : Icons.smart_toy_outlined,
+          color: accent,
+          size: 13,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          online ? 'ONLINE' : 'BOT',
+          style: GoogleFonts.dmSans(
+            color: accent,
+            fontSize: 9,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.5,
           ),
-          const SizedBox(width: 4),
-          Text(
-            online ? 'ONLINE' : 'BOT',
-            style: GoogleFonts.dmSans(
-              color: const Color(0xFF17233F),
-              fontSize: 9,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -703,7 +953,11 @@ class _ArenaBoard extends StatelessWidget {
   const _ArenaBoard({
     required this.playerHp,
     required this.opponentHp,
-    required this.playerAvatarAsset,
+    required this.playerCharacter,
+    required this.opponentCharacter,
+    required this.playerTowerAsset,
+    required this.playerPose,
+    required this.opponentPose,
     required this.arenaTheme,
     required this.compact,
     required this.ambientAnimation,
@@ -714,11 +968,16 @@ class _ArenaBoard extends StatelessWidget {
     required this.effectAmount,
     required this.effectTargetsPlayer,
     required this.effectIsHeal,
+    required this.effectProjectileLevel,
   });
 
   final int playerHp;
   final int opponentHp;
-  final String playerAvatarAsset;
+  final CharacterVisualAssets playerCharacter;
+  final CharacterVisualAssets opponentCharacter;
+  final String playerTowerAsset;
+  final _CharacterPose playerPose;
+  final _CharacterPose opponentPose;
   final ArenaVisualTheme arenaTheme;
   final bool compact;
   final Animation<double> ambientAnimation;
@@ -729,6 +988,7 @@ class _ArenaBoard extends StatelessWidget {
   final int effectAmount;
   final bool effectTargetsPlayer;
   final bool effectIsHeal;
+  final int effectProjectileLevel;
 
   @override
   Widget build(BuildContext context) {
@@ -761,11 +1021,6 @@ class _ArenaBoard extends StatelessWidget {
                 ),
                 Positioned(
                   top: height * 0.35,
-                  left: 7,
-                  child: const _ArenaPropCluster(accent: Color(0xFFF05E5E)),
-                ),
-                Positioned(
-                  top: height * 0.35,
                   right: 7,
                   child: const _ArenaPropCluster(
                     accent: Color(0xFFF05E5E),
@@ -778,26 +1033,16 @@ class _ArenaBoard extends StatelessWidget {
                   child: const _ArenaPropCluster(accent: Color(0xFF2878F0)),
                 ),
                 Positioned(
-                  bottom: height * 0.35,
-                  right: 7,
-                  child: const _ArenaPropCluster(
-                    accent: Color(0xFF2878F0),
-                    mirrored: true,
-                  ),
-                ),
-                Positioned(
                   top: -5,
                   left: (width - mainSize * 1.12) / 2,
                   width: mainSize * 1.12,
                   height: mainSize,
                   child: _ChampionStand(
-                    avatarAsset: _enemyAvatarAsset,
-                    actor: BattleActor.opponent,
+                    character: opponentCharacter,
+                    pose: opponentPose,
                     accent: const Color(0xFFF05E5E),
                     destroyed: opponentHp <= 0,
                     ambientAnimation: ambientAnimation,
-                    effectAnimation: effectAnimation,
-                    effectActor: effectActor,
                   ),
                 ),
                 Positioned(
@@ -828,7 +1073,7 @@ class _ArenaBoard extends StatelessWidget {
                   width: miniSize,
                   height: miniSize,
                   child: _TowerAsset(
-                    asset: _playerMiniTowerAsset,
+                    asset: playerTowerAsset,
                     destroyed: playerHp <= 0,
                     ambientAnimation: ambientAnimation,
                   ),
@@ -839,7 +1084,7 @@ class _ArenaBoard extends StatelessWidget {
                   width: miniSize,
                   height: miniSize,
                   child: _TowerAsset(
-                    asset: _playerMiniTowerAsset,
+                    asset: playerTowerAsset,
                     destroyed: playerHp <= 0,
                     ambientAnimation: ambientAnimation,
                   ),
@@ -850,13 +1095,11 @@ class _ArenaBoard extends StatelessWidget {
                   width: mainSize * 1.12,
                   height: mainSize,
                   child: _ChampionStand(
-                    avatarAsset: playerAvatarAsset,
-                    actor: BattleActor.player,
+                    character: playerCharacter,
+                    pose: playerPose,
                     accent: const Color(0xFF2878F0),
                     destroyed: playerHp <= 0,
                     ambientAnimation: ambientAnimation,
-                    effectAnimation: effectAnimation,
-                    effectActor: effectActor,
                   ),
                 ),
                 Positioned.fill(
@@ -868,6 +1111,9 @@ class _ArenaBoard extends StatelessWidget {
                     amount: effectAmount,
                     targetsPlayer: effectTargetsPlayer,
                     isHeal: effectIsHeal,
+                    projectileLevel: effectProjectileLevel,
+                    playerCharacter: playerCharacter,
+                    opponentCharacter: opponentCharacter,
                   ),
                 ),
               ],
@@ -881,59 +1127,48 @@ class _ArenaBoard extends StatelessWidget {
 
 class _ArenaHeroAsset extends StatelessWidget {
   const _ArenaHeroAsset({
-    required this.asset,
+    required this.character,
+    required this.pose,
     required this.ambientAnimation,
-    required this.effectAnimation,
-    required this.casting,
-    required this.castsUpward,
   });
 
-  final String asset;
+  final CharacterVisualAssets character;
+  final _CharacterPose pose;
   final Animation<double> ambientAnimation;
-  final Animation<double> effectAnimation;
-  final bool casting;
-  final bool castsUpward;
 
   @override
   Widget build(BuildContext context) {
     final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final String asset = switch (pose) {
+      _CharacterPose.idle => character.idle,
+      _CharacterPose.ready => character.ready,
+      _CharacterPose.attack => character.attack,
+      _CharacterPose.hit => character.hit,
+    };
     return AnimatedBuilder(
-      animation: Listenable.merge(<Listenable>[
-        ambientAnimation,
-        effectAnimation,
-      ]),
+      animation: ambientAnimation,
       builder: (BuildContext context, Widget? child) {
         final double wave = reduceMotion
             ? 0
             : sin(ambientAnimation.value * pi * 2);
-        final double raw = casting && !reduceMotion ? effectAnimation.value : 0;
-        final double cast = raw <= 0.18
-            ? Curves.easeOutBack.transform((raw / 0.18).clamp(0, 1))
-            : raw <= 0.46
-            ? 1 -
-                  Curves.easeInOutCubic.transform(
-                    ((raw - 0.18) / 0.28).clamp(0, 1),
-                  )
-            : 0;
-        final double direction = castsUpward ? -1 : 1;
         return Transform.translate(
-          offset: Offset(
-            direction * cast * 5,
-            wave * 2.2 + direction * cast * 8,
-          ),
-          child: Transform.rotate(
-            angle: wave * 0.014 + direction * cast * 0.055,
-            child: Transform.scale(scale: 1 + cast * 0.055, child: child),
-          ),
+          offset: Offset(0, wave * 1.8),
+          child: Transform.rotate(angle: wave * 0.01, child: child),
         );
       },
-      child: Image.asset(
-        asset,
-        fit: BoxFit.contain,
-        alignment: Alignment.bottomCenter,
-        cacheWidth: 280,
-        filterQuality: FilterQuality.medium,
-        semanticLabel: 'Avatar karakter di arena',
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 90),
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        child: Image.asset(
+          asset,
+          key: ValueKey<String>(asset),
+          fit: BoxFit.contain,
+          alignment: Alignment.bottomCenter,
+          cacheWidth: 360,
+          filterQuality: FilterQuality.medium,
+          semanticLabel: 'Karakter di arena dalam pose ${pose.name}',
+        ),
       ),
     );
   }
@@ -941,22 +1176,18 @@ class _ArenaHeroAsset extends StatelessWidget {
 
 class _ChampionStand extends StatelessWidget {
   const _ChampionStand({
-    required this.avatarAsset,
-    required this.actor,
+    required this.character,
+    required this.pose,
     required this.accent,
     required this.destroyed,
     required this.ambientAnimation,
-    required this.effectAnimation,
-    required this.effectActor,
   });
 
-  final String avatarAsset;
-  final BattleActor actor;
+  final CharacterVisualAssets character;
+  final _CharacterPose pose;
   final Color accent;
   final bool destroyed;
   final Animation<double> ambientAnimation;
-  final Animation<double> effectAnimation;
-  final BattleActor? effectActor;
 
   @override
   Widget build(BuildContext context) {
@@ -965,16 +1196,29 @@ class _ChampionStand extends StatelessWidget {
       clipBehavior: Clip.none,
       children: <Widget>[
         Positioned(
-          top: 0,
-          left: 14,
-          right: 14,
-          bottom: 24,
+          left: 30,
+          right: 30,
+          bottom: 27,
+          height: 14,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.black.withAlpha(62),
+              borderRadius: const BorderRadius.all(Radius.elliptical(60, 14)),
+              boxShadow: const <BoxShadow>[
+                BoxShadow(color: Color(0x3317233F), blurRadius: 7),
+              ],
+            ),
+          ),
+        ),
+        Positioned(
+          top: -4,
+          left: 4,
+          right: 4,
+          bottom: 21,
           child: _ArenaHeroAsset(
-            asset: avatarAsset,
+            character: character,
+            pose: pose,
             ambientAnimation: ambientAnimation,
-            effectAnimation: effectAnimation,
-            casting: effectActor == actor,
-            castsUpward: actor == BattleActor.player,
           ),
         ),
         Positioned(
@@ -1271,6 +1515,9 @@ class _BattleEffectLayer extends StatelessWidget {
     required this.amount,
     required this.targetsPlayer,
     required this.isHeal,
+    required this.projectileLevel,
+    required this.playerCharacter,
+    required this.opponentCharacter,
   });
 
   final Animation<double> animation;
@@ -1280,6 +1527,9 @@ class _BattleEffectLayer extends StatelessWidget {
   final int amount;
   final bool targetsPlayer;
   final bool isHeal;
+  final int projectileLevel;
+  final CharacterVisualAssets playerCharacter;
+  final CharacterVisualAssets opponentCharacter;
 
   @override
   Widget build(BuildContext context) {
@@ -1334,17 +1584,26 @@ class _BattleEffectLayer extends StatelessWidget {
                 ),
                 BattleVisualEffect.heal => target,
               };
-              final double projectileAngle = switch (kind!) {
-                BattleVisualEffect.cannon => direction * (0.18 + raw * 0.45),
-                BattleVisualEffect.wizard => sin(raw * pi * 2) * 0.16,
-                BattleVisualEffect.robot => direction * raw * pi * 2,
-                BattleVisualEffect.heal => 0,
-              };
+              final double projectileAngle = actor == BattleActor.player
+                  ? pi / 2
+                  : -pi / 2;
               final bool showProjectile =
                   !isHeal && raw >= launchAt && raw < impactAt;
               final bool showHeal = isHeal && raw >= launchAt;
               final bool showImpact = !isHeal && raw >= impactAt;
               final Color color = _battleEffectColor(kind!, category);
+              final CharacterVisualAssets projectileOwner =
+                  actor == BattleActor.player
+                  ? playerCharacter
+                  : opponentCharacter;
+              final String projectileAsset = projectileOwner.projectileForLevel(
+                projectileLevel,
+              );
+              final double projectileSize = switch (projectileLevel) {
+                3 => 76,
+                2 => 66,
+                _ => 56,
+              };
               final double healProgress = ((raw - launchAt) / (1 - launchAt))
                   .clamp(0, 1);
 
@@ -1352,11 +1611,16 @@ class _BattleEffectLayer extends StatelessWidget {
                 children: <Widget>[
                   if (showProjectile)
                     Positioned(
-                      left: curved.dx - 28,
-                      top: curved.dy - 23,
+                      left: curved.dx - projectileSize / 2,
+                      top: curved.dy - projectileSize / 2,
                       child: Transform.rotate(
                         angle: projectileAngle,
-                        child: _EffectOrb(kind: kind!, color: color),
+                        child: _CharacterProjectile(
+                          asset: projectileAsset,
+                          level: projectileLevel,
+                          size: projectileSize,
+                          color: color,
+                        ),
                       ),
                     ),
                   if (showHeal)
@@ -1422,218 +1686,42 @@ class _BattleEffectLayer extends StatelessWidget {
   }
 }
 
-class _EffectOrb extends StatelessWidget {
-  const _EffectOrb({required this.kind, required this.color});
+class _CharacterProjectile extends StatelessWidget {
+  const _CharacterProjectile({
+    required this.asset,
+    required this.level,
+    required this.size,
+    required this.color,
+  });
 
-  final BattleVisualEffect kind;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return switch (kind) {
-      BattleVisualEffect.cannon => _NumerikBolt(color: color),
-      BattleVisualEffect.wizard => _VerbalSpell(color: color),
-      BattleVisualEffect.robot => _LogikaCore(color: color),
-      BattleVisualEffect.heal => _HealSeed(color: color),
-    };
-  }
-}
-
-class _NumerikBolt extends StatelessWidget {
-  const _NumerikBolt({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 56,
-      height: 42,
-      child: Stack(
-        alignment: Alignment.centerRight,
-        children: <Widget>[
-          Positioned(
-            left: 1,
-            child: Container(
-              width: 9,
-              height: 9,
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFC857).withAlpha(135),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Positioned(
-            left: 10,
-            child: Container(
-              width: 15,
-              height: 15,
-              decoration: BoxDecoration(
-                color: color.withAlpha(150),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Container(
-            width: 39,
-            height: 31,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: const Color(0xFF17233F).withAlpha(55),
-                  blurRadius: 6,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.bolt_rounded,
-              color: Color(0xFFFFC857),
-              size: 24,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _VerbalSpell extends StatelessWidget {
-  const _VerbalSpell({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 50,
-      height: 48,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: <Widget>[
-          Positioned(
-            left: 3,
-            top: 5,
-            child: Container(
-              width: 39,
-              height: 34,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(18),
-                  topRight: Radius.circular(18),
-                  bottomRight: Radius.circular(18),
-                  bottomLeft: Radius.circular(6),
-                ),
-                border: Border.all(color: Colors.white, width: 2),
-                boxShadow: <BoxShadow>[
-                  BoxShadow(
-                    color: const Color(0xFF17233F).withAlpha(55),
-                    blurRadius: 6,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.format_quote_rounded,
-                color: Colors.white,
-                size: 22,
-              ),
-            ),
-          ),
-          const Positioned(
-            right: 0,
-            top: 0,
-            child: Icon(
-              Icons.auto_awesome_rounded,
-              color: Color(0xFFFFC857),
-              size: 17,
-            ),
-          ),
-          Positioned(
-            right: 2,
-            bottom: 1,
-            child: Container(
-              width: 9,
-              height: 9,
-              decoration: BoxDecoration(
-                color: color.withAlpha(145),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LogikaCore extends StatelessWidget {
-  const _LogikaCore({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 48,
-      height: 48,
-      child: Stack(
-        alignment: Alignment.center,
-        children: <Widget>[
-          ClipPath(
-            clipper: const _HexagonClipper(),
-            child: Container(
-              width: 45,
-              height: 45,
-              color: color,
-              alignment: Alignment.center,
-              child: Container(
-                width: 29,
-                height: 29,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF2D8),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(Icons.extension_rounded, color: color, size: 21),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(painter: _HexagonOutlinePainter()),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HealSeed extends StatelessWidget {
-  const _HealSeed({required this.color});
-
+  final String asset;
+  final int level;
+  final double size;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 44,
-      height: 44,
+      key: ValueKey<String>('projectile-level-$level'),
+      width: size,
+      height: size,
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(22),
-          topRight: Radius.circular(22),
-          bottomLeft: Radius.circular(22),
-          bottomRight: Radius.circular(7),
-        ),
-        border: Border.all(color: Colors.white, width: 2),
+        shape: BoxShape.circle,
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: color.withAlpha(level == 3 ? 125 : 78),
+            blurRadius: level == 3 ? 18 : 11,
+            spreadRadius: level - 1,
+          ),
+        ],
       ),
-      child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 23),
+      child: Image.asset(
+        asset,
+        fit: BoxFit.contain,
+        cacheWidth: 240,
+        filterQuality: FilterQuality.medium,
+        semanticLabel: 'Projectile combo level $level',
+      ),
     );
   }
 }
@@ -1687,44 +1775,6 @@ class _HealBloom extends StatelessWidget {
       ),
     );
   }
-}
-
-class _HexagonClipper extends CustomClipper<Path> {
-  const _HexagonClipper();
-
-  @override
-  Path getClip(Size size) {
-    return Path()
-      ..moveTo(size.width * 0.25, 0)
-      ..lineTo(size.width * 0.75, 0)
-      ..lineTo(size.width, size.height * 0.5)
-      ..lineTo(size.width * 0.75, size.height)
-      ..lineTo(size.width * 0.25, size.height)
-      ..lineTo(0, size.height * 0.5)
-      ..close();
-  }
-
-  @override
-  bool shouldReclip(covariant _HexagonClipper oldClipper) => false;
-}
-
-class _HexagonOutlinePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Path path = const _HexagonClipper()
-        .getClip(size)
-        .shift(const Offset(0, -1));
-    canvas.drawPath(
-      path,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..color = Colors.white,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _HexagonOutlinePainter oldDelegate) => false;
 }
 
 class _BattleHand extends StatelessWidget {
@@ -2071,80 +2121,51 @@ class _ClayArenaPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final Paint paint = Paint()..isAntiAlias = true;
-    final double riverHeight = (size.height * 0.13).clamp(42, 58);
+    final double riverHeight = (size.height * 0.12).clamp(40, 54);
     final double riverTop = (size.height - riverHeight) / 2;
 
-    paint.color = theme.field;
+    paint.shader = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: <Color>[theme.field, theme.fieldAccent],
+    ).createShader(Offset.zero & size);
     canvas.drawRect(Offset.zero & size, paint);
+    paint.shader = null;
 
+    final RRect outerCourt = RRect.fromRectAndRadius(
+      Rect.fromLTWH(9, 9, size.width - 18, size.height - 18),
+      const Radius.circular(22),
+    );
+    paint
+      ..style = PaintingStyle.fill
+      ..color = Colors.white.withAlpha(theme.id == 'arena-bumn' ? 10 : 30);
+    canvas.drawRRect(outerCourt, paint);
     paint
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 6
-      ..color = Colors.white.withAlpha(42);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(7, 7, size.width - 14, size.height - 14),
-        const Radius.circular(20),
-      ),
-      paint,
-    );
+      ..strokeWidth = 2
+      ..color = theme.boundary.withAlpha(180);
+    canvas.drawRRect(outerCourt, paint);
 
+    final RRect opponentCourt = RRect.fromRectAndRadius(
+      Rect.fromLTWH(18, 18, size.width - 36, riverTop - 27),
+      const Radius.circular(18),
+    );
+    final RRect playerCourt = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        18,
+        riverTop + riverHeight + 9,
+        size.width - 36,
+        size.height - riverTop - riverHeight - 27,
+      ),
+      const Radius.circular(18),
+    );
     paint.style = PaintingStyle.fill;
-    paint.color = theme.fieldAccent.withAlpha(36);
-    for (final double xFactor in <double>[0.23, 0.77]) {
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(
-            center: Offset(size.width * xFactor, size.height / 2),
-            width: (size.width * 0.18).clamp(48, 72),
-            height: size.height * 0.82,
-          ),
-          const Radius.circular(28),
-        ),
-        paint,
-      );
-    }
-
-    paint.color = theme.playerWash;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-          10,
-          size.height * 0.56,
-          size.width - 20,
-          size.height * 0.39,
-        ),
-        const Radius.circular(26),
-      ),
-      paint,
-    );
     paint.color = theme.opponentWash;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-          10,
-          size.height * 0.05,
-          size.width - 20,
-          size.height * 0.39,
-        ),
-        const Radius.circular(26),
-      ),
-      paint,
-    );
+    canvas.drawRRect(opponentCourt, paint);
+    paint.color = theme.playerWash;
+    canvas.drawRRect(playerCourt, paint);
 
-    for (final double xFactor in <double>[0.23, 0.77]) {
-      for (final double yFactor in <double>[0.30, 0.39, 0.61, 0.70]) {
-        final Rect stone = Rect.fromCenter(
-          center: Offset(size.width * xFactor, size.height * yFactor),
-          width: (size.width * 0.075).clamp(22, 31),
-          height: 9,
-        );
-        paint.color = const Color(0x28723934);
-        canvas.drawOval(stone.shift(const Offset(0, 3)), paint);
-        paint.color = const Color(0xFFFFE6B7);
-        canvas.drawOval(stone, paint);
-      }
-    }
+    _drawArenaMotif(canvas, size, paint, opponentCourt, playerCourt);
 
     paint.color = theme.riverEdge;
     canvas.drawRect(Rect.fromLTWH(0, riverTop - 5, size.width, 5), paint);
@@ -2155,19 +2176,31 @@ class _ClayArenaPainter extends CustomPainter {
 
     paint.color = theme.river;
     canvas.drawRect(Rect.fromLTWH(0, riverTop, size.width, riverHeight), paint);
-    paint.color = Colors.white.withAlpha(75);
-    canvas.drawRect(Rect.fromLTWH(0, riverTop + 5, size.width, 3), paint);
-    canvas.drawRect(
-      Rect.fromLTWH(0, riverTop + riverHeight - 8, size.width, 3),
-      paint,
-    );
+    paint
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = Colors.white.withAlpha(65);
+    for (int index = 0; index < 3; index++) {
+      final double y = riverTop + 8 + index * (riverHeight - 16) / 2;
+      canvas.drawLine(
+        Offset(size.width * 0.05, y),
+        Offset(size.width * 0.30, y + 2),
+        paint,
+      );
+      canvas.drawLine(
+        Offset(size.width * 0.70, y - 1),
+        Offset(size.width * 0.95, y + 1),
+        paint,
+      );
+    }
 
     final Rect bridgeRect = Rect.fromCenter(
       center: Offset(size.width / 2, size.height / 2),
       width: (size.width * 0.34).clamp(104, 136),
       height: riverHeight + 14,
     );
-    paint.color = const Color(0x330D2A52);
+    paint.style = PaintingStyle.fill;
+    paint.color = const Color(0x400D2A52);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         bridgeRect.shift(const Offset(0, 5)),
@@ -2192,67 +2225,68 @@ class _ClayArenaPainter extends CustomPainter {
     }
 
     paint.style = PaintingStyle.fill;
-    for (int index = 0; index < 5; index++) {
-      final double y = size.height * (0.10 + index * 0.20);
-      final Rect leftStone = Rect.fromCenter(
-        center: Offset(5, y),
-        width: 24,
-        height: (size.height * 0.055).clamp(22, 31),
-      );
-      final Rect rightStone = Rect.fromCenter(
-        center: Offset(size.width - 5, y),
-        width: 24,
-        height: (size.height * 0.055).clamp(22, 31),
-      );
-      paint.color = const Color(0x33723934);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          leftStone.shift(const Offset(0, 3)),
-          const Radius.circular(8),
-        ),
-        paint,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          rightStone.shift(const Offset(0, 3)),
-          const Radius.circular(8),
-        ),
-        paint,
-      );
+    for (final Offset center in <Offset>[
+      Offset(8, size.height * 0.18),
+      Offset(size.width - 8, size.height * 0.82),
+    ]) {
+      paint.color = const Color(0x380D2A52);
+      canvas.drawCircle(center.translate(0, 3), 14, paint);
       paint.color = theme.boundary;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(leftStone, const Radius.circular(8)),
-        paint,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(rightStone, const Radius.circular(8)),
-        paint,
-      );
+      canvas.drawCircle(center, 13, paint);
+    }
+  }
+
+  void _drawArenaMotif(
+    Canvas canvas,
+    Size size,
+    Paint paint,
+    RRect opponentCourt,
+    RRect playerCourt,
+  ) {
+    paint
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = Colors.white.withAlpha(theme.id == 'arena-bumn' ? 26 : 50);
+    if (theme.id == 'arena-bumn') {
+      for (final RRect court in <RRect>[opponentCourt, playerCourt]) {
+        final double y = court.center.dy;
+        canvas.drawLine(
+          Offset(size.width * 0.16, y - 5),
+          Offset(size.width * 0.84, y - 5),
+          paint,
+        );
+        canvas.drawLine(
+          Offset(size.width * 0.16, y + 5),
+          Offset(size.width * 0.84, y + 5),
+          paint,
+        );
+        for (int index = 0; index < 7; index++) {
+          final double x = size.width * (0.20 + index * 0.10);
+          canvas.drawLine(Offset(x, y - 8), Offset(x, y + 8), paint);
+        }
+      }
+      return;
     }
 
-    paint.style = PaintingStyle.stroke;
-    paint.strokeWidth = 3;
-    paint.color = Colors.white.withAlpha(45);
-    canvas.drawLine(
-      Offset(size.width * 0.17, size.height * 0.12),
-      Offset(size.width * 0.17, riverTop - 8),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(size.width * 0.83, size.height * 0.12),
-      Offset(size.width * 0.83, riverTop - 8),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(size.width * 0.17, riverTop + riverHeight + 8),
-      Offset(size.width * 0.17, size.height * 0.88),
-      paint,
-    );
-    canvas.drawLine(
-      Offset(size.width * 0.83, riverTop + riverHeight + 8),
-      Offset(size.width * 0.83, size.height * 0.88),
-      paint,
-    );
+    for (final RRect court in <RRect>[opponentCourt, playerCourt]) {
+      final Rect document = Rect.fromCenter(
+        center: court.center,
+        width: 52,
+        height: 34,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(document, const Radius.circular(5)),
+        paint,
+      );
+      for (int index = 0; index < 3; index++) {
+        final double y = document.top + 10 + index * 7;
+        canvas.drawLine(
+          Offset(document.left + 10, y),
+          Offset(document.right - 10, y),
+          paint,
+        );
+      }
+    }
   }
 
   @override

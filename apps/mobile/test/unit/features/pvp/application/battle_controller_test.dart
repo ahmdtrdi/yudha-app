@@ -75,6 +75,16 @@ void main() {
     );
   }
 
+  BattleController createFastComboController(List<BattleQuestion> questions) {
+    return BattleController(
+      botRepository: _FakeBotRepository(
+        BattleSessionSeed(opponentName: 'BOT TEST', questions: questions),
+      ),
+      onlineRepository: _FakeOnlineRepository(),
+      comboTickDuration: const Duration(milliseconds: 5),
+    );
+  }
+
   group('BattleController question reservation', () {
     test(
       'bot attacks without consuming the selected or alternative card',
@@ -155,6 +165,102 @@ void main() {
 
       expect(controller.state.playerHp, lessThan(100));
       expect(controller.state.battleEventId, 1);
+    });
+  });
+
+  group('BattleController combo', () {
+    test(
+      'correct answers raise the next projectile from level 1 to 3',
+      () async {
+        final BattleController controller = createController(
+          const <BattleQuestion>[selectedQuestion, botQuestion],
+        );
+        addTearDown(controller.dispose);
+        controller.setMode(BattleMode.bot);
+        await controller.startBattle();
+
+        await controller.answerQuestion(
+          questionId: selectedQuestion.id,
+          selectedOptionIndex: 0,
+        );
+
+        expect(controller.state.lastProjectileLevel, 1);
+        expect(controller.state.comboLevel, 2);
+        expect(
+          controller.state.comboSecondsRemaining,
+          BattleController.comboWindowSeconds,
+        );
+
+        await controller.answerQuestion(
+          questionId: botQuestion.id,
+          selectedOptionIndex: 0,
+        );
+
+        expect(controller.state.lastProjectileLevel, 2);
+        expect(controller.state.comboLevel, 3);
+      },
+    );
+
+    test('a wrong answer lowers one combo level', () async {
+      final BattleController controller = createController(
+        const <BattleQuestion>[selectedQuestion, botQuestion],
+      );
+      addTearDown(controller.dispose);
+      controller.setMode(BattleMode.bot);
+      await controller.startBattle();
+      await controller.answerQuestion(
+        questionId: selectedQuestion.id,
+        selectedOptionIndex: 0,
+      );
+      await controller.answerQuestion(
+        questionId: botQuestion.id,
+        selectedOptionIndex: 0,
+      );
+      final BattleQuestion recycled = controller.state.availableQuestions.first;
+
+      await controller.answerQuestion(
+        questionId: recycled.id,
+        selectedOptionIndex: 1,
+      );
+
+      expect(controller.state.comboLevel, 2);
+    });
+
+    test('taking a hit lowers the combo to level 1', () async {
+      final BattleController controller = createController(
+        const <BattleQuestion>[selectedQuestion, botQuestion],
+      );
+      addTearDown(controller.dispose);
+      controller.setMode(BattleMode.bot);
+      await controller.startBattle();
+      await controller.answerQuestion(
+        questionId: selectedQuestion.id,
+        selectedOptionIndex: 0,
+      );
+
+      controller.answerBotQuestion();
+
+      expect(controller.state.playerHp, lessThan(100));
+      expect(controller.state.comboLevel, 1);
+      expect(controller.state.comboSecondsRemaining, 0);
+    });
+
+    test('combo returns to level 1 when its countdown expires', () async {
+      final BattleController controller = createFastComboController(
+        const <BattleQuestion>[selectedQuestion, botQuestion],
+      );
+      addTearDown(controller.dispose);
+      controller.setMode(BattleMode.bot);
+      await controller.startBattle();
+      await controller.answerQuestion(
+        questionId: selectedQuestion.id,
+        selectedOptionIndex: 0,
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(controller.state.comboLevel, 1);
+      expect(controller.state.comboSecondsRemaining, 0);
     });
   });
 }

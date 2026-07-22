@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
+import 'package:yudha_mobile/features/economy/application/game_economy_providers.dart';
 import 'package:yudha_mobile/features/pvp/application/battle_controller.dart';
 import 'package:yudha_mobile/features/pvp/data/repositories/battle_repository.dart';
 import 'package:yudha_mobile/features/pvp/data/repositories/bot_battle_repository.dart';
@@ -8,7 +9,11 @@ import 'package:yudha_mobile/features/pvp/data/repositories/socket_online_battle
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_state.dart';
 
 final Provider<BattleRepository> botBattleRepositoryProvider =
-    Provider<BattleRepository>((Ref ref) => const BotBattleRepository());
+    Provider<BattleRepository>(
+      (Ref ref) => BotBattleRepository(
+        selectedArenaId: () => ref.read(gameEconomyProvider).equippedArenaId,
+      ),
+    );
 
 final Provider<OnlineBattleRepository> onlineBattleRepositoryProvider =
     Provider<OnlineBattleRepository>(

@@ -1,7 +1,7 @@
 # YUDHA — Product & Architecture Brief (Single Source of Truth)
 
 > Living document. Update this file directly in the repo as decisions change — do not fork it into a separate Google Doc.
-> Last updated: 2026-07-20
+> Last updated: 2026-07-21
 
 ---
 
@@ -61,8 +61,8 @@ Splash Screen
         ├─ PvP
         │    ├─ vs Bot → enters arena directly → card-based battle
         │    └─ vs Player → join matchmaking queue → matched → card-based battle
-        │         └─ Arena: draw hand of 4 cards → open card → answer within 10s or passed X seconds/minutes (will decide later)
-        │              → correct = damage/heal → wrong = reflected damage
+        │         └─ Arena: draw hand of 4 cards → open card → answer within 10s
+        │              → correct = damage/heal + advance combo → wrong = reflected damage + lower combo
         │              → HP updates real-time → battle ends when HP = 0
         │              → Results screen (outcome, score, remaining HP)
         ├─ Hired Pass → complete daily/weekly learning missions → earn Pass Points
@@ -79,7 +79,9 @@ Splash Screen
 
 **Loop:** Battle → Analytics captures weak points → Analytics recommends next practice/interview → back into Practice/Battle. This closed loop is the product's core mechanic — don't break it when scoping tickets.
 
-Before choosing Bot or Player mode, the PvP entry screen now acts as a **loadout step**. Players choose one owned character and one owned arena; that selection persists across sessions and is rendered in the live battle. Locked cosmetics route back to the Store or Hired Pass. Loadout remains presentation-only and may not alter battle rules.
+Before choosing Bot or Player mode, the PvP entry screen now acts as a **loadout step**. Players choose one owned character and one owned arena; that selection persists across sessions and is rendered in the live battle. Character cards use three cosmetic tiers—**Basic**, **Rare**, and **Legend**—and expose every character with a complete pose/projectile set: Basic Squire and Pip, Rare Ignis and Brock, plus Legend Drakor and Luna. Locked cosmetics route back to the Store or Hired Pass. Loadout remains presentation-only and may not alter battle rules.
+
+PvP attacks use a visual combo chain. The next successful answer uses projectile level 1, 2, or 3 according to the current combo. A correct answer advances the next projectile and starts a seven-second window; another correct answer inside that window advances the chain up to `x3`. A wrong answer or incoming hit lowers the combo by one level, while an expired window resets it to `x1`. Combo level changes presentation only and does not multiply damage, healing, score, or rating.
 
 ### 1.3 Hired Pass & Cosmetic Store
 

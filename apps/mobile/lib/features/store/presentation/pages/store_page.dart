@@ -48,7 +48,7 @@ class StorePage extends ConsumerWidget {
             labelStyle: GoogleFonts.dmSans(fontWeight: FontWeight.w800),
             tabs: const <Widget>[
               Tab(text: 'Karakter'),
-              Tab(text: 'Arena'),
+              Tab(text: 'Tower'),
             ],
           ),
         ),
@@ -68,7 +68,7 @@ class StorePage extends ConsumerWidget {
                         _handleItemTap(context, ref, item, economy),
                   ),
                   _CosmeticGrid(
-                    items: GameEconomyCatalog.arenas,
+                    items: GameEconomyCatalog.towers,
                     economy: economy,
                     onItemTap: (CosmeticItem item) =>
                         _handleItemTap(context, ref, item, economy),
@@ -186,7 +186,7 @@ class _StoreIntro extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
               ),
               child: const Icon(
-                Icons.auto_awesome_rounded,
+                Icons.castle_outlined,
                 color: Color(0xFF9A6413),
               ),
             ),
@@ -196,7 +196,7 @@ class _StoreIntro extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Gaya baru, power tetap adil',
+                    'Bangun loadout favoritmu',
                     style: GoogleFonts.dmSans(
                       color: AppColors.textStrong,
                       fontSize: 14,
@@ -204,7 +204,7 @@ class _StoreIntro extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'Semua item hanya kosmetik dan permanen.',
+                    'Karakter dan tower bersifat kosmetik dan permanen.',
                     style: GoogleFonts.dmSans(
                       color: AppColors.textMuted,
                       fontSize: 11.5,
@@ -272,7 +272,8 @@ class _CosmeticGrid extends StatelessWidget {
             final bool owned = economy.owns(item.id);
             final bool equipped = switch (item.type) {
               CosmeticType.character => economy.equippedCharacterId == item.id,
-              CosmeticType.arena => economy.equippedArenaId == item.id,
+              CosmeticType.tower => economy.equippedTowerId == item.id,
+              CosmeticType.arena => false,
             };
             return _CosmeticCard(
               item: item,
@@ -308,13 +309,6 @@ class _CosmeticCard extends StatelessWidget {
       CosmeticRarity.epic => const Color(0xFF8B6FE8),
       CosmeticRarity.legendary => const Color(0xFFF0A436),
     };
-    final String rarityLabel = switch (item.rarity) {
-      CosmeticRarity.common => 'COMMON',
-      CosmeticRarity.rare => 'RARE',
-      CosmeticRarity.epic => 'EPIC',
-      CosmeticRarity.legendary => 'LEGEND',
-    };
-
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(20),
@@ -349,29 +343,6 @@ class _CosmeticCard extends StatelessWidget {
                         item.type == CosmeticType.character ? 2 : 9,
                       ),
                       child: CosmeticPreview(item: item),
-                    ),
-                    Positioned(
-                      top: 13,
-                      left: 13,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: rarityColor,
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                        child: Text(
-                          rarityLabel,
-                          style: GoogleFonts.dmSans(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
                     ),
                     if (equipped)
                       const Positioned(
@@ -447,18 +418,18 @@ class _StoreItemAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (equipped) {
-      return _actionPill('DIPAKAI', AppColors.levelUpTeal, Icons.check_rounded);
+      return _actionLine('Dipakai', AppColors.levelUpTeal, Icons.check_rounded);
     }
     if (owned) {
-      return _actionPill(
-        'PAKAI',
+      return _actionLine(
+        'Pakai',
         AppColors.warriorNavy,
         Icons.checkroom_rounded,
       );
     }
     if (item.passExclusive) {
-      return _actionPill(
-        'HIRED PASS',
+      return _actionLine(
+        'Hired Pass',
         const Color(0xFF8B6FE8),
         Icons.workspace_premium_rounded,
       );
@@ -480,28 +451,21 @@ class _StoreItemAction extends StatelessWidget {
     );
   }
 
-  Widget _actionPill(String label, Color color, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withAlpha(18),
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(icon, color: color, size: 14),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: GoogleFonts.dmSans(
-              color: color,
-              fontSize: 9.5,
-              fontWeight: FontWeight.w900,
-            ),
+  Widget _actionLine(String label, Color color, IconData icon) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Icon(icon, color: color, size: 14),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: GoogleFonts.dmSans(
+            color: color,
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
