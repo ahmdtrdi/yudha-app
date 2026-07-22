@@ -1549,3 +1549,39 @@
 ### The Tech Debt
 - The visualizer is decorative and timer-driven; it does not yet react to live microphone amplitude.
 - The transcript/history still exists in text mode and history sheets, but voice mode does not currently expose an inline full transcript while the session is active.
+
+## 2026-07-21 - Practice Session Backend Wiring
+
+### The Change
+- Replaced the practice dashboard's obsolete topic-question requests with the authenticated NestJS practice contract for dashboard loading, five-question session creation, per-answer submission, and session finishing.
+- Removed `mock_practice_repository.dart` and all production fallback behavior so backend, authentication, timeout, and payload failures now surface as explicit retryable errors.
+- Added server-session entities and state for session IDs, locked questions, answer explanations, correct-option feedback, response timing, and final server summaries.
+- Updated the practice dashboard to create sessions from backend categories/subcategories and removed the unsupported mock-only daily challenge.
+- Updated the quiz flow to send `responseTimeMs` and `usedHint`, wait during answer submission, render server-owned correctness/explanations, and show the final accuracy, correct count, and score.
+- Replaced practice tests that depended on the deleted seed repository with test-local repository fakes covering session creation, response-time submission, completion, dashboard rendering, and hint display.
+
+### The Reasoning
+- A silent fallback made backend outages look like valid practice content and obscured whether PRD #3 was actually integrated.
+- The backend owns question selection and correctness, so the frontend now treats the returned five-question set as locked and never embeds correct answers before submission.
+- Response time starts when each server question becomes active and is sent with that answer, while the final answer response remains a summary fallback if the separate finish request is interrupted.
+
+### The Tech Debt
+- Hint ad/purchase monetization remains out of scope; the current hint is an optional reveal whose usage is reported to the backend.
+- The backend dashboard does not expose a question-of-the-day payload, so that UI is hidden until a real server contract exists.
+- Practice session resume is not yet wired to the dashboard's `activeSession`; starting a category currently creates a fresh server session.
+- Targeted analysis reached only three cleanup findings before the Windows Dart telemetry permission failure; those findings were patched, but a final local `flutter analyze` and manual emulator pass are still required.
+
+## 2026-07-22 - Practice Identifier Display Formatting
+
+### The Change
+- Humanized backend-owned practice category and subcategory identifiers when mapping dashboard topics, quiz topic labels, and recent-session titles.
+- Converted snake_case, kebab-case, and lowercase identifiers into readable title case while preserving known acronyms such as `TWK`, `TIU`, `TKP`, `CPNS`, `BUMN`, and `AKHLAK`.
+- Added a backend repository regression test proving that display labels are humanized while session creation still sends the original raw category and subcategory identifiers.
+
+### The Reasoning
+- Backend identifiers are stable API values and must remain unchanged in request payloads, but rendering them directly produced lowercase labels such as `kepribadian` and `pelayanan_publik`.
+- Keeping formatting at the repository mapping boundary gives every practice screen consistent display values without coupling UI widgets to backend naming conventions.
+
+### The Tech Debt
+- The formatter handles identifier-style labels, not arbitrary localized copy. If the backend later exposes dedicated localized display labels, those should replace frontend-derived labels.
+- Targeted analysis reported no issues before the known Dart telemetry permission failure. The targeted Flutter test runner timed out without producing output on this Windows environment and still needs local confirmation.

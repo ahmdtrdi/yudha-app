@@ -5,166 +5,118 @@ import 'package:yudha_mobile/features/practice/domain/entities/practice_dashboar
 import 'package:yudha_mobile/features/practice/domain/entities/practice_hint_state.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_option.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_question.dart';
+import 'package:yudha_mobile/features/practice/domain/entities/practice_session.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_topic.dart';
-import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
 class PracticeController extends StateNotifier<PracticeState> {
   PracticeController({
     required PracticeRepository repository,
-    required ProfileTarget target,
+    DateTime Function()? now,
   }) : _repository = repository,
-       _target = target,
+       _now = now ?? DateTime.now,
        super(PracticeState.initial()) {
     load();
   }
 
   final PracticeRepository _repository;
-  final ProfileTarget _target;
+  final DateTime Function() _now;
 
   Future<void> load() async {
     state = state.copyWith(
       status: PracticeViewStatus.loading,
-      clearError: true,
+      clearSession: true,
+      questions: const <PracticeQuestion>[],
+      currentQuestionIndex: 0,
+      correctAnswers: 0,
       hintState: PracticeHintState.locked,
       isCurrentQuestionSubmitted: false,
       resetSelectedOption: true,
+      clearCorrectOption: true,
+      clearAnswerExplanation: true,
+      clearQuestionStartedAt: true,
+      clearSummary: true,
+      clearError: true,
     );
 
     try {
-      final PracticeDashboard dashboard = await _repository.fetchDashboard(
-        target: _target,
-      );
-      final List<PracticeTopic> topics = dashboard.topics;
-      final PracticeQuestion questionOfDay = dashboard.questionOfDay;
-
-      if (topics.isEmpty) {
+      final PracticeDashboard dashboard = await _repository.fetchDashboard();
+      if (dashboard.topics.isEmpty) {
         state = state.copyWith(
           status: PracticeViewStatus.error,
-          errorMessage: 'No practice topics available yet.',
-          updateQuestionOfDay: true,
-          questionOfDay: questionOfDay,
+          topics: const <PracticeTopic>[],
+          errorMessage: 'Belum ada kategori latihan yang tersedia.',
           overallProgressPercent: dashboard.overallProgressPercent,
           recentActivities: dashboard.recentActivities,
         );
         return;
       }
 
-      final PracticeTopic selectedTopic = topics.first;
-      final List<PracticeQuestion> questions = await _repository.fetchQuestions(
-        topicId: selectedTopic.id,
-      );
-
-      if (questions.isEmpty) {
-        state = state.copyWith(
-          status: PracticeViewStatus.error,
-          topics: topics,
-          selectedTopicId: selectedTopic.id,
-          errorMessage: 'No questions found for this topic.',
-          updateQuestionOfDay: true,
-          questionOfDay: questionOfDay,
-        );
-        return;
-      }
-
       state = state.copyWith(
         status: PracticeViewStatus.ready,
-        topics: topics,
-        selectedTopicId: selectedTopic.id,
-        questions: questions,
-        currentQuestionIndex: 0,
-        correctAnswers: 0,
-        hintState: PracticeHintState.locked,
-        isCurrentQuestionSubmitted: false,
-        resetSelectedOption: true,
-        updateQuestionOfDay: true,
-        questionOfDay: questionOfDay,
+        topics: dashboard.topics,
         overallProgressPercent: dashboard.overallProgressPercent,
         recentActivities: dashboard.recentActivities,
         clearError: true,
       );
-    } catch (_) {
+    } catch (error) {
       state = state.copyWith(
         status: PracticeViewStatus.error,
-        errorMessage: 'Failed to load practice session. Please retry.',
+        errorMessage: _messageFor(error, 'Gagal memuat latihan. Coba lagi.'),
       );
     }
   }
 
-  Future<void> reload() async {
-    await load();
-  }
+  Future<void> reload() => load();
 
-  Future<void> selectTopic(String topicId) async {
-    if (topicId == state.selectedTopicId) {
-      return;
-    }
-
-    PracticeTopic? targetTopic;
-    for (final PracticeTopic topic in state.topics) {
-      if (topic.id == topicId) {
-        targetTopic = topic;
-        break;
-      }
-    }
-
-    if (targetTopic == null || targetTopic.isLocked) {
-      return;
+  Future<bool> startSession(String topicId) async {
+    final PracticeTopic? topic = _findTopic(topicId);
+    if (topic == null || topic.isLocked) {
+      return false;
     }
 
     state = state.copyWith(
       status: PracticeViewStatus.loading,
-      selectedTopicId: topicId,
+      selectedTopicId: topic.id,
+      clearSession: true,
+      clearSummary: true,
       clearError: true,
     );
 
     try {
-      final List<PracticeQuestion> questions = await _repository.fetchQuestions(
-        topicId: topicId,
+      final PracticeSession session = await _repository.startSession(
+        category: topic.category,
+        subcategory: topic.subcategory,
       );
-
-      if (questions.isEmpty) {
-        state = state.copyWith(
-          status: PracticeViewStatus.error,
-          errorMessage: 'No questions found for this topic.',
-        );
-        return;
+      if (session.questions.length != session.totalQuestions) {
+        throw StateError('Jumlah soal sesi tidak sesuai respons server.');
       }
 
       state = state.copyWith(
         status: PracticeViewStatus.ready,
-        questions: questions,
+        sessionId: session.id,
+        questions: session.questions,
         currentQuestionIndex: 0,
         correctAnswers: 0,
         hintState: PracticeHintState.locked,
         isCurrentQuestionSubmitted: false,
         resetSelectedOption: true,
+        clearCorrectOption: true,
+        clearAnswerExplanation: true,
+        questionStartedAt: _now(),
+        clearSummary: true,
         clearError: true,
       );
-    } catch (_) {
+      return true;
+    } catch (error) {
       state = state.copyWith(
-        status: PracticeViewStatus.error,
-        errorMessage: 'Failed to switch topic. Please retry.',
+        status: PracticeViewStatus.ready,
+        errorMessage: _messageFor(
+          error,
+          'Gagal memulai sesi latihan. Coba lagi.',
+        ),
       );
+      return false;
     }
-  }
-
-  void startQuestionOfDay() {
-    final PracticeQuestion? qotd = state.questionOfDay;
-    if (qotd == null) {
-      return;
-    }
-
-    state = state.copyWith(
-      status: PracticeViewStatus.ready,
-      selectedTopicId: qotd.topicId,
-      questions: <PracticeQuestion>[qotd],
-      currentQuestionIndex: 0,
-      correctAnswers: 0,
-      hintState: PracticeHintState.locked,
-      isCurrentQuestionSubmitted: false,
-      resetSelectedOption: true,
-      clearError: true,
-    );
   }
 
   void selectOption(String optionId) {
@@ -172,116 +124,127 @@ class PracticeController extends StateNotifier<PracticeState> {
         state.isCurrentQuestionSubmitted) {
       return;
     }
-
     final PracticeQuestion? question = state.currentQuestion;
-    if (question == null) {
+    if (question == null ||
+        !question.options.any(
+          (PracticeOption option) => option.id == optionId,
+        )) {
       return;
     }
-
-    final bool optionExists = question.options.any(
-      (PracticeOption option) => option.id == optionId,
-    );
-    if (!optionExists) {
-      return;
-    }
-
-    state = state.copyWith(selectedOptionId: optionId);
+    state = state.copyWith(selectedOptionId: optionId, clearError: true);
   }
 
-  void submitCurrentAnswer() {
+  Future<bool> submitCurrentAnswer() async {
+    final PracticeQuestion? question = state.currentQuestion;
+    final String? sessionId = state.sessionId;
+    final String? selectedOptionId = state.selectedOptionId;
     if (state.status != PracticeViewStatus.ready ||
         state.isCurrentQuestionSubmitted ||
-        state.selectedOptionId == null) {
-      return;
+        question == null ||
+        sessionId == null ||
+        selectedOptionId == null) {
+      return false;
     }
 
-    final PracticeQuestion? question = state.currentQuestion;
-    if (question == null) {
-      return;
-    }
-
-    final bool isCorrect = question.options.any(
-      (PracticeOption option) =>
-          option.id == state.selectedOptionId && option.isCorrect,
+    final PracticeOption selectedOption = question.options.firstWhere(
+      (PracticeOption option) => option.id == selectedOptionId,
     );
-
-    final int nextCorrectAnswers = state.correctAnswers + (isCorrect ? 1 : 0);
-
+    final DateTime startedAt = state.questionStartedAt ?? _now();
+    final int responseTimeMs = _now()
+        .difference(startedAt)
+        .inMilliseconds
+        .clamp(0, 2147483647);
     state = state.copyWith(
-      isCurrentQuestionSubmitted: true,
-      correctAnswers: nextCorrectAnswers,
-      status: state.isLastQuestion
-          ? PracticeViewStatus.completed
-          : PracticeViewStatus.ready,
+      status: PracticeViewStatus.submitting,
+      clearError: true,
     );
+
+    try {
+      final PracticeAnswerResult result = await _repository.submitAnswer(
+        sessionId: sessionId,
+        sessionQuestionId: question.sessionQuestionId,
+        selectedOptionIndex: selectedOption.index,
+        responseTimeMs: responseTimeMs,
+        usedHint: state.hintState == PracticeHintState.unlocked,
+      );
+      PracticeSessionSummary? summary;
+      if (state.isLastQuestion) {
+        try {
+          summary = await _repository.finishSession(sessionId: sessionId);
+        } catch (_) {
+          summary = result.progress;
+        }
+      }
+
+      state = state.copyWith(
+        status: state.isLastQuestion
+            ? PracticeViewStatus.completed
+            : PracticeViewStatus.ready,
+        isCurrentQuestionSubmitted: true,
+        correctAnswers: result.progress.correctCount,
+        correctOptionIndex: result.correctOptionIndex,
+        answerExplanation: result.explanation,
+        summary: summary,
+        clearQuestionStartedAt: true,
+        clearError: true,
+      );
+      return true;
+    } catch (error) {
+      state = state.copyWith(
+        status: PracticeViewStatus.ready,
+        errorMessage: _messageFor(
+          error,
+          'Jawaban gagal dikirim. Periksa koneksi lalu coba lagi.',
+        ),
+      );
+      return false;
+    }
   }
 
   void nextQuestion() {
-    if (!state.isCurrentQuestionSubmitted) {
+    if (!state.isCurrentQuestionSubmitted || state.isLastQuestion) {
       return;
     }
-
-    if (state.isLastQuestion) {
-      state = state.copyWith(status: PracticeViewStatus.completed);
-      return;
-    }
-
     state = state.copyWith(
       status: PracticeViewStatus.ready,
       currentQuestionIndex: state.currentQuestionIndex + 1,
       hintState: PracticeHintState.locked,
       isCurrentQuestionSubmitted: false,
       resetSelectedOption: true,
+      clearCorrectOption: true,
+      clearAnswerExplanation: true,
+      questionStartedAt: _now(),
       clearError: true,
     );
   }
 
-  void restartSession() {
-    if (state.questions.isEmpty) {
-      return;
+  Future<bool> restartSession() {
+    final String? topicId = state.selectedTopicId;
+    if (topicId == null) {
+      return Future<bool>.value(false);
     }
-
-    state = state.copyWith(
-      status: PracticeViewStatus.ready,
-      currentQuestionIndex: 0,
-      correctAnswers: 0,
-      hintState: PracticeHintState.locked,
-      isCurrentQuestionSubmitted: false,
-      resetSelectedOption: true,
-      clearError: true,
-    );
-  }
-
-  void setHintToWatchAd() {
-    if (state.hintState == PracticeHintState.unlocked) {
-      return;
-    }
-
-    state = state.copyWith(hintState: PracticeHintState.watchAd);
-  }
-
-  void setHintToBuy() {
-    if (state.hintState == PracticeHintState.unlocked) {
-      return;
-    }
-
-    state = state.copyWith(hintState: PracticeHintState.buy);
+    return startSession(topicId);
   }
 
   void unlockHint() {
-    if (state.hintState != PracticeHintState.watchAd &&
-        state.hintState != PracticeHintState.buy) {
+    if (state.status != PracticeViewStatus.ready ||
+        state.isCurrentQuestionSubmitted) {
       return;
     }
-
     state = state.copyWith(hintState: PracticeHintState.unlocked);
   }
 
-  void resetHintState() {
-    if (state.hintState == PracticeHintState.unlocked) {
-      return;
+  PracticeTopic? _findTopic(String topicId) {
+    for (final PracticeTopic topic in state.topics) {
+      if (topic.id == topicId) {
+        return topic;
+      }
     }
+    return null;
+  }
 
-    state = state.copyWith(hintState: PracticeHintState.locked);
+  String _messageFor(Object error, String fallback) {
+    final String message = error.toString().trim();
+    return message.isEmpty ? fallback : message;
   }
 }

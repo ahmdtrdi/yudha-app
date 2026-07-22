@@ -2,10 +2,10 @@ class PracticeOption {
   const PracticeOption({
     required this.id,
     required this.label,
-    required this.isCorrect,
+    required this.index,
   });
 
   final String id;
   final String label;
-  final bool isCorrect;
+  final int index;
 }
