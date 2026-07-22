@@ -1,46 +1,162 @@
 {
-  "profile": {
-    "id": "pertamina",
-    "name": "PT Pertamina (Persero)",
-    "summary": "Pertamina adalah BUMN energi yang menjalankan bisnis energi terintegrasi dari hulu hingga hilir, termasuk eksplorasi dan produksi, pengolahan, distribusi, serta pemasaran produk energi.",
-    "contentVersion": "official-web-2026-06-02",
-    "defaultTargetRole": "Management Trainee"
+  "company_name": "PT Pertamina (Persero)",
+  "overview": {
+    "description": "PT Pertamina (Persero) adalah perusahaan energi terintegrasi milik negara Indonesia yang beroperasi dari hulu hingga hilir, termasuk pengembangan energi baru dan terbarukan. Lebih dari enam dekade menyediakan energi untuk seluruh Indonesia dan beberapa wilayah luar negeri.",
+    "established_as_holding": "12 Juni 2020",
+    "headquarters": "Gedung Grha Pertamina, Jl. Medan Merdeka Timur No. 11-13, Jakarta 10110, Indonesia",
+    "website": "https://www.pertamina.com",
+    "key_financials": {
+      "revenue_2024": "USD 75.33 Miliar",
+      "profit_2024": "USD 3.13 Miliar",
+      "fortune_global_500_2025": 171,
+      "employees": "Sekitar 43.000 - 44.000 orang"
+    },
+    "slogan": "Energizing You! — Mewujudkan Kedaulatan Energi hingga Pelosok Negeri"
   },
-  "contexts": [
-    {
-      "category": "Vision",
-      "content": "Menjadi perusahaan energi nasional kelas dunia.",
-      "priority": 10
-    },
-    {
-      "category": "Mission",
-      "content": "Menjalankan usaha minyak, gas, serta energi baru dan terbarukan secara terintegrasi berdasarkan prinsip-prinsip komersial yang kuat.",
-      "priority": 20
-    },
-    {
-      "category": "Values",
-      "content": "Pertamina menerapkan core values BUMN AKHLAK: Amanah, Kompeten, Harmonis, Loyal, Adaptif, dan Kolaboratif.",
-      "priority": 30
-    },
-    {
-      "category": "Sustainability",
-      "content": "Pertamina menyatakan komitmen untuk mendukung target Net Zero Emission 2060 atau lebih cepat serta pencapaian Sustainable Development Goals.",
-      "priority": 40
-    },
-    {
-      "category": "Interview focus",
-      "content": "Gunakan konteks perusahaan hanya saat relevan. Untuk tahap awal, gali latar belakang, motivasi, pengalaman umum, kolaborasi, kemampuan belajar, dan alasan kandidat tertarik pada sektor energi.",
-      "priority": 50
-    }
+  "vision": "Menjadi perusahaan energi yang mengedepankan ketahanan, ketersediaan, dan keberlanjutan energi.",
+  "mission": "Menyediakan energi melalui solusi inovatif yang memberi nilai tambah untuk masyarakat.",
+  "history": [
+    "1950-an: Pendirian PT Eksploitasi Tambang Minyak Sumatera Utara oleh TNI AD",
+    "10 Desember 1957: Berubah menjadi PT Permina (Hari Lahir Pertamina)",
+    "1968: Merger menjadi PN Pertamina",
+    "2003: Menjadi PT Pertamina (Persero)",
+    "2005: Perubahan logo",
+    "2006-2007: Transformasi visi dan akuisisi internasional",
+    "2011: Penyempurnaan visi menjadi perusahaan energi nasional kelas dunia",
+    "12 Juni 2020: Transformasi menjadi Holding Company"
   ],
-  "sources": [
-    {
-      "title": "Pertamina Recruitment - About Us",
-      "url": "https://recruitment.pertamina.com/assets/frontend/content/about-us.html"
-    },
-    {
-      "title": "Pertamina Sustainability - CEO Message",
-      "url": "https://sustainability.pertamina.com/ceo-message/"
+  "corporate_culture": {
+    "core_values": "AKHLAK",
+    "description": "Tata Nilai AKHLAK adalah core values utama yang diinternalisasi oleh seluruh Perwira Pertamina.",
+    "values": {
+      "Amanah": "Memegang teguh kepercayaan yang diberikan",
+      "Kompeten": "Terus belajar dan mengembangkan kapabilitas",
+      "Harmonis": "Saling peduli dan menghargai perbedaan",
+      "Loyal": "Berdedikasi dan mengutamakan kepentingan bangsa & negara",
+      "Adaptif": "Terus berinovasi dan antusias menghadapi perubahan",
+      "Kolaboratif": "Membangun kerja sama yang sinergis"
     }
-  ]
+  },
+  "esg": {
+    "rating": "26.9 (Medium Risk)",
+    "commitment": "Net Zero Emission pada 2060 atau lebih cepat",
+    "key_initiatives": [
+      "Program dekarbonisasi bisnis secara menyeluruh",
+      "Pengembangan energi baru dan terbarukan (EBT) termasuk geotermal, solar, dan biofuel",
+      "Pengurangan emisi karbon melalui teknologi hijau dan efisiensi operasional",
+      "Rehabilitasi lahan pasca-operasi dan konservasi lingkungan",
+      "Program sosial dan pemberdayaan masyarakat (Community Development)",
+      "Tata kelola perusahaan yang kuat (Good Corporate Governance)"
+    ],
+    "focus_areas": {
+      "Environmental": "Transisi energi, pengurangan emisi Scope 1, 2, dan 3, pengelolaan limbah, dan keanekaragaman hayati",
+      "Social": "Pengembangan SDM, keselamatan kerja (HSSE), inklusivitas, dan program CSR",
+      "Governance": "Transparansi, anti-korupsi, kepatuhan regulasi, dan etika bisnis"
+    },
+    "performance_note": "Pertamina aktif melaporkan kinerja ESG dalam Sustainability Report tahunan dan mendukung target pemerintah Indonesia dalam Nationally Determined Contribution (NDC)."
+  },
+  "energy_transition_strategy": {
+    "description": "Pertamina menerapkan strategi transisi energi yang ambisius untuk mendukung target Net Zero Emission 2060 sambil tetap menjaga ketahanan energi nasional.",
+    "dual_growth_strategy": "Memaksimalkan bisnis legacy (minyak & gas) sambil mempercepat pengembangan bisnis rendah karbon dan EBT.",
+    "key_pillars": [
+      "Dekarbonisasi operasi hulu hingga hilir",
+      "Pengembangan portofolio EBT yang signifikan",
+      "Penerapan teknologi hijau dan Carbon Capture Utilization & Storage (CCUS)",
+      "Produksi biofuel dan Sustainable Aviation Fuel (SAF)",
+      "Peningkatan kapasitas geotermal dan energi surya",
+      "Pengembangan hydrogen dan ammonia sebagai energi masa depan",
+      "Kolaborasi dengan mitra internasional untuk transfer teknologi dan pendanaan"
+    ],
+    "focus_areas": {
+      "Geothermal": "Melalui PT Pertamina Geothermal Energy (PGE) sebagai salah satu pilar utama EBT",
+      "Solar_and_Wind": "Pengembangan pembangkit listrik tenaga surya dan angin",
+      "Bioenergy": "Produksi biodiesel, bioetanol, dan SAF",
+      "New_Energy": "Hydrogen, ammonia, dan baterai penyimpanan energi",
+      "Carbon_Management": "CCUS dan program offset emisi"
+    },
+    "targets": "Meningkatkan porsi EBT secara signifikan dalam portofolio energi Pertamina sesuai dengan target nasional dan komitmen global."
+  },
+  "structure": {
+    "holding_role": "Mengelola portofolio, sinergi bisnis, dan program nasional",
+    "subholdings": [
+      {
+        "name": "Upstream Subholding",
+        "company": "PT Pertamina Hulu Energi (PHE)",
+        "focus": "Eksplorasi, pengembangan, dan produksi migas domestik & internasional",
+        "key_subsidiaries": [
+          "PT Pertamina EP",
+          "PT Pertamina Geothermal Energy (PGE)",
+          "PT Pertamina International Exploration & Production",
+          "Blok ONWJ, Mahakam, dll."
+        ]
+      },
+      {
+        "name": "Refining & Petrochemical Subholding",
+        "company": "PT Kilang Pertamina Internasional (KPI)",
+        "focus": "Pengolahan minyak bumi menjadi BBM, pelumas, petrokimia",
+        "key_subsidiaries": [
+          "Kilang Dumai, Plaju, Cilacap, Balikpapan, Balongan",
+          "PT Pertamina Rosneft Pengolahan dan Petrokimia"
+        ]
+      },
+      {
+        "name": "Commercial & Trading Subholding",
+        "company": "PT Pertamina Patra Niaga (PPN)",
+        "focus": "Pemasaran, perdagangan, dan distribusi BBM, LPG, pelumas",
+        "key_subsidiaries": [
+          "Jaringan SPBU & Pertashop",
+          "PT Elnusa Petrofin"
+        ]
+      },
+      {
+        "name": "Gas Subholding",
+        "company": "PT Perusahaan Gas Negara (PGN)",
+        "focus": "Niaga, transportasi, distribusi gas alam & LNG",
+        "key_subsidiaries": [
+          "PT PGN LNG Indonesia",
+          "PT Saka Energi"
+        ]
+      },
+      {
+        "name": "Power & New Renewable Energy Subholding",
+        "company": "PT Pertamina Power Indonesia (PPI)",
+        "focus": "Pembangkitan listrik dan energi terbarukan",
+        "key_subsidiaries": [
+          "PT Pertamina Geothermal Energy (PGE)",
+          "Proyek PLTU dan EBT"
+        ]
+      },
+      {
+        "name": "Integrated Marine Logistics Subholding",
+        "company": "PT Pertamina International Shipping (PIS)",
+        "focus": "Logistik maritim dan armada tanker",
+        "key_subsidiaries": [
+          "PT Pertamina Trans Kontinental"
+        ]
+      }
+    ]
+  },
+  "key_initiatives": [
+    "Net Zero Emission 2060",
+    "Program Kedaulatan Energi (Pertashop di pelosok)",
+    "Transformasi Digital dan Inovasi",
+    "Pengembangan ESG & Keberlanjutan",
+    "Internalisasi Budaya AKHLAK"
+  ],
+  "products": [
+    "Pertalite",
+    "Pertamax",
+    "Dex",
+    "LPG",
+    "Avtur",
+    "Pelumas",
+    "Petrokimia",
+    "Sustainable Aviation Fuel (SAF)"
+  ],
+  "governance": {
+    "ownership": "100% dimiliki Pemerintah Republik Indonesia",
+    "principles": "Transparansi, akuntabilitas, Good Corporate Governance (GCG)"
+  },
+  "commitment": "Menjadi perusahaan energi global terdepan yang mendukung kemandirian dan transisi energi nasional yang berkelanjutan.",
+  "source": "Situs resmi pertamina.com, laporan tahunan, dan dokumen resmi perusahaan (per 2024-2025)"
 }

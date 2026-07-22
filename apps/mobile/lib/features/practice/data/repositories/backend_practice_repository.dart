@@ -1,183 +1,318 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:yudha_mobile/app/config/app_config.dart';
-import 'package:yudha_mobile/features/practice/data/repositories/mock_practice_repository.dart';
 import 'package:yudha_mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_dashboard.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_option.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_question.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_recent_activity.dart';
+import 'package:yudha_mobile/features/practice/domain/entities/practice_session.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_topic.dart';
-import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
 class PracticeApiConfig {
-  const PracticeApiConfig({this.baseUrl = AppConfig.apiBaseUrl});
+  const PracticeApiConfig({
+    this.baseUrl = AppConfig.apiBaseUrl,
+    this.accessToken,
+    this.requestTimeout = const Duration(seconds: 15),
+  });
 
   final String baseUrl;
+  final String? accessToken;
+  final Duration requestTimeout;
+
+  bool get hasAccessToken => accessToken?.trim().isNotEmpty ?? false;
 }
 
 class BackendPracticeRepository implements PracticeRepository {
   BackendPracticeRepository({
     required PracticeApiConfig config,
     http.Client? client,
-    PracticeRepository? fallbackRepository,
   }) : _config = config,
-       _client = client ?? http.Client(),
-       _fallbackRepository =
-           fallbackRepository ?? const MockPracticeRepository();
+       _client = client ?? http.Client();
 
   final PracticeApiConfig _config;
   final http.Client _client;
-  final PracticeRepository _fallbackRepository;
 
   @override
-  Future<PracticeDashboard> fetchDashboard({
-    required ProfileTarget target,
-  }) async {
-    try {
-      final Uri uri = Uri.parse(
-        '${_config.baseUrl}/practice/dashboard?target=${target.name}',
-      );
-      final Object? decoded = await _getJson(uri);
-      if (decoded is! Map<String, dynamic>) {
-        throw const PracticeApiException(
-          'Practice dashboard returned invalid JSON.',
-        );
-      }
-      return _dashboardFromJson(decoded);
-    } catch (_) {
-      return _fallbackRepository.fetchDashboard(target: target);
-    }
-  }
-
-  @override
-  Future<List<PracticeQuestion>> fetchQuestions({
-    required String topicId,
-  }) async {
-    try {
-      final Uri uri = Uri.parse(
-        '${_config.baseUrl}/practice/topics/$topicId/questions',
-      );
-      final Object? decoded = await _getJson(uri);
-      if (decoded is! List) {
-        throw const PracticeApiException(
-          'Practice questions returned invalid JSON.',
-        );
-      }
-      return decoded
-          .whereType<Map<String, dynamic>>()
-          .map(_questionFromJson)
-          .toList(growable: false);
-    } catch (_) {
-      return _fallbackRepository.fetchQuestions(topicId: topicId);
-    }
-  }
-
-  Future<Object?> _getJson(Uri uri) async {
-    final http.Response response = await _client.get(
-      uri,
-      headers: const <String, String>{'content-type': 'application/json'},
-    );
-    final Object? decoded = response.body.isEmpty
-        ? null
-        : jsonDecode(response.body);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw PracticeApiException(
-        decoded is Map<String, dynamic>
-            ? decoded['message']?.toString() ?? response.reasonPhrase ?? 'Error'
-            : response.reasonPhrase ?? 'Error',
-      );
-    }
-    return decoded;
-  }
-
-  PracticeDashboard _dashboardFromJson(Map<String, dynamic> json) {
+  Future<PracticeDashboard> fetchDashboard() async {
+    final Map<String, dynamic> data = await _get('/practice/dashboard');
+    final Map<String, dynamic> summary = _readMap(data['summary']);
     final List<PracticeTopic> topics =
-        (json['topics'] as List<dynamic>? ?? const <dynamic>[])
+        (data['categories'] as List<dynamic>? ?? const <dynamic>[])
             .whereType<Map<String, dynamic>>()
-            .map(_topicFromJson)
+            .expand(_topicsFromCategory)
             .toList(growable: false);
-    final Map<String, dynamic> questionJson =
-        json['questionOfDay'] as Map<String, dynamic>? ??
-        const <String, dynamic>{};
     final List<PracticeRecentActivity> recentActivities =
-        (json['recentActivities'] as List<dynamic>? ?? const <dynamic>[])
+        (data['recentSessions'] as List<dynamic>? ?? const <dynamic>[])
             .whereType<Map<String, dynamic>>()
             .map(_recentActivityFromJson)
             .toList(growable: false);
 
     return PracticeDashboard(
       topics: topics,
-      questionOfDay: _questionFromJson(questionJson),
-      overallProgressPercent: _readInt(
-        json['overallProgressPercent'],
-      ).clamp(0, 100),
+      overallProgressPercent: _readDouble(
+        summary['averageAccuracy'],
+      ).round().clamp(0, 100),
       recentActivities: recentActivities,
     );
   }
 
-  PracticeTopic _topicFromJson(Map<String, dynamic> json) {
-    return PracticeTopic(
-      id: json['id']?.toString() ?? '',
-      name: json['name']?.toString() ?? '',
-      description: json['description']?.toString() ?? '',
-      groupTitle: json['groupTitle']?.toString() ?? 'Topik Latihan',
-      badgeLabel: json['badgeLabel']?.toString(),
-      questionCount: _readInt(json['questionCount']),
-      isLocked: json['isLocked'] == true,
+  @override
+  Future<PracticeSession> startSession({
+    required String category,
+    String? subcategory,
+  }) async {
+    final Map<String, dynamic> data = await _post(
+      '/practice/sessions',
+      <String, dynamic>{'category': category, 'subcategory': subcategory},
+    );
+    final List<PracticeQuestion> questions =
+        (data['questions'] as List<dynamic>? ?? const <dynamic>[])
+            .whereType<Map<String, dynamic>>()
+            .map(_questionFromJson)
+            .toList(growable: false);
+
+    if (questions.isEmpty) {
+      throw const PracticeApiException(
+        'Server tidak mengembalikan soal untuk sesi ini.',
+      );
+    }
+
+    return PracticeSession(
+      id: data['sessionId']?.toString() ?? '',
+      category: data['category']?.toString() ?? category,
+      subcategory: data['subcategory']?.toString(),
+      totalQuestions: _readInt(data['totalQuestions']),
+      questions: questions,
     );
   }
 
+  @override
+  Future<PracticeAnswerResult> submitAnswer({
+    required String sessionId,
+    required String sessionQuestionId,
+    required int selectedOptionIndex,
+    required int responseTimeMs,
+    required bool usedHint,
+  }) async {
+    final Map<String, dynamic> data =
+        await _post('/practice/sessions/$sessionId/answers', <String, dynamic>{
+          'sessionQuestionId': sessionQuestionId,
+          'selectedOptionIndex': selectedOptionIndex,
+          'responseTimeMs': responseTimeMs,
+          'usedHint': usedHint,
+        });
+
+    final Map<String, dynamic> progress = _readMap(data['progress']);
+    return PracticeAnswerResult(
+      isCorrect: data['isCorrect'] == true,
+      correctOptionIndex: _readInt(data['correctOptionIndex']),
+      explanation: data['explanation']?.toString(),
+      scoreGained: _readInt(data['scoreGained']),
+      progress: PracticeSessionSummary(
+        totalQuestions: _readInt(progress['totalQuestions']),
+        answeredCount: _readInt(progress['answeredCount']),
+        correctCount: _readInt(progress['correctCount']),
+        accuracy: _readDouble(progress['accuracy']),
+        totalScore: _readInt(progress['totalScore']),
+      ),
+    );
+  }
+
+  @override
+  Future<PracticeSessionSummary> finishSession({
+    required String sessionId,
+  }) async {
+    final Map<String, dynamic> data = await _post(
+      '/practice/sessions/$sessionId/finish',
+      const <String, dynamic>{},
+    );
+
+    return PracticeSessionSummary(
+      totalQuestions: _readInt(data['totalQuestions']),
+      answeredCount: _readInt(data['answeredCount']),
+      correctCount: _readInt(data['correctCount']),
+      accuracy: _readDouble(data['accuracy']),
+      totalScore: _readInt(data['totalScore']),
+    );
+  }
+
+  Future<Map<String, dynamic>> _get(String path) async {
+    _ensureAuthenticated();
+    final http.Response response = await _client
+        .get(Uri.parse('${_config.baseUrl}$path'), headers: _headers)
+        .timeout(_config.requestTimeout);
+    return _decodeData(response);
+  }
+
+  Future<Map<String, dynamic>> _post(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    _ensureAuthenticated();
+    final http.Response response = await _client
+        .post(
+          Uri.parse('${_config.baseUrl}$path'),
+          headers: _headers,
+          body: jsonEncode(body),
+        )
+        .timeout(_config.requestTimeout);
+    return _decodeData(response);
+  }
+
+  void _ensureAuthenticated() {
+    if (!_config.hasAccessToken) {
+      throw const PracticeApiException(
+        'Latihan membutuhkan sesi login. Silakan masuk ulang.',
+      );
+    }
+  }
+
+  Map<String, String> get _headers => <String, String>{
+    'authorization': 'Bearer ${_config.accessToken}',
+    'content-type': 'application/json',
+  };
+
+  Map<String, dynamic> _decodeData(http.Response response) {
+    final Object? decoded = response.body.isEmpty
+        ? const <String, dynamic>{}
+        : jsonDecode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final String message = decoded is Map<String, dynamic>
+          ? decoded['message']?.toString() ?? response.reasonPhrase ?? 'Error'
+          : response.reasonPhrase ?? 'Error';
+      throw PracticeApiException(message);
+    }
+    if (decoded is! Map<String, dynamic> ||
+        decoded['data'] is! Map<String, dynamic>) {
+      throw const PracticeApiException(
+        'Practice API mengembalikan data yang tidak valid.',
+      );
+    }
+    return decoded['data'] as Map<String, dynamic>;
+  }
+
+  Iterable<PracticeTopic> _topicsFromCategory(Map<String, dynamic> json) {
+    final String category = json['category']?.toString() ?? '';
+    final String label = _humanizeIdentifier(
+      json['label']?.toString() ?? category,
+    );
+    final List<Map<String, dynamic>> subcategories =
+        (json['subcategories'] as List<dynamic>? ?? const <dynamic>[])
+            .whereType<Map<String, dynamic>>()
+            .toList(growable: false);
+
+    if (subcategories.isEmpty) {
+      return <PracticeTopic>[
+        PracticeTopic(
+          id: category,
+          category: category,
+          name: label,
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'KATEGORI LATIHAN',
+          badgeLabel: _humanizeIdentifier(category),
+          questionCount: _readInt(json['availableQuestions']),
+        ),
+      ];
+    }
+
+    return subcategories.map((Map<String, dynamic> item) {
+      final String subcategory = item['subcategory']?.toString() ?? '';
+      return PracticeTopic(
+        id: '$category::$subcategory',
+        category: category,
+        subcategory: subcategory,
+        name: _humanizeIdentifier(subcategory),
+        description: 'Sesi latihan dengan 5 soal.',
+        groupTitle: label.toUpperCase(),
+        badgeLabel: _humanizeIdentifier(category),
+        questionCount: _readInt(item['availableQuestions']),
+      );
+    });
+  }
+
   PracticeQuestion _questionFromJson(Map<String, dynamic> json) {
+    final String category = json['category']?.toString() ?? '';
+    final String? subcategory = json['subcategory']?.toString();
+    final List<dynamic> rawOptions =
+        json['options'] as List<dynamic>? ?? const <dynamic>[];
+
     return PracticeQuestion(
-      id: json['id']?.toString() ?? '',
-      topicId: json['topicId']?.toString() ?? '',
-      topicName: json['topicName']?.toString() ?? '',
+      id: json['questionId']?.toString() ?? '',
+      sessionQuestionId: json['sessionQuestionId']?.toString() ?? '',
+      topicId: subcategory == null ? category : '$category::$subcategory',
+      topicName: _humanizeIdentifier(subcategory ?? category),
       prompt: json['prompt']?.toString() ?? '',
+      options: List<PracticeOption>.generate(rawOptions.length, (int index) {
+        final Object? rawOption = rawOptions[index];
+        final String label = rawOption is Map<String, dynamic>
+            ? rawOption['label']?.toString() ?? ''
+            : rawOption?.toString() ?? '';
+        return PracticeOption(id: index.toString(), label: label, index: index);
+      }, growable: false),
       hint: json['hint']?.toString() ?? '',
-      isQuestionOfDay: json['isQuestionOfDay'] == true,
-      options: (json['options'] as List<dynamic>? ?? const <dynamic>[])
-          .whereType<Map<String, dynamic>>()
-          .map(
-            (Map<String, dynamic> option) => PracticeOption(
-              id: option['id']?.toString() ?? '',
-              label: option['label']?.toString() ?? '',
-              isCorrect: option['isCorrect'] == true,
-            ),
-          )
-          .toList(growable: false),
+      questionOrder: _readInt(json['questionOrder']),
+      timeLimitSeconds: _readInt(json['timeLimitSeconds']),
     );
   }
 
   PracticeRecentActivity _recentActivityFromJson(Map<String, dynamic> json) {
+    final String category = json['category']?.toString() ?? 'Latihan';
+    final String? subcategory = json['subcategory']?.toString();
+    final int answered = _readInt(json['answeredCount']);
+    final int total = _readInt(json['totalQuestions']);
     return PracticeRecentActivity(
-      type: _recentActivityTypeFromName(json['type']?.toString()),
-      title: json['title']?.toString() ?? '',
-      subtitle: json['subtitle']?.toString() ?? '',
-      scoreLabel: json['scoreLabel']?.toString() ?? '',
+      type: PracticeRecentActivityType.quiz,
+      title: subcategory == null
+          ? _humanizeIdentifier(category)
+          : '${_humanizeIdentifier(category)} - '
+                '${_humanizeIdentifier(subcategory)}',
+      subtitle: '$answered dari $total soal',
+      scoreLabel: '${_readDouble(json['accuracy']).round()}%',
     );
   }
 
-  PracticeRecentActivityType _recentActivityTypeFromName(String? name) {
-    return switch (name) {
-      'insight' => PracticeRecentActivityType.insight,
-      'interview' => PracticeRecentActivityType.interview,
-      _ => PracticeRecentActivityType.quiz,
-    };
+  Map<String, dynamic> _readMap(Object? value) {
+    return value is Map<String, dynamic> ? value : const <String, dynamic>{};
   }
 
   int _readInt(Object? value) {
-    if (value is int) {
-      return value;
-    }
     if (value is num) {
       return value.toInt();
     }
-    if (value is String) {
-      return int.tryParse(value) ?? 0;
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  double _readDouble(Object? value) {
+    if (value is num) {
+      return value.toDouble();
     }
-    return 0;
+    return double.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  String _humanizeIdentifier(String value) {
+    const Set<String> acronyms = <String>{
+      'akhlak',
+      'bumn',
+      'cpns',
+      'tiu',
+      'tkp',
+      'twk',
+    };
+    return value
+        .trim()
+        .split(RegExp(r'[-_\s]+'))
+        .where((String part) => part.isNotEmpty)
+        .map((String part) {
+          final String lowercase = part.toLowerCase();
+          if (acronyms.contains(lowercase)) {
+            return lowercase.toUpperCase();
+          }
+          return '${lowercase[0].toUpperCase()}${lowercase.substring(1)}';
+        })
+        .join(' ');
   }
 }
 

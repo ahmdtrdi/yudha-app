@@ -47,6 +47,7 @@ export class ElevenLabsTtsService implements InterviewSpeechSynthesisClient {
     input: InterviewSpeechSynthesisInput,
   ): Promise<InterviewSpeechSynthesisResult> {
     try {
+      const startedAt = Date.now();
       const response = await fetch(
         `${this.baseUrl}/text-to-speech/${this.voiceId}?output_format=${this.outputFormat}`,
         {
@@ -73,6 +74,11 @@ export class ElevenLabsTtsService implements InterviewSpeechSynthesisClient {
           'Speech synthesis is temporarily unavailable.',
         );
       }
+
+      const latencyMs = Date.now() - startedAt;
+      this.logger.log(
+        `🔊 [TTS METRICS] Provider: ElevenLabs (${this.modelId}) | Latency: ${latencyMs}ms | Characters: ${input.text.length}`,
+      );
 
       return {
         audio: Buffer.from(await response.arrayBuffer()),

@@ -7,77 +7,104 @@ import 'package:yudha_mobile/features/practice/domain/entities/practice_dashboar
 import 'package:yudha_mobile/features/practice/domain/entities/practice_option.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_question.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_recent_activity.dart';
+import 'package:yudha_mobile/features/practice/domain/entities/practice_session.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_topic.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_page.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_quiz_page.dart';
-import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
 class _SuccessPracticeRepository implements PracticeRepository {
   const _SuccessPracticeRepository();
 
+  static const PracticeTopic topic = PracticeTopic(
+    id: 'TIU::Logika',
+    category: 'TIU',
+    subcategory: 'Logika',
+    name: 'Logika',
+    description: 'Sesi latihan dengan 5 soal.',
+    groupTitle: 'TIU - INTELEGENSIA UMUM',
+    badgeLabel: 'TIU',
+    questionCount: 12,
+  );
+
+  static const PracticeQuestion question = PracticeQuestion(
+    id: 'q1',
+    sessionQuestionId: 'sq1',
+    topicId: 'TIU::Logika',
+    topicName: 'Logika',
+    prompt: 'Find the odd one out: 2, 3, 5, 9, 11',
+    hint: 'Only one number is not prime.',
+    options: <PracticeOption>[
+      PracticeOption(id: '0', label: '3', index: 0),
+      PracticeOption(id: '1', label: '5', index: 1),
+      PracticeOption(id: '2', label: '9', index: 2),
+      PracticeOption(id: '3', label: '11', index: 3),
+    ],
+    questionOrder: 1,
+    timeLimitSeconds: 60,
+  );
+
   @override
-  Future<PracticeDashboard> fetchDashboard({
-    required ProfileTarget target,
-  }) async {
+  Future<PracticeDashboard> fetchDashboard() async {
     return const PracticeDashboard(
-      topics: <PracticeTopic>[
-        PracticeTopic(
-          id: 'logic',
-          name: 'Logic',
-          description: 'Pattern recognition.',
-          groupTitle: 'TWK - WAWASAN KEBANGSAAN',
-          badgeLabel: 'TWK',
-          questionCount: 12,
-        ),
-      ],
-      questionOfDay: PracticeQuestion(
-        id: 'qod',
-        topicId: 'logic',
-        topicName: 'Logic',
-        prompt: 'Question of the Day: Next in 2, 4, 8, ...?',
-        hint: 'Multiply by 2 each step.',
-        isQuestionOfDay: true,
-        options: <PracticeOption>[
-          PracticeOption(id: 'a', label: '12', isCorrect: false),
-          PracticeOption(id: 'b', label: '16', isCorrect: true),
-        ],
-      ),
+      topics: <PracticeTopic>[topic],
       overallProgressPercent: 28,
-      recentActivities: <PracticeRecentActivity>[
-        PracticeRecentActivity(
-          type: PracticeRecentActivityType.quiz,
-          title: 'TWK - Pancasila',
-          subtitle: '15 soal - 2 hari lalu',
-          scoreLabel: '80%',
-        ),
-      ],
+      recentActivities: <PracticeRecentActivity>[],
     );
   }
 
   @override
-  Future<List<PracticeQuestion>> fetchQuestions({
-    required String topicId,
+  Future<PracticeSession> startSession({
+    required String category,
+    String? subcategory,
   }) async {
-    return const <PracticeQuestion>[
-      PracticeQuestion(
-        id: 'q1',
-        topicId: 'logic',
-        topicName: 'Logic',
-        prompt: 'Find the odd one out: 2, 3, 5, 9, 11',
-        hint: 'Only one number is not prime.',
-        options: <PracticeOption>[
-          PracticeOption(id: 'a', label: '3', isCorrect: false),
-          PracticeOption(id: 'b', label: '5', isCorrect: false),
-          PracticeOption(id: 'c', label: '9', isCorrect: true),
-          PracticeOption(id: 'd', label: '11', isCorrect: false),
-        ],
+    return const PracticeSession(
+      id: 'session-1',
+      category: 'TIU',
+      subcategory: 'Logika',
+      totalQuestions: 1,
+      questions: <PracticeQuestion>[question],
+    );
+  }
+
+  @override
+  Future<PracticeAnswerResult> submitAnswer({
+    required String sessionId,
+    required String sessionQuestionId,
+    required int selectedOptionIndex,
+    required int responseTimeMs,
+    required bool usedHint,
+  }) async {
+    return const PracticeAnswerResult(
+      isCorrect: true,
+      correctOptionIndex: 2,
+      explanation: 'Nine is not a prime number.',
+      scoreGained: 10,
+      progress: PracticeSessionSummary(
+        totalQuestions: 1,
+        answeredCount: 1,
+        correctCount: 1,
+        accuracy: 100,
+        totalScore: 10,
       ),
-    ];
+    );
+  }
+
+  @override
+  Future<PracticeSessionSummary> finishSession({
+    required String sessionId,
+  }) async {
+    return const PracticeSessionSummary(
+      totalQuestions: 1,
+      answeredCount: 1,
+      correctCount: 1,
+      accuracy: 100,
+      totalScore: 10,
+    );
   }
 }
 
 void main() {
-  testWidgets('renders practice dashboard layout successfully', (
+  testWidgets('renders practice dashboard from repository data', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -94,13 +121,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('LATIHAN'), findsOneWidget);
-    expect(find.text('CPNS'), findsOneWidget);
     expect(find.text('Progress CPNS'), findsOneWidget);
     expect(find.text('Latihan Interview AI'), findsOneWidget);
-    expect(find.text('TWK - WAWASAN KEBANGSAAN'), findsOneWidget);
+    expect(find.text('TIU - INTELEGENSIA UMUM'), findsOneWidget);
+    expect(find.text('TANTANGAN HARIAN'), findsNothing);
   });
 
-  testWidgets('renders practice quiz page and transforms hint', (
+  testWidgets('renders server session and unlocks its hint', (
     WidgetTester tester,
   ) async {
     final ProviderContainer container = ProviderContainer(
@@ -111,10 +138,10 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
-
-    final controller = container.read(practiceControllerProvider.notifier);
-    await controller.load();
-    controller.startQuestionOfDay();
+    await container.read(practiceControllerProvider.notifier).reload();
+    await container
+        .read(practiceControllerProvider.notifier)
+        .startSession(_SuccessPracticeRepository.topic.id);
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -122,20 +149,14 @@ void main() {
         child: const MaterialApp(home: PracticeQuizPage()),
       ),
     );
-
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
 
     expect(find.text('Lihat petunjuk'), findsOneWidget);
     expect(find.text('KONFIRMASI'), findsOneWidget);
-    expect(find.text('-5 poin'), findsOneWidget);
-
     await tester.tap(find.text('Lihat petunjuk'));
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
 
     expect(find.text('PETUNJUK'), findsOneWidget);
-    expect(find.text('Multiply by 2 each step.'), findsOneWidget);
-    expect(find.text('Lihat petunjuk'), findsNothing);
-
-    await tester.pumpWidget(const SizedBox.shrink());
+    expect(find.text('Only one number is not prime.'), findsOneWidget);
   });
 }

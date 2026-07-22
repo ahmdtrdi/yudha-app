@@ -31,15 +31,20 @@ class PracticePage extends ConsumerWidget {
     );
 
     Future<void> openQuiz(String topicId) async {
-      await controller.selectTopic(topicId);
-      if (context.mounted) {
-        context.push(AppRoutes.practiceQuiz);
+      final bool started = await controller.startSession(topicId);
+      if (!context.mounted) {
+        return;
       }
-    }
-
-    void openDailyChallenge() {
-      controller.startQuestionOfDay();
-      context.push(AppRoutes.practiceQuiz);
+      if (started) {
+        context.push(AppRoutes.practiceQuiz);
+        return;
+      }
+      final String message =
+          ref.read(practiceControllerProvider).errorMessage ??
+          'Gagal memulai sesi latihan.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
 
     void openInterviewPractice() {
@@ -101,17 +106,6 @@ class PracticePage extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      _HeroChallengeCard(
-                        isCpns: isCpns,
-                        question:
-                            state.questionOfDay?.prompt ??
-                            'Memuat tantangan hari ini...',
-                        tags:
-                            state.questionOfDay?.topicName ??
-                            (isCpns ? 'TIU - Numerik' : 'Logika - Pola'),
-                        onStart: openDailyChallenge,
-                      ),
-                      const SizedBox(height: 24),
                       _OverallProgress(
                         label: isCpns ? 'Progress CPNS' : 'Progress BUMN',
                         progressPercent: state.overallProgressPercent,
@@ -218,95 +212,6 @@ class _PracticeErrorView extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _HeroChallengeCard extends StatelessWidget {
-  const _HeroChallengeCard({
-    required this.isCpns,
-    required this.question,
-    required this.tags,
-    required this.onStart,
-  });
-
-  final bool isCpns;
-  final String question;
-  final String tags;
-  final VoidCallback onStart;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isCpns ? AppColors.warriorNavy : AppColors.levelUpTeal,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: (isCpns ? AppColors.warriorNavy : AppColors.levelUpTeal)
-                .withAlpha(60),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            'TANTANGAN HARIAN',
-            style: GoogleFonts.orbitron(
-              color: Colors.white.withAlpha(200),
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.5,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            question,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            tags,
-            style: TextStyle(
-              color: Colors.white.withAlpha(200),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: onStart,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: isCpns
-                  ? AppColors.warriorNavy
-                  : AppColors.levelUpTeal,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-            label: const Text(
-              'Mulai Tantangan',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-            ),
-          ),
-        ],
       ),
     );
   }

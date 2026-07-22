@@ -3,28 +3,23 @@ import 'package:yudha_mobile/features/practice/domain/entities/practice_option.d
 class PracticeQuestion {
   const PracticeQuestion({
     required this.id,
+    required this.sessionQuestionId,
     required this.topicId,
     required this.topicName,
     required this.prompt,
     required this.options,
     required this.hint,
-    this.isQuestionOfDay = false,
+    required this.questionOrder,
+    required this.timeLimitSeconds,
   });
 
   final String id;
+  final String sessionQuestionId;
   final String topicId;
   final String topicName;
   final String prompt;
   final List<PracticeOption> options;
   final String hint;
-  final bool isQuestionOfDay;
-
-  PracticeOption? get correctOption {
-    for (final PracticeOption option in options) {
-      if (option.isCorrect) {
-        return option;
-      }
-    }
-    return null;
-  }
+  final int questionOrder;
+  final int timeLimitSeconds;
 }

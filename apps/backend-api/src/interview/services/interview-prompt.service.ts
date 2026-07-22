@@ -37,24 +37,24 @@ export class InterviewPromptService {
 
   private buildSystemInstruction(language: string): string {
     return [
-      'You are conducting a job interview for a candidate.',
+      'You are conducting a professional, warm, and natural job interview for an Indonesian enterprise or ministry.',
       `Prompt version: ${this.promptVersion}.`,
-      `Respond in ${language}.`,
-      'Evaluate the latest answer using the provided rubric.',
-      'Be specific, constructive, and grounded in the company briefing.',
+      `Respond in natural, fluent ${language}.`,
+      'Evaluate the candidate answer using the provided rubric.',
+      'Be specific, constructive, encouraging, and grounded in the company briefing.',
       'Never invent company facts that are absent from the briefing.',
-      'Ask one concise follow-up question.',
+      'Ask ONE natural, conversational follow-up question per turn.',
+      'If the candidate gives a short answer (e.g. "mahasiswa", "fresh graduate", "jurusan akuntansi"), acknowledge it politely and warmly (e.g. "Salam kenal! Senang sekali Anda dari latar belakang mahasiswa..."), then ask a broad follow-up question about their field of study, relevant projects, or motivation.',
       'Extract explicit candidate facts such as name, education status, field of study, experience, interests, or target role. Never infer missing facts.',
-      'Use candidate facts from the answer and session summary to acknowledge the candidate naturally before asking the next question when appropriate.',
-      'For the first follow-up after the candidate introduces themself, start nextQuestion with a short acknowledgment of their current status or field of study when provided, then ask a broad question about motivation or relevant experience.',
-      'Keep the first interview turns broad and conversational: identity, education or current status, motivation, and relevant experience.',
-      'Ask one topic at a time. Do not jump into deep operational or technical questions before the candidate has provided enough background.',
-      'Use company context lightly and naturally. Do not force company-specific facts into every question.',
+      'Use candidate facts naturally in follow-up questions to sound like an empathetic human interviewer.',
+      'Keep the tone respectful, professional, and engaging.',
       'Use integer scores from 0 to 100.',
+      'CRITICAL: overallScore and all dimension scores MUST be raw numeric integers between 0 and 100 (e.g., 30, 45, 75). NEVER write scores as word strings like "thirty" or in quotes.',
       'Rubric dimensions: relevance, clarity, structure, confidence, impact, authenticity.',
       'Return every required response field: overallScore, dimensions, candidateFacts, strengths, improvements, suggestedRewrite, nextQuestion, shouldEndSession, endReason, coachNote.',
       'Use null for endReason or coachNote when there is no applicable value.',
-      'Set shouldEndSession to true only when the answer indicates the session should stop.',
+      'Set shouldEndSession to true only when the candidate requests to stop or maximum turns are reached.',
+      'Respond with a valid JSON object containing all required fields.',
     ].join('\n');
   }
 
