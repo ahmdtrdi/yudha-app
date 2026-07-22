@@ -83,6 +83,44 @@ void main() {
       );
     });
 
+    test('wrong answer replaces only the player card that was used', () {
+      const BattleQuestion usedQuestion = BattleQuestion(
+        id: 'q-used',
+        prompt: 'Used',
+        options: <String>['A', 'B'],
+        correctOptionIndex: 0,
+        weight: 1,
+        effect: QuestionEffect.damage,
+      );
+      const BattleQuestion retainedQuestion = BattleQuestion(
+        id: 'q-retained',
+        prompt: 'Retained',
+        options: <String>['A', 'B'],
+        correctOptionIndex: 0,
+        weight: 1,
+        effect: QuestionEffect.damage,
+      );
+      final BattleState initial = BattleState.initial().copyWith(
+        phase: BattlePhase.inBattle,
+        availableQuestions: const <BattleQuestion>[
+          usedQuestion,
+          retainedQuestion,
+        ],
+      );
+
+      final BattleState resolved = BattleStateMachine.resolveTurn(
+        state: initial,
+        question: usedQuestion,
+        selectedOptionIndex: 1,
+      );
+
+      expect(
+        resolved.availableQuestions.map((question) => question.id),
+        equals(<String>[retainedQuestion.id]),
+      );
+      expect(resolved.answeredQuestionIds, contains(usedQuestion.id));
+    });
+
     test('recycles the final player card while battle remains active', () {
       const BattleQuestion finalQuestion = BattleQuestion(
         id: 'q-final-player',
@@ -112,7 +150,7 @@ void main() {
       expect(resolved.answeredQuestionIds, isEmpty);
     });
 
-    test('recycles the final bot card while battle remains active', () {
+    test('opponent attack preserves every player card', () {
       const BattleQuestion finalQuestion = BattleQuestion(
         id: 'q-final-bot',
         prompt: 'Final bot question',
@@ -125,6 +163,7 @@ void main() {
       final BattleState initial = BattleState.initial().copyWith(
         phase: BattlePhase.inBattle,
         availableQuestions: const <BattleQuestion>[finalQuestion],
+        answeredQuestionIds: const <String>['q-before'],
       );
 
       final BattleState resolved = BattleStateMachine.resolveOpponentTurn(
@@ -133,10 +172,9 @@ void main() {
       );
 
       expect(resolved.phase, BattlePhase.inBattle);
-      expect(resolved.availableQuestions, hasLength(1));
-      expect(resolved.availableQuestions.single.prompt, finalQuestion.prompt);
-      expect(resolved.availableQuestions.single.id, isNot(finalQuestion.id));
-      expect(resolved.answeredQuestionIds, isEmpty);
+      expect(resolved.availableQuestions, same(initial.availableQuestions));
+      expect(resolved.availableQuestions.single.id, finalQuestion.id);
+      expect(resolved.answeredQuestionIds, initial.answeredQuestionIds);
     });
   });
 }

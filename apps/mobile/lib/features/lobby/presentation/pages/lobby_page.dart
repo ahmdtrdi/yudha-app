@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
+import 'package:yudha_mobile/features/economy/application/game_economy_providers.dart';
+import 'package:yudha_mobile/features/economy/presentation/widgets/economy_widgets.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 
 class LobbyPage extends ConsumerWidget {
@@ -15,7 +17,31 @@ class LobbyPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.surfaceLight,
-      appBar: AppBar(title: Text('YUDHA', style: GoogleFonts.orbitron())),
+      appBar: AppBar(
+        title: Text('YUDHA', style: GoogleFonts.orbitron()),
+        actions: <Widget>[
+          Center(
+            child: YCoinBalanceChip(
+              balance: ref.watch(
+                gameEconomyProvider.select((state) => state.yCoins),
+              ),
+              onTap: () => showYCoinTopUpSheet(context),
+              dark: true,
+            ),
+          ),
+          IconButton(
+            onPressed: () => context.push(AppRoutes.hiredPass),
+            tooltip: 'Hired Pass',
+            icon: const Icon(Icons.workspace_premium_rounded),
+          ),
+          IconButton(
+            onPressed: () => context.push(AppRoutes.store),
+            tooltip: 'Store',
+            icon: const Icon(Icons.storefront_rounded),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (BuildContext context, BoxConstraints constraints) {
@@ -137,7 +163,9 @@ class _LobbyHeroCard extends StatelessWidget {
                 child: _HeroPill(label: 'Winrate', value: winRateLabel),
               ),
               const SizedBox(width: 10),
-              Expanded(child: _HeroPill(label: 'Streak', value: '$streak')),
+              Expanded(
+                child: _HeroPill(label: 'Streak', value: '$streak'),
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: _HeroPill(label: 'Points', value: '$totalPoints'),

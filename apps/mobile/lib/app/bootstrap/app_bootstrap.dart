@@ -26,7 +26,7 @@ abstract final class AppBootstrap {
         if (AppConfig.hasSupabaseConfig) {
           await Supabase.initialize(
             url: AppConfig.supabaseUrl,
-            anonKey: AppConfig.supabasePublishableKey,
+            publishableKey: AppConfig.supabasePublishableKey,
           );
         } else {
           log(

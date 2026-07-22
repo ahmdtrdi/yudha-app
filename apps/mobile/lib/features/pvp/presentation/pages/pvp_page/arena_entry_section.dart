@@ -3,88 +3,103 @@ part of '../pvp_page.dart';
 class _ArenaEntrySection extends StatelessWidget {
   const _ArenaEntrySection({
     required this.playerDisplayName,
+    required this.economy,
+    required this.selectedCharacter,
+    required this.selectedArena,
+    required this.onSelectCosmetic,
+    required this.onOpenStore,
+    required this.onTopUp,
     required this.onEnterArena,
   });
 
   final String playerDisplayName;
+  final GameEconomyState economy;
+  final CosmeticItem selectedCharacter;
+  final CosmeticItem selectedArena;
+  final ValueChanged<CosmeticItem> onSelectCosmetic;
+  final VoidCallback onOpenStore;
+  final VoidCallback onTopUp;
   final VoidCallback onEnterArena;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final bool compact = constraints.maxHeight < 650;
+        final bool compact = constraints.maxHeight < 690;
         final String trimmedName = playerDisplayName.trim();
         final String firstName = trimmedName.isEmpty
             ? 'Kamu'
             : trimmedName.split(RegExp(r'\s+')).first;
 
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFF8EC),
-            borderRadius: BorderRadius.circular(28),
-          ),
-          child: SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(
-              16,
-              compact ? 14 : 18,
-              16,
-              compact ? 14 : 18,
+        return SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(2, compact ? 2 : 6, 2, 4),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: max<double>(0, constraints.maxHeight - 8),
             ),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: max<double>(
-                  0,
-                  constraints.maxHeight - (compact ? 28 : 36),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                _EntryTopBar(
+                  balance: economy.yCoins,
+                  onTopUp: onTopUp,
+                  onOpenStore: onOpenStore,
                 ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      const _EntryEyebrow(),
-                      SizedBox(height: compact ? 10 : 14),
-                      Text(
-                        'Siap rebut arena,\n$firstName?',
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.fredoka(
-                          color: const Color(0xFF17233F),
-                          fontSize: compact ? 27 : 31,
-                          height: 1.04,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 7),
-                      Text(
-                        'Pilih kartu terbaikmu, jawab soal, lalu lihat seranganmu melesat.',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.dmSans(
-                          color: const Color(0xFF667085),
-                          fontSize: compact ? 12.5 : 13.5,
-                          height: 1.35,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      SizedBox(height: compact ? 12 : 18),
-                      _EntryArenaDiorama(
-                        playerName: firstName,
-                        compact: compact,
-                      ),
-                    ],
+                SizedBox(height: compact ? 10 : 14),
+                Text(
+                  'Siapkan loadout, $firstName',
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.fredoka(
+                    color: const Color(0xFF17233F),
+                    fontSize: compact ? 25 : 29,
+                    height: 1.05,
+                    fontWeight: FontWeight.w700,
                   ),
-                  SizedBox(height: compact ? 12 : 18),
-                  const _EntryGameLoopStrip(),
-                  SizedBox(height: compact ? 14 : 20),
-                  _EntryPrimaryButton(onPressed: onEnterArena),
-                ],
-              ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Pilih karakter dan arena sebelum mencari lawan.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.dmSans(
+                    color: const Color(0xFF667085),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: compact ? 10 : 14),
+                _EntryLoadoutDiorama(
+                  selectedCharacter: selectedCharacter,
+                  selectedArena: selectedArena,
+                  compact: compact,
+                ),
+                SizedBox(height: compact ? 11 : 15),
+                _LoadoutSelector(
+                  title: 'Karakter',
+                  icon: Icons.person_rounded,
+                  items: GameEconomyCatalog.characters,
+                  selectedId: selectedCharacter.id,
+                  economy: economy,
+                  onSelect: onSelectCosmetic,
+                  onLockedTap: onOpenStore,
+                  compact: compact,
+                ),
+                SizedBox(height: compact ? 9 : 12),
+                _LoadoutSelector(
+                  title: 'Arena',
+                  icon: Icons.stadium_rounded,
+                  items: GameEconomyCatalog.arenas,
+                  selectedId: selectedArena.id,
+                  economy: economy,
+                  onSelect: onSelectCosmetic,
+                  onLockedTap: onOpenStore,
+                  compact: compact,
+                ),
+                SizedBox(height: compact ? 12 : 18),
+                _EntryPrimaryButton(onPressed: onEnterArena),
+              ],
             ),
           ),
         );
@@ -93,57 +108,85 @@ class _ArenaEntrySection extends StatelessWidget {
   }
 }
 
-class _EntryEyebrow extends StatelessWidget {
-  const _EntryEyebrow();
+class _EntryTopBar extends StatelessWidget {
+  const _EntryTopBar({
+    required this.balance,
+    required this.onTopUp,
+    required this.onOpenStore,
+  });
+
+  final int balance;
+  final VoidCallback onTopUp;
+  final VoidCallback onOpenStore;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFE8B0),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            const Icon(
-              Icons.stadium_rounded,
-              size: 15,
-              color: Color(0xFF9A6413),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              'YUDHA ARENA',
-              style: GoogleFonts.dmSans(
-                color: const Color(0xFF865710),
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.1,
+    return Row(
+      children: <Widget>[
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFE8B0),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const Icon(
+                Icons.shield_rounded,
+                size: 15,
+                color: Color(0xFF9A6413),
               ),
-            ),
-          ],
+              const SizedBox(width: 5),
+              Text(
+                'PVP LOADOUT',
+                style: GoogleFonts.dmSans(
+                  color: const Color(0xFF865710),
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+        const Spacer(),
+        YCoinBalanceChip(balance: balance, onTap: onTopUp),
+        const SizedBox(width: 6),
+        IconButton.filledTonal(
+          key: const ValueKey<String>('pvp-open-store'),
+          onPressed: onOpenStore,
+          tooltip: 'Buka Store',
+          style: IconButton.styleFrom(
+            minimumSize: const Size(38, 38),
+            foregroundColor: AppColors.warriorNavy,
+            backgroundColor: Colors.white,
+          ),
+          icon: const Icon(Icons.storefront_rounded, size: 20),
+        ),
+      ],
     );
   }
 }
 
-class _EntryArenaDiorama extends StatelessWidget {
-  const _EntryArenaDiorama({required this.playerName, required this.compact});
+class _EntryLoadoutDiorama extends StatelessWidget {
+  const _EntryLoadoutDiorama({
+    required this.selectedCharacter,
+    required this.selectedArena,
+    required this.compact,
+  });
 
-  final String playerName;
+  final CosmeticItem selectedCharacter;
+  final CosmeticItem selectedArena;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: compact ? 154 : 184,
+      height: compact ? 142 : 168,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF4E9),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0xFFE0D9C9)),
         boxShadow: const <BoxShadow>[
           BoxShadow(
@@ -156,70 +199,83 @@ class _EntryArenaDiorama extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: <Widget>[
-          CustomPaint(painter: _EntryArenaDioramaPainter()),
-          Positioned(
-            left: 5,
-            bottom: compact ? 5 : 3,
-            width: compact ? 108 : 126,
-            height: compact ? 120 : 146,
-            child: Image.asset(
-              _playerAvatarAsset,
-              fit: BoxFit.contain,
-              alignment: Alignment.bottomCenter,
-              semanticLabel: 'Karakter pemain',
-            ),
-          ),
-          Positioned(
-            right: 5,
-            bottom: compact ? 5 : 3,
-            width: compact ? 108 : 126,
-            height: compact ? 120 : 146,
-            child: Image.asset(
-              _enemyAvatarAsset,
-              fit: BoxFit.contain,
-              alignment: Alignment.bottomCenter,
-              semanticLabel: 'Karakter rival',
-            ),
-          ),
-          Align(
-            child: Container(
-              width: compact ? 48 : 54,
-              height: compact ? 48 : 54,
+          CosmeticPreview(item: selectedArena),
+          Positioned.fill(
+            child: DecoratedBox(
               decoration: BoxDecoration(
-                color: const Color(0xFFFFC857),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 4),
-                boxShadow: const <BoxShadow>[
-                  BoxShadow(
-                    color: Color(0x337C5613),
-                    blurRadius: 0,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                'VS',
-                style: GoogleFonts.fredoka(
-                  color: const Color(0xFF51390D),
-                  fontSize: compact ? 17 : 19,
-                  fontWeight: FontWeight.w800,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: <Color>[
+                    Colors.white.withAlpha(10),
+                    const Color(0xAA17233F),
+                  ],
+                  stops: const <double>[0.48, 1],
                 ),
               ),
             ),
           ),
           Positioned(
             left: 12,
-            bottom: 10,
-            child: _EntrySideLabel(
-              label: playerName,
-              color: const Color(0xFF2878F0),
-            ),
+            bottom: 0,
+            width: compact ? 126 : 150,
+            height: compact ? 132 : 158,
+            child: CosmeticPreview(item: selectedCharacter),
           ),
-          const Positioned(
-            right: 12,
-            bottom: 10,
-            child: _EntrySideLabel(label: 'Rival', color: Color(0xFFF05E5E)),
+          Positioned(
+            right: 16,
+            top: 17,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: <Widget>[
+                Text(
+                  selectedCharacter.name,
+                  style: GoogleFonts.fredoka(
+                    color: Colors.white,
+                    fontSize: compact ? 18 : 21,
+                    fontWeight: FontWeight.w700,
+                    shadows: const <Shadow>[
+                      Shadow(color: Color(0x66000000), blurRadius: 8),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Container(
+                  constraints: const BoxConstraints(maxWidth: 145),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(225),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      const Icon(
+                        Icons.stadium_rounded,
+                        color: AppColors.levelUpTeal,
+                        size: 13,
+                      ),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          selectedArena.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.dmSans(
+                            color: AppColors.textStrong,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -227,121 +283,74 @@ class _EntryArenaDiorama extends StatelessWidget {
   }
 }
 
-class _EntrySideLabel extends StatelessWidget {
-  const _EntrySideLabel({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 74),
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white, width: 2),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: GoogleFonts.dmSans(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
-
-class _EntryGameLoopStrip extends StatelessWidget {
-  const _EntryGameLoopStrip();
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: 'Alur bermain: Pilih kartu, Jawab, lalu Serang',
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFEAE1D2)),
-        ),
-        child: const Row(
-          children: <Widget>[
-            Expanded(
-              child: _EntryLoopStep(
-                icon: Icons.style_rounded,
-                label: 'Pilih kartu',
-                color: Color(0xFF2878F0),
-                background: Color(0xFFEAF2FE),
-              ),
-            ),
-            _EntryLoopArrow(),
-            Expanded(
-              child: _EntryLoopStep(
-                icon: Icons.quiz_rounded,
-                label: 'Jawab',
-                color: Color(0xFF8B6FE8),
-                background: Color(0xFFF0ECFC),
-              ),
-            ),
-            _EntryLoopArrow(),
-            Expanded(
-              child: _EntryLoopStep(
-                icon: Icons.bolt_rounded,
-                label: 'Serang',
-                color: Color(0xFFF05E5E),
-                background: Color(0xFFFDECEC),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EntryLoopStep extends StatelessWidget {
-  const _EntryLoopStep({
+class _LoadoutSelector extends StatelessWidget {
+  const _LoadoutSelector({
+    required this.title,
     required this.icon,
-    required this.label,
-    required this.color,
-    required this.background,
+    required this.items,
+    required this.selectedId,
+    required this.economy,
+    required this.onSelect,
+    required this.onLockedTap,
+    required this.compact,
   });
 
+  final String title;
   final IconData icon;
-  final String label;
-  final Color color;
-  final Color background;
+  final List<CosmeticItem> items;
+  final String selectedId;
+  final GameEconomyState economy;
+  final ValueChanged<CosmeticItem> onSelect;
+  final VoidCallback onLockedTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.circular(11),
-          ),
-          child: Icon(icon, color: color, size: 18),
+        Row(
+          children: <Widget>[
+            Icon(icon, color: AppColors.warriorNavy, size: 17),
+            const SizedBox(width: 6),
+            Text(
+              title,
+              style: GoogleFonts.dmSans(
+                color: AppColors.textStrong,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              'Tap untuk memilih',
+              style: GoogleFonts.dmSans(
+                color: AppColors.textMuted,
+                fontSize: 9.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 6),
-        Text(
-          label,
-          maxLines: 1,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.dmSans(
-            color: const Color(0xFF344054),
-            fontSize: 10.5,
-            fontWeight: FontWeight.w700,
+        SizedBox(
+          height: compact ? 62 : 72,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            itemBuilder: (BuildContext context, int index) {
+              final CosmeticItem item = items[index];
+              final bool owned = economy.owns(item.id);
+              final bool selected = item.id == selectedId;
+              return _LoadoutChoice(
+                item: item,
+                owned: owned,
+                selected: selected,
+                width: title == 'Karakter' ? 126 : 142,
+                onTap: owned ? () => onSelect(item) : onLockedTap,
+              );
+            },
           ),
         ),
       ],
@@ -349,17 +358,118 @@ class _EntryLoopStep extends StatelessWidget {
   }
 }
 
-class _EntryLoopArrow extends StatelessWidget {
-  const _EntryLoopArrow();
+class _LoadoutChoice extends StatelessWidget {
+  const _LoadoutChoice({
+    required this.item,
+    required this.owned,
+    required this.selected,
+    required this.width,
+    required this.onTap,
+  });
+
+  final CosmeticItem item;
+  final bool owned;
+  final bool selected;
+  final double width;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.only(bottom: 21),
-      child: Icon(
-        Icons.arrow_forward_rounded,
-        color: Color(0xFFB4AA9A),
-        size: 15,
+    return Material(
+      color: selected ? const Color(0xFFEAF2FE) : Colors.white,
+      borderRadius: BorderRadius.circular(15),
+      child: InkWell(
+        key: ValueKey<String>('loadout-${item.id}'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(15),
+        child: Container(
+          width: width,
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+              color: selected
+                  ? const Color(0xFF2878F0)
+                  : AppColors.warriorNavy.withAlpha(22),
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Row(
+            children: <Widget>[
+              SizedBox(
+                width: 44,
+                height: double.infinity,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(11),
+                  child: item.type == CosmeticType.character
+                      ? CosmeticPreview(item: item)
+                      : Padding(
+                          padding: const EdgeInsets.all(2),
+                          child: CosmeticPreview(item: item),
+                        ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      item.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.dmSans(
+                        color: AppColors.textStrong,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: <Widget>[
+                        Icon(
+                          selected
+                              ? Icons.check_circle_rounded
+                              : owned
+                              ? Icons.inventory_2_rounded
+                              : Icons.lock_rounded,
+                          size: 12,
+                          color: selected
+                              ? const Color(0xFF2878F0)
+                              : owned
+                              ? AppColors.levelUpTeal
+                              : AppColors.textMuted,
+                        ),
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            selected
+                                ? 'DIPILIH'
+                                : owned
+                                ? 'DIMILIKI'
+                                : 'STORE',
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.dmSans(
+                              color: selected
+                                  ? const Color(0xFF2878F0)
+                                  : owned
+                                  ? AppColors.levelUpTeal
+                                  : AppColors.textMuted,
+                              fontSize: 7.5,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -382,8 +492,9 @@ class _EntryPrimaryButton extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.only(bottom: 5),
         child: SizedBox(
-          height: 56,
+          height: 54,
           child: FilledButton(
+            key: const ValueKey<String>('enter-arena-with-loadout'),
             onPressed: onPressed,
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFF2878F0),
@@ -397,7 +508,7 @@ class _EntryPrimaryButton extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 Text(
-                  'Masuk arena',
+                  'Pilih lawan',
                   style: GoogleFonts.fredoka(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
@@ -412,71 +523,4 @@ class _EntryPrimaryButton extends StatelessWidget {
       ),
     );
   }
-}
-
-class _EntryArenaDioramaPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Paint shadowPaint = Paint()..color = const Color(0x2B38583E);
-    final Paint basePaint = Paint()..color = const Color(0xFF78B96D);
-    final Paint grassPaint = Paint()..color = const Color(0xFF9BD286);
-    final Paint riverPaint = Paint()..color = const Color(0xFF71C7F2);
-    final Paint bridgePaint = Paint()..color = const Color(0xFFD9AA70);
-    final Paint bridgeLinePaint = Paint()
-      ..color = const Color(0xFFB9834E)
-      ..strokeWidth = 2;
-
-    final Rect baseRect = Rect.fromCenter(
-      center: Offset(size.width / 2, size.height * 0.58),
-      width: size.width * 0.88,
-      height: size.height * 0.62,
-    );
-    canvas.drawOval(baseRect.shift(const Offset(0, 7)), shadowPaint);
-    canvas.drawOval(baseRect, basePaint);
-
-    final Rect grassRect = Rect.fromCenter(
-      center: Offset(baseRect.center.dx, baseRect.center.dy - 4),
-      width: baseRect.width * 0.94,
-      height: baseRect.height * 0.84,
-    );
-    canvas.drawOval(grassRect, grassPaint);
-
-    canvas.save();
-    canvas.clipPath(Path()..addOval(grassRect));
-    final Rect riverRect = Rect.fromLTWH(
-      0,
-      grassRect.center.dy - 10,
-      size.width,
-      20,
-    );
-    canvas.drawRect(riverRect, riverPaint);
-    final RRect bridge = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: grassRect.center, width: 40, height: 30),
-      const Radius.circular(5),
-    );
-    canvas.drawRRect(bridge, bridgePaint);
-    for (double y = bridge.top + 6; y < bridge.bottom; y += 7) {
-      canvas.drawLine(
-        Offset(bridge.left + 3, y),
-        Offset(bridge.right - 3, y),
-        bridgeLinePaint,
-      );
-    }
-    canvas.restore();
-
-    final Paint markerPaint = Paint()..color = const Color(0x66FFFFFF);
-    canvas.drawCircle(
-      Offset(size.width * 0.27, size.height * 0.47),
-      6,
-      markerPaint,
-    );
-    canvas.drawCircle(
-      Offset(size.width * 0.73, size.height * 0.69),
-      6,
-      markerPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

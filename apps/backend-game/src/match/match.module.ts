@@ -9,9 +9,21 @@ import { MatchResultService } from './results/match-result.service';
 import { RoomManager } from './rooms/room-manager';
 import { MatchLogBuffer } from './logs/match-log-buffer';
 import { BotBattleService } from './bot/bot-battle.service';
+import { CardTimeoutService } from './timeout/card-timeout.service';
 
 @Module({
   imports: [SupabaseModule],
-  providers: [MatchGateway, MatchService, GameEngine, QuestionDealer, QuestionService, MatchResultService, RoomManager, MatchLogBuffer, BotBattleService],
+  providers: [
+    MatchGateway,
+    MatchService,
+    GameEngine,
+    QuestionDealer,
+    QuestionService,
+    MatchResultService,
+    RoomManager,
+    MatchLogBuffer,
+    BotBattleService,
+    CardTimeoutService,
+  ],
 })
 export class MatchModule {}

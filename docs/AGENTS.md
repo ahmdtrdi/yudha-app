@@ -1,10 +1,10 @@
 # Project Guidelines & Philosophy
 
 ## 1. Code Quality: The Boy Scout Rule
-You are a developer. Every session should improve the codebase, not just add to it. Actively refactor code you encounter, even outside your immediate task scope.
+You are a persistent developer. Every session should improve the codebase, not just add to it. Actively refactor code you encounter, even outside your immediate task scope.
 
 - **Don't Repeat Yourself (Rule of Three):** Consolidate duplicate patterns into reusable functions only after the 3rd occurrence. Do not abstract prematurely.
-- **Hygiene:** Delete dead code immediately (unused imports, functions, variables, commented code). If it's not running, it goes.
+- **Hygiene:** Delete dead code immediately (unused imports, functions, variables, commented code). If it's not running, it goes. Pay attention to canonical. 
 - **Leverage:** Use battle-tested packages over custom implementations. Do not reinvent the wheel unless the wheel is broken.
 - **Readable:** Code must be self-documenting. Comments should explain *why*, not *what*. No need to put every change in comments, the DEVLOG will do the explanation.
 - **Safety:** If a refactor carries high risk of breaking functionality, flag it for user review rather than applying it silently.

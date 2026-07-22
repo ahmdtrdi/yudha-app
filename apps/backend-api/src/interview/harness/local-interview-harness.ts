@@ -9,7 +9,9 @@ import {
   InterviewLlmInput,
   InterviewTurn,
 } from '../interview.types';
+import { GeminiLlmService } from '../services/gemini-llm.service';
 import { GroqLlmService } from '../services/groq-llm.service';
+import { FallbackLlmService } from '../services/fallback-llm.service';
 import { InterviewEvaluationValidator } from '../services/interview-evaluation-validator.service';
 import { InterviewPromptService } from '../services/interview-prompt.service';
 import { InterviewSummaryService } from '../services/interview-summary.service';
@@ -28,6 +30,7 @@ interface HarnessOptions {
   dryRun: boolean;
   companyId?: string;
   targetRole?: string;
+  candidateName?: string;
 }
 
 async function main(): Promise<void> {
@@ -42,9 +45,16 @@ async function main(): Promise<void> {
   try {
     const companyContext = await resolveCompanyContext(options, readline);
     const targetRole = options.targetRole ?? companyContext.defaultTargetRole;
-    const openingQuestion = buildOpeningQuestion();
+    const candidateName =
+      options.candidateName ||
+      (options.dryRun ? 'Rudi' : (await readline?.question('\nMasukkan nama Anda (default: Rudi): '))?.trim() || 'Rudi');
+    const openingQuestion = buildOpeningQuestion(
+      companyContext.snapshot.companyName,
+      targetRole,
+      candidateName,
+    );
 
-    printHarnessHeader(options, companyContext, targetRole, openingQuestion);
+    printHarnessHeader(options, companyContext, targetRole, candidateName, openingQuestion);
 
     if (options.dryRun) {
       printPromptPreview(
@@ -61,10 +71,18 @@ async function main(): Promise<void> {
       throw new Error('Interactive input is unavailable.');
     }
 
-    const llmService = new GroqLlmService(
-      configService,
-      promptService,
-      new InterviewEvaluationValidator(),
+    const llmProvider = (
+      configService.get<string>('INTERVIEW_LLM_PROVIDER', 'gemini')
+    ).toLowerCase();
+    const evaluationValidator = new InterviewEvaluationValidator();
+    const geminiService = new GeminiLlmService(configService, promptService, evaluationValidator);
+    const groqService = new GroqLlmService(configService, promptService, evaluationValidator);
+    const isGroqPrimary = llmProvider === 'groq';
+    const llmService = new FallbackLlmService(
+      isGroqPrimary ? groqService : geminiService,
+      isGroqPrimary ? geminiService : groqService,
+      isGroqPrimary ? 'groq' : 'gemini',
+      isGroqPrimary ? 'gemini' : 'groq',
     );
     const turns: InterviewTurn[] = [createTurn('question', openingQuestion)];
     const evaluations: InterviewEvaluation[] = [];
@@ -99,7 +117,19 @@ async function main(): Promise<void> {
         printMessages(promptService.buildEvaluationMessages(llmInput));
       }
 
+      const evalStart = Date.now();
       const evaluation = await llmService.evaluateAnswer(llmInput);
+      const evalLatency = Date.now() - evalStart;
+      const metrics = (evaluation as any)._metrics;
+      const promptTokens = metrics?.promptTokens ?? 'N/A';
+      const outputTokens = metrics?.completionTokens ?? 'N/A';
+      const totalTokens = metrics?.totalTokens ?? 'N/A';
+      const modelName = metrics?.model ?? metrics?.provider ?? 'unknown';
+
+      console.log(
+        `\n📊 [PERFORMANCE MONITOR] Turn ${index + 1} | Latency: ${evalLatency}ms | LLM: ${modelName} | Tokens -> Prompt: ${promptTokens}, Output: ${outputTokens}, Total: ${totalTokens}`,
+      );
+
       evaluations.push(evaluation);
       turns.push(answerTurn);
       rollingSummary = summaryService.appendRollingSummary(
@@ -154,6 +184,7 @@ function parseOptions(configService: ConfigService): HarnessOptions {
     dryRun: process.argv.includes('--dry-run'),
     companyId: getArgumentValue('--company'),
     targetRole: getArgumentValue('--role'),
+    candidateName: getArgumentValue('--name'),
   };
 }
 
@@ -202,10 +233,16 @@ function createTurn(
   };
 }
 
-function buildOpeningQuestion(): string {
+function buildOpeningQuestion(
+  companyName: string,
+  targetRole: string,
+  candidateName?: string,
+): string {
+  const greeting = candidateName ? `Halo ${candidateName}! ` : 'Halo! ';
   return [
-    'Selamat datang. Ceritakan tentang diri Anda terlebih dahulu.',
-    'Apa aktivitas atau status Anda saat ini?',
+    `${greeting}Selamat datang di simulasi wawancara ${companyName}.`,
+    `Saya adalah AI Interviewer Anda untuk posisi ${targetRole}.`,
+    `Senang bisa berdiskusi dengan Anda hari ini. Sebagai permulaan, silakan perkenalkan diri Anda dan jelaskan latar belakang serta motivasi Anda melamar posisi ini.`,
   ].join(' ');
 }
 
@@ -213,16 +250,15 @@ function printHarnessHeader(
   options: HarnessOptions,
   companyContext: LoadedLocalCompanyContext,
   targetRole: string,
+  candidateName: string,
   openingQuestion: string,
 ): void {
-  console.log('=== LOCAL GROQ INTERVIEW HARNESS ===');
+  console.log('=== LOCAL INTERVIEW HARNESS ===');
+  console.log(`Kandidat: ${candidateName}`);
   console.log(`Mode: ${options.mode}`);
   console.log(`Turns: ${options.maxTurns}`);
   console.log(`Company: ${companyContext.snapshot.companyName}`);
   console.log(`Target role: ${targetRole}`);
-  console.log(
-    `Context source: local JSON fixture (${companyContext.sources.length} official sources), no Supabase`,
-  );
   console.log('Ketik :quit untuk menghentikan sesi.');
   console.log(`\nInterviewer: ${openingQuestion}`);
 }
@@ -258,7 +294,7 @@ async function resolveCompanyContext(
     return loadLocalCompanyContext(options.companyId);
   }
 
-  const companies = listLocalCompanies();
+  const companies = await listLocalCompanies();
   if (options.dryRun) {
     return loadLocalCompanyContext(companies[0].id);
   }

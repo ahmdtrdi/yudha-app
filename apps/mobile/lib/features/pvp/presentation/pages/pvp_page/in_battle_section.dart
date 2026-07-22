@@ -4,6 +4,9 @@ class _InBattleSection extends StatefulWidget {
   const _InBattleSection({
     required this.state,
     required this.playerDisplayName,
+    required this.playerAvatarAsset,
+    required this.arenaTheme,
+    required this.soundEnabled,
     required this.onPause,
     required this.onBotAnswer,
     required this.onPickQuestion,
@@ -11,6 +14,9 @@ class _InBattleSection extends StatefulWidget {
 
   final BattleState state;
   final String playerDisplayName;
+  final String playerAvatarAsset;
+  final ArenaVisualTheme arenaTheme;
+  final bool soundEnabled;
   final Future<void> Function() onPause;
   final VoidCallback onBotAnswer;
   final Future<void> Function(BattleQuestion question) onPickQuestion;
@@ -20,14 +26,16 @@ class _InBattleSection extends StatefulWidget {
 }
 
 class _InBattleSectionState extends State<_InBattleSection>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _ambientController;
   late final AnimationController _effectController;
+  late final ArenaAudioController _arenaAudio;
   final Random _random = Random();
 
   Timer? _countdownTimer;
   Timer? _botTimer;
   Timer? _noticeTimer;
+  final List<Timer> _effectSoundTimers = <Timer>[];
   int _countdownValue = 3;
   bool _countdownDone = false;
   bool _interactionLocked = false;
@@ -36,6 +44,7 @@ class _InBattleSectionState extends State<_InBattleSection>
   String? _selectedQuestionId;
   String? _notice;
   bool _noticeIsError = false;
+  bool _imagesPrecached = false;
 
   BattleActor? _effectActor;
   BattleVisualEffect? _effectKind;
@@ -47,23 +56,51 @@ class _InBattleSectionState extends State<_InBattleSection>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _arenaAudio = ArenaAudioController(enabled: widget.soundEnabled);
+    unawaited(_arenaAudio.start());
     _ambientController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 3200),
     )..repeat(reverse: true);
     _effectController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 620),
+      duration: const Duration(milliseconds: 1050),
     );
     _hand = widget.state.availableQuestions.take(4).toList();
-    _notice = widget.state.errorMessage ?? widget.state.statusMessage;
-    _noticeIsError = widget.state.errorMessage != null;
+    _notice = widget.state.errorMessage;
+    _noticeIsError = true;
+    _arenaAudio.playCountdown();
     _startCountdownTimer();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_imagesPrecached) {
+      return;
+    }
+    _imagesPrecached = true;
+    for (final String asset in <String>[
+      widget.playerAvatarAsset,
+      _enemyAvatarAsset,
+      _enemyMiniTowerAsset,
+      _playerMiniTowerAsset,
+      _numerikCardAsset,
+      _verbalCardAsset,
+      _logikaCardAsset,
+      _twkCardAsset,
+    ]) {
+      unawaited(precacheImage(AssetImage(asset), context));
+    }
   }
 
   @override
   void didUpdateWidget(covariant _InBattleSection oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.soundEnabled != oldWidget.soundEnabled) {
+      unawaited(_arenaAudio.setEnabled(widget.soundEnabled));
+    }
     _rebuildHand();
 
     final int playerDelta = widget.state.playerHp - oldWidget.state.playerHp;
@@ -78,12 +115,8 @@ class _InBattleSectionState extends State<_InBattleSection>
 
     final String? newError = widget.state.errorMessage;
     final String? oldError = oldWidget.state.errorMessage;
-    final String? newStatus = widget.state.statusMessage;
-    final String? oldStatus = oldWidget.state.statusMessage;
     if (newError != null && newError != oldError) {
       _showNotice(newError, isError: true);
-    } else if (newStatus != null && newStatus != oldStatus) {
-      _showNotice(newStatus);
     }
 
     if (widget.state.phase != BattlePhase.inBattle ||
@@ -121,6 +154,9 @@ class _InBattleSectionState extends State<_InBattleSection>
         setState(() {
           _countdownValue -= 1;
         });
+        if (_countdownValue > 0) {
+          _arenaAudio.playCountdown();
+        }
         return;
       }
 
@@ -195,6 +231,25 @@ class _InBattleSectionState extends State<_InBattleSection>
         ? BattleVisualEffect.heal
         : widget.state.lastVisualEffect ?? BattleVisualEffect.cannon;
     _effectCategory = widget.state.lastEventCategory ?? 'numerik';
+    for (final Timer timer in _effectSoundTimers) {
+      timer.cancel();
+    }
+    _effectSoundTimers.clear();
+    _arenaAudio.playCast();
+    _effectSoundTimers.add(
+      Timer(const Duration(milliseconds: 230), () {
+        if (_effectIsHeal) {
+          _arenaAudio.playHeal();
+        } else {
+          _arenaAudio.playProjectile();
+        }
+      }),
+    );
+    if (!_effectIsHeal) {
+      _effectSoundTimers.add(
+        Timer(const Duration(milliseconds: 860), _arenaAudio.playImpact),
+      );
+    }
     _effectController.forward(from: 0);
   }
 
@@ -221,6 +276,7 @@ class _InBattleSectionState extends State<_InBattleSection>
       _interactionLocked = true;
       _selectedQuestionId = question.id;
     });
+    _arenaAudio.playCardPick();
     await Future<void>.delayed(const Duration(milliseconds: 100));
 
     try {
@@ -241,6 +297,7 @@ class _InBattleSectionState extends State<_InBattleSection>
       return;
     }
     _pauseOpen = true;
+    unawaited(_arenaAudio.pauseMusic());
     _countdownTimer?.cancel();
     _cancelBotTimer();
     try {
@@ -248,6 +305,7 @@ class _InBattleSectionState extends State<_InBattleSection>
     } finally {
       if (mounted) {
         _pauseOpen = false;
+        unawaited(_arenaAudio.resumeMusic());
         if (!_countdownDone) {
           _startCountdownTimer();
         } else {
@@ -259,12 +317,26 @@ class _InBattleSectionState extends State<_InBattleSection>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _countdownTimer?.cancel();
     _botTimer?.cancel();
     _noticeTimer?.cancel();
+    for (final Timer timer in _effectSoundTimers) {
+      timer.cancel();
+    }
     _ambientController.dispose();
     _effectController.dispose();
+    unawaited(_arenaAudio.dispose());
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_pauseOpen) {
+      unawaited(_arenaAudio.resumeMusic());
+      return;
+    }
+    unawaited(_arenaAudio.pauseMusic());
   }
 
   @override
@@ -282,6 +354,7 @@ class _InBattleSectionState extends State<_InBattleSection>
                 children: <Widget>[
                   _BattleHud(
                     isOpponent: true,
+                    avatarAsset: _enemyAvatarAsset,
                     name: widget.state.opponentName,
                     hp: widget.state.opponentHp,
                     points: widget.state.opponentPoints,
@@ -300,6 +373,8 @@ class _InBattleSectionState extends State<_InBattleSection>
                       child: _ArenaBoard(
                         playerHp: widget.state.playerHp,
                         opponentHp: widget.state.opponentHp,
+                        playerAvatarAsset: widget.playerAvatarAsset,
+                        arenaTheme: widget.arenaTheme,
                         compact: compact,
                         ambientAnimation: _ambientController,
                         effectAnimation: _effectController,
@@ -314,6 +389,7 @@ class _InBattleSectionState extends State<_InBattleSection>
                   ),
                   _BattleHud(
                     isOpponent: false,
+                    avatarAsset: widget.playerAvatarAsset,
                     name: widget.playerDisplayName,
                     hp: widget.state.playerHp,
                     points: widget.state.playerPoints,
@@ -359,6 +435,7 @@ class _InBattleSectionState extends State<_InBattleSection>
 class _BattleHud extends StatelessWidget {
   const _BattleHud({
     required this.isOpponent,
+    required this.avatarAsset,
     required this.name,
     required this.hp,
     required this.points,
@@ -368,6 +445,7 @@ class _BattleHud extends StatelessWidget {
   });
 
   final bool isOpponent;
+  final String avatarAsset;
   final String name;
   final int hp;
   final int points;
@@ -380,7 +458,6 @@ class _BattleHud extends StatelessWidget {
     final Color accent = isOpponent
         ? const Color(0xFFF05E5E)
         : const Color(0xFF2878F0);
-    final String asset = isOpponent ? _enemyAvatarAsset : _playerAvatarAsset;
     final int safeHp = hp.clamp(0, 100).toInt();
 
     return Container(
@@ -399,7 +476,7 @@ class _BattleHud extends StatelessWidget {
       ),
       child: Row(
         children: <Widget>[
-          _BattleAvatar(asset: asset, accent: accent, compact: compact),
+          _BattleAvatar(asset: avatarAsset, accent: accent, compact: compact),
           const SizedBox(width: 9),
           Expanded(
             child: Column(
@@ -626,6 +703,8 @@ class _ArenaBoard extends StatelessWidget {
   const _ArenaBoard({
     required this.playerHp,
     required this.opponentHp,
+    required this.playerAvatarAsset,
+    required this.arenaTheme,
     required this.compact,
     required this.ambientAnimation,
     required this.effectAnimation,
@@ -639,6 +718,8 @@ class _ArenaBoard extends StatelessWidget {
 
   final int playerHp;
   final int opponentHp;
+  final String playerAvatarAsset;
+  final ArenaVisualTheme arenaTheme;
   final bool compact;
   final Animation<double> ambientAnimation;
   final Animation<double> effectAnimation;
@@ -675,8 +756,8 @@ class _ArenaBoard extends StatelessWidget {
 
             return Stack(
               children: <Widget>[
-                const Positioned.fill(
-                  child: CustomPaint(painter: _ClayArenaPainter()),
+                Positioned.fill(
+                  child: CustomPaint(painter: _ClayArenaPainter(arenaTheme)),
                 ),
                 Positioned(
                   top: height * 0.35,
@@ -705,14 +786,18 @@ class _ArenaBoard extends StatelessWidget {
                   ),
                 ),
                 Positioned(
-                  top: -2,
-                  left: (width - mainSize) / 2,
-                  width: mainSize,
+                  top: -5,
+                  left: (width - mainSize * 1.12) / 2,
+                  width: mainSize * 1.12,
                   height: mainSize,
-                  child: _TowerAsset(
-                    asset: _enemyMainTowerAsset,
+                  child: _ChampionStand(
+                    avatarAsset: _enemyAvatarAsset,
+                    actor: BattleActor.opponent,
+                    accent: const Color(0xFFF05E5E),
                     destroyed: opponentHp <= 0,
                     ambientAnimation: ambientAnimation,
+                    effectAnimation: effectAnimation,
+                    effectActor: effectActor,
                   ),
                 ),
                 Positioned(
@@ -760,14 +845,18 @@ class _ArenaBoard extends StatelessWidget {
                   ),
                 ),
                 Positioned(
-                  bottom: -2,
-                  left: (width - mainSize) / 2,
-                  width: mainSize,
+                  bottom: -5,
+                  left: (width - mainSize * 1.12) / 2,
+                  width: mainSize * 1.12,
                   height: mainSize,
-                  child: _TowerAsset(
-                    asset: _playerMainTowerAsset,
+                  child: _ChampionStand(
+                    avatarAsset: playerAvatarAsset,
+                    actor: BattleActor.player,
+                    accent: const Color(0xFF2878F0),
                     destroyed: playerHp <= 0,
                     ambientAnimation: ambientAnimation,
+                    effectAnimation: effectAnimation,
+                    effectActor: effectActor,
                   ),
                 ),
                 Positioned.fill(
@@ -787,6 +876,238 @@ class _ArenaBoard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _ArenaHeroAsset extends StatelessWidget {
+  const _ArenaHeroAsset({
+    required this.asset,
+    required this.ambientAnimation,
+    required this.effectAnimation,
+    required this.casting,
+    required this.castsUpward,
+  });
+
+  final String asset;
+  final Animation<double> ambientAnimation;
+  final Animation<double> effectAnimation;
+  final bool casting;
+  final bool castsUpward;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return AnimatedBuilder(
+      animation: Listenable.merge(<Listenable>[
+        ambientAnimation,
+        effectAnimation,
+      ]),
+      builder: (BuildContext context, Widget? child) {
+        final double wave = reduceMotion
+            ? 0
+            : sin(ambientAnimation.value * pi * 2);
+        final double raw = casting && !reduceMotion ? effectAnimation.value : 0;
+        final double cast = raw <= 0.18
+            ? Curves.easeOutBack.transform((raw / 0.18).clamp(0, 1))
+            : raw <= 0.46
+            ? 1 -
+                  Curves.easeInOutCubic.transform(
+                    ((raw - 0.18) / 0.28).clamp(0, 1),
+                  )
+            : 0;
+        final double direction = castsUpward ? -1 : 1;
+        return Transform.translate(
+          offset: Offset(
+            direction * cast * 5,
+            wave * 2.2 + direction * cast * 8,
+          ),
+          child: Transform.rotate(
+            angle: wave * 0.014 + direction * cast * 0.055,
+            child: Transform.scale(scale: 1 + cast * 0.055, child: child),
+          ),
+        );
+      },
+      child: Image.asset(
+        asset,
+        fit: BoxFit.contain,
+        alignment: Alignment.bottomCenter,
+        cacheWidth: 280,
+        filterQuality: FilterQuality.medium,
+        semanticLabel: 'Avatar karakter di arena',
+      ),
+    );
+  }
+}
+
+class _ChampionStand extends StatelessWidget {
+  const _ChampionStand({
+    required this.avatarAsset,
+    required this.actor,
+    required this.accent,
+    required this.destroyed,
+    required this.ambientAnimation,
+    required this.effectAnimation,
+    required this.effectActor,
+  });
+
+  final String avatarAsset;
+  final BattleActor actor;
+  final Color accent;
+  final bool destroyed;
+  final Animation<double> ambientAnimation;
+  final Animation<double> effectAnimation;
+  final BattleActor? effectActor;
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget stand = Stack(
+      alignment: Alignment.bottomCenter,
+      clipBehavior: Clip.none,
+      children: <Widget>[
+        Positioned(
+          top: 0,
+          left: 14,
+          right: 14,
+          bottom: 24,
+          child: _ArenaHeroAsset(
+            asset: avatarAsset,
+            ambientAnimation: ambientAnimation,
+            effectAnimation: effectAnimation,
+            casting: effectActor == actor,
+            castsUpward: actor == BattleActor.player,
+          ),
+        ),
+        Positioned(
+          left: 4,
+          right: 4,
+          bottom: 0,
+          height: 39,
+          child: RepaintBoundary(
+            child: CustomPaint(painter: _ChampionPodiumPainter(accent)),
+          ),
+        ),
+        Positioned(
+          bottom: 5,
+          child: Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: accent,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: <BoxShadow>[
+                BoxShadow(color: accent.withAlpha(90), blurRadius: 6),
+              ],
+            ),
+            child: const Icon(
+              Icons.shield_rounded,
+              size: 11,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    return AnimatedOpacity(
+      opacity: destroyed ? 0.46 : 1,
+      duration: const Duration(milliseconds: 240),
+      child: ColorFiltered(
+        colorFilter: destroyed
+            ? const ColorFilter.matrix(<double>[
+                0.32,
+                0.32,
+                0.32,
+                0,
+                0,
+                0.32,
+                0.32,
+                0.32,
+                0,
+                0,
+                0.32,
+                0.32,
+                0.32,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                0,
+              ])
+            : const ColorFilter.mode(Colors.transparent, BlendMode.dst),
+        child: stand,
+      ),
+    );
+  }
+}
+
+class _ChampionPodiumPainter extends CustomPainter {
+  const _ChampionPodiumPainter(this.accent);
+
+  final Color accent;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()..isAntiAlias = true;
+    final Rect shadow = Rect.fromLTWH(
+      size.width * 0.08,
+      size.height * 0.66,
+      size.width * 0.84,
+      size.height * 0.28,
+    );
+    paint.color = Colors.black.withAlpha(45);
+    canvas.drawOval(shadow.shift(const Offset(0, 3)), paint);
+
+    final Path front = Path()
+      ..moveTo(size.width * 0.16, size.height * 0.34)
+      ..lineTo(size.width * 0.84, size.height * 0.34)
+      ..lineTo(size.width * 0.75, size.height * 0.88)
+      ..lineTo(size.width * 0.25, size.height * 0.88)
+      ..close();
+    paint.color = Color.alphaBlend(
+      accent.withAlpha(55),
+      const Color(0xFFD9C6A4),
+    );
+    canvas.drawPath(front, paint);
+
+    final Path rightSide = Path()
+      ..moveTo(size.width * 0.84, size.height * 0.34)
+      ..lineTo(size.width * 0.75, size.height * 0.88)
+      ..lineTo(size.width * 0.67, size.height * 0.82)
+      ..lineTo(size.width * 0.73, size.height * 0.38)
+      ..close();
+    paint.color = Color.alphaBlend(
+      accent.withAlpha(70),
+      const Color(0xFF967B5A),
+    );
+    canvas.drawPath(rightSide, paint);
+
+    final Rect top = Rect.fromLTWH(
+      size.width * 0.12,
+      size.height * 0.13,
+      size.width * 0.76,
+      size.height * 0.38,
+    );
+    paint.color = Color.alphaBlend(
+      accent.withAlpha(38),
+      const Color(0xFFF3E1BD),
+    );
+    canvas.drawOval(top, paint);
+    paint
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = Color.alphaBlend(
+        accent.withAlpha(145),
+        const Color(0xFF8E7658),
+      );
+    canvas.drawOval(top, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ChampionPodiumPainter oldDelegate) {
+    return oldDelegate.accent != accent;
   }
 }
 
@@ -973,7 +1294,13 @@ class _BattleEffectLayer extends StatelessWidget {
             animation: animation,
             builder: (BuildContext context, Widget? child) {
               final double raw = animation.value;
-              final double travel = Curves.easeInOutCubic.transform(raw);
+              const double launchAt = 0.20;
+              const double impactAt = 0.82;
+              final double travelProgress =
+                  ((raw - launchAt) / (impactAt - launchAt)).clamp(0, 1);
+              final double travel = Curves.easeInOutCubic.transform(
+                travelProgress,
+              );
               final Offset playerPoint = Offset(
                 constraints.maxWidth * 0.5,
                 constraints.maxHeight * 0.82,
@@ -1013,9 +1340,13 @@ class _BattleEffectLayer extends StatelessWidget {
                 BattleVisualEffect.robot => direction * raw * pi * 2,
                 BattleVisualEffect.heal => 0,
               };
-              final bool showProjectile = !isHeal && raw < 0.82;
-              final bool showImpact = isHeal || raw >= 0.68;
+              final bool showProjectile =
+                  !isHeal && raw >= launchAt && raw < impactAt;
+              final bool showHeal = isHeal && raw >= launchAt;
+              final bool showImpact = !isHeal && raw >= impactAt;
               final Color color = _battleEffectColor(kind!, category);
+              final double healProgress = ((raw - launchAt) / (1 - launchAt))
+                  .clamp(0, 1);
 
               return Stack(
                 children: <Widget>[
@@ -1028,18 +1359,18 @@ class _BattleEffectLayer extends StatelessWidget {
                         child: _EffectOrb(kind: kind!, color: color),
                       ),
                     ),
-                  if (isHeal)
+                  if (showHeal)
                     Positioned(
                       left: target.dx - 42,
                       top: target.dy - 42,
-                      child: _HealBloom(progress: raw, color: color),
+                      child: _HealBloom(progress: healProgress, color: color),
                     )
                   else if (showImpact)
                     Positioned(
                       left: target.dx - 35,
                       top: target.dy - 35,
                       child: Opacity(
-                        opacity: (1 - ((raw - 0.68).clamp(0, 0.32) / 0.32))
+                        opacity: (1 - ((raw - impactAt) / (1 - impactAt)))
                             .clamp(0, 1),
                         child: Transform.scale(
                           scale: 0.65 + raw * 0.55,
@@ -1055,13 +1386,13 @@ class _BattleEffectLayer extends StatelessWidget {
                         ),
                       ),
                     ),
-                  if (raw >= 0.62)
+                  if (raw >= 0.76)
                     Positioned(
                       left: target.dx - 38,
-                      top: target.dy - 58 - ((raw - 0.62) * 32),
+                      top: target.dy - 58 - ((raw - 0.76) * 34),
                       width: 76,
                       child: Opacity(
-                        opacity: (1 - ((raw - 0.76).clamp(0, 0.24) / 0.24))
+                        opacity: (1 - ((raw - 0.84).clamp(0, 0.16) / 0.16))
                             .clamp(0, 1),
                         child: Text(
                           '${isHeal ? '+' : '-'}$amount',
@@ -1733,7 +2064,9 @@ class _CountdownOverlay extends StatelessWidget {
 }
 
 class _ClayArenaPainter extends CustomPainter {
-  const _ClayArenaPainter();
+  const _ClayArenaPainter(this.theme);
+
+  final ArenaVisualTheme theme;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1741,7 +2074,7 @@ class _ClayArenaPainter extends CustomPainter {
     final double riverHeight = (size.height * 0.13).clamp(42, 58);
     final double riverTop = (size.height - riverHeight) / 2;
 
-    paint.color = const Color(0xFF82D279);
+    paint.color = theme.field;
     canvas.drawRect(Offset.zero & size, paint);
 
     paint
@@ -1757,7 +2090,7 @@ class _ClayArenaPainter extends CustomPainter {
     );
 
     paint.style = PaintingStyle.fill;
-    paint.color = const Color(0x2071B96A);
+    paint.color = theme.fieldAccent.withAlpha(36);
     for (final double xFactor in <double>[0.23, 0.77]) {
       canvas.drawRRect(
         RRect.fromRectAndRadius(
@@ -1772,7 +2105,7 @@ class _ClayArenaPainter extends CustomPainter {
       );
     }
 
-    paint.color = const Color(0x222878F0);
+    paint.color = theme.playerWash;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(
@@ -1785,7 +2118,7 @@ class _ClayArenaPainter extends CustomPainter {
       ),
       paint,
     );
-    paint.color = const Color(0x22F05E5E);
+    paint.color = theme.opponentWash;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(
@@ -1813,14 +2146,14 @@ class _ClayArenaPainter extends CustomPainter {
       }
     }
 
-    paint.color = const Color(0xFF5FAF68);
+    paint.color = theme.riverEdge;
     canvas.drawRect(Rect.fromLTWH(0, riverTop - 5, size.width, 5), paint);
     canvas.drawRect(
       Rect.fromLTWH(0, riverTop + riverHeight, size.width, 5),
       paint,
     );
 
-    paint.color = const Color(0xFF72C8F1);
+    paint.color = theme.river;
     canvas.drawRect(Rect.fromLTWH(0, riverTop, size.width, riverHeight), paint);
     paint.color = Colors.white.withAlpha(75);
     canvas.drawRect(Rect.fromLTWH(0, riverTop + 5, size.width, 3), paint);
@@ -1842,12 +2175,12 @@ class _ClayArenaPainter extends CustomPainter {
       ),
       paint,
     );
-    paint.color = const Color(0xFFFFE0A4);
+    paint.color = theme.bridge;
     canvas.drawRRect(
       RRect.fromRectAndRadius(bridgeRect, const Radius.circular(14)),
       paint,
     );
-    paint.color = const Color(0xFFD8A85A);
+    paint.color = theme.bridgeLine;
     paint.strokeWidth = 2;
     for (int index = 1; index < 4; index++) {
       final double x = bridgeRect.left + bridgeRect.width * index / 4;
@@ -1886,7 +2219,7 @@ class _ClayArenaPainter extends CustomPainter {
         ),
         paint,
       );
-      paint.color = const Color(0xFFFFD89A);
+      paint.color = theme.boundary;
       canvas.drawRRect(
         RRect.fromRectAndRadius(leftStone, const Radius.circular(8)),
         paint,
@@ -1923,7 +2256,9 @@ class _ClayArenaPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _ClayArenaPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _ClayArenaPainter oldDelegate) {
+    return oldDelegate.theme.id != theme.id;
+  }
 }
 
 Color _arenaCategoryColor(String category, QuestionEffect effect) {
