@@ -361,33 +361,56 @@ class _ModeVisual extends StatelessWidget {
         color: online ? const Color(0xFFF0ECFC) : const Color(0xFFEAF2FE),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: <Widget>[
-          if (online)
-            Positioned(
-              left: -6,
-              bottom: 0,
-              width: 67,
-              height: 90,
-              child: Image.asset(
-                playerAsset,
-                fit: BoxFit.contain,
-                alignment: Alignment.bottomCenter,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(5, 7, 5, 0),
+        child: online
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Expanded(
+                    child: _ModeAvatar(
+                      key: const ValueKey<String>('online-player-avatar'),
+                      assetPath: playerAsset,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  Expanded(
+                    child: _ModeAvatar(
+                      key: const ValueKey<String>('online-opponent-avatar'),
+                      assetPath: opponentAsset,
+                    ),
+                  ),
+                ],
+              )
+            : _ModeAvatar(
+                key: const ValueKey<String>('bot-opponent-avatar'),
+                assetPath: opponentAsset,
               ),
-            ),
-          Positioned(
-            right: online ? -6 : 7,
-            left: online ? null : 7,
-            bottom: 0,
-            height: 92,
-            child: Image.asset(
-              opponentAsset,
-              fit: BoxFit.contain,
-              alignment: Alignment.bottomCenter,
-            ),
-          ),
-        ],
+      ),
+    );
+  }
+}
+
+class _ModeAvatar extends StatelessWidget {
+  const _ModeAvatar({required this.assetPath, super.key});
+
+  final String assetPath;
+
+  @override
+  Widget build(BuildContext context) {
+    final double scale =
+        assetPath.contains('rare_ignis') || assetPath.contains('legend_luna')
+        ? 1.18
+        : 1;
+    return ClipRect(
+      child: Transform.scale(
+        scale: scale,
+        child: Image.asset(
+          assetPath,
+          fit: BoxFit.contain,
+          alignment: Alignment.bottomCenter,
+          filterQuality: FilterQuality.medium,
+        ),
       ),
     );
   }

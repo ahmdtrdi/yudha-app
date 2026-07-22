@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -116,27 +117,17 @@ class _PvpPageState extends ConsumerState<PvpPage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF8EC),
-      appBar: AppBar(
-        title: Text(
-          _setupStep == _ArenaSetupStep.arena ? 'Pilih Arena' : 'Pilih Loadout',
-          style: GoogleFonts.fredoka(fontWeight: FontWeight.w600, fontSize: 20),
-        ),
-        backgroundColor: const Color(0xFFFFF8EC),
-        foregroundColor: AppColors.textStrong,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        automaticallyImplyLeading: false,
-      ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
           child: Column(
             children: <Widget>[
               if (state.statusMessage != null)
                 _StatusBanner(text: state.statusMessage!),
               if (state.errorMessage != null)
                 _StatusBanner(text: state.errorMessage!, isError: true),
-              const SizedBox(height: 8),
+              if (state.statusMessage != null || state.errorMessage != null)
+                const SizedBox(height: 6),
               Expanded(
                 child: _buildBattleContent(
                   context: context,

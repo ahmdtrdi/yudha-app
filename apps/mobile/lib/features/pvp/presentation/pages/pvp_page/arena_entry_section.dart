@@ -46,12 +46,19 @@ class _ArenaEntrySection extends StatelessWidget {
               onTopUp: onTopUp,
               onOpenStore: onOpenStore,
             ),
-            SizedBox(height: compact ? 12 : 18),
+            SizedBox(height: compact ? 9 : 12),
             Expanded(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 220),
                 switchInCurve: Curves.easeOutCubic,
                 switchOutCurve: Curves.easeInCubic,
+                layoutBuilder:
+                    (Widget? currentChild, List<Widget> previousChildren) {
+                      return Stack(
+                        alignment: Alignment.topCenter,
+                        children: <Widget>[...previousChildren, ?currentChild],
+                      );
+                    },
                 child: step == _ArenaSetupStep.arena
                     ? _ArenaPickerView(
                         key: const ValueKey<String>('arena-step'),
@@ -138,62 +145,92 @@ class _SetupHeader extends StatelessWidget {
     final int activeStep = step == _ArenaSetupStep.arena ? 1 : 2;
     return Column(
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            if (step == _ArenaSetupStep.loadout)
-              IconButton(
-                key: const ValueKey<String>('back-to-arena'),
-                onPressed: onBack,
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFF17233F),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(13),
+        SizedBox(
+          height: 40,
+          child: Row(
+            children: <Widget>[
+              if (step == _ArenaSetupStep.loadout)
+                IconButton(
+                  key: const ValueKey<String>('back-to-arena'),
+                  onPressed: onBack,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 40,
+                    height: 40,
+                  ),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF17233F),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                )
+              else
+                const SizedBox(width: 40),
+              Expanded(
+                child: Text(
+                  step == _ArenaSetupStep.arena
+                      ? 'Pilih arena'
+                      : 'Siapkan loadout',
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.dmSans(
+                    color: const Color(0xFF17233F),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-                icon: const Icon(Icons.arrow_back_rounded, size: 20),
-              )
-            else
-              const SizedBox(width: 48),
-            const Spacer(),
-            InkWell(
-              onTap: onTopUp,
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-                child: Row(
-                  children: <Widget>[
-                    const YCoinMark(size: 22),
-                    const SizedBox(width: 6),
-                    Text(
-                      formatYCoins(balance),
-                      style: GoogleFonts.jetBrainsMono(
-                        color: AppColors.textStrong,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
+              ),
+              InkWell(
+                onTap: onTopUp,
+                borderRadius: BorderRadius.circular(11),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 6,
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      const YCoinMark(size: 20),
+                      const SizedBox(width: 5),
+                      Text(
+                        formatYCoins(balance),
+                        style: GoogleFonts.jetBrainsMono(
+                          color: AppColors.textStrong,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 5),
-            IconButton(
-              key: const ValueKey<String>('pvp-open-store'),
-              onPressed: onOpenStore,
-              tooltip: 'Buka Store',
-              style: IconButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF173A67),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(13),
+              const SizedBox(width: 4),
+              IconButton(
+                key: const ValueKey<String>('pvp-open-store'),
+                onPressed: onOpenStore,
+                tooltip: 'Buka Store',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 40,
+                  height: 40,
                 ),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF173A67),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(Icons.storefront_outlined, size: 19),
               ),
-              icon: const Icon(Icons.storefront_outlined, size: 20),
-            ),
-          ],
+            ],
+          ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 7),
         Row(
           children: List<Widget>.generate(3, (int index) {
             final bool active = index < activeStep;
@@ -510,7 +547,7 @@ class _LoadoutDiorama extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: compact ? 210 : 242,
+      height: compact ? 204 : 228,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
@@ -526,76 +563,66 @@ class _LoadoutDiorama extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: <Widget>[
-          Image.asset(
-            selectedArena.assetPath!,
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
-            filterQuality: FilterQuality.medium,
+          ImageFiltered(
+            key: const ValueKey<String>('loadout-arena-blur'),
+            imageFilter: ui.ImageFilter.blur(sigmaX: 7, sigmaY: 7),
+            child: Transform.scale(
+              scale: 1.08,
+              child: Image.asset(
+                selectedArena.assetPath!,
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                filterQuality: FilterQuality.medium,
+              ),
+            ),
           ),
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: <Color>[Color(0x0D000000), Color(0xB817233F)],
-                stops: <double>[0.42, 1],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: <Color>[Color(0x3317233F), Color(0x8A17233F)],
               ),
             ),
           ),
-          Positioned(
-            left: compact ? 38 : 48,
-            bottom: -7,
-            width: compact ? 190 : 220,
-            height: compact ? 196 : 226,
-            child: Image.asset(
-              selectedCharacter.characterVisuals!.ready,
-              fit: BoxFit.contain,
-              alignment: Alignment.bottomCenter,
-              filterQuality: FilterQuality.medium,
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              compact ? 10 : 13,
+              compact ? 10 : 13,
+              compact ? 10 : 13,
+              compact ? 9 : 11,
             ),
-          ),
-          Positioned(
-            right: 12,
-            bottom: compact ? 22 : 26,
-            width: compact ? 80 : 94,
-            height: compact ? 80 : 94,
-            child: Image.asset(
-              selectedTower.assetPath!,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.medium,
-            ),
-          ),
-          Positioned(
-            left: 15,
-            right: 15,
-            bottom: 12,
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
                 Expanded(
-                  child: Text(
-                    selectedCharacter.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.fredoka(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      shadows: const <Shadow>[
-                        Shadow(color: Color(0x99000000), blurRadius: 7),
-                      ],
+                  child: _LoadoutPreviewSlot(
+                    typeLabel: 'KARAKTER',
+                    name: selectedCharacter.name,
+                    assetPath: selectedCharacter.characterVisuals!.ready,
+                    previewKey: const ValueKey<String>(
+                      'loadout-character-preview',
                     ),
+                    nameFirst: true,
+                    scale: 1.08 * _characterPreviewScale(selectedCharacter),
                   ),
                 ),
-                const SizedBox(width: 92),
-                Text(
-                  selectedTower.name,
-                  style: GoogleFonts.dmSans(
-                    color: Colors.white,
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w800,
-                    shadows: const <Shadow>[
-                      Shadow(color: Color(0x99000000), blurRadius: 7),
-                    ],
+                Container(
+                  width: 1,
+                  margin: EdgeInsets.symmetric(
+                    horizontal: compact ? 8 : 11,
+                    vertical: 5,
+                  ),
+                  color: const Color(0x5CFFFFFF),
+                ),
+                Expanded(
+                  child: _LoadoutPreviewSlot(
+                    typeLabel: 'TOWER',
+                    name: selectedTower.name,
+                    assetPath: selectedTower.assetPath!,
+                    previewKey: const ValueKey<String>('loadout-tower-preview'),
+                    nameFirst: false,
+                    scale: 0.92,
                   ),
                 ),
               ],
@@ -603,6 +630,85 @@ class _LoadoutDiorama extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _LoadoutPreviewSlot extends StatelessWidget {
+  const _LoadoutPreviewSlot({
+    required this.typeLabel,
+    required this.name,
+    required this.assetPath,
+    required this.previewKey,
+    required this.nameFirst,
+    required this.scale,
+  });
+
+  final String typeLabel;
+  final String name;
+  final String assetPath;
+  final Key previewKey;
+  final bool nameFirst;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget label = SizedBox(
+      height: 38,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: nameFirst
+            ? CrossAxisAlignment.start
+            : CrossAxisAlignment.end,
+        children: <Widget>[
+          Text(
+            typeLabel,
+            style: GoogleFonts.dmSans(
+              color: const Color(0xBFFFFFFF),
+              fontSize: 8,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.1,
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: nameFirst ? TextAlign.left : TextAlign.right,
+            style: GoogleFonts.fredoka(
+              color: Colors.white,
+              fontSize: 16,
+              height: 1,
+              fontWeight: FontWeight.w700,
+              shadows: const <Shadow>[
+                Shadow(color: Color(0x7A000000), blurRadius: 6),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    final Widget preview = Expanded(
+      child: ClipRect(
+        key: previewKey,
+        child: Transform.scale(
+          scale: scale,
+          child: Image.asset(
+            assetPath,
+            fit: BoxFit.contain,
+            alignment: Alignment.center,
+            filterQuality: FilterQuality.medium,
+          ),
+        ),
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: nameFirst
+          ? <Widget>[label, const SizedBox(height: 2), preview]
+          : <Widget>[preview, const SizedBox(height: 2), label],
     );
   }
 }
@@ -657,13 +763,7 @@ class _LoadoutRail extends StatelessWidget {
         ),
         const SizedBox(height: 7),
         SizedBox(
-          height: characters
-              ? compact
-                    ? 104
-                    : 116
-              : compact
-              ? 84
-              : 94,
+          height: compact ? 108 : 118,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
@@ -706,106 +806,103 @@ class _LoadoutChoiceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: selected ? const Color(0xFFEAF2FC) : Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(15),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         key: ValueKey<String>('loadout-${item.id}'),
         onTap: onTap,
         child: Ink(
-          width: character ? 112 : 158,
-          padding: const EdgeInsets.all(7),
+          width: 108,
+          padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(15),
             border: Border.all(
               color: selected
                   ? const Color(0xFF2878F0)
                   : const Color(0xFFE2DDD3),
-              width: selected ? 2 : 1,
+              width: 2,
             ),
           ),
-          child: character
-              ? Stack(
-                  children: <Widget>[
-                    Positioned.fill(
-                      bottom: 18,
-                      child: Image.asset(
-                        item.assetPath!,
-                        fit: BoxFit.contain,
-                        alignment: Alignment.bottomCenter,
-                        filterQuality: FilterQuality.medium,
-                      ),
-                    ),
-                    Align(
-                      alignment: Alignment.bottomCenter,
-                      child: Text(
-                        item.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.dmSans(
-                          color: const Color(0xFF17233F),
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    if (!owned)
-                      const Positioned(
-                        top: 2,
-                        right: 2,
-                        child: Icon(
-                          Icons.lock_outline_rounded,
-                          color: Color(0xFF717784),
-                          size: 16,
-                        ),
-                      ),
-                  ],
-                )
-              : Row(
-                  children: <Widget>[
-                    SizedBox(
-                      width: 62,
-                      child: Image.asset(
-                        item.assetPath!,
-                        fit: BoxFit.contain,
-                        filterQuality: FilterQuality.medium,
-                      ),
-                    ),
-                    const SizedBox(width: 7),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            item.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.dmSans(
-                              color: const Color(0xFF17233F),
-                              fontSize: 10.5,
-                              height: 1.1,
-                              fontWeight: FontWeight.w800,
+          child: Stack(
+            children: <Widget>[
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Expanded(
+                    child: ClipRRect(
+                      key: ValueKey<String>('loadout-preview-${item.id}'),
+                      borderRadius: BorderRadius.circular(10),
+                      child: ColoredBox(
+                        color: selected
+                            ? const Color(0xFFDCE9FA)
+                            : const Color(0xFFF4F0E8),
+                        child: Opacity(
+                          opacity: owned ? 1 : 0.56,
+                          child: Transform.scale(
+                            scale: character
+                                ? _characterPreviewScale(item)
+                                : 0.84,
+                            child: Image.asset(
+                              item.assetPath!,
+                              fit: BoxFit.contain,
+                              alignment: Alignment.center,
+                              filterQuality: FilterQuality.medium,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Icon(
-                            selected
-                                ? Icons.check_rounded
-                                : owned
-                                ? Icons.inventory_2_outlined
-                                : Icons.lock_outline_rounded,
-                            color: selected
-                                ? const Color(0xFF2878F0)
-                                : const Color(0xFF717784),
-                            size: 15,
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ],
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    item.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.dmSans(
+                      color: const Color(0xFF17233F),
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+              Positioned(
+                top: 4,
+                right: 4,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? const Color(0xFF2878F0)
+                        : const Color(0xD9FFFFFF),
+                    shape: BoxShape.circle,
+                  ),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: Icon(
+                      selected
+                          ? Icons.check_rounded
+                          : owned
+                          ? Icons.inventory_2_outlined
+                          : Icons.lock_outline_rounded,
+                      color: selected ? Colors.white : const Color(0xFF5F6673),
+                      size: 13,
+                    ),
+                  ),
                 ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+double _characterPreviewScale(CosmeticItem item) {
+  return switch (item.id) {
+    'character-rare-ignis' || 'character-legend-luna' => 1.18,
+    _ => 1,
+  };
 }

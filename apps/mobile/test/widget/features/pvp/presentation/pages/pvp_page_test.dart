@@ -76,6 +76,7 @@ void main() {
     expect(find.text('Mau bertanding di mana?'), findsOneWidget);
     expect(find.text('Arena CPNS'), findsOneWidget);
     expect(find.text('Arena BUMN'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('01  PILIH ARENA')).dy, lessThan(100));
 
     await tester.drag(find.byType(ListView), const Offset(-280, 0));
     await tester.pumpAndSettle();
@@ -92,6 +93,34 @@ void main() {
     expect(find.text('Pilih jagoanmu, Kamu'), findsOneWidget);
     expect(find.text('Karakter'), findsOneWidget);
     expect(find.text('Tower'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('02  SIAPKAN LOADOUT')).dy,
+      lessThan(100),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('loadout-arena-blur')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('loadout-character-preview')),
+      ),
+      tester.getSize(
+        find.byKey(const ValueKey<String>('loadout-tower-preview')),
+      ),
+    );
+    expect(
+      tester.getSize(
+        find.byKey(
+          const ValueKey<String>('loadout-preview-character-basic-squire'),
+        ),
+      ),
+      tester.getSize(
+        find.byKey(
+          const ValueKey<String>('loadout-preview-character-basic-pip'),
+        ),
+      ),
+    );
 
     await tester.tap(
       find.byKey(const ValueKey<String>('loadout-character-basic-squire')),
@@ -116,6 +145,14 @@ void main() {
     expect(find.text('Siap bertanding, Kamu?'), findsOneWidget);
     expect(find.text('Lawan Bot'), findsOneWidget);
     expect(find.text('Lawan Player'), findsOneWidget);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('online-player-avatar')),
+      ),
+      tester.getSize(
+        find.byKey(const ValueKey<String>('online-opponent-avatar')),
+      ),
+    );
   });
 
   testWidgets('transitions from pre-battle to result', (
