@@ -1422,47 +1422,6 @@
 - The projectile effects are currently Flutter-drawn rather than authored as reusable animation files. If combat timing or art direction grows substantially, moving them to a dedicated animation format would make iteration easier.
 - The arena has behavioral widget coverage but no screenshot/golden baseline yet, so future visual changes still need an emulator pass across the supported phone sizes.
 
-## 2026-07-20 - Y-Coin Store, Hired Pass, And PvP Loadouts
-
-### The Change
-- Replaced the Store placeholder with a functional character/arena catalog, permanent local inventory, purchase/equip actions, Y-Coin balance, simulated beta top-up packages, and an unlimited `+100` beta-credit action.
-- Added a Hired Pass route with season progress, daily/weekly mission presentation, free/premium reward tracks, beta premium activation, reward claiming, and cosmetic rewards.
-- Added a persisted PvP loadout step before opponent selection. The selected character is used in the HUD and live arena, the selected arena recolors the responsive battlefield, and both combatants now have restrained ambient avatar motion on the board.
-- Added original violet and teal clay-3D character assets, Lobby shortcuts for Store/Pass/top-up, and unit/widget coverage for purchases, beta credits, Pass rewards, loadout selection, and the existing battle flow.
-- Wrapped Profile settings switch rows in a transparent `Material` so Flutter's current ListTile ink/background assertion no longer breaks the existing profile widget tests.
-- Removed a real-time `Future.delayed` from the Practice widget test fake clock and awaited controller hydration directly, preventing the aggregate Flutter test runner from hanging.
-- Restored the Practice hint tap path by moving the locked hint through its buy state before unlock, matching the visible `-5 poin` action and existing widget expectation.
-
-### The Reasoning
-- A single economy controller keeps balance, ownership, equipped cosmetics, and reward claims consistent across Store, Pass, Lobby, and PvP while the payment/backend integration is still outside the MVP.
-- Loadout selection lives in the existing `preBattle` phase so the battle state machine and Socket.IO contracts remain unchanged. Cosmetics only affect asset and palette selection.
-- Arena skins are expressed as responsive Flutter palettes instead of fixed background images, while generated raster art is reserved for the character skins that benefit from the clay-3D treatment.
-
-### The Tech Debt
-- Economy and Hired Pass state currently persist in SharedPreferences as an explicitly labeled beta sandbox. Production must hydrate from the server-authoritative Store/Hired Pass APIs and never trust client-side balance mutation.
-- Paid top-up prices are presentation-only simulations until a payment gateway, receipt verification, ledger, and idempotent server credit flow are implemented.
-- Pass mission progress is demo data; practice, battle, streak, and interview completion still need to feed server-owned seasonal mission counters.
-
-## 2026-07-20 - PvP Cast, Stable Hand, And Arena Audio Polish
-
-### The Change
-- Removed normal correct/wrong status banners from the active arena while retaining the top surface for actionable errors.
-- Replaced both main-tower focal points with clay-like 3D podiums for the equipped hero and opponent, and added character anticipation/lunge motion before each attack or heal.
-- Slowed the combat sequence from 620 ms to 1050 ms and gave the projectile a dedicated post-cast travel phase before impact and the floating HP value.
-- Stopped bot turns from consuming the player's question pool. Incoming attacks now preserve every visible card; only the card answered by the player is removed and refilled, for either a correct or wrong answer.
-- Added a local procedural arena loop and six supporting cues for countdown, card pick, cast, projectile, impact, and heal. The seven mono WAV files total about 441 KiB, are pre-cached, honor Profile sound settings, pause with the arena/app lifecycle, and release their players on exit.
-- Added `audioplayers` for asset playback, a reproducible `tool/generate_arena_audio.dart` generator, and image pre-caching for the active hero, tower, and card assets.
-- Migrated Supabase initialization from the deprecated `anonKey` argument to `publishableKey` after the updated dependency surfaced the warning.
-
-### The Reasoning
-- Combat feedback is clearer when the hero's cast, projectile, impact, HP bar, and floating value carry the result instead of a banner covering the top of the battlefield.
-- The hand is a player-owned decision surface. Letting an unrelated incoming hit replace a visible choice made the battle feel random and could invalidate a card the player was considering.
-- Bundled low-sample-rate audio keeps the arena responsive and usable offline while three small SFX players allow cast and impact cues to overlap without creating a new player for every event.
-
-### The Tech Debt
-- The procedural soundtrack is intentionally compact and original, but it should receive a dedicated audio-design/mastering pass before production release.
-- Online hand replacement remains server-authoritative; the game backend must preserve the same player-owned-hand rule in every `game_state_update` payload.
-- The arena still has no screenshot/golden baseline, so podium proportions and cast motion should be visually checked on the target emulator sizes before final art sign-off.
 ## 2026-07-20 - AI Interview Setup, Text Fixes, And Voice Wiring
 
 ### The Change
@@ -1549,41 +1508,6 @@
 ### The Tech Debt
 - The visualizer is decorative and timer-driven; it does not yet react to live microphone amplitude.
 - The transcript/history still exists in text mode and history sheets, but voice mode does not currently expose an inline full transcript while the session is active.
-
-## 2026-07-21 - PvP Basic Character States And Projectile Combo
-
-### The Change
-- Replaced the selectable PvP character roster with the complete Basic Squire and Basic Pip sets sourced from `apps/games/assets/avatar/`, and copied their idle, ready, attack, hit, and three projectile states into the Flutter game asset bundle.
-- Enlarged character selection so the list uses idle art and the selected preview uses ready art, labels the current Basic tier, and keeps Rare/Legend hidden until their full asset sets exist. Squire is the default character; Pip is a purchasable 500 Y-Coin Basic character.
-- Updated the arena to swap character art through idle, ready, attack, and hit states. Hit interrupts ready, while an incoming hit during attack is queued until attack completes. Stronger contact shadows now visually anchor both characters to their podiums.
-- Added a seven-second visual combo chain. Correct answers advance the next projectile from `proj1` to `proj2` to `proj3`; wrong answers and incoming hits lower one level; expiry resets the chain to `x1`. Combo does not alter combat values.
-- Added controller coverage for combo progression, wrong-answer reduction, incoming-hit reduction, and timeout reset, and updated the PvP widget coverage for the new Basic loadout and combo HUD.
-
-### The Reasoning
-- Keeping all character states in one typed asset set prevents the selector, HUD, arena, and projectile layer from silently mixing unrelated character art.
-- Combo lives in the battle controller because its countdown and penalties are gameplay state, while pose scheduling and effect queuing stay in the presentation layer because they only decide how an already-resolved event is shown.
-- Serializing combat effects preserves the readable order of attack, projectile, impact, and hit when player and bot events arrive close together.
-
-### The Tech Debt
-- The 14 supplied character PNGs are high-resolution and add roughly 11.7 MB before build-time compression. A production asset pass should crop transparent margins, standardize dimensions, and measure final APK/AAB size.
-- Online events do not yet expose an opponent combo level, so remote/incoming attacks fall back to projectile level 1. A server-authoritative combo field should be added before online combo parity is required.
-- Rare and Legend characters intentionally remain absent until each has idle, ready, attack, hit, and projectile 1–3 assets; partial sets should not be added to the selector.
-
-## 2026-07-21 - PvP Rare And Legend Character Roster
-
-### The Change
-- Added all four newly supplied complete character sets to the mobile bundle: Rare Ignis, Rare Brock, Legend Drakor, and Legend Luna. Each character uses its own idle, ready, attack, hit, and projectile 1–3 art.
-- Expanded the PvP selector and Store catalog from two Basic characters to six characters across Basic, Rare, and Legend. Tier badges now follow the selected character instead of being hardcoded to Basic.
-- Priced Ignis at 900 Y-Coin, Brock at 1,100 Y-Coin, Drakor at 2,200 Y-Coin, and Luna at 2,500 Y-Coin; these remain cosmetic-only purchases with no competitive stat changes.
-- Added catalog coverage that locks the six-character order, tier assignments, and complete seven-asset contract for every character.
-
-### The Reasoning
-- A character only enters the selectable roster when its complete state set is available, so every owned choice can participate in selection, ready, attack, hit, and combo projectile flows without falling back to another character's art.
-- Keeping tier text derived from catalog rarity ensures PvP and Store stay aligned as more character sets are added.
-
-### The Tech Debt
-- The 28 new source PNGs add about 31.5 MiB, bringing the six-character mobile roster to roughly 42.7 MiB before build-time compression. A production asset pass should crop transparent margins, standardize dimensions, and measure final APK/AAB size.
-- Character pricing is currently a client-side beta catalog decision and must move to the server-authoritative Store configuration before production commerce is enabled.
 
 ## 2026-07-21 - Practice Session Backend Wiring
 
