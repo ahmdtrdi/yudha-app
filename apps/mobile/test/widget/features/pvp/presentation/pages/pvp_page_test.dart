@@ -47,7 +47,7 @@ class _FakeBattleRepository extends OnlineBattleRepository {
 }
 
 void main() {
-  testWidgets('selects owned character and arena before entering PvP', (
+  testWidgets('follows arena, loadout, and mode setup flow', (
     WidgetTester tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(411, 914));
@@ -63,7 +63,7 @@ void main() {
     final economy = container.read(gameEconomyProvider.notifier);
     economy.topUp(GameEconomyCatalog.topUpPackages[2]);
     economy.purchase(GameEconomyCatalog.characters[1]);
-    economy.purchase(GameEconomyCatalog.arenas[1]);
+    economy.purchase(GameEconomyCatalog.towers[1]);
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -73,15 +73,60 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Siapkan loadout, Kamu'), findsOneWidget);
-    expect(find.text('Violet Striker'), findsWidgets);
-    expect(find.text('Sunset Canyon'), findsWidgets);
+    expect(find.text('Mau bertanding di mana?'), findsOneWidget);
+    expect(find.text('Arena CPNS'), findsOneWidget);
+    expect(find.text('Arena BUMN'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('01  PILIH ARENA')).dy, lessThan(100));
+
+    await tester.drag(find.byType(ListView), const Offset(-280, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('arena-choice-arena-bumn')),
+    );
+    await tester.pump();
+
+    expect(container.read(gameEconomyProvider).equippedArenaId, 'arena-bumn');
+
+    await tester.tap(find.byKey(const ValueKey<String>('continue-to-loadout')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pilih jagoanmu, Kamu'), findsOneWidget);
+    expect(find.text('Karakter'), findsOneWidget);
+    expect(find.text('Tower'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('02  SIAPKAN LOADOUT')).dy,
+      lessThan(100),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('loadout-arena-blur')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('loadout-character-preview')),
+      ),
+      tester.getSize(
+        find.byKey(const ValueKey<String>('loadout-tower-preview')),
+      ),
+    );
+    expect(
+      tester.getSize(
+        find.byKey(
+          const ValueKey<String>('loadout-preview-character-basic-squire'),
+        ),
+      ),
+      tester.getSize(
+        find.byKey(
+          const ValueKey<String>('loadout-preview-character-basic-pip'),
+        ),
+      ),
+    );
 
     await tester.tap(
-      find.byKey(const ValueKey<String>('loadout-character-cadet-blue')),
+      find.byKey(const ValueKey<String>('loadout-character-basic-squire')),
     );
     await tester.tap(
-      find.byKey(const ValueKey<String>('loadout-arena-training-garden')),
+      find.byKey(const ValueKey<String>('loadout-tower-garda-biru')),
     );
     await tester.pump();
 
@@ -90,8 +135,23 @@ void main() {
       GameEconomyCatalog.defaultCharacterId,
     );
     expect(
-      container.read(gameEconomyProvider).equippedArenaId,
-      GameEconomyCatalog.defaultArenaId,
+      container.read(gameEconomyProvider).equippedTowerId,
+      GameEconomyCatalog.defaultTowerId,
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('continue-to-mode')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Siap bertanding, Kamu?'), findsOneWidget);
+    expect(find.text('Lawan Bot'), findsOneWidget);
+    expect(find.text('Lawan Player'), findsOneWidget);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('online-player-avatar')),
+      ),
+      tester.getSize(
+        find.byKey(const ValueKey<String>('online-opponent-avatar')),
+      ),
     );
   });
 
@@ -186,6 +246,7 @@ void main() {
     );
     expect(find.text('BOT TEST'), findsOneWidget);
     expect(find.text('Kamu'), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('combo-meter')), findsOneWidget);
 
     for (final String questionId in <String>['q1', 'q2', 'q3', 'q4']) {
       await battleController.answerQuestion(
@@ -277,6 +338,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
 
     expect(find.text('Pertanyaan yang sedang dijawab'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('assets/game/basic_squire_ready.png')),
+      findsOneWidget,
+    );
     await tester.pump(const Duration(milliseconds: 6300));
 
     expect(container.read(battleControllerProvider).playerHp, lessThan(100));

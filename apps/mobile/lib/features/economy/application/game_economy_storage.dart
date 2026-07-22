@@ -14,6 +14,7 @@ class SharedPreferencesGameEconomyStorage implements GameEconomyStorage {
   static const String _coinsKey = 'economy.yCoins';
   static const String _ownedItemsKey = 'economy.ownedItems';
   static const String _equippedCharacterKey = 'economy.equippedCharacter';
+  static const String _equippedTowerKey = 'economy.equippedTower';
   static const String _equippedArenaKey = 'economy.equippedArena';
   static const String _passPointsKey = 'economy.passPoints';
   static const String _premiumPassKey = 'economy.premiumPass';
@@ -37,6 +38,8 @@ class SharedPreferencesGameEconomyStorage implements GameEconomyStorage {
         fallback.equippedCharacterId;
     final String savedArena =
         preferences.getString(_equippedArenaKey) ?? fallback.equippedArenaId;
+    final String savedTower =
+        preferences.getString(_equippedTowerKey) ?? fallback.equippedTowerId;
 
     return GameEconomyState(
       yCoins: (preferences.getInt(_coinsKey) ?? fallback.yCoins).clamp(
@@ -44,10 +47,17 @@ class SharedPreferencesGameEconomyStorage implements GameEconomyStorage {
         999999999,
       ),
       ownedItemIds: owned,
-      equippedCharacterId: owned.contains(savedCharacter)
+      equippedCharacterId:
+          owned.contains(savedCharacter) &&
+              GameEconomyCatalog.findCharacter(savedCharacter) != null
           ? savedCharacter
           : GameEconomyCatalog.defaultCharacterId,
-      equippedArenaId: owned.contains(savedArena)
+      equippedTowerId:
+          owned.contains(savedTower) &&
+              GameEconomyCatalog.findTower(savedTower) != null
+          ? savedTower
+          : GameEconomyCatalog.defaultTowerId,
+      equippedArenaId: GameEconomyCatalog.findArena(savedArena) != null
           ? savedArena
           : GameEconomyCatalog.defaultArenaId,
       passPoints: (preferences.getInt(_passPointsKey) ?? fallback.passPoints)
@@ -72,6 +82,7 @@ class SharedPreferencesGameEconomyStorage implements GameEconomyStorage {
       _equippedCharacterKey,
       state.equippedCharacterId,
     );
+    await preferences.setString(_equippedTowerKey, state.equippedTowerId);
     await preferences.setString(_equippedArenaKey, state.equippedArenaId);
     await preferences.setInt(_passPointsKey, state.passPoints);
     await preferences.setBool(_premiumPassKey, state.premiumPassActive);

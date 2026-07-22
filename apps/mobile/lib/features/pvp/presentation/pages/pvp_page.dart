@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,20 +30,24 @@ part 'pvp_page/arena_menu_section.dart';
 part 'pvp_page/in_battle_section.dart';
 part 'pvp_page/result_status_section.dart';
 
-const String _enemyAvatarAsset = 'assets/game/arena_hero_coral.png';
-const String _playerAvatarAsset = 'assets/game/arena_hero_blue.png';
 const String _enemyMiniTowerAsset = 'assets/game/arena_turret_coral.png';
-const String _playerMiniTowerAsset = 'assets/game/arena_turret_blue.png';
 const String _numerikCardAsset = 'assets/game/card_numerik.png';
 const String _verbalCardAsset = 'assets/game/card_verbal.png';
 const String _logikaCardAsset = 'assets/game/card_logika.png';
 const String _twkCardAsset = 'assets/game/card_twk.png';
 
-class PvpPage extends ConsumerWidget {
+class PvpPage extends ConsumerStatefulWidget {
   const PvpPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PvpPage> createState() => _PvpPageState();
+}
+
+class _PvpPageState extends ConsumerState<PvpPage> {
+  _ArenaSetupStep _setupStep = _ArenaSetupStep.arena;
+
+  @override
+  Widget build(BuildContext context) {
     final BattleState state = ref.watch(battleControllerProvider);
     final BattleController controller = ref.read(
       battleControllerProvider.notifier,
@@ -55,10 +60,18 @@ class PvpPage extends ConsumerWidget {
       profileSettingsProvider.select((settings) => settings.soundEnabled),
     );
     final CosmeticItem selectedCharacter =
-        GameEconomyCatalog.findCosmetic(economy.equippedCharacterId) ??
+        GameEconomyCatalog.findCharacter(economy.equippedCharacterId) ??
         GameEconomyCatalog.characters.first;
+    final CosmeticItem selectedTower =
+        GameEconomyCatalog.findTower(economy.equippedTowerId) ??
+        GameEconomyCatalog.towers.first;
+    final CosmeticItem opponentCharacter = GameEconomyCatalog.characters
+        .firstWhere(
+          (CosmeticItem item) => item.id != selectedCharacter.id,
+          orElse: () => GameEconomyCatalog.characters.first,
+        );
     final CosmeticItem selectedArena =
-        GameEconomyCatalog.findCosmetic(economy.equippedArenaId) ??
+        GameEconomyCatalog.findArena(economy.equippedArenaId) ??
         GameEconomyCatalog.arenas.first;
 
     if (state.phase != BattlePhase.preBattle) {
@@ -71,6 +84,8 @@ class PvpPage extends ConsumerWidget {
         playerDisplayName: playerDisplayName,
         economy: economy,
         selectedCharacter: selectedCharacter,
+        selectedTower: selectedTower,
+        opponentCharacter: opponentCharacter,
         selectedArena: selectedArena,
         soundEnabled: soundEnabled,
       );
@@ -102,27 +117,17 @@ class PvpPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF8EC),
-      appBar: AppBar(
-        title: Text(
-          'Arena Yudha',
-          style: GoogleFonts.fredoka(fontWeight: FontWeight.w600, fontSize: 20),
-        ),
-        backgroundColor: const Color(0xFFFFF8EC),
-        foregroundColor: AppColors.textStrong,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        automaticallyImplyLeading: false,
-      ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
           child: Column(
             children: <Widget>[
               if (state.statusMessage != null)
                 _StatusBanner(text: state.statusMessage!),
               if (state.errorMessage != null)
                 _StatusBanner(text: state.errorMessage!, isError: true),
-              const SizedBox(height: 8),
+              if (state.statusMessage != null || state.errorMessage != null)
+                const SizedBox(height: 6),
               Expanded(
                 child: _buildBattleContent(
                   context: context,
@@ -132,6 +137,8 @@ class PvpPage extends ConsumerWidget {
                   playerDisplayName: playerDisplayName,
                   economy: economy,
                   selectedCharacter: selectedCharacter,
+                  selectedTower: selectedTower,
+                  opponentCharacter: opponentCharacter,
                   selectedArena: selectedArena,
                   soundEnabled: soundEnabled,
                 ),
@@ -151,6 +158,8 @@ class PvpPage extends ConsumerWidget {
     required String playerDisplayName,
     required GameEconomyState economy,
     required CosmeticItem selectedCharacter,
+    required CosmeticItem selectedTower,
+    required CosmeticItem opponentCharacter,
     required CosmeticItem selectedArena,
     required bool soundEnabled,
   }) {
@@ -158,30 +167,51 @@ class PvpPage extends ConsumerWidget {
       return _ArenaLoadingView(
         mode: state.mode,
         message: state.statusMessage,
-        playerAvatarAsset: selectedCharacter.assetPath ?? _playerAvatarAsset,
+        playerAvatarAsset: selectedCharacter.characterVisuals!.idle,
+        opponentAvatarAsset: opponentCharacter.characterVisuals!.idle,
       );
     }
 
     if (state.phase == BattlePhase.preBattle) {
       return _ArenaEntrySection(
+        step: _setupStep,
         playerDisplayName: playerDisplayName,
         economy: economy,
         selectedCharacter: selectedCharacter,
+        selectedTower: selectedTower,
         selectedArena: selectedArena,
         onSelectCosmetic: (CosmeticItem item) {
           ref.read(gameEconomyProvider.notifier).equip(item);
         },
+        onSelectArena: (CosmeticItem arena) {
+          ref.read(gameEconomyProvider.notifier).selectArena(arena);
+        },
         onOpenStore: () => context.push(AppRoutes.store),
         onTopUp: () => showYCoinTopUpSheet(context),
-        onEnterArena: controller.enterArena,
+        onBack: () {
+          setState(() => _setupStep = _ArenaSetupStep.arena);
+        },
+        onContinue: () {
+          if (_setupStep == _ArenaSetupStep.arena) {
+            setState(() => _setupStep = _ArenaSetupStep.loadout);
+            return;
+          }
+          controller.enterArena();
+        },
       );
     }
 
     if (state.phase == BattlePhase.arenaMenu) {
       return _ArenaMenuSection(
         playerDisplayName: playerDisplayName,
-        playerAvatarAsset: selectedCharacter.assetPath ?? _playerAvatarAsset,
-        onBackHome: controller.exitArena,
+        playerAvatarAsset: selectedCharacter.characterVisuals!.idle,
+        opponentAvatarAsset: opponentCharacter.characterVisuals!.idle,
+        selectedArena: selectedArena,
+        selectedTower: selectedTower,
+        onBackHome: () {
+          controller.exitArena();
+          setState(() => _setupStep = _ArenaSetupStep.loadout);
+        },
         onStartBot: () {
           controller.setMode(BattleMode.bot);
           controller.startBattle();
@@ -214,7 +244,9 @@ class PvpPage extends ConsumerWidget {
     return _InBattleSection(
       state: state,
       playerDisplayName: playerDisplayName,
-      playerAvatarAsset: selectedCharacter.assetPath ?? _playerAvatarAsset,
+      playerCharacter: selectedCharacter.characterVisuals!,
+      opponentCharacter: opponentCharacter.characterVisuals!,
+      playerTowerAsset: selectedTower.battleAssetPath ?? _enemyMiniTowerAsset,
       arenaTheme: ArenaVisualTheme.fromId(selectedArena.id),
       soundEnabled: soundEnabled,
       onPause: () => _showPauseDialog(
@@ -412,11 +444,13 @@ class _ArenaLoadingView extends StatelessWidget {
   const _ArenaLoadingView({
     required this.mode,
     required this.playerAvatarAsset,
+    required this.opponentAvatarAsset,
     this.message,
   });
 
   final BattleMode mode;
   final String playerAvatarAsset;
+  final String opponentAvatarAsset;
   final String? message;
 
   @override
@@ -451,7 +485,7 @@ class _ArenaLoadingView extends StatelessWidget {
                       right: 4,
                       bottom: 0,
                       child: Image.asset(
-                        _enemyAvatarAsset,
+                        opponentAvatarAsset,
                         width: 106,
                         height: 106,
                         fit: BoxFit.contain,

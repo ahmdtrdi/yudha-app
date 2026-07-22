@@ -5,6 +5,7 @@ class GameEconomyState {
     required this.yCoins,
     required this.ownedItemIds,
     required this.equippedCharacterId,
+    required this.equippedTowerId,
     required this.equippedArenaId,
     required this.passPoints,
     required this.premiumPassActive,
@@ -16,9 +17,10 @@ class GameEconomyState {
       yCoins: 300,
       ownedItemIds: <String>{
         GameEconomyCatalog.defaultCharacterId,
-        GameEconomyCatalog.defaultArenaId,
+        GameEconomyCatalog.defaultTowerId,
       },
       equippedCharacterId: GameEconomyCatalog.defaultCharacterId,
+      equippedTowerId: GameEconomyCatalog.defaultTowerId,
       equippedArenaId: GameEconomyCatalog.defaultArenaId,
       passPoints: 340,
       premiumPassActive: false,
@@ -29,6 +31,7 @@ class GameEconomyState {
   final int yCoins;
   final Set<String> ownedItemIds;
   final String equippedCharacterId;
+  final String equippedTowerId;
   final String equippedArenaId;
   final int passPoints;
   final bool premiumPassActive;
@@ -42,6 +45,7 @@ class GameEconomyState {
     int? yCoins,
     Set<String>? ownedItemIds,
     String? equippedCharacterId,
+    String? equippedTowerId,
     String? equippedArenaId,
     int? passPoints,
     bool? premiumPassActive,
@@ -51,6 +55,7 @@ class GameEconomyState {
       yCoins: yCoins ?? this.yCoins,
       ownedItemIds: ownedItemIds ?? this.ownedItemIds,
       equippedCharacterId: equippedCharacterId ?? this.equippedCharacterId,
+      equippedTowerId: equippedTowerId ?? this.equippedTowerId,
       equippedArenaId: equippedArenaId ?? this.equippedArenaId,
       passPoints: passPoints ?? this.passPoints,
       premiumPassActive: premiumPassActive ?? this.premiumPassActive,

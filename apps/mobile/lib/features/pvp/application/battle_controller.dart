@@ -13,8 +13,10 @@ class BattleController extends StateNotifier<BattleState> {
   BattleController({
     required BattleRepository botRepository,
     required OnlineBattleRepository onlineRepository,
+    Duration comboTickDuration = const Duration(seconds: 1),
   }) : _botRepository = botRepository,
        _onlineRepository = onlineRepository,
+       _comboTickDuration = comboTickDuration,
        super(BattleState.initial()) {
     _onlineUpdatesSubscription = _onlineRepository.updates.listen(
       _handleOnlineUpdate,
@@ -23,7 +25,10 @@ class BattleController extends StateNotifier<BattleState> {
 
   final BattleRepository _botRepository;
   final OnlineBattleRepository _onlineRepository;
+  final Duration _comboTickDuration;
+  static const int comboWindowSeconds = 7;
   late final StreamSubscription<OnlineBattleUpdate> _onlineUpdatesSubscription;
+  Timer? _comboTimer;
   bool _acceptOnlineUpdates = false;
   String? _preparedQuestionId;
 
@@ -33,6 +38,7 @@ class BattleController extends StateNotifier<BattleState> {
     }
 
     _preparedQuestionId = null;
+    _resetComboTimer();
     state = state.copyWith(
       mode: mode,
       phase: state.phase == BattlePhase.arenaMenu
@@ -48,6 +54,9 @@ class BattleController extends StateNotifier<BattleState> {
       availableQuestions: const <BattleQuestion>[],
       answeredQuestionIds: const <String>[],
       rewardClaimed: false,
+      comboLevel: 1,
+      comboSecondsRemaining: 0,
+      lastProjectileLevel: 1,
       statusMessage: 'Mode ${_modeLabel(mode)} dipilih. Tekan mulai battle.',
       clearErrorMessage: true,
       clearBattleEvent: true,
@@ -60,6 +69,7 @@ class BattleController extends StateNotifier<BattleState> {
     }
 
     _preparedQuestionId = null;
+    _resetComboTimer();
     state = state.copyWith(
       phase: BattlePhase.arenaMenu,
       outcome: BattleOutcome.inProgress,
@@ -71,6 +81,9 @@ class BattleController extends StateNotifier<BattleState> {
       availableQuestions: const <BattleQuestion>[],
       answeredQuestionIds: const <String>[],
       rewardClaimed: false,
+      comboLevel: 1,
+      comboSecondsRemaining: 0,
+      lastProjectileLevel: 1,
       statusMessage: 'Pilih mode arena.',
       clearErrorMessage: true,
       clearBattleEvent: true,
@@ -84,6 +97,7 @@ class BattleController extends StateNotifier<BattleState> {
 
     _acceptOnlineUpdates = false;
     _preparedQuestionId = null;
+    _resetComboTimer();
     state = BattleState.initial().copyWith(mode: state.mode);
   }
 
@@ -93,6 +107,7 @@ class BattleController extends StateNotifier<BattleState> {
     }
 
     _preparedQuestionId = null;
+    _resetComboTimer();
     _acceptOnlineUpdates = state.mode == BattleMode.online;
     state = state.copyWith(
       isLoading: true,
@@ -117,6 +132,9 @@ class BattleController extends StateNotifier<BattleState> {
         opponentPoints: 0,
         ratingDelta: 0,
         rewardClaimed: false,
+        comboLevel: 1,
+        comboSecondsRemaining: 0,
+        lastProjectileLevel: 1,
         isLoading: false,
         statusMessage: state.mode == BattleMode.online
             ? 'Lawan ditemukan. Arena dimulai.'
@@ -173,11 +191,18 @@ class BattleController extends StateNotifier<BattleState> {
       }
     }
 
-    state = BattleStateMachine.resolveTurn(
+    final bool isCorrect =
+        question.correctOptionIndex != null &&
+        selectedOptionIndex == question.correctOptionIndex;
+    final int projectileLevel = isCorrect ? state.comboLevel : 1;
+    final BattleState resolved = BattleStateMachine.resolveTurn(
       state: state,
       question: question,
       selectedOptionIndex: selectedOptionIndex,
     );
+    state = isCorrect
+        ? _raiseCombo(resolved, projectileLevel: projectileLevel)
+        : _lowerCombo(resolved, projectileLevel: projectileLevel);
     releasePreparedQuestion(questionId);
     return true;
   }
@@ -194,10 +219,13 @@ class BattleController extends StateNotifier<BattleState> {
       return;
     }
 
-    state = BattleStateMachine.resolveOpponentTurn(
+    final BattleState resolved = BattleStateMachine.resolveOpponentTurn(
       state: state,
       question: question,
     );
+    state = resolved.playerHp < state.playerHp
+        ? _lowerCombo(resolved, projectileLevel: 1)
+        : resolved.copyWith(lastProjectileLevel: 1);
   }
 
   Future<void> surrenderBattle() async {
@@ -206,6 +234,7 @@ class BattleController extends StateNotifier<BattleState> {
     }
 
     _preparedQuestionId = null;
+    _resetComboTimer();
     if (state.mode == BattleMode.online) {
       await _onlineRepository.surrender();
       return;
@@ -225,6 +254,7 @@ class BattleController extends StateNotifier<BattleState> {
   void resetBattle() {
     _acceptOnlineUpdates = false;
     _preparedQuestionId = null;
+    _resetComboTimer();
     state = BattleState.initial().copyWith(
       mode: state.mode,
       phase: BattlePhase.arenaMenu,
@@ -275,6 +305,7 @@ class BattleController extends StateNotifier<BattleState> {
 
   @override
   void dispose() {
+    _comboTimer?.cancel();
     _onlineUpdatesSubscription.cancel();
     _onlineRepository.dispose();
     super.dispose();
@@ -329,7 +360,7 @@ class BattleController extends StateNotifier<BattleState> {
         final BattleQuestion? question = _findQuestionById(update.cardId);
         final QuestionEffect? effect = update.effect;
         final bool isCorrect = update.correct;
-        state = state.copyWith(
+        final BattleState eventState = state.copyWith(
           battleEventId: state.battleEventId + 1,
           lastActor: isCorrect ? BattleActor.player : BattleActor.opponent,
           lastVisualEffect: effect == null
@@ -348,9 +379,13 @@ class BattleController extends StateNotifier<BattleState> {
           clearErrorMessage: true,
           clearBattleEvent: effect == null,
         );
+        state = isCorrect
+            ? _raiseCombo(eventState, projectileLevel: state.comboLevel)
+            : _lowerCombo(eventState, projectileLevel: 1);
         break;
       case MatchResultUpdate():
         _preparedQuestionId = null;
+        _resetComboTimer();
         state = state.copyWith(
           phase: BattlePhase.finished,
           outcome: update.outcome,
@@ -455,5 +490,77 @@ class BattleController extends StateNotifier<BattleState> {
         ? compact.substring(compact.length - 6).toUpperCase()
         : compact.toUpperCase();
     return 'Player $suffix';
+  }
+
+  BattleState _raiseCombo(
+    BattleState resolved, {
+    required int projectileLevel,
+  }) {
+    if (!resolved.isBattleActive) {
+      _resetComboTimer();
+      return resolved.copyWith(
+        comboSecondsRemaining: 0,
+        lastProjectileLevel: projectileLevel.clamp(1, 3),
+      );
+    }
+    final int nextLevel = (state.comboLevel + 1).clamp(1, 3);
+    final BattleState next = resolved.copyWith(
+      comboLevel: nextLevel,
+      comboSecondsRemaining: comboWindowSeconds,
+      lastProjectileLevel: projectileLevel.clamp(1, 3),
+    );
+    _startComboTimer();
+    return next;
+  }
+
+  BattleState _lowerCombo(
+    BattleState resolved, {
+    required int projectileLevel,
+  }) {
+    if (!resolved.isBattleActive) {
+      _resetComboTimer();
+      return resolved.copyWith(
+        comboSecondsRemaining: 0,
+        lastProjectileLevel: projectileLevel.clamp(1, 3),
+      );
+    }
+    final int nextLevel = (state.comboLevel - 1).clamp(1, 3);
+    final int remaining = nextLevel > 1 ? comboWindowSeconds : 0;
+    final BattleState next = resolved.copyWith(
+      comboLevel: nextLevel,
+      comboSecondsRemaining: remaining,
+      lastProjectileLevel: projectileLevel.clamp(1, 3),
+    );
+    if (nextLevel > 1) {
+      _startComboTimer();
+    } else {
+      _resetComboTimer();
+    }
+    return next;
+  }
+
+  void _startComboTimer() {
+    _comboTimer?.cancel();
+    _comboTimer = Timer.periodic(_comboTickDuration, (Timer timer) {
+      if (!state.isBattleActive || state.comboLevel <= 1) {
+        timer.cancel();
+        return;
+      }
+
+      if (state.comboSecondsRemaining <= 1) {
+        timer.cancel();
+        state = state.copyWith(comboLevel: 1, comboSecondsRemaining: 0);
+        return;
+      }
+
+      state = state.copyWith(
+        comboSecondsRemaining: state.comboSecondsRemaining - 1,
+      );
+    });
+  }
+
+  void _resetComboTimer() {
+    _comboTimer?.cancel();
+    _comboTimer = null;
   }
 }

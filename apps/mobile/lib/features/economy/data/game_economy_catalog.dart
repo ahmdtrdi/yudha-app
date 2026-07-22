@@ -39,73 +39,174 @@ class PassReward {
 }
 
 abstract final class GameEconomyCatalog {
-  static const String defaultCharacterId = 'character-cadet-blue';
-  static const String defaultArenaId = 'arena-training-garden';
+  static const String defaultCharacterId = 'character-basic-squire';
+  static const String defaultTowerId = 'tower-garda-biru';
+  static const String defaultArenaId = 'arena-cpns';
 
   static const List<CosmeticItem> characters = <CosmeticItem>[
     CosmeticItem(
       id: defaultCharacterId,
-      name: 'Cadet Biru',
-      description: 'Seragam klasik para pejuang YUDHA.',
+      name: 'Squire',
+      description: 'Ksatria pemula yang tangguh dan selalu siap berlatih.',
       type: CosmeticType.character,
       rarity: CosmeticRarity.common,
       price: 0,
-      assetPath: 'assets/game/arena_hero_blue.png',
+      assetPath: 'assets/game/basic_squire_idle.png',
+      characterVisuals: CharacterVisualAssets(
+        idle: 'assets/game/basic_squire_idle.png',
+        ready: 'assets/game/basic_squire_ready.png',
+        attack: 'assets/game/basic_squire_attack.png',
+        hit: 'assets/game/basic_squire_hit.png',
+        projectiles: <String>[
+          'assets/game/basic_squire_proj1.png',
+          'assets/game/basic_squire_proj2.png',
+          'assets/game/basic_squire_proj3.png',
+        ],
+      ),
     ),
     CosmeticItem(
-      id: 'character-violet-striker',
-      name: 'Violet Striker',
-      description: 'Cadet cepat dengan armor violet dan navy.',
+      id: 'character-basic-pip',
+      name: 'Pip',
+      description: 'Pemanah lincah dengan serangan alam yang presisi.',
       type: CosmeticType.character,
-      rarity: CosmeticRarity.epic,
-      price: 850,
-      assetPath: 'assets/game/arena_hero_violet.png',
+      rarity: CosmeticRarity.common,
+      price: 500,
+      assetPath: 'assets/game/basic_pip_idle.png',
+      characterVisuals: CharacterVisualAssets(
+        idle: 'assets/game/basic_pip_idle.png',
+        ready: 'assets/game/basic_pip_ready.png',
+        attack: 'assets/game/basic_pip_attack.png',
+        hit: 'assets/game/basic_pip_hit.png',
+        projectiles: <String>[
+          'assets/game/basic_pip_proj1.png',
+          'assets/game/basic_pip_proj2.png',
+          'assets/game/basic_pip_proj3.png',
+        ],
+      ),
     ),
     CosmeticItem(
-      id: 'character-teal-strategist',
-      name: 'Teal Strategist',
-      description: 'Ahli strategi eksklusif Hired Pass.',
+      id: 'character-rare-ignis',
+      name: 'Ignis',
+      description: 'Penyihir api gesit dengan rentetan bara yang membara.',
+      type: CosmeticType.character,
+      rarity: CosmeticRarity.rare,
+      price: 900,
+      assetPath: 'assets/game/rare_ignis_idle.png',
+      characterVisuals: CharacterVisualAssets(
+        idle: 'assets/game/rare_ignis_idle.png',
+        ready: 'assets/game/rare_ignis_ready.png',
+        attack: 'assets/game/rare_ignis_attack.png',
+        hit: 'assets/game/rare_ignis_hit.png',
+        projectiles: <String>[
+          'assets/game/rare_ignis_proj1.png',
+          'assets/game/rare_ignis_proj2.png',
+          'assets/game/rare_ignis_proj3.png',
+        ],
+      ),
+    ),
+    CosmeticItem(
+      id: 'character-rare-brock',
+      name: 'Brock',
+      description: 'Golem batu perkasa yang menghantam dengan tenaga magma.',
+      type: CosmeticType.character,
+      rarity: CosmeticRarity.rare,
+      price: 1100,
+      assetPath: 'assets/game/rare_brock_idle.png',
+      characterVisuals: CharacterVisualAssets(
+        idle: 'assets/game/rare_brock_idle.png',
+        ready: 'assets/game/rare_brock_ready.png',
+        attack: 'assets/game/rare_brock_attack.png',
+        hit: 'assets/game/rare_brock_hit.png',
+        projectiles: <String>[
+          'assets/game/rare_brock_proj1.png',
+          'assets/game/rare_brock_proj2.png',
+          'assets/game/rare_brock_proj3.png',
+        ],
+      ),
+    ),
+    CosmeticItem(
+      id: 'character-legend-drakor',
+      name: 'Drakor',
+      description: 'Ksatria naga legendaris dengan kobaran api merah.',
       type: CosmeticType.character,
       rarity: CosmeticRarity.legendary,
+      price: 2200,
+      assetPath: 'assets/game/legend_drakor_idle.png',
+      characterVisuals: CharacterVisualAssets(
+        idle: 'assets/game/legend_drakor_idle.png',
+        ready: 'assets/game/legend_drakor_ready.png',
+        attack: 'assets/game/legend_drakor_attack.png',
+        hit: 'assets/game/legend_drakor_hit.png',
+        projectiles: <String>[
+          'assets/game/legend_drakor_proj1.png',
+          'assets/game/legend_drakor_proj2.png',
+          'assets/game/legend_drakor_proj3.png',
+        ],
+      ),
+    ),
+    CosmeticItem(
+      id: 'character-legend-luna',
+      name: 'Luna',
+      description: 'Penyihir bintang legendaris dengan kekuatan galaksi.',
+      type: CosmeticType.character,
+      rarity: CosmeticRarity.legendary,
+      price: 2500,
+      assetPath: 'assets/game/legend_luna_idle.png',
+      characterVisuals: CharacterVisualAssets(
+        idle: 'assets/game/legend_luna_idle.png',
+        ready: 'assets/game/legend_luna_ready.png',
+        attack: 'assets/game/legend_luna_attack.png',
+        hit: 'assets/game/legend_luna_hit.png',
+        projectiles: <String>[
+          'assets/game/legend_luna_proj1.png',
+          'assets/game/legend_luna_proj2.png',
+          'assets/game/legend_luna_proj3.png',
+        ],
+      ),
+    ),
+  ];
+
+  static const List<CosmeticItem> towers = <CosmeticItem>[
+    CosmeticItem(
+      id: defaultTowerId,
+      name: 'Garda Biru',
+      description: 'Benteng batu klasik dengan panji biru.',
+      type: CosmeticType.tower,
+      rarity: CosmeticRarity.common,
       price: 0,
-      assetPath: 'assets/game/arena_hero_teal.png',
-      passExclusive: true,
+      assetPath: 'assets/game/arena_tower_blue.png',
+      battleAssetPath: 'assets/game/arena_turret_blue.png',
+    ),
+    CosmeticItem(
+      id: 'tower-benteng-bara',
+      name: 'Benteng Bara',
+      description: 'Menara coral hangat dengan ukiran emas.',
+      type: CosmeticType.tower,
+      rarity: CosmeticRarity.rare,
+      price: 650,
+      assetPath: 'assets/game/arena_tower_coral.png',
+      battleAssetPath: 'assets/game/arena_turret_coral.png',
     ),
   ];
 
   static const List<CosmeticItem> arenas = <CosmeticItem>[
     CosmeticItem(
       id: defaultArenaId,
-      name: 'Training Garden',
-      description: 'Arena hijau klasik untuk mengasah kemampuan.',
+      name: 'Arena CPNS',
+      description: 'Uji wawasan kebangsaan, numerik, verbal, dan logika.',
       type: CosmeticType.arena,
       rarity: CosmeticRarity.common,
       price: 0,
+      assetPath: 'assets/game/arena_cpns.png',
     ),
     CosmeticItem(
-      id: 'arena-sunset-canyon',
-      name: 'Sunset Canyon',
-      description: 'Lembah hangat dengan sungai biru yang tenang.',
+      id: 'arena-bumn',
+      name: 'Arena BUMN',
+      description: 'Soal AKHLAK, verbal, numerik, dan logika kerja.',
       type: CosmeticType.arena,
-      rarity: CosmeticRarity.rare,
-      price: 600,
-    ),
-    CosmeticItem(
-      id: 'arena-midnight-circuit',
-      name: 'Midnight Circuit',
-      description: 'Arena malam futuristis dengan jalur cyan.',
-      type: CosmeticType.arena,
-      rarity: CosmeticRarity.epic,
-      price: 950,
-    ),
-    CosmeticItem(
-      id: 'arena-aurora-summit',
-      name: 'Aurora Summit',
-      description: 'Puncak aurora eksklusif Hired Pass.',
-      type: CosmeticType.arena,
-      rarity: CosmeticRarity.legendary,
+      rarity: CosmeticRarity.common,
       price: 0,
-      passExclusive: true,
+      assetPath: 'assets/game/arena_bumn.png',
     ),
   ];
 
@@ -160,11 +261,11 @@ abstract final class GameEconomyCatalog {
       yCoins: 150,
     ),
     PassReward(
-      id: 'premium-300-arena',
+      id: 'premium-300-tower',
       pointsRequired: 300,
       track: PassTrack.premium,
-      label: 'Aurora Summit',
-      cosmeticItemId: 'arena-aurora-summit',
+      label: 'Benteng Bara',
+      cosmeticItemId: 'tower-benteng-bara',
     ),
     PassReward(
       id: 'free-600-coins',
@@ -177,8 +278,8 @@ abstract final class GameEconomyCatalog {
       id: 'premium-600-character',
       pointsRequired: 600,
       track: PassTrack.premium,
-      label: 'Teal Strategist',
-      cosmeticItemId: 'character-teal-strategist',
+      label: 'Pip',
+      cosmeticItemId: 'character-basic-pip',
     ),
     PassReward(
       id: 'free-1000-coins',
@@ -198,11 +299,38 @@ abstract final class GameEconomyCatalog {
 
   static List<CosmeticItem> get cosmetics => <CosmeticItem>[
     ...characters,
-    ...arenas,
+    ...towers,
   ];
 
   static CosmeticItem? findCosmetic(String itemId) {
     for (final CosmeticItem item in cosmetics) {
+      if (item.id == itemId) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  static CosmeticItem? findCharacter(String itemId) {
+    for (final CosmeticItem item in characters) {
+      if (item.id == itemId) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  static CosmeticItem? findTower(String itemId) {
+    for (final CosmeticItem item in towers) {
+      if (item.id == itemId) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  static CosmeticItem? findArena(String itemId) {
+    for (final CosmeticItem item in arenas) {
       if (item.id == itemId) {
         return item;
       }

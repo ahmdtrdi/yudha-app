@@ -17,6 +17,9 @@ class BattleState {
     required this.isLoading,
     required this.rewardClaimed,
     required this.battleEventId,
+    required this.comboLevel,
+    required this.comboSecondsRemaining,
+    required this.lastProjectileLevel,
     this.statusMessage,
     this.errorMessage,
     this.lastActor,
@@ -40,6 +43,9 @@ class BattleState {
       isLoading: false,
       rewardClaimed: false,
       battleEventId: 0,
+      comboLevel: 1,
+      comboSecondsRemaining: 0,
+      lastProjectileLevel: 1,
     );
   }
 
@@ -57,6 +63,9 @@ class BattleState {
   final bool isLoading;
   final bool rewardClaimed;
   final int battleEventId;
+  final int comboLevel;
+  final int comboSecondsRemaining;
+  final int lastProjectileLevel;
   final String? statusMessage;
   final String? errorMessage;
   final BattleActor? lastActor;
@@ -81,6 +90,9 @@ class BattleState {
     bool? isLoading,
     bool? rewardClaimed,
     int? battleEventId,
+    int? comboLevel,
+    int? comboSecondsRemaining,
+    int? lastProjectileLevel,
     String? statusMessage,
     String? errorMessage,
     BattleActor? lastActor,
@@ -105,6 +117,10 @@ class BattleState {
       isLoading: isLoading ?? this.isLoading,
       rewardClaimed: rewardClaimed ?? this.rewardClaimed,
       battleEventId: battleEventId ?? this.battleEventId,
+      comboLevel: comboLevel ?? this.comboLevel,
+      comboSecondsRemaining:
+          comboSecondsRemaining ?? this.comboSecondsRemaining,
+      lastProjectileLevel: lastProjectileLevel ?? this.lastProjectileLevel,
       statusMessage: clearStatusMessage
           ? null
           : statusMessage ?? this.statusMessage,

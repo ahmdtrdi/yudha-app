@@ -32,6 +32,12 @@ class GameEconomyController extends StateNotifier<GameEconomyState> {
   }
 
   EconomyActionResult purchase(CosmeticItem item) {
+    if (item.type == CosmeticType.arena) {
+      return const EconomyActionResult(
+        success: false,
+        message: 'Arena tidak dijual. Pilih arena langsung dari menu PvP.',
+      );
+    }
     if (state.owns(item.id)) {
       return equip(item);
     }
@@ -56,9 +62,9 @@ class GameEconomyController extends StateNotifier<GameEconomyState> {
         equippedCharacterId: item.type == CosmeticType.character
             ? item.id
             : state.equippedCharacterId,
-        equippedArenaId: item.type == CosmeticType.arena
+        equippedTowerId: item.type == CosmeticType.tower
             ? item.id
-            : state.equippedArenaId,
+            : state.equippedTowerId,
       ),
     );
     return EconomyActionResult(
@@ -68,6 +74,9 @@ class GameEconomyController extends StateNotifier<GameEconomyState> {
   }
 
   EconomyActionResult equip(CosmeticItem item) {
+    if (item.type == CosmeticType.arena) {
+      return selectArena(item);
+    }
     if (!state.owns(item.id)) {
       return const EconomyActionResult(
         success: false,
@@ -77,6 +86,7 @@ class GameEconomyController extends StateNotifier<GameEconomyState> {
 
     final bool alreadyEquipped = switch (item.type) {
       CosmeticType.character => state.equippedCharacterId == item.id,
+      CosmeticType.tower => state.equippedTowerId == item.id,
       CosmeticType.arena => state.equippedArenaId == item.id,
     };
     if (alreadyEquipped) {
@@ -91,14 +101,35 @@ class GameEconomyController extends StateNotifier<GameEconomyState> {
         equippedCharacterId: item.type == CosmeticType.character
             ? item.id
             : state.equippedCharacterId,
-        equippedArenaId: item.type == CosmeticType.arena
+        equippedTowerId: item.type == CosmeticType.tower
             ? item.id
-            : state.equippedArenaId,
+            : state.equippedTowerId,
       ),
     );
     return EconomyActionResult(
       success: true,
       message: '${item.name} siap dipakai di PvP.',
+    );
+  }
+
+  EconomyActionResult selectArena(CosmeticItem arena) {
+    if (arena.type != CosmeticType.arena ||
+        GameEconomyCatalog.findArena(arena.id) == null) {
+      return const EconomyActionResult(
+        success: false,
+        message: 'Arena tidak tersedia.',
+      );
+    }
+    if (state.equippedArenaId == arena.id) {
+      return EconomyActionResult(
+        success: true,
+        message: '${arena.name} sudah dipilih.',
+      );
+    }
+    _setState(state.copyWith(equippedArenaId: arena.id));
+    return EconomyActionResult(
+      success: true,
+      message: '${arena.name} dipilih.',
     );
   }
 

@@ -1550,6 +1550,41 @@
 - The visualizer is decorative and timer-driven; it does not yet react to live microphone amplitude.
 - The transcript/history still exists in text mode and history sheets, but voice mode does not currently expose an inline full transcript while the session is active.
 
+## 2026-07-21 - PvP Basic Character States And Projectile Combo
+
+### The Change
+- Replaced the selectable PvP character roster with the complete Basic Squire and Basic Pip sets sourced from `apps/games/assets/avatar/`, and copied their idle, ready, attack, hit, and three projectile states into the Flutter game asset bundle.
+- Enlarged character selection so the list uses idle art and the selected preview uses ready art, labels the current Basic tier, and keeps Rare/Legend hidden until their full asset sets exist. Squire is the default character; Pip is a purchasable 500 Y-Coin Basic character.
+- Updated the arena to swap character art through idle, ready, attack, and hit states. Hit interrupts ready, while an incoming hit during attack is queued until attack completes. Stronger contact shadows now visually anchor both characters to their podiums.
+- Added a seven-second visual combo chain. Correct answers advance the next projectile from `proj1` to `proj2` to `proj3`; wrong answers and incoming hits lower one level; expiry resets the chain to `x1`. Combo does not alter combat values.
+- Added controller coverage for combo progression, wrong-answer reduction, incoming-hit reduction, and timeout reset, and updated the PvP widget coverage for the new Basic loadout and combo HUD.
+
+### The Reasoning
+- Keeping all character states in one typed asset set prevents the selector, HUD, arena, and projectile layer from silently mixing unrelated character art.
+- Combo lives in the battle controller because its countdown and penalties are gameplay state, while pose scheduling and effect queuing stay in the presentation layer because they only decide how an already-resolved event is shown.
+- Serializing combat effects preserves the readable order of attack, projectile, impact, and hit when player and bot events arrive close together.
+
+### The Tech Debt
+- The 14 supplied character PNGs are high-resolution and add roughly 11.7 MB before build-time compression. A production asset pass should crop transparent margins, standardize dimensions, and measure final APK/AAB size.
+- Online events do not yet expose an opponent combo level, so remote/incoming attacks fall back to projectile level 1. A server-authoritative combo field should be added before online combo parity is required.
+- Rare and Legend characters intentionally remain absent until each has idle, ready, attack, hit, and projectile 1–3 assets; partial sets should not be added to the selector.
+
+## 2026-07-21 - PvP Rare And Legend Character Roster
+
+### The Change
+- Added all four newly supplied complete character sets to the mobile bundle: Rare Ignis, Rare Brock, Legend Drakor, and Legend Luna. Each character uses its own idle, ready, attack, hit, and projectile 1–3 art.
+- Expanded the PvP selector and Store catalog from two Basic characters to six characters across Basic, Rare, and Legend. Tier badges now follow the selected character instead of being hardcoded to Basic.
+- Priced Ignis at 900 Y-Coin, Brock at 1,100 Y-Coin, Drakor at 2,200 Y-Coin, and Luna at 2,500 Y-Coin; these remain cosmetic-only purchases with no competitive stat changes.
+- Added catalog coverage that locks the six-character order, tier assignments, and complete seven-asset contract for every character.
+
+### The Reasoning
+- A character only enters the selectable roster when its complete state set is available, so every owned choice can participate in selection, ready, attack, hit, and combo projectile flows without falling back to another character's art.
+- Keeping tier text derived from catalog rarity ensures PvP and Store stay aligned as more character sets are added.
+
+### The Tech Debt
+- The 28 new source PNGs add about 31.5 MiB, bringing the six-character mobile roster to roughly 42.7 MiB before build-time compression. A production asset pass should crop transparent margins, standardize dimensions, and measure final APK/AAB size.
+- Character pricing is currently a client-side beta catalog decision and must move to the server-authoritative Store configuration before production commerce is enabled.
+
 ## 2026-07-21 - Practice Session Backend Wiring
 
 ### The Change

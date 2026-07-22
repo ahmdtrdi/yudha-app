@@ -6,11 +6,17 @@ import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_question.dart';
 
 abstract final class MockQuestionBank {
-  static const String _assetPath = 'assets/game/questions.json';
+  static const String _cpnsAssetPath = 'assets/game/questions.json';
+  static const String _bumnAssetPath = 'assets/game/questions_bumn.json';
 
-  static Future<List<BattleQuestion>> loadBattleQuestions() async {
+  static Future<List<BattleQuestion>> loadBattleQuestions({
+    String arenaId = 'arena-cpns',
+  }) async {
     try {
-      final String rawJson = await rootBundle.loadString(_assetPath);
+      final String assetPath = arenaId == 'arena-bumn'
+          ? _bumnAssetPath
+          : _cpnsAssetPath;
+      final String rawJson = await rootBundle.loadString(assetPath);
       final Object? decoded = jsonDecode(rawJson);
       if (decoded is! List<dynamic>) {
         return sample();
@@ -90,7 +96,8 @@ abstract final class MockQuestionBank {
   static BattleQuestion _fromJson(Map<String, dynamic> json) {
     final String category = (json['tipe'] as String? ?? 'numerik')
         .trim()
-        .toLowerCase();
+        .toLowerCase()
+        .replaceAll('_bumn', '');
     final Map<String, dynamic> rawOptions =
         json['option'] as Map<String, dynamic>? ?? const <String, dynamic>{};
     final List<String> options = <String>[

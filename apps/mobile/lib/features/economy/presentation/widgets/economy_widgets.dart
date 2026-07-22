@@ -73,15 +73,15 @@ class YCoinBalanceChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: dark ? Colors.white.withAlpha(24) : Colors.white,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(13),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(13),
         child: Container(
           key: const ValueKey<String>('y-coin-balance'),
           padding: const EdgeInsets.fromLTRB(7, 5, 10, 5),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(13),
             border: Border.all(
               color: dark
                   ? Colors.white.withAlpha(60)
@@ -135,6 +135,18 @@ class CosmeticPreview extends StatelessWidget {
         fit: BoxFit.contain,
         alignment: heroAlignment,
         filterQuality: FilterQuality.medium,
+      );
+    }
+
+    if (item.assetPath != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Image.asset(
+          item.assetPath!,
+          fit: item.type == CosmeticType.arena ? BoxFit.cover : BoxFit.contain,
+          alignment: Alignment.center,
+          filterQuality: FilterQuality.medium,
+        ),
       );
     }
 
