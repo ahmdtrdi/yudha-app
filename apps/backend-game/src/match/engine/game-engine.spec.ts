@@ -2,68 +2,28 @@ import { GameEngine } from './game-engine';
 import { QuestionDealer } from './question-dealer';
 import type { InternalCard } from '../questions/question.types';
 
-const cards: InternalCard[] = [
-  {
-    id: 'card_1',
-    prompt: '1 + 1 = ?',
-    options: ['1', '2', '3', '4'],
+/** Helper to create test cards */
+const makeCards = (count: number, overrides: Partial<InternalCard> = {}): InternalCard[] =>
+  Array.from({ length: count }, (_, i) => ({
+    id: `card_${i + 1}`,
+    prompt: `Question ${i + 1}`,
+    options: ['A', 'B', 'C', 'D'],
     correctOptionIndex: 1,
     weight: 1,
-    effect: 'damage',
-    damageValue: 100,
-    healValue: 0,
-  },
-  {
-    id: 'card_2',
-    prompt: '2 + 2 = ?',
-    options: ['2', '3', '4', '5'],
-    correctOptionIndex: 2,
-    weight: 1,
-    effect: 'heal',
-    damageValue: 0,
-    healValue: 20,
-  },
-  {
-    id: 'card_3',
-    prompt: '3 + 3 = ?',
-    options: ['4', '5', '6', '7'],
-    correctOptionIndex: 2,
-    weight: 1,
-    effect: 'damage',
+    effect: 'damage' as const,
     damageValue: 10,
     healValue: 0,
-  },
-  {
-    id: 'card_4',
-    prompt: '4 + 4 = ?',
-    options: ['6', '7', '8', '9'],
-    correctOptionIndex: 2,
-    weight: 1,
-    effect: 'damage',
-    damageValue: 10,
-    healValue: 0,
-  },
-  {
-    id: 'card_5',
-    prompt: '5 + 5 = ?',
-    options: ['8', '9', '10', '11'],
-    correctOptionIndex: 2,
-    weight: 1,
-    effect: 'damage',
-    damageValue: 10,
-    healValue: 0,
-  },
-  {
-    id: 'card_6',
-    prompt: '6 + 6 = ?',
-    options: ['10', '11', '12', '13'],
-    correctOptionIndex: 2,
-    weight: 1,
-    effect: 'damage',
-    damageValue: 10,
-    healValue: 0,
-  },
-];
+    timeLimitSeconds: 30,
+    ...overrides,
+  }));
+
+/** Create a one-hit-kill card (100 damage) */
+const makeOHKCards = (count: number): InternalCard[] =>
+  makeCards(count, { damageValue: 100 });
+
+/** Create heal cards */
+const makeHealCards = (count: number): InternalCard[] =>
+  makeCards(count, { effect: 'heal', damageValue: 0, healValue: 20 });
 
 describe('GameEngine', () => {
   let engine: GameEngine;
@@ -72,48 +32,489 @@ describe('GameEngine', () => {
     engine = new GameEngine();
   });
 
-  it('scopes identical card IDs independently per player', () => {
-    const room = engine.createRoom('room_1', 'player-a', 'player-b', cards);
+  // ─── Room Creation ───
 
-    expect(engine.openCard(room, 'player-a', 'card_1').ok).toBe(true);
-    const result = engine.playCard(room, 'player-a', 'card_1', 1);
+  describe('createRoom', () => {
+    it('creates a room with active status and correct player setup', () => {
+      const cards = makeCards(8);
+      const room = engine.createRoom('room_1', 'player-a', 'player-b', cards);
 
-    expect(result.ok).toBe(true);
-    expect(room.players.playerA.hand.some((card) => card.id === 'card_1')).toBe(false);
-    expect(room.players.playerB.hand.some((card) => card.id === 'card_1')).toBe(true);
-    expect(room.players.playerA.answeredCardIds.has('card_1')).toBe(true);
-    expect(room.players.playerB.answeredCardIds.has('card_1')).toBe(false);
+      expect(room.roomId).toBe('room_1');
+      expect(room.status).toBe('active');
+      expect(room.players.playerA.userId).toBe('player-a');
+      expect(room.players.playerB.userId).toBe('player-b');
+      expect(room.players.playerA.role).toBe('playerA');
+      expect(room.players.playerB.role).toBe('playerB');
+    });
+
+    it('sets starting HP to 100 for both players', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+
+      expect(room.players.playerA.hp).toBe(100);
+      expect(room.players.playerB.hp).toBe(100);
+      expect(GameEngine.STARTING_HP).toBe(100);
+    });
+
+    it('deals HAND_SIZE cards to each player', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+
+      expect(room.players.playerA.hand).toHaveLength(QuestionDealer.HAND_SIZE);
+      expect(room.players.playerB.hand).toHaveLength(QuestionDealer.HAND_SIZE);
+    });
+
+    it('starts both players with 0 points and empty answered sets', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+
+      expect(room.players.playerA.points).toBe(0);
+      expect(room.players.playerB.points).toBe(0);
+      expect(room.players.playerA.answeredCardIds.size).toBe(0);
+      expect(room.players.playerB.answeredCardIds.size).toBe(0);
+    });
+
+    it('initializes reserve queue and recycle ID', () => {
+      const active = makeCards(8);
+      const reserve = makeCards(4).map((c, i) => ({ ...c, id: `reserve_${i}` }));
+      const room = engine.createRoom('room_1', 'a', 'b', active, reserve);
+
+      expect(room.reserveQueue).toHaveLength(4);
+      expect(room.nextRecycleId).toBe(active.length + reserve.length + 1);
+    });
+
+    it('defaults reserve queue to empty array', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+
+      expect(room.reserveQueue).toEqual([]);
+    });
   });
 
-  it('rejects play_card before open_card', () => {
-    const room = engine.createRoom('room_1', 'player-a', 'player-b', cards);
+  // ─── openCard ───
 
-    const result = engine.playCard(room, 'player-a', 'card_1', 1);
+  describe('openCard', () => {
+    it('succeeds and sets openedCardId on the player', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
 
-    expect(result.ok).toBe(false);
+      const result = engine.openCard(room, 'a', 'card_1');
+
+      expect(result.ok).toBe(true);
+      expect(room.players.playerA.openedCardId).toBe('card_1');
+    });
+
+    it('rejects a player not in the room', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+
+      const result = engine.openCard(room, 'stranger', 'card_1');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('not_in_room');
+    });
+
+    it('rejects when room is not active', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+      room.status = 'finished';
+
+      const result = engine.openCard(room, 'a', 'card_1');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('room_not_active');
+    });
+
+    it('rejects when player already has an open card', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+      engine.openCard(room, 'a', 'card_1');
+
+      const result = engine.openCard(room, 'a', 'card_2');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('card_already_open');
+    });
+
+    it('rejects a card not in the player hand', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+
+      const result = engine.openCard(room, 'a', 'nonexistent_card');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('card_not_in_hand');
+    });
+
+    it('rejects an already-answered card', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+      room.players.playerA.answeredCardIds.add('card_1');
+
+      const result = engine.openCard(room, 'a', 'card_1');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('card_already_answered');
+    });
   });
 
-  it('sets room to finished before returning a match result', () => {
-    const room = engine.createRoom('room_1', 'player-a', 'player-b', cards);
+  // ─── playCard ───
 
-    engine.openCard(room, 'player-a', 'card_1');
-    const result = engine.playCard(room, 'player-a', 'card_1', 1);
+  describe('playCard', () => {
+    it('rejects play_card before open_card', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.matchResult).toBeDefined();
+      const result = engine.playCard(room, 'a', 'card_1', 1);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('card_not_opened');
+    });
+
+    it('deals damage on correct answer with damage card', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+      engine.openCard(room, 'a', 'card_1');
+
+      const result = engine.playCard(room, 'a', 'card_1', 1); // correctOptionIndex=1
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.playResult.correct).toBe(true);
+        expect(result.playResult.effect).toBe('damage');
+        expect(result.playResult.effectValue).toBe(10);
+        expect(room.players.playerB.hp).toBe(90); // 100 - 10
+        expect(room.players.playerA.points).toBe(10);
+      }
+    });
+
+    it('heals on correct answer with heal card (capped at MAX_HP)', () => {
+      const healCards: InternalCard[] = Array.from({ length: 8 }, (_, i) => ({
+        id: `card_${i + 1}`,
+        prompt: `Q${i}`,
+        options: ['A', 'B', 'C', 'D'],
+        correctOptionIndex: 0,
+        weight: 1,
+        effect: 'heal' as const,
+        damageValue: 0,
+        healValue: 50,
+        timeLimitSeconds: 30,
+      }));
+      const room = engine.createRoom('room_1', 'a', 'b', healCards);
+      room.players.playerA.hp = 80;
+
+      engine.openCard(room, 'a', 'card_1');
+      const result = engine.playCard(room, 'a', 'card_1', 0);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.playResult.correct).toBe(true);
+        expect(result.playResult.effect).toBe('heal');
+        // 80 + 50 = 130, but capped at 100
+        expect(room.players.playerA.hp).toBe(100);
+      }
+    });
+
+    it('has no effect on wrong answer', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+      engine.openCard(room, 'a', 'card_1');
+
+      const result = engine.playCard(room, 'a', 'card_1', 0); // wrong (correct is 1)
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.playResult.correct).toBe(false);
+        expect(result.playResult.effect).toBe('none');
+        expect(result.playResult.effectValue).toBe(0);
+        expect(room.players.playerB.hp).toBe(100); // unchanged
+        expect(room.players.playerA.points).toBe(0);
+      }
+    });
+
+    it('removes card from hand and marks as answered', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+      engine.openCard(room, 'a', 'card_1');
+      engine.playCard(room, 'a', 'card_1', 1);
+
+      expect(room.players.playerA.hand.some((c) => c.id === 'card_1')).toBe(false);
+      expect(room.players.playerA.answeredCardIds.has('card_1')).toBe(true);
+      expect(room.players.playerA.openedCardId).toBeUndefined();
+    });
+
+    it('draws a new card from the shared queue after playing', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+      const handSizeBefore = room.players.playerA.hand.length;
+
+      engine.openCard(room, 'a', 'card_1');
+      engine.playCard(room, 'a', 'card_1', 1);
+
+      // Hand size should remain the same (drew a replacement from the queue)
+      expect(room.players.playerA.hand.length).toBe(handSizeBefore);
+    });
+
+    it('draws from reserve queue when main queue is exhausted', () => {
+      const active = makeCards(4); // Exactly HAND_SIZE, so no draws from main queue
+      const reserve: InternalCard[] = [{
+        id: 'reserve_1',
+        prompt: 'Reserve Q',
+        options: ['A', 'B', 'C', 'D'],
+        correctOptionIndex: 1,
+        weight: 1,
+        effect: 'damage',
+        damageValue: 10,
+        healValue: 0,
+        timeLimitSeconds: 30,
+      }];
+      const room = engine.createRoom('room_1', 'a', 'b', active, reserve);
+
+      engine.openCard(room, 'a', 'card_1');
+      engine.playCard(room, 'a', 'card_1', 1);
+
+      // Should have drawn from reserve with a fresh ID
+      const drawnCard = room.players.playerA.hand.find((c) => c.id.startsWith('card_r'));
+      expect(drawnCard).toBeDefined();
+      expect(room.reserveQueue).toHaveLength(0);
+    });
+
+    it('rejects invalid selectedOptionIndex', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+      engine.openCard(room, 'a', 'card_1');
+
+      const result = engine.playCard(room, 'a', 'card_1', -1);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('invalid_selected_option');
+    });
+
+    it('rejects selectedOptionIndex >= options.length', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+      engine.openCard(room, 'a', 'card_1');
+
+      const result = engine.playCard(room, 'a', 'card_1', 4);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('invalid_selected_option');
+    });
+
+    it('triggers hp_zero match end when opponent HP reaches 0', () => {
+      const cards = makeOHKCards(8);
+      const room = engine.createRoom('room_1', 'a', 'b', cards);
+
+      engine.openCard(room, 'a', 'card_1');
+      const result = engine.playCard(room, 'a', 'card_1', 1);
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.matchResult).toBeDefined();
+        expect(result.matchResult!.reason).toBe('hp_zero');
+        expect(result.matchResult!.winnerUserId).toBe('a');
+        expect(result.matchResult!.loserUserId).toBe('b');
+        expect(room.status).toBe('finished');
+      }
+    });
+
+    it('scopes cards independently per player', () => {
+      const cards = makeCards(8);
+      const room = engine.createRoom('room_1', 'a', 'b', cards);
+
+      engine.openCard(room, 'a', 'card_1');
+      engine.playCard(room, 'a', 'card_1', 1);
+
+      // playerA consumed card_1, playerB still has it
+      expect(room.players.playerA.hand.some((c) => c.id === 'card_1')).toBe(false);
+      expect(room.players.playerB.hand.some((c) => c.id === 'card_1')).toBe(true);
+      expect(room.players.playerA.answeredCardIds.has('card_1')).toBe(true);
+      expect(room.players.playerB.answeredCardIds.has('card_1')).toBe(false);
+    });
+  });
+
+  // ─── timeoutCard ───
+
+  describe('timeoutCard', () => {
+    it('resolves as incorrect with 0 effect', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+      engine.openCard(room, 'a', 'card_1');
+
+      const result = engine.timeoutCard(room, 'a', 'card_1');
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.playResult.correct).toBe(false);
+        expect(result.playResult.effect).toBe('none');
+        expect(result.playResult.effectValue).toBe(0);
+      }
+    });
+
+    it('removes the card from hand and marks as answered', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+      engine.openCard(room, 'a', 'card_1');
+
+      engine.timeoutCard(room, 'a', 'card_1');
+
+      expect(room.players.playerA.hand.some((c) => c.id === 'card_1')).toBe(false);
+      expect(room.players.playerA.answeredCardIds.has('card_1')).toBe(true);
+      expect(room.players.playerA.openedCardId).toBeUndefined();
+    });
+
+    it('draws a replacement card from the queue', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+      const handSizeBefore = room.players.playerA.hand.length;
+
+      engine.openCard(room, 'a', 'card_1');
+      engine.timeoutCard(room, 'a', 'card_1');
+
+      expect(room.players.playerA.hand.length).toBe(handSizeBefore);
+    });
+
+    it('rejects when card is not opened', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+
+      const result = engine.timeoutCard(room, 'a', 'card_1');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('card_not_opened');
+    });
+
+    it('rejects a non-member', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+
+      const result = engine.timeoutCard(room, 'stranger', 'card_1');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('not_in_room');
+    });
+  });
+
+  // ─── surrender ───
+
+  describe('surrender', () => {
+    it('marks the room as finished with the surrendering player as loser', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+
+      const result = engine.surrender(room, 'a');
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(room.status).toBe('finished');
+        expect(result.matchResult.winnerUserId).toBe('b');
+        expect(result.matchResult.loserUserId).toBe('a');
+        expect(result.matchResult.reason).toBe('surrender');
+        expect(result.matchResult.outcome).toBe('surrender');
+      }
+    });
+
+    it('rejects a non-member', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+
+      const result = engine.surrender(room, 'stranger');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('not_in_room');
+    });
+
+    it('rejects when room is already finished', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+      engine.surrender(room, 'a');
+
+      const result = engine.surrender(room, 'b');
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('room_not_active');
+    });
+  });
+
+  // ─── buildPublicState ───
+
+  describe('buildPublicState', () => {
+    it('returns player-relative self and opponent views', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+
+      const stateA = engine.buildPublicState(room, 'a');
+      const stateB = engine.buildPublicState(room, 'b');
+
+      expect(stateA.self.userId).toBe('a');
+      expect(stateA.opponent.userId).toBe('b');
+      expect(stateB.self.userId).toBe('b');
+      expect(stateB.opponent.userId).toBe('a');
+    });
+
+    it('does not expose answer metadata in public state', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+
+      const state = engine.buildPublicState(room, 'a');
+      const publicCard = state.self.hand[0] as Record<string, unknown>;
+
+      expect(publicCard.correctOptionIndex).toBeUndefined();
+      expect(publicCard.explanation).toBeUndefined();
+      expect(publicCard.damageValue).toBeUndefined();
+      expect(publicCard.healValue).toBeUndefined();
+    });
+
+    it('reports correct phase transitions', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+
+      // Active phase
+      expect(engine.buildPublicState(room, 'a').phase).toBe('active');
+
+      // Card opened phase
+      engine.openCard(room, 'a', 'card_1');
+      expect(engine.buildPublicState(room, 'a').phase).toBe('card_opened');
+
+      // Other player still active
+      expect(engine.buildPublicState(room, 'b').phase).toBe('active');
+    });
+
+    it('includes outcome after match finishes', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeOHKCards(8));
+      engine.openCard(room, 'a', 'card_1');
+      engine.playCard(room, 'a', 'card_1', 1);
+
+      const stateA = engine.buildPublicState(room, 'a');
+      const stateB = engine.buildPublicState(room, 'b');
+
+      expect(stateA.outcome).toBe('win');
+      expect(stateB.outcome).toBe('lose');
+      expect(stateA.phase).toBe('finished');
+    });
+
+    it('throws for a non-member', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+
+      expect(() => engine.buildPublicState(room, 'stranger')).toThrow();
+    });
+  });
+
+  // ─── Match end tie-breaking ───
+
+  describe('match end tie-breaking', () => {
+    it('higher HP wins on question exhaustion', () => {
+      // Use exactly HAND_SIZE cards so exhaustion triggers after all are played
+      const cards = makeCards(QuestionDealer.HAND_SIZE);
+      const room = engine.createRoom('room_1', 'a', 'b', cards);
+
+      // Player A answers all correctly (deals 10 dmg each)
+      for (const card of [...room.players.playerA.hand]) {
+        engine.openCard(room, 'a', card.id);
+        engine.playCard(room, 'a', card.id, 1);
+      }
+
+      // Player B answers all wrong
+      for (const card of [...room.players.playerB.hand]) {
+        engine.openCard(room, 'b', card.id);
+        engine.playCard(room, 'b', card.id, 0);
+      }
+
+      // At this point, playerB has lower HP, so should be decided
       expect(room.status).toBe('finished');
-      expect(engine.buildPublicState(room, 'player-a').status).toBe('finished');
-    }
+      if (room.result) {
+        expect(room.result.winnerUserId).toBe('a');
+      }
+    });
   });
 
-  it('does not expose answer metadata in public state', () => {
-    const room = engine.createRoom('room_1', 'player-a', 'player-b', cards);
+  // ─── getPlayer / getOpponent ───
 
-    const publicCard = engine.buildPublicState(room, 'player-a').self.hand[0] as Record<string, unknown>;
+  describe('getPlayer / getOpponent', () => {
+    it('returns the correct player and opponent', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
 
-    expect(publicCard.correctOptionIndex).toBeUndefined();
-    expect(publicCard.explanation).toBeUndefined();
-    expect(publicCard.damageValue).toBeUndefined();
+      expect(engine.getPlayer(room, 'a')?.userId).toBe('a');
+      expect(engine.getOpponent(room, 'a')?.userId).toBe('b');
+      expect(engine.getPlayer(room, 'b')?.userId).toBe('b');
+      expect(engine.getOpponent(room, 'b')?.userId).toBe('a');
+    });
+
+    it('returns undefined/fallback for non-members', () => {
+      const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
+
+      expect(engine.getPlayer(room, 'stranger')).toBeUndefined();
+      expect(engine.getOpponent(room, 'stranger')?.userId).toBe('a');
+    });
   });
 });

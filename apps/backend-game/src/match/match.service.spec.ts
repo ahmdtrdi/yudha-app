@@ -10,6 +10,7 @@ import { BotBattleService } from './bot/bot-battle.service';
 import { CardTimeoutService } from './timeout/card-timeout.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import type { InternalCard } from './questions/question.types';
+import { SERVER_MATCH_EVENTS } from '../../../../contracts/match.events';
 
 /** Stub cards for testing — mimics DB-sourced values */
 const STUB_CARDS: InternalCard[] = Array.from({ length: 12 }, (_, i) => ({
@@ -18,14 +19,19 @@ const STUB_CARDS: InternalCard[] = Array.from({ length: 12 }, (_, i) => ({
   options: ['A', 'B', 'C', 'D'],
   correctOptionIndex: 0,
   weight: 1,
-  effect: i % 3 === 0 ? 'heal' as const : 'damage' as const,
+  effect: i % 3 === 0 ? ('heal' as const) : ('damage' as const),
   damageValue: i % 3 === 0 ? 0 : 14,
   healValue: i % 3 === 0 ? 14 : 0,
   timeLimitSeconds: 30,
 }));
 
 const mockMatchResultService = {
-  finalizeMatch: jest.fn().mockResolvedValue(null),
+  finalizeMatch: jest.fn().mockResolvedValue({
+    ratingDeltaA: 20,
+    ratingDeltaB: -12,
+    coinsDeltaA: 10,
+    coinsDeltaB: 3,
+  }),
 };
 
 const mockQuestionService = {
@@ -34,9 +40,18 @@ const mockQuestionService = {
 };
 
 const mockBotBattleService = {
-  createBotMatch: jest.fn(),
+  createBotMatch: jest.fn().mockImplementation(async (userId, socketId) => {
+    // Return a fake bot room
+    const engine = new GameEngine();
+    const dealer = new QuestionDealer();
+    const room = engine.createRoom('room_bot_test', userId, 'bot', dealer.createSharedQueue(STUB_CARDS));
+    room.players.playerA.socketId = socketId;
+    room.players.playerB.socketId = null;
+    room.players.playerB.connected = true;
+    return room;
+  }),
   cancelBotSchedule: jest.fn(),
-  isBotMatch: jest.fn().mockReturnValue(false),
+  isBotMatch: jest.fn().mockImplementation((room) => room?.players?.playerB?.userId === 'bot'),
   setEmitCallback: jest.fn(),
 };
 
@@ -47,6 +62,8 @@ const mockSupabaseService = {
 
 describe('MatchService', () => {
   let service: MatchService;
+  let roomManager: RoomManager;
+  let cardTimeoutService: CardTimeoutService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -65,34 +82,203 @@ describe('MatchService', () => {
     }).compile();
 
     service = module.get<MatchService>(MatchService);
+    roomManager = module.get<RoomManager>(RoomManager);
+    cardTimeoutService = module.get<CardTimeoutService>(CardTimeoutService);
+
+    mockBotBattleService.createBotMatch.mockImplementation(async (userId, socketId) => {
+      return roomManager.createBotRoom(userId, socketId, STUB_CARDS);
+    });
+
+    jest.spyOn(cardTimeoutService, 'scheduleTimeout').mockImplementation(() => {});
+    jest.spyOn(cardTimeoutService, 'clearTimeout').mockImplementation(() => {});
+    jest.spyOn(cardTimeoutService, 'cancelAllTimersForRoom').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
 
-  it('pairs two queued players and emits initial player-relative state', async () => {
-    service.registerSocket('socket-a', 'player-a');
-    service.registerSocket('socket-b', 'player-b');
+  describe('Matchmaking Queue', () => {
+    it('pairs two queued players and emits initial player-relative state', async () => {
+      service.registerSocket('socket-a', 'player-a');
+      service.registerSocket('socket-b', 'player-b');
 
-    await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
-    const result = await service.handleJoinQueue('player-b', 'socket-b', { mode: 'casual' });
+      await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
+      const result = await service.handleJoinQueue('player-b', 'socket-b', { mode: 'casual' });
 
-    expect(result.emits.some((emit) => emit.event === 'match_found')).toBe(true);
-    const stateEmits = result.emits.filter((emit) => emit.event === 'game_state_update');
-    expect(stateEmits).toHaveLength(2);
-    expect(stateEmits[0].payload).toHaveProperty('self');
-    expect(stateEmits[0].payload).toHaveProperty('opponent');
+      expect(result.emits.some((emit) => emit.event === SERVER_MATCH_EVENTS.matchFound)).toBe(true);
+      const stateEmits = result.emits.filter((emit) => emit.event === SERVER_MATCH_EVENTS.gameStateUpdate);
+      expect(stateEmits).toHaveLength(2);
+      expect(stateEmits[0].payload).toHaveProperty('self');
+      expect(stateEmits[0].payload).toHaveProperty('opponent');
+    });
+
+    it('rejects active-room user joining queue again', async () => {
+      service.registerSocket('socket-a', 'player-a');
+      service.registerSocket('socket-b', 'player-b');
+      await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
+      await service.handleJoinQueue('player-b', 'socket-b', { mode: 'casual' });
+
+      const result = await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
+
+      expect(result.emits[0].event).toBe(SERVER_MATCH_EVENTS.error);
+    });
+
+    it('handles queue cancellation', async () => {
+      service.registerSocket('socket-a', 'player-a');
+      await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
+
+      const result = service.handleCancelQueue('player-a', 'socket-a');
+      expect(result.emits).toHaveLength(1);
+      expect(result.emits[0].event).toBe(SERVER_MATCH_EVENTS.queueCancelled);
+    });
   });
 
-  it('rejects active-room user joining queue again', async () => {
-    service.registerSocket('socket-a', 'player-a');
-    service.registerSocket('socket-b', 'player-b');
-    await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
-    await service.handleJoinQueue('player-b', 'socket-b', { mode: 'casual' });
+  describe('Bot Mode', () => {
+    it('bypasses the matchmaking queue and starts a match instantly', async () => {
+      service.registerSocket('socket-a', 'player-a');
 
-    const result = await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
+      const result = await service.handleJoinQueue('player-a', 'socket-a', { mode: 'bot' });
 
-    expect(result.emits[0].event).toBe('error');
+      expect(mockBotBattleService.createBotMatch).toHaveBeenCalledWith('player-a', 'socket-a');
+      expect(result.emits.some((emit) => emit.event === SERVER_MATCH_EVENTS.matchFound)).toBe(true);
+      expect(result.emits.some((emit) => emit.event === SERVER_MATCH_EVENTS.gameStateUpdate)).toBe(true);
+    });
+
+    it('rejects bot mode join if player is already in an active room', async () => {
+      service.registerSocket('socket-a', 'player-a');
+      service.registerSocket('socket-b', 'player-b');
+      await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
+      await service.handleJoinQueue('player-b', 'socket-b', { mode: 'casual' });
+
+      const result = await service.handleJoinQueue('player-a', 'socket-a', { mode: 'bot' });
+      expect(result.emits[0].event).toBe(SERVER_MATCH_EVENTS.error);
+    });
+  });
+
+  describe('In-Game Actions', () => {
+    let roomId: string;
+
+    beforeEach(async () => {
+      service.registerSocket('socket-a', 'player-a');
+      service.registerSocket('socket-b', 'player-b');
+      await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
+      const joinResult = await service.handleJoinQueue('player-b', 'socket-b', { mode: 'casual' });
+      const matchFoundEmit = joinResult.emits.find((e) => e.event === SERVER_MATCH_EVENTS.matchFound);
+      roomId = (matchFoundEmit?.payload as any).roomId;
+    });
+
+    it('handles open_card successfully and schedules turn timeout', () => {
+      const result = service.handleOpenCard('player-a', 'socket-a', { roomId, cardId: 'card_1' });
+
+      expect(result.emits.some((e) => e.event === SERVER_MATCH_EVENTS.openCardAccepted)).toBe(true);
+      expect(cardTimeoutService.scheduleTimeout).toHaveBeenCalledWith(
+        roomId,
+        'player-a',
+        'card_1',
+        expect.any(Number),
+        expect.any(Function),
+      );
+    });
+
+    it('rejects open_card if room is not found', () => {
+      const result = service.handleOpenCard('player-a', 'socket-a', { roomId: 'invalid-room', cardId: 'card_1' });
+      expect(result.emits[0].event).toBe(SERVER_MATCH_EVENTS.cardActionRejected);
+    });
+
+    it('handles play_card successfully and clears timeout', async () => {
+      service.handleOpenCard('player-a', 'socket-a', { roomId, cardId: 'card_1' });
+
+      const result = await service.handlePlayCard('player-a', 'socket-a', {
+        roomId,
+        cardId: 'card_1',
+        selectedOptionIndex: 0,
+      });
+
+      expect(cardTimeoutService.clearTimeout).toHaveBeenCalledWith(roomId, 'player-a');
+      expect(result.emits.some((e) => e.event === SERVER_MATCH_EVENTS.playCardResult)).toBe(true);
+    });
+
+    it('handles play_card incorrect answer and updates state', async () => {
+      service.handleOpenCard('player-a', 'socket-a', { roomId, cardId: 'card_1' });
+
+      const result = await service.handlePlayCard('player-a', 'socket-a', {
+        roomId,
+        cardId: 'card_1',
+        selectedOptionIndex: 1, // incorrect
+      });
+
+      const playResultEmit = result.emits.find((e) => e.event === SERVER_MATCH_EVENTS.playCardResult);
+      expect((playResultEmit?.payload as any).correct).toBe(false);
+    });
+
+    it('handles surrender and cleans up room/timers', async () => {
+      const result = await service.handleSurrender('player-a', 'socket-a', { roomId });
+
+      expect(cardTimeoutService.cancelAllTimersForRoom).toHaveBeenCalledWith(roomId);
+      expect(mockBotBattleService.cancelBotSchedule).toHaveBeenCalledWith(roomId);
+      expect(result.emits.some((e) => e.event === SERVER_MATCH_EVENTS.matchResult)).toBe(true);
+    });
+
+    it('rejects surrender if room not found', async () => {
+      const result = await service.handleSurrender('player-a', 'socket-a', { roomId: 'invalid-room' });
+      expect(result.emits[0].event).toBe(SERVER_MATCH_EVENTS.error);
+    });
+  });
+
+  describe('Card Timeout Event Handler', () => {
+    let roomId: string;
+
+    beforeEach(async () => {
+      service.registerSocket('socket-a', 'player-a');
+      service.registerSocket('socket-b', 'player-b');
+      await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
+      const joinResult = await service.handleJoinQueue('player-b', 'socket-b', { mode: 'casual' });
+      const matchFoundEmit = joinResult.emits.find((e) => e.event === SERVER_MATCH_EVENTS.matchFound);
+      roomId = (matchFoundEmit?.payload as any).roomId;
+
+      service.handleOpenCard('player-a', 'socket-a', { roomId, cardId: 'card_1' });
+    });
+
+    it('processes card timeout, fires playCardResult with correct=false, and notifies client', async () => {
+      const emitServerSpy = jest.fn();
+      service.setEmitServer(emitServerSpy);
+
+      await service.handleCardTimeout(roomId, 'player-a', 'card_1');
+
+      expect(emitServerSpy).toHaveBeenCalled();
+      const emitted = emitServerSpy.mock.calls[0][0];
+      const resultEmit = emitted.emits.find((e: any) => e.event === SERVER_MATCH_EVENTS.playCardResult);
+      expect(resultEmit).toBeDefined();
+      expect(resultEmit.payload.correct).toBe(false);
+    });
+  });
+
+  describe('Disconnect Handling', () => {
+    it('clears timers and bot schedules on active presence player disconnect', async () => {
+      service.registerSocket('socket-a', 'player-a');
+      service.registerSocket('socket-b', 'player-b');
+      await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
+      const joinResult = await service.handleJoinQueue('player-b', 'socket-b', { mode: 'casual' });
+      const matchFoundEmit = joinResult.emits.find((e) => e.event === SERVER_MATCH_EVENTS.matchFound);
+      const roomId = (matchFoundEmit?.payload as any).roomId;
+
+      const result = service.handleDisconnect('socket-a');
+
+      expect(cardTimeoutService.cancelAllTimersForRoom).toHaveBeenCalledWith(roomId);
+      expect(result.emits.some((e) => e.event === SERVER_MATCH_EVENTS.presenceUpdate)).toBe(true);
+    });
+
+    it('returns empty emits if disconnecting user is only queue-removed', async () => {
+      service.registerSocket('socket-a', 'player-a');
+      await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
+
+      const result = service.handleDisconnect('socket-a');
+      expect(result.emits).toEqual([]);
+    });
   });
 });
