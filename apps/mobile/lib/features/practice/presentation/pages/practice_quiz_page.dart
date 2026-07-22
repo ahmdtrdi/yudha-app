@@ -7,6 +7,7 @@ import 'package:yudha_mobile/features/practice/application/practice_providers.da
 import 'package:yudha_mobile/features/practice/application/practice_state.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_hint_state.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_option.dart';
+import 'package:yudha_mobile/features/practice/domain/entities/practice_session.dart';
 
 class PracticeQuizPage extends ConsumerWidget {
   const PracticeQuizPage({super.key});
@@ -28,6 +29,7 @@ class PracticeQuizPage extends ConsumerWidget {
     final int total = state.questions.length;
     final bool isSubmitted = state.isCurrentQuestionSubmitted;
     final bool isCompleted = state.status == PracticeViewStatus.completed;
+    final bool isSubmitting = state.status == PracticeViewStatus.submitting;
     final bool hasSelection = state.selectedOptionId != null;
 
     return Scaffold(
@@ -53,8 +55,10 @@ class PracticeQuizPage extends ConsumerWidget {
                   ),
                 ),
               ),
-              const Text(
-                '38s',
+              Text(
+                question.timeLimitSeconds > 0
+                    ? '${question.timeLimitSeconds}s'
+                    : '--',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
@@ -83,6 +87,10 @@ class PracticeQuizPage extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
+                    if (isCompleted && state.summary != null) ...<Widget>[
+                      _SessionSummaryCard(summary: state.summary!),
+                      const SizedBox(height: 16),
+                    ],
                     // Question Card
                     Container(
                       padding: const EdgeInsets.all(20),
@@ -205,7 +213,7 @@ class PracticeQuizPage extends ConsumerWidget {
                                 ],
                               ),
                               const Text(
-                                '-5 poin',
+                                'Opsional',
                                 style: TextStyle(
                                   color: AppColors.textMuted,
                                   fontWeight: FontWeight.w600,
@@ -223,21 +231,31 @@ class PracticeQuizPage extends ConsumerWidget {
                       final PracticeOption option = question.options[i];
                       final bool isSelected =
                           state.selectedOptionId == option.id;
+                      final bool isCorrectOption =
+                          isSubmitted &&
+                          state.correctOptionIndex == option.index;
+                      final bool isWrongSelection =
+                          isSubmitted && isSelected && !isCorrectOption;
                       final String letter = String.fromCharCode(
                         65 + i,
                       ); // A, B, C...
 
                       // State colors
-                      final Color borderColor = isSelected
+                      final Color borderColor = isCorrectOption
+                          ? AppColors.levelUpTeal
+                          : isWrongSelection
+                          ? Colors.redAccent
+                          : isSelected
                           ? AppColors.warriorNavy
                           : AppColors.warriorNavy.withAlpha(20);
-                      final Color bgColor = isSelected
-                          ? AppColors.warriorNavy.withAlpha(10)
+                      final Color bgColor =
+                          isSelected || isCorrectOption || isWrongSelection
+                          ? borderColor.withAlpha(18)
                           : Colors.white;
-                      final Color letterBgColor = isSelected
-                          ? AppColors.warriorNavy
+                      final Color letterBgColor = isSelected || isCorrectOption
+                          ? borderColor
                           : AppColors.surfaceLight;
-                      final Color letterColor = isSelected
+                      final Color letterColor = isSelected || isCorrectOption
                           ? Colors.white
                           : AppColors.textMuted;
                       final FontWeight textWeight = isSelected
@@ -303,6 +321,11 @@ class PracticeQuizPage extends ConsumerWidget {
                         ),
                       );
                     }),
+                    if (isSubmitted &&
+                        (state.answerExplanation ?? '').isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 4),
+                      _AnswerExplanation(explanation: state.answerExplanation!),
+                    ],
                   ],
                 ),
               ),
@@ -321,10 +344,21 @@ class PracticeQuizPage extends ConsumerWidget {
                 width: double.infinity,
                 height: 56,
                 child: FilledButton(
-                  onPressed: hasSelection
-                      ? () {
+                  onPressed: hasSelection && !isSubmitting
+                      ? () async {
                           if (!isSubmitted) {
-                            controller.submitCurrentAnswer();
+                            final bool submitted = await controller
+                                .submitCurrentAnswer();
+                            if (!submitted && context.mounted) {
+                              final String message =
+                                  ref
+                                      .read(practiceControllerProvider)
+                                      .errorMessage ??
+                                  'Jawaban gagal dikirim.';
+                              ScaffoldMessenger.of(
+                                context,
+                              ).showSnackBar(SnackBar(content: Text(message)));
+                            }
                           } else {
                             if (isCompleted) {
                               context.pop(); // Return to dashboard
@@ -346,21 +380,148 @@ class PracticeQuizPage extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  child: Text(
-                    !isSubmitted
-                        ? 'KONFIRMASI'
-                        : (isCompleted ? 'SELESAI' : 'LANJUT'),
-                    style: GoogleFonts.orbitron(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
+                  child: isSubmitting
+                      ? const SizedBox.square(
+                          dimension: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          !isSubmitted
+                              ? 'KONFIRMASI'
+                              : (isCompleted ? 'SELESAI' : 'LANJUT'),
+                          style: GoogleFonts.orbitron(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SessionSummaryCard extends StatelessWidget {
+  const _SessionSummaryCard({required this.summary});
+
+  final PracticeSessionSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.warriorNavy,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: <Widget>[
+          Text(
+            'SESI SELESAI',
+            style: GoogleFonts.orbitron(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: <Widget>[
+              _SummaryMetric(
+                value: '${summary.accuracy.round()}%',
+                label: 'Akurasi',
+              ),
+              _SummaryMetric(
+                value: '${summary.correctCount}/${summary.totalQuestions}',
+                label: 'Benar',
+              ),
+              _SummaryMetric(
+                value: summary.totalScore.toString(),
+                label: 'Skor',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryMetric extends StatelessWidget {
+  const _SummaryMetric({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        Text(
+          value,
+          style: const TextStyle(
+            color: AppColors.fireGold,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withAlpha(190),
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AnswerExplanation extends StatelessWidget {
+  const _AnswerExplanation({required this.explanation});
+
+  final String explanation;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.levelUpTeal.withAlpha(100)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'PEMBAHASAN',
+            style: TextStyle(
+              color: AppColors.levelUpTeal,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            explanation,
+            style: const TextStyle(
+              color: AppColors.textStrong,
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+        ],
       ),
     );
   }
