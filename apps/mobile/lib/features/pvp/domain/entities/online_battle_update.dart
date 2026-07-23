@@ -33,6 +33,12 @@ class GameStateUpdated extends OnlineBattleUpdate {
     required this.opponentHp,
     required this.playerPoints,
     required this.opponentPoints,
+    required this.playerComboLevel,
+    required this.currentRound,
+    required this.roundSecondsRemaining,
+    required this.playerRoundWins,
+    required this.opponentRoundWins,
+    required this.lastRoundOutcome,
     required this.availableQuestions,
     required this.answeredQuestionIds,
   });
@@ -43,6 +49,12 @@ class GameStateUpdated extends OnlineBattleUpdate {
   final int opponentHp;
   final int playerPoints;
   final int opponentPoints;
+  final int playerComboLevel;
+  final int currentRound;
+  final int roundSecondsRemaining;
+  final int playerRoundWins;
+  final int opponentRoundWins;
+  final BattleOutcome? lastRoundOutcome;
   final List<BattleQuestion> availableQuestions;
   final List<String> answeredQuestionIds;
 }
@@ -53,12 +65,14 @@ class CardPlayedUpdate extends OnlineBattleUpdate {
     required this.correct,
     required this.effect,
     required this.effectValue,
+    required this.projectileLevel,
   });
 
   final String cardId;
   final bool correct;
   final QuestionEffect? effect;
   final int effectValue;
+  final int projectileLevel;
 }
 
 class MatchResultUpdate extends OnlineBattleUpdate {

@@ -211,7 +211,7 @@ create table if not exists public.match_results (
   constraint match_results_mode_check check (mode in ('player', 'bot')),
   constraint match_results_outcome_check check (outcome in ('player_a_win', 'player_b_win', 'draw')),
   constraint match_results_reason_check
-    check (reason in ('hp_zero', 'surrender', 'question_exhaustion', 'draw', 'disconnect')),
+    check (reason in ('hp_zero', 'round_timeout', 'surrender', 'question_exhaustion', 'draw', 'disconnect')),
   constraint match_results_winner_is_player_check check (
     winner_user_id is null
     or winner_user_id = player_a_id

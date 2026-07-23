@@ -600,6 +600,7 @@ class _LoadoutDiorama extends StatelessWidget {
                     typeLabel: 'KARAKTER',
                     name: selectedCharacter.name,
                     assetPath: selectedCharacter.characterVisuals!.ready,
+                    labelKey: const ValueKey<String>('loadout-character-label'),
                     previewKey: const ValueKey<String>(
                       'loadout-character-preview',
                     ),
@@ -620,8 +621,9 @@ class _LoadoutDiorama extends StatelessWidget {
                     typeLabel: 'TOWER',
                     name: selectedTower.name,
                     assetPath: selectedTower.assetPath!,
+                    labelKey: const ValueKey<String>('loadout-tower-label'),
                     previewKey: const ValueKey<String>('loadout-tower-preview'),
-                    nameFirst: false,
+                    nameFirst: true,
                     scale: 0.92,
                   ),
                 ),
@@ -639,6 +641,7 @@ class _LoadoutPreviewSlot extends StatelessWidget {
     required this.typeLabel,
     required this.name,
     required this.assetPath,
+    required this.labelKey,
     required this.previewKey,
     required this.nameFirst,
     required this.scale,
@@ -647,6 +650,7 @@ class _LoadoutPreviewSlot extends StatelessWidget {
   final String typeLabel;
   final String name;
   final String assetPath;
+  final Key labelKey;
   final Key previewKey;
   final bool nameFirst;
   final double scale;
@@ -654,6 +658,7 @@ class _LoadoutPreviewSlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Widget label = SizedBox(
+      key: labelKey,
       height: 38,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

@@ -17,7 +17,8 @@ import { MatchLogBuffer } from './logs/match-log-buffer';
 import { BotBattleService } from './bot/bot-battle.service';
 import { CardTimeoutService } from './timeout/card-timeout.service';
 
-type ServerMatchEventName = (typeof SERVER_MATCH_EVENTS)[keyof typeof SERVER_MATCH_EVENTS];
+type ServerMatchEventName =
+  (typeof SERVER_MATCH_EVENTS)[keyof typeof SERVER_MATCH_EVENTS];
 
 export type MatchEmit = {
   socketId: string;
@@ -33,6 +34,14 @@ export type MatchServiceResult = {
 export class MatchService {
   private readonly logger = new Logger(MatchService.name);
   private emitServer: ((result: MatchServiceResult) => void) | null = null;
+  private readonly roundTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
+  private readonly roundBreakTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
 
   constructor(
     private readonly engine: GameEngine,
@@ -51,6 +60,9 @@ export class MatchService {
   setEmitServer(callback: (result: MatchServiceResult) => void): void {
     this.emitServer = callback;
     this.botBattleService.setEmitCallback(callback);
+    this.botBattleService.setRoundBreakCallback((room) => {
+      this.handleRoundBreak(room);
+    });
   }
 
   registerSocket(socketId: string, userId: string): void {
@@ -77,7 +89,11 @@ export class MatchService {
     return { emits: [] };
   }
 
-  async handleJoinQueue(userId: string, socketId: string, payload?: JoinQueuePayload): Promise<MatchServiceResult> {
+  async handleJoinQueue(
+    userId: string,
+    socketId: string,
+    payload?: JoinQueuePayload,
+  ): Promise<MatchServiceResult> {
     const mode = payload?.mode ?? 'casual';
 
     // Bot mode: skip queue, create match instantly
@@ -86,8 +102,15 @@ export class MatchService {
     }
 
     // Fetch question pool from Supabase (once per match creation)
-    const { active, reserve } = await this.questions.getMatchQuestionPoolWithReserve('cpns');
-    const queueResult = this.rooms.joinQueue(userId, socketId, mode, active, reserve);
+    const { active, reserve } =
+      await this.questions.getMatchQuestionPoolWithReserve('cpns');
+    const queueResult = this.rooms.joinQueue(
+      userId,
+      socketId,
+      mode,
+      active,
+      reserve,
+    );
 
     if (queueResult.rejected) {
       return {
@@ -127,15 +150,27 @@ export class MatchService {
     };
 
     emits.push(
-      { socketId: playerA.socketId, event: SERVER_MATCH_EVENTS.matchFound, payload: matchFoundA },
-      { socketId: playerB.socketId, event: SERVER_MATCH_EVENTS.matchFound, payload: matchFoundB },
+      {
+        socketId: playerA.socketId,
+        event: SERVER_MATCH_EVENTS.matchFound,
+        payload: matchFoundA,
+      },
+      {
+        socketId: playerB.socketId,
+        event: SERVER_MATCH_EVENTS.matchFound,
+        payload: matchFoundB,
+      },
       ...this.stateEmits(room),
     );
+    this.scheduleRoundTimeout(room);
 
     return { emits };
   }
 
-  private async handleBotMode(userId: string, socketId: string): Promise<MatchServiceResult> {
+  private async handleBotMode(
+    userId: string,
+    socketId: string,
+  ): Promise<MatchServiceResult> {
     // Check if user is already in an active match
     const existingRoom = this.rooms.getRoomForUser(userId);
     if (existingRoom && existingRoom.status === 'active') {
@@ -151,6 +186,7 @@ export class MatchService {
     }
 
     const room = await this.botBattleService.createBotMatch(userId, socketId);
+    this.scheduleRoundTimeout(room);
 
     const matchFound: MatchFoundPayload = {
       roomId: room.roomId,
@@ -160,7 +196,11 @@ export class MatchService {
 
     return {
       emits: [
-        { socketId, event: SERVER_MATCH_EVENTS.matchFound, payload: matchFound },
+        {
+          socketId,
+          event: SERVER_MATCH_EVENTS.matchFound,
+          payload: matchFound,
+        },
         ...this.stateEmits(room),
       ],
     };
@@ -181,13 +221,31 @@ export class MatchService {
     };
   }
 
-  handleOpenCard(userId: string, socketId: string, payload: OpenCardPayload): MatchServiceResult {
+  handleOpenCard(
+    userId: string,
+    socketId: string,
+    payload: OpenCardPayload,
+  ): MatchServiceResult {
     const room = this.rooms.getRoom(payload.roomId);
-    if (!room) return this.reject(socketId, 'open_card', payload.roomId, 'room_not_found', 'Room not found.');
+    if (!room)
+      return this.reject(
+        socketId,
+        'open_card',
+        payload.roomId,
+        'room_not_found',
+        'Room not found.',
+      );
 
     const result = this.engine.openCard(room, userId, payload.cardId);
     if (!result.ok) {
-      return this.reject(socketId, 'open_card', payload.roomId, result.reason, result.message, result.recoverable);
+      return this.reject(
+        socketId,
+        'open_card',
+        payload.roomId,
+        result.reason,
+        result.message,
+        result.recoverable,
+      );
     }
 
     // Log the open_card action
@@ -222,16 +280,39 @@ export class MatchService {
     };
   }
 
-  async handlePlayCard(userId: string, socketId: string, payload: PlayCardPayload): Promise<MatchServiceResult> {
+  async handlePlayCard(
+    userId: string,
+    socketId: string,
+    payload: PlayCardPayload,
+  ): Promise<MatchServiceResult> {
     const room = this.rooms.getRoom(payload.roomId);
-    if (!room) return this.reject(socketId, 'play_card', payload.roomId, 'room_not_found', 'Room not found.');
+    if (!room)
+      return this.reject(
+        socketId,
+        'play_card',
+        payload.roomId,
+        'room_not_found',
+        'Room not found.',
+      );
 
     // Clear card timeout timer before executing answer
     this.cardTimeoutService.clearTimeout(payload.roomId, userId);
 
-    const result = this.engine.playCard(room, userId, payload.cardId, payload.selectedOptionIndex);
+    const result = this.engine.playCard(
+      room,
+      userId,
+      payload.cardId,
+      payload.selectedOptionIndex,
+    );
     if (!result.ok) {
-      return this.reject(socketId, 'play_card', payload.roomId, result.reason, result.message, result.recoverable);
+      return this.reject(
+        socketId,
+        'play_card',
+        payload.roomId,
+        result.reason,
+        result.message,
+        result.recoverable,
+      );
     }
 
     // Log the play_card action
@@ -253,17 +334,26 @@ export class MatchService {
     ];
 
     if (result.matchResult) {
+      this.clearRoundTimers(room.roomId);
       this.botBattleService.cancelBotSchedule(room.roomId);
       this.cardTimeoutService.cancelAllTimersForRoom(room.roomId);
       await this.persistAndEnrich(room);
       emits.push(...this.matchResultEmits(room));
       this.rooms.scheduleCleanup(room.roomId);
+    } else if (room.roundStatus === 'break') {
+      this.botBattleService.cancelBotSchedule(room.roomId);
+      this.cardTimeoutService.cancelAllTimersForRoom(room.roomId);
+      this.scheduleRoundTransition(room);
     }
 
     return { emits };
   }
 
-  async handleCardTimeout(roomId: string, userId: string, cardId: string): Promise<void> {
+  async handleCardTimeout(
+    roomId: string,
+    userId: string,
+    cardId: string,
+  ): Promise<void> {
     const room = this.rooms.getRoom(roomId);
     if (!room || room.status !== 'active') return;
 
@@ -285,11 +375,16 @@ export class MatchService {
     }
 
     if (result.matchResult) {
+      this.clearRoundTimers(room.roomId);
       this.botBattleService.cancelBotSchedule(room.roomId);
       this.cardTimeoutService.cancelAllTimersForRoom(room.roomId);
       await this.persistAndEnrich(room);
       emits.push(...this.matchResultEmits(room));
       this.rooms.scheduleCleanup(room.roomId);
+    } else if (room.roundStatus === 'break') {
+      this.botBattleService.cancelBotSchedule(room.roomId);
+      this.cardTimeoutService.cancelAllTimersForRoom(room.roomId);
+      this.scheduleRoundTransition(room);
     }
 
     if (this.emitServer && emits.length > 0) {
@@ -297,7 +392,11 @@ export class MatchService {
     }
   }
 
-  async handleSurrender(userId: string, socketId: string, payload: SurrenderPayload): Promise<MatchServiceResult> {
+  async handleSurrender(
+    userId: string,
+    socketId: string,
+    payload: SurrenderPayload,
+  ): Promise<MatchServiceResult> {
     const room = this.rooms.getRoom(payload.roomId);
     if (!room) {
       return {
@@ -335,9 +434,110 @@ export class MatchService {
 
     this.botBattleService.cancelBotSchedule(room.roomId);
     this.cardTimeoutService.cancelAllTimersForRoom(room.roomId);
+    this.clearRoundTimers(room.roomId);
     await this.persistAndEnrich(room);
     this.rooms.scheduleCleanup(room.roomId);
-    return { emits: [...this.stateEmits(room), ...this.matchResultEmits(room)] };
+    return {
+      emits: [...this.stateEmits(room), ...this.matchResultEmits(room)],
+    };
+  }
+
+  private scheduleRoundTimeout(room: InternalRoomState): void {
+    const existing = this.roundTimers.get(room.roomId);
+    if (existing) clearTimeout(existing);
+    if (
+      room.status !== 'active' ||
+      room.roundStatus !== 'active' ||
+      !room.roundEndsAt
+    ) {
+      this.roundTimers.delete(room.roomId);
+      return;
+    }
+    const delay = Math.max(0, room.roundEndsAt.getTime() - Date.now());
+    const timer = setTimeout(() => {
+      this.roundTimers.delete(room.roomId);
+      void this.handleRoundTimeout(room.roomId);
+    }, delay);
+    timer.unref?.();
+    this.roundTimers.set(room.roomId, timer);
+  }
+
+  private scheduleRoundTransition(room: InternalRoomState): void {
+    const roundTimer = this.roundTimers.get(room.roomId);
+    if (roundTimer) clearTimeout(roundTimer);
+    this.roundTimers.delete(room.roomId);
+    const existing = this.roundBreakTimers.get(room.roomId);
+    if (existing) clearTimeout(existing);
+    if (
+      room.status !== 'active' ||
+      room.roundStatus !== 'break' ||
+      !room.nextRoundAt
+    ) {
+      this.roundBreakTimers.delete(room.roomId);
+      return;
+    }
+    const delay = Math.max(0, room.nextRoundAt.getTime() - Date.now());
+    const timer = setTimeout(() => {
+      this.roundBreakTimers.delete(room.roomId);
+      this.startNextRound(room.roomId);
+    }, delay);
+    timer.unref?.();
+    this.roundBreakTimers.set(room.roomId, timer);
+  }
+
+  private async handleRoundTimeout(roomId: string): Promise<void> {
+    const room = this.rooms.getRoom(roomId);
+    if (!room || room.status !== 'active' || room.roundStatus !== 'active') {
+      return;
+    }
+
+    this.botBattleService.cancelBotSchedule(roomId);
+    this.cardTimeoutService.cancelAllTimersForRoom(roomId);
+    const matchResult = this.engine.finishRoundOnTimeout(room);
+    const emits = [...this.stateEmits(room)];
+    if (matchResult) {
+      this.clearRoundTimers(roomId);
+      await this.persistAndEnrich(room);
+      emits.push(...this.matchResultEmits(room));
+      this.rooms.scheduleCleanup(roomId);
+    } else {
+      this.scheduleRoundTransition(room);
+    }
+    if (this.emitServer && emits.length > 0) {
+      this.emitServer({ emits });
+    }
+  }
+
+  private startNextRound(roomId: string): void {
+    const room = this.rooms.getRoom(roomId);
+    if (!room || !this.engine.startNextRound(room)) {
+      return;
+    }
+    this.scheduleRoundTimeout(room);
+    if (this.botBattleService.isBotMatch(room)) {
+      this.botBattleService.resumeBotSchedule(roomId);
+    }
+    if (this.emitServer) {
+      this.emitServer({ emits: this.stateEmits(room) });
+    }
+  }
+
+  private handleRoundBreak(room: InternalRoomState): void {
+    this.cardTimeoutService.cancelAllTimersForRoom(room.roomId);
+    const emits = this.stateEmits(room);
+    this.scheduleRoundTransition(room);
+    if (this.emitServer && emits.length > 0) {
+      this.emitServer({ emits });
+    }
+  }
+
+  private clearRoundTimers(roomId: string): void {
+    const roundTimer = this.roundTimers.get(roomId);
+    if (roundTimer) clearTimeout(roundTimer);
+    this.roundTimers.delete(roomId);
+    const breakTimer = this.roundBreakTimers.get(roomId);
+    if (breakTimer) clearTimeout(breakTimer);
+    this.roundBreakTimers.delete(roomId);
   }
 
   private stateEmits(room: InternalRoomState): MatchEmit[] {
@@ -372,9 +572,13 @@ export class MatchService {
     const payload = {
       roomId: room.roomId,
       players: Object.fromEntries(
-        this.rooms
-          .listRoomUsers(room)
-          .map((userId) => [userId, { connected: this.engine.buildPublicState(room, userId).self.connected }]),
+        this.rooms.listRoomUsers(room).map((userId) => [
+          userId,
+          {
+            connected: this.engine.buildPublicState(room, userId).self
+              .connected,
+          },
+        ]),
       ),
     };
     return {
