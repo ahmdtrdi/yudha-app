@@ -4,6 +4,7 @@ import type { InternalCard } from '../questions/question.types';
 const makeCards = (count: number): InternalCard[] =>
   Array.from({ length: count }, (_, i) => ({
     id: `card_${i + 1}`,
+    sourceQuestionId: `question_${i + 1}`,
     prompt: `Question ${i + 1}`,
     options: ['A', 'B', 'C', 'D'],
     correctOptionIndex: 0,

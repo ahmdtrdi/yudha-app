@@ -9,12 +9,23 @@ export type BattlePhase =
   | 'round_break'
   | 'finished';
 export type BattleOutcome = 'win' | 'lose' | 'draw' | 'surrender';
+export type BattleTarget = 'cpns' | 'bumn';
+export type MatchmakingMode = 'ranked' | 'casual' | 'bot';
+
+export type BattleLoadout = {
+  characterId: string;
+  towerId: string;
+};
 
 export type PublicBattleState = {
   roomId: string;
   status: RoomStatus;
+  mode: MatchmakingMode;
+  target: BattleTarget;
   self: {
     userId: string;
+    displayName: string;
+    loadout: BattleLoadout;
     role: BattleRole;
     hp: number;
     points: number;
@@ -26,6 +37,8 @@ export type PublicBattleState = {
   };
   opponent: {
     userId: string;
+    displayName: string;
+    loadout: BattleLoadout;
     role: BattleRole;
     hp: number;
     points: number;

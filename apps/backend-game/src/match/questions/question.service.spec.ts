@@ -30,6 +30,7 @@ describe('QuestionService', () => {
   let mockSelect: jest.Mock;
   let mockEqTarget: jest.Mock;
   let mockEqActive: jest.Mock;
+  let mockFrom: jest.Mock;
 
   beforeEach(async () => {
     // Build a chained mock: .from().select().eq('target').eq('is_active')
@@ -37,9 +38,8 @@ describe('QuestionService', () => {
     mockEqTarget = jest.fn().mockReturnValue({ eq: mockEqActive });
     mockSelect = jest.fn().mockReturnValue({ eq: mockEqTarget });
 
-    const mockAdminClient = {
-      from: jest.fn().mockReturnValue({ select: mockSelect }),
-    };
+    mockFrom = jest.fn().mockReturnValue({ select: mockSelect });
+    const mockAdminClient = { from: mockFrom };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -219,6 +219,23 @@ describe('QuestionService', () => {
 
       expect(cards).toHaveLength(12);
       expect(cards[0]).toHaveProperty('correctOptionIndex');
+      expect(cards[0]).toHaveProperty('sourceQuestionId');
+      expect(mockFrom).toHaveBeenCalledWith('questions');
+      expect(mockEqTarget).toHaveBeenCalledWith('target', 'cpns');
+      expect(mockEqActive).toHaveBeenCalledWith('is_active', true);
+    });
+
+    it('filters BUMN pools by the requested target', async () => {
+      const rows = makeQuestionRows(12, 'AKHLAK').map((row) => ({
+        ...row,
+        target: 'bumn' as const,
+      }));
+      mockEqActive.mockResolvedValue({ data: rows, error: null });
+
+      const cards = await service.getMatchQuestionPool('bumn', 12);
+
+      expect(cards).toHaveLength(12);
+      expect(mockEqTarget).toHaveBeenCalledWith('target', 'bumn');
     });
   });
 });

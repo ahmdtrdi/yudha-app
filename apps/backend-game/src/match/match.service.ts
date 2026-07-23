@@ -8,6 +8,7 @@ import type {
   PlayCardPayload,
   SurrenderPayload,
 } from '../../../../contracts/match.payloads';
+import type { MatchmakingMode } from '../../../../contracts/battle-state';
 import { GameEngine } from './engine/game-engine';
 import type { InternalRoomState } from './engine/battle.types';
 import { QuestionService } from './questions/question.service';
@@ -16,6 +17,10 @@ import { RoomManager } from './rooms/room-manager';
 import { MatchLogBuffer } from './logs/match-log-buffer';
 import { BotBattleService } from './bot/bot-battle.service';
 import { CardTimeoutService } from './timeout/card-timeout.service';
+import {
+  GamePlayerProfileService,
+  type GamePlayerProfile,
+} from './profiles/game-player-profile.service';
 
 type ServerMatchEventName =
   (typeof SERVER_MATCH_EVENTS)[keyof typeof SERVER_MATCH_EVENTS];
@@ -32,6 +37,7 @@ export type MatchServiceResult = {
 
 @Injectable()
 export class MatchService {
+  static readonly DISCONNECT_GRACE_MS = 30_000;
   private readonly logger = new Logger(MatchService.name);
   private emitServer: ((result: MatchServiceResult) => void) | null = null;
   private readonly roundTimers = new Map<
@@ -51,6 +57,7 @@ export class MatchService {
     private readonly logBuffer: MatchLogBuffer,
     private readonly botBattleService: BotBattleService,
     private readonly cardTimeoutService: CardTimeoutService,
+    private readonly profiles: GamePlayerProfileService,
   ) {}
 
   /**
@@ -65,8 +72,18 @@ export class MatchService {
     });
   }
 
-  registerSocket(socketId: string, userId: string): void {
-    this.rooms.registerSocket(socketId, userId);
+  registerSocket(socketId: string, userId: string): MatchServiceResult {
+    const result = this.rooms.registerSocket(socketId, userId);
+    if (result.type !== 'active_reconnect') {
+      return { emits: [] };
+    }
+    this.clearDisconnectTimer(result.room.roomId, userId);
+    return {
+      emits: [
+        ...this.stateEmits(result.room),
+        ...this.emitPresence(result.room).emits,
+      ],
+    };
   }
 
   getUserIdForSocket(socketId: string): string | undefined {
@@ -79,11 +96,7 @@ export class MatchService {
       return { emits: [] };
     }
     if (result.type === 'active_presence') {
-      // Cancel timers if human disconnected
-      if (this.botBattleService.isBotMatch(result.room)) {
-        this.botBattleService.cancelBotSchedule(result.room.roomId);
-      }
-      this.cardTimeoutService.cancelAllTimersForRoom(result.room.roomId);
+      this.scheduleDisconnectForfeit(result.room, result.userId);
       return this.emitPresence(result.room);
     }
     return { emits: [] };
@@ -95,22 +108,45 @@ export class MatchService {
     payload?: JoinQueuePayload,
   ): Promise<MatchServiceResult> {
     const mode = payload?.mode ?? 'casual';
+    if (!this.isMatchmakingMode(mode)) {
+      return {
+        emits: [
+          {
+            socketId,
+            event: SERVER_MATCH_EVENTS.error,
+            payload: { message: 'Mode must be ranked, casual, or bot.' },
+          },
+        ],
+      };
+    }
+
+    let profile: GamePlayerProfile;
+    try {
+      profile = await this.profiles.getProfile(userId);
+    } catch (error) {
+      return {
+        emits: [
+          {
+            socketId,
+            event: SERVER_MATCH_EVENTS.error,
+            payload: {
+              message:
+                error instanceof Error
+                  ? error.message
+                  : 'Game profile is unavailable.',
+            },
+          },
+        ],
+      };
+    }
 
     // Bot mode: skip queue, create match instantly
     if (mode === 'bot') {
-      return this.handleBotMode(userId, socketId);
+      return this.handleBotMode(profile, socketId);
     }
 
-    // Fetch question pool from Supabase (once per match creation)
-    const { active, reserve } =
-      await this.questions.getMatchQuestionPoolWithReserve('cpns');
-    const queueResult = this.rooms.joinQueue(
-      userId,
-      socketId,
-      mode,
-      active,
-      reserve,
-    );
+    const cards = await this.questions.getMatchQuestionPool(profile.target);
+    const queueResult = this.rooms.joinQueue(profile, socketId, mode, cards);
 
     if (queueResult.rejected) {
       return {
@@ -129,8 +165,14 @@ export class MatchService {
         socketId,
         event: SERVER_MATCH_EVENTS.queueJoined,
         payload: {
-          position: this.positionFor(userId),
+          position: this.rooms.queuePositionFor(
+            userId,
+            profile.target,
+            mode,
+          ),
           queueDepth: queueResult.queueDepth,
+          mode,
+          target: profile.target,
         },
       },
     ];
@@ -141,12 +183,20 @@ export class MatchService {
     const matchFoundA: MatchFoundPayload = {
       roomId: room.roomId,
       opponentUserId: playerB.userId,
+      opponentDisplayName: playerB.displayName,
+      opponentLoadout: playerB.loadout,
       role: 'playerA',
+      mode: room.mode,
+      target: room.target,
     };
     const matchFoundB: MatchFoundPayload = {
       roomId: room.roomId,
       opponentUserId: playerA.userId,
+      opponentDisplayName: playerA.displayName,
+      opponentLoadout: playerA.loadout,
       role: 'playerB',
+      mode: room.mode,
+      target: room.target,
     };
 
     emits.push(
@@ -168,9 +218,10 @@ export class MatchService {
   }
 
   private async handleBotMode(
-    userId: string,
+    profile: GamePlayerProfile,
     socketId: string,
   ): Promise<MatchServiceResult> {
+    const { userId } = profile;
     // Check if user is already in an active match
     const existingRoom = this.rooms.getRoomForUser(userId);
     if (existingRoom && existingRoom.status === 'active') {
@@ -185,13 +236,17 @@ export class MatchService {
       };
     }
 
-    const room = await this.botBattleService.createBotMatch(userId, socketId);
-    this.scheduleRoundTimeout(room);
+    const room = await this.botBattleService.createBotMatch(profile, socketId);
+    const bot = room.players.playerB;
 
     const matchFound: MatchFoundPayload = {
       roomId: room.roomId,
       opponentUserId: 'bot',
+      opponentDisplayName: bot.displayName,
+      opponentLoadout: bot.loadout,
       role: 'playerA',
+      mode: room.mode,
+      target: room.target,
     };
 
     return {
@@ -251,6 +306,9 @@ export class MatchService {
     // Log the open_card action
     this.logBuffer.record(payload.roomId, userId, 'open_card', {
       cardId: payload.cardId,
+      questionId: this.engine
+        .getPlayer(room, userId)
+        ?.hand.find((card) => card.id === payload.cardId)?.sourceQuestionId,
     });
 
     // Schedule per-card turn timeout if this is a human player
@@ -318,6 +376,7 @@ export class MatchService {
     // Log the play_card action
     this.logBuffer.record(payload.roomId, userId, 'play_card', {
       cardId: payload.cardId,
+      questionId: this.findSourceQuestionId(room, userId, payload.cardId),
       selectedOptionIndex: payload.selectedOptionIndex,
       correct: result.playResult.correct,
       effect: result.playResult.effect,
@@ -338,6 +397,7 @@ export class MatchService {
       this.botBattleService.cancelBotSchedule(room.roomId);
       this.cardTimeoutService.cancelAllTimersForRoom(room.roomId);
       await this.persistAndEnrich(room);
+      this.clearDisconnectTimersForRoom(room.roomId);
       emits.push(...this.matchResultEmits(room));
       this.rooms.scheduleCleanup(room.roomId);
     } else if (room.roundStatus === 'break') {
@@ -379,6 +439,7 @@ export class MatchService {
       this.botBattleService.cancelBotSchedule(room.roomId);
       this.cardTimeoutService.cancelAllTimersForRoom(room.roomId);
       await this.persistAndEnrich(room);
+      this.clearDisconnectTimersForRoom(room.roomId);
       emits.push(...this.matchResultEmits(room));
       this.rooms.scheduleCleanup(room.roomId);
     } else if (room.roundStatus === 'break') {
@@ -436,6 +497,7 @@ export class MatchService {
     this.cardTimeoutService.cancelAllTimersForRoom(room.roomId);
     this.clearRoundTimers(room.roomId);
     await this.persistAndEnrich(room);
+    this.clearDisconnectTimersForRoom(room.roomId);
     this.rooms.scheduleCleanup(room.roomId);
     return {
       emits: [...this.stateEmits(room), ...this.matchResultEmits(room)],
@@ -544,7 +606,7 @@ export class MatchService {
     return this.rooms
       .listRoomUsers(room)
       .map((userId): MatchEmit | undefined => {
-        const socketId = this.rooms.getSocketIdForUser(userId);
+        const socketId = this.rooms.getSocketIdForUser(userId, room);
         if (!socketId) return undefined;
         return {
           socketId,
@@ -559,7 +621,7 @@ export class MatchService {
     if (!room.result) return [];
     return this.rooms
       .listRoomUsers(room)
-      .map((userId) => this.rooms.getSocketIdForUser(userId))
+      .map((userId) => this.rooms.getSocketIdForUser(userId, room))
       .filter((socketId): socketId is string => Boolean(socketId))
       .map((socketId) => ({
         socketId,
@@ -572,19 +634,26 @@ export class MatchService {
     const payload = {
       roomId: room.roomId,
       players: Object.fromEntries(
-        this.rooms.listRoomUsers(room).map((userId) => [
-          userId,
-          {
-            connected: this.engine.buildPublicState(room, userId).self
-              .connected,
-          },
-        ]),
+        this.rooms
+          .listRoomUsers(room)
+          .map((userId) => {
+            const player = this.engine.getPlayer(room, userId)!;
+            return [
+              userId,
+              {
+                connected: player.connected,
+                ...(player.reconnectDeadline
+                  ? { reconnectDeadline: player.reconnectDeadline.toISOString() }
+                  : {}),
+              },
+            ];
+          }),
       ),
     };
     return {
       emits: this.rooms
         .listRoomUsers(room)
-        .map((userId) => this.rooms.getSocketIdForUser(userId))
+        .map((userId) => this.rooms.getSocketIdForUser(userId, room))
         .filter((socketId): socketId is string => Boolean(socketId))
         .map((socketId) => ({
           socketId,
@@ -607,7 +676,7 @@ export class MatchService {
     try {
       const deltas = await this.matchResultService.finalizeMatch(room, rpcLogs);
       if (deltas && room.result) {
-        room.result.progressionPersisted = true;
+        room.result.progressionPersisted = deltas.progressionApplied;
         room.result.finalState.playerA.ratingDelta = deltas.ratingDeltaA;
         room.result.finalState.playerA.coinsDelta = deltas.coinsDeltaA;
         room.result.finalState.playerB.ratingDelta = deltas.ratingDeltaB;
@@ -623,6 +692,91 @@ export class MatchService {
         `Failed to persist match ${room.roomId}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  private scheduleDisconnectForfeit(
+    room: InternalRoomState,
+    userId: string,
+  ): void {
+    this.clearDisconnectTimer(room.roomId, userId);
+    const player = this.engine.getPlayer(room, userId);
+    if (!player || room.status !== 'active') return;
+
+    player.reconnectDeadline = new Date(
+      Date.now() + MatchService.DISCONNECT_GRACE_MS,
+    );
+    const key = this.disconnectTimerKey(room.roomId, userId);
+    const timer = setTimeout(() => {
+      this.disconnectTimers.delete(key);
+      void this.handleDisconnectGraceExpired(room.roomId, userId);
+    }, MatchService.DISCONNECT_GRACE_MS);
+    timer.unref?.();
+    this.disconnectTimers.set(key, timer);
+  }
+
+  private async handleDisconnectGraceExpired(
+    roomId: string,
+    userId: string,
+  ): Promise<void> {
+    const room = this.rooms.getRoom(roomId);
+    const player = room ? this.engine.getPlayer(room, userId) : undefined;
+    if (!room || room.status !== 'active' || !player || player.connected) {
+      return;
+    }
+
+    this.engine.finishDisconnected(room, userId);
+    this.botBattleService.cancelBotSchedule(room.roomId);
+    this.cardTimeoutService.cancelAllTimersForRoom(room.roomId);
+    this.clearDisconnectTimersForRoom(room.roomId);
+    await this.persistAndEnrich(room);
+
+    const emits = [
+      ...this.stateEmits(room),
+      ...this.matchResultEmits(room),
+      ...this.emitPresence(room).emits,
+    ];
+    if (this.emitServer && emits.length > 0) {
+      this.emitServer({ emits });
+    }
+    this.rooms.scheduleCleanup(room.roomId);
+  }
+
+  private clearDisconnectTimer(roomId: string, userId: string): void {
+    const key = this.disconnectTimerKey(roomId, userId);
+    const timer = this.disconnectTimers.get(key);
+    if (timer) clearTimeout(timer);
+    this.disconnectTimers.delete(key);
+  }
+
+  private clearDisconnectTimersForRoom(roomId: string): void {
+    const prefix = `${roomId}:`;
+    for (const [key, timer] of this.disconnectTimers) {
+      if (!key.startsWith(prefix)) continue;
+      clearTimeout(timer);
+      this.disconnectTimers.delete(key);
+    }
+  }
+
+  private disconnectTimerKey(roomId: string, userId: string): string {
+    return `${roomId}:${userId}`;
+  }
+
+  private isMatchmakingMode(value: unknown): value is MatchmakingMode {
+    return value === 'ranked' || value === 'casual' || value === 'bot';
+  }
+
+  private findSourceQuestionId(
+    room: InternalRoomState,
+    userId: string,
+    cardId: string,
+  ): string | undefined {
+    const player = this.engine.getPlayer(room, userId);
+    const inHand = player?.hand.find((card) => card.id === cardId);
+    if (inHand) return inHand.sourceQuestionId;
+    const sourceIndex = Number(cardId.replace(/\D/g, '')) - 1;
+    if (!Number.isInteger(sourceIndex) || sourceIndex < 0) return undefined;
+    return room.sharedQueue[sourceIndex % room.sharedQueue.length]
+      ?.sourceQuestionId;
   }
 
   private reject(
@@ -644,7 +798,4 @@ export class MatchService {
     };
   }
 
-  private positionFor(userId: string): number {
-    return this.rooms.getRoomForUser(userId) ? 0 : 1;
-  }
 }

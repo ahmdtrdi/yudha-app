@@ -11,10 +11,12 @@ import { CardTimeoutService } from './timeout/card-timeout.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import type { InternalCard } from './questions/question.types';
 import { SERVER_MATCH_EVENTS } from '../../../../contracts/match.events';
+import { GamePlayerProfileService } from './profiles/game-player-profile.service';
 
 /** Stub cards for testing — mimics DB-sourced values */
 const STUB_CARDS: InternalCard[] = Array.from({ length: 12 }, (_, i) => ({
-  id: `card_${i + 1}`,
+      id: `card_${i + 1}`,
+      sourceQuestionId: `question_${i + 1}`,
   prompt: `Question ${i + 1}`,
   options: ['A', 'B', 'C', 'D'],
   correctOptionIndex: 0,
@@ -31,6 +33,7 @@ const mockMatchResultService = {
     ratingDeltaB: -12,
     coinsDeltaA: 10,
     coinsDeltaB: 3,
+    progressionApplied: true,
   }),
 };
 
@@ -71,6 +74,25 @@ const mockSupabaseService = {
   getAdminClient: jest.fn(),
 };
 
+const profileFor = (userId: string) => ({
+  userId,
+  displayName: userId,
+  target: 'cpns' as const,
+  loadout: {
+    characterId: 'character-basic-squire',
+    towerId: 'tower-garda-biru',
+  },
+});
+
+const mockProfileService = {
+  getProfile: jest.fn().mockImplementation(async (userId: string) =>
+    profileFor(userId)),
+  botProfile: jest.fn().mockImplementation(() => ({
+    ...profileFor('bot'),
+    displayName: 'BOT YUDHA',
+  })),
+};
+
 describe('MatchService', () => {
   let service: MatchService;
   let roomManager: RoomManager;
@@ -89,6 +111,7 @@ describe('MatchService', () => {
         { provide: MatchResultService, useValue: mockMatchResultService },
         { provide: BotBattleService, useValue: mockBotBattleService },
         { provide: SupabaseService, useValue: mockSupabaseService },
+        { provide: GamePlayerProfileService, useValue: mockProfileService },
       ],
     }).compile();
 
@@ -96,11 +119,14 @@ describe('MatchService', () => {
     roomManager = module.get<RoomManager>(RoomManager);
     cardTimeoutService = module.get<CardTimeoutService>(CardTimeoutService);
 
-    mockBotBattleService.createBotMatch.mockImplementation(
-      async (userId, socketId) => {
-        return roomManager.createBotRoom(userId, socketId, STUB_CARDS);
-      },
-    );
+    mockBotBattleService.createBotMatch.mockImplementation(async (profile, socketId) => {
+      return roomManager.createBotRoom(
+        profile,
+        mockProfileService.botProfile(),
+        socketId,
+        STUB_CARDS,
+      );
+    });
 
     jest
       .spyOn(cardTimeoutService, 'scheduleTimeout')
@@ -120,6 +146,21 @@ describe('MatchService', () => {
   });
 
   describe('Matchmaking Queue', () => {
+    it('rejects unsupported matchmaking modes before loading a profile', async () => {
+      const result = await service.handleJoinQueue(
+        'player-a',
+        'socket-a',
+        { mode: 'tournament' as never },
+      );
+
+      expect(
+        result.emits.some(
+          (emit) => emit.event === SERVER_MATCH_EVENTS.error,
+        ),
+      ).toBe(true);
+      expect(mockProfileService.getProfile).not.toHaveBeenCalled();
+    });
+
     it('pairs two queued players and emits initial player-relative state', async () => {
       service.registerSocket('socket-a', 'player-a');
       service.registerSocket('socket-b', 'player-b');
@@ -174,6 +215,11 @@ describe('MatchService', () => {
       });
 
       expect(mockBotBattleService.createBotMatch).toHaveBeenCalledWith(
+        profileFor('player-a'),
+        'socket-a',
+      );
+      expect(result.emits.some((emit) => emit.event === SERVER_MATCH_EVENTS.matchFound)).toBe(true);
+      expect(result.emits.some((emit) => emit.event === SERVER_MATCH_EVENTS.gameStateUpdate)).toBe(true);
         'player-a',
         'socket-a',
       );
@@ -351,7 +397,149 @@ describe('MatchService', () => {
   });
 
   describe('Disconnect Handling', () => {
-    it('clears timers and bot schedules on active presence player disconnect', async () => {
+    async function createCasualMatch() {
+      service.registerSocket('socket-a', 'player-a');
+      service.registerSocket('socket-b', 'player-b');
+      await service.handleJoinQueue('player-a', 'socket-a', {
+        mode: 'casual',
+      });
+      const joinResult = await service.handleJoinQueue(
+        'player-b',
+        'socket-b',
+        { mode: 'casual' },
+      );
+      const matchFound = joinResult.emits.find(
+        (emit) => emit.event === SERVER_MATCH_EVENTS.matchFound,
+      );
+      const roomId = (matchFound!.payload as { roomId: string }).roomId;
+      return { roomId, room: roomManager.getRoom(roomId)! };
+    }
+
+    it('restores current state when the player reconnects before 30 seconds', async () => {
+      jest.useFakeTimers();
+      try {
+        const { room } = await createCasualMatch();
+        const disconnected = service.handleDisconnect('socket-a');
+        const presence = disconnected.emits.find(
+          (emit) => emit.event === SERVER_MATCH_EVENTS.presenceUpdate,
+        )!.payload as {
+          players: Record<
+            string,
+            { connected: boolean; reconnectDeadline?: string }
+          >;
+        };
+
+        expect(presence.players['player-a'].connected).toBe(false);
+        expect(presence.players['player-a'].reconnectDeadline).toBeDefined();
+
+        const reconnect = service.registerSocket('socket-a-new', 'player-a');
+        await jest.advanceTimersByTimeAsync(
+          MatchService.DISCONNECT_GRACE_MS,
+        );
+
+        expect(room.status).toBe('active');
+        expect(room.players.playerA.connected).toBe(true);
+        expect(room.players.playerA.reconnectDeadline).toBeUndefined();
+        expect(
+          reconnect.emits.some(
+            (emit) => emit.event === SERVER_MATCH_EVENTS.gameStateUpdate,
+          ),
+        ).toBe(true);
+        expect(mockMatchResultService.finalizeMatch).not.toHaveBeenCalled();
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    it('awards the connected opponent a disconnect win after 30 seconds', async () => {
+      jest.useFakeTimers();
+      try {
+        const emitServer = jest.fn();
+        service.setEmitServer(emitServer);
+        const { room } = await createCasualMatch();
+
+        service.handleDisconnect('socket-a');
+        await jest.advanceTimersByTimeAsync(
+          MatchService.DISCONNECT_GRACE_MS,
+        );
+
+        expect(room.status).toBe('finished');
+        expect(room.result?.reason).toBe('disconnect');
+        expect(room.result?.winnerUserId).toBe('player-b');
+        expect(mockMatchResultService.finalizeMatch).toHaveBeenCalledTimes(1);
+        expect(
+          emitServer.mock.calls[0][0].emits.some(
+            (emit: { event: string }) =>
+              emit.event === SERVER_MATCH_EVENTS.matchResult,
+          ),
+        ).toBe(true);
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    it('persists an abandoned zero-progression draw when both players stay offline', async () => {
+      jest.useFakeTimers();
+      try {
+        mockMatchResultService.finalizeMatch.mockResolvedValueOnce({
+          ratingDeltaA: 0,
+          ratingDeltaB: 0,
+          coinsDeltaA: 0,
+          coinsDeltaB: 0,
+          progressionApplied: false,
+        });
+        const { room } = await createCasualMatch();
+
+        service.handleDisconnect('socket-a');
+        service.handleDisconnect('socket-b');
+        await jest.advanceTimersByTimeAsync(
+          MatchService.DISCONNECT_GRACE_MS,
+        );
+
+        expect(room.status).toBe('finished');
+        expect(room.result?.reason).toBe('disconnect');
+        expect(room.result?.outcome).toBe('draw');
+        expect(room.result?.winnerUserId).toBeNull();
+        expect(room.result?.loserUserId).toBeNull();
+        expect(room.result?.progressionPersisted).toBe(false);
+        expect(mockMatchResultService.finalizeMatch).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    it('clears the disconnect forfeit when normal match completion wins first', async () => {
+      jest.useFakeTimers();
+      try {
+        const { roomId, room } = await createCasualMatch();
+        service.handleDisconnect('socket-a');
+        room.players.playerA.hp = 10;
+
+        service.handleOpenCard('player-b', 'socket-b', {
+          roomId,
+          cardId: 'card_2',
+        });
+        await service.handlePlayCard('player-b', 'socket-b', {
+          roomId,
+          cardId: 'card_2',
+          selectedOptionIndex: 0,
+        });
+        await jest.advanceTimersByTimeAsync(
+          MatchService.DISCONNECT_GRACE_MS,
+        );
+
+        expect(room.result?.reason).toBe('hp_zero');
+        expect(mockMatchResultService.finalizeMatch).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    it('keeps match timers running during the reconnect grace period', async () => {
       service.registerSocket('socket-a', 'player-a');
       service.registerSocket('socket-b', 'player-b');
       await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
@@ -365,14 +553,8 @@ describe('MatchService', () => {
 
       const result = service.handleDisconnect('socket-a');
 
-      expect(cardTimeoutService.cancelAllTimersForRoom).toHaveBeenCalledWith(
-        roomId,
-      );
-      expect(
-        result.emits.some(
-          (e) => e.event === SERVER_MATCH_EVENTS.presenceUpdate,
-        ),
-      ).toBe(true);
+      expect(cardTimeoutService.cancelAllTimersForRoom).not.toHaveBeenCalledWith(roomId);
+      expect(result.emits.some((e) => e.event === SERVER_MATCH_EVENTS.presenceUpdate)).toBe(true);
     });
 
     it('returns empty emits if disconnecting user is only queue-removed', async () => {

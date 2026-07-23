@@ -6,38 +6,37 @@ import type { InternalCard } from '../questions/question.types';
 import type { MatchLogRpcEntry } from '../logs/match-log.types';
 
 /** Helper to create a finished room state for testing */
-function createFinishedRoom(
-  overrides: Partial<{
-    roomId: string;
-    playerAUserId: string;
-    playerBUserId: string;
-    winnerUserId: string | null;
-    loserUserId: string | null;
-    reason:
-      | 'hp_zero'
-      | 'round_timeout'
-      | 'surrender'
-      | 'question_exhaustion'
-      | 'draw';
-    outcome: 'win' | 'lose' | 'draw' | 'surrender';
-    playerAHp: number;
-    playerBHp: number;
-  }> = {},
-): InternalRoomState {
+function createFinishedRoom(overrides: Partial<{
+  roomId: string;
+  playerAUserId: string;
+  playerBUserId: string;
+  mode: 'ranked' | 'casual' | 'bot';
+  winnerUserId: string | null;
+  loserUserId: string | null;
+  reason: 'hp_zero' | 'surrender' | 'disconnect' | 'draw';
+  outcome: 'win' | 'lose' | 'draw' | 'surrender';
+  playerAHp: number;
+  playerBHp: number;
+}> = {}): InternalRoomState {
   const playerAUserId = overrides.playerAUserId ?? 'user-a';
   const playerBUserId = overrides.playerBUserId ?? 'user-b';
 
   return {
     roomId: overrides.roomId ?? 'room_test',
     status: 'finished',
+    mode: overrides.mode ?? (playerBUserId === 'bot' ? 'bot' : 'ranked'),
+    target: 'cpns',
     sharedQueue: [],
-    reserveQueue: [],
-    nextRecycleId: 1,
     startedAt: new Date('2026-07-01T00:00:00Z'),
     endedAt: new Date('2026-07-01T00:05:00Z'),
     players: {
       playerA: {
         userId: playerAUserId,
+        displayName: 'User A',
+        loadout: {
+          characterId: 'character-basic-squire',
+          towerId: 'tower-garda-biru',
+        },
         socketId: 'socket-a',
         role: 'playerA',
         hp: overrides.playerAHp ?? 80,
@@ -49,6 +48,11 @@ function createFinishedRoom(
       },
       playerB: {
         userId: playerBUserId,
+        displayName: 'User B',
+        loadout: {
+          characterId: 'character-basic-pip',
+          towerId: 'tower-benteng-bara',
+        },
         socketId: 'socket-b',
         role: 'playerB',
         hp: overrides.playerBHp ?? 0,
@@ -61,6 +65,8 @@ function createFinishedRoom(
     },
     result: {
       roomId: overrides.roomId ?? 'room_test',
+      mode: overrides.mode ?? (playerBUserId === 'bot' ? 'bot' : 'ranked'),
+      target: 'cpns',
       outcome: overrides.outcome ?? 'win',
       winnerUserId:
         overrides.winnerUserId !== undefined
@@ -102,6 +108,7 @@ describe('MatchResultService', () => {
         ratingDeltaB: -12,
         coinsDeltaA: 10,
         coinsDeltaB: 3,
+        progressionApplied: true,
       },
       error: null,
     });
@@ -135,31 +142,30 @@ describe('MatchResultService', () => {
 
       const deltas = await service.finalizeMatch(room);
 
-      expect(mockRpc).toHaveBeenCalledWith(
-        'finalize_match_result',
-        expect.objectContaining({
-          p_room_id: 'room_test',
-          p_mode: 'player',
-          p_player_a_id: 'user-a',
-          p_player_b_id: 'user-b',
-          p_winner_user_id: 'user-a',
-          p_loser_user_id: 'user-b',
-          p_outcome: 'player_a_win',
-          p_reason: 'hp_zero',
-          p_player_a_hp: 80,
-          p_player_b_hp: 0,
-          p_player_a_points: 20,
-          p_player_b_points: 10,
-          p_duration_seconds: 300,
-          p_started_at: expect.any(String),
-        }),
-      );
+      expect(mockRpc).toHaveBeenCalledWith('finalize_match_result', expect.objectContaining({
+        p_room_id: 'room_test',
+        p_mode: 'ranked',
+        p_target: 'cpns',
+        p_player_a_id: 'user-a',
+        p_player_b_id: 'user-b',
+        p_winner_user_id: 'user-a',
+        p_loser_user_id: 'user-b',
+        p_outcome: 'player_a_win',
+        p_reason: 'hp_zero',
+        p_player_a_hp: 80,
+        p_player_b_hp: 0,
+        p_player_a_points: 20,
+        p_player_b_points: 10,
+        p_duration_seconds: 300,
+        p_started_at: expect.any(String),
+      }));
 
       expect(deltas).toEqual({
         ratingDeltaA: 20,
         ratingDeltaB: -12,
         coinsDeltaA: 10,
         coinsDeltaB: 3,
+        progressionApplied: true,
       });
     });
 
@@ -187,6 +193,7 @@ describe('MatchResultService', () => {
             ratingDeltaB: -12,
             coinsDeltaA: 10,
             coinsDeltaB: 3,
+            progressionApplied: true,
           },
           error: null,
         });
@@ -200,6 +207,7 @@ describe('MatchResultService', () => {
         ratingDeltaB: -12,
         coinsDeltaA: 10,
         coinsDeltaB: 3,
+        progressionApplied: true,
       });
     });
 
@@ -213,6 +221,7 @@ describe('MatchResultService', () => {
           ratingDeltaB: -12,
           coinsDeltaA: 10,
           coinsDeltaB: 3,
+          progressionApplied: true,
         },
         error: null,
       });
@@ -222,6 +231,7 @@ describe('MatchResultService', () => {
         ratingDeltaB: -12,
         coinsDeltaA: 10,
         coinsDeltaB: 3,
+        progressionApplied: true,
       });
       expect(mockRpc).toHaveBeenCalledTimes(1);
     });
@@ -254,6 +264,60 @@ describe('MatchResultService', () => {
           p_mode: 'bot',
           p_player_b_id: null,
           p_loser_user_id: null,
+        }),
+      );
+    });
+
+    it('preserves zero-delta casual history without progression', async () => {
+      mockRpc.mockResolvedValue({
+        data: {
+          persisted: true,
+          matchResultId: 'casual-result',
+          ratingDeltaA: 0,
+          ratingDeltaB: 0,
+          coinsDeltaA: 0,
+          coinsDeltaB: 0,
+          progressionApplied: false,
+        },
+        error: null,
+      });
+      const room = createFinishedRoom({ mode: 'casual' });
+
+      await expect(service.finalizeMatch(room)).resolves.toEqual({
+        ratingDeltaA: 0,
+        ratingDeltaB: 0,
+        coinsDeltaA: 0,
+        coinsDeltaB: 0,
+        progressionApplied: false,
+      });
+      expect(mockRpc).toHaveBeenCalledWith(
+        'finalize_match_result',
+        expect.objectContaining({
+          p_mode: 'casual',
+          p_target: 'cpns',
+        }),
+      );
+    });
+
+    it('persists both-offline disconnect as an abandoned draw', async () => {
+      const room = createFinishedRoom({
+        mode: 'ranked',
+        winnerUserId: null,
+        loserUserId: null,
+        outcome: 'draw',
+        reason: 'disconnect',
+      });
+
+      await service.finalizeMatch(room);
+
+      expect(mockRpc).toHaveBeenCalledWith(
+        'finalize_match_result',
+        expect.objectContaining({
+          p_mode: 'ranked',
+          p_winner_user_id: null,
+          p_loser_user_id: null,
+          p_outcome: 'draw',
+          p_reason: 'disconnect',
         }),
       );
     });

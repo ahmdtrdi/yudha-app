@@ -12,6 +12,7 @@ export type FinalizeResult = {
   ratingDeltaB?: number;
   coinsDeltaA?: number;
   coinsDeltaB?: number;
+  progressionApplied?: boolean;
 };
 
 /** Computed deltas attached to the room after persistence */
@@ -20,6 +21,7 @@ export type PersistedDeltas = {
   ratingDeltaB: number;
   coinsDeltaA: number;
   coinsDeltaB: number;
+  progressionApplied: boolean;
 };
 
 @Injectable()
@@ -141,14 +143,15 @@ export class MatchResultService {
       ? Math.round((endedAt.getTime() - startedAt.getTime()) / 1000)
       : null;
 
-    const isBotMatch = players.playerB.userId === 'bot';
+    const isBotMatch = room.mode === 'bot';
 
     // Map internal outcome to DB enum values
     const outcome = this.mapOutcome(result, players.playerA.userId, players.playerB.userId);
 
     return {
       p_room_id: room.roomId,
-      p_mode: isBotMatch ? 'bot' : 'player',
+      p_mode: room.mode,
+      p_target: room.target,
       p_player_a_id: players.playerA.userId,
       p_player_b_id: isBotMatch ? null : players.playerB.userId,
       p_winner_user_id: isBotMatch && result.winnerUserId === 'bot' ? null : result.winnerUserId,
@@ -181,6 +184,7 @@ export class MatchResultService {
       ratingDeltaB: result.ratingDeltaB ?? 0,
       coinsDeltaA: result.coinsDeltaA ?? 0,
       coinsDeltaB: result.coinsDeltaB ?? 0,
+      progressionApplied: result.progressionApplied === true,
     };
   }
 

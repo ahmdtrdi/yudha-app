@@ -1,26 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service';
-import type { InternalCard, SupabaseQuestionRow, CategoryDistribution } from './question.types';
+import type { InternalCard, SupabaseQuestionRow } from './question.types';
 
-/**
- * Default active pool size per match.
- */
-const DEFAULT_ACTIVE_POOL_SIZE = 12;
-
-/**
- * Default reserve pool size for question recycling when active pool is exhausted.
- */
-const DEFAULT_RESERVE_POOL_SIZE = 12;
-
-/**
- * Category distribution ratio for building balanced match pools.
- * For a pool of 12, this gives 4 TWK, 4 TIU, 4 TKP.
- */
-const CATEGORY_DISTRIBUTION: CategoryDistribution = {
-  TWK: 4,
-  TIU: 4,
-  TKP: 4,
-};
+const DEFAULT_POOL_SIZE = 24;
 
 /** Shape returned when fetching active + reserve card pools */
 export type CardPool = {
@@ -45,8 +27,8 @@ export class QuestionService {
    */
   async getMatchQuestionPoolWithReserve(
     target: 'cpns' | 'bumn' = 'cpns',
-    activeSize = DEFAULT_ACTIVE_POOL_SIZE,
-    reserveSize = DEFAULT_RESERVE_POOL_SIZE,
+    activeSize = 12,
+    reserveSize = 12,
   ): Promise<CardPool> {
     const totalNeeded = activeSize + reserveSize;
     const adminClient = this.supabaseService.getAdminClient();
@@ -81,9 +63,13 @@ export class QuestionService {
    */
   async getMatchQuestionPool(
     target: 'cpns' | 'bumn' = 'cpns',
-    poolSize = DEFAULT_ACTIVE_POOL_SIZE,
+    poolSize = DEFAULT_POOL_SIZE,
   ): Promise<InternalCard[]> {
-    const pool = await this.getMatchQuestionPoolWithReserve(target, poolSize, 0);
+    const pool = await this.getMatchQuestionPoolWithReserve(
+      target,
+      poolSize,
+      0,
+    );
     return pool.active;
   }
 
@@ -110,31 +96,17 @@ export class QuestionService {
     }
 
     const pool: SupabaseQuestionRow[] = [];
-    const remaining: SupabaseQuestionRow[] = [];
-
-    // Scale category target based on requested pool size
-    const scale = poolSize / DEFAULT_ACTIVE_POOL_SIZE;
-
-    // Draw from each configured category
-    for (const [cat, count] of Object.entries(CATEGORY_DISTRIBUTION) as [string, number][]) {
-      const targetCount = Math.round(count * scale);
-      const available = byCategory.get(cat) ?? [];
-      const drawn = available.splice(0, targetCount);
-      pool.push(...drawn);
-      remaining.push(...available);
-    }
-
-    // Add any uncategorized categories to remaining
-    for (const [cat, cards] of byCategory) {
-      if (!(cat in CATEGORY_DISTRIBUTION)) {
-        remaining.push(...cards);
+    const categories = Array.from(byCategory.keys()).sort();
+    while (pool.length < poolSize) {
+      let drewQuestion = false;
+      for (const category of categories) {
+        const question = byCategory.get(category)?.shift();
+        if (!question) continue;
+        pool.push(question);
+        drewQuestion = true;
+        if (pool.length === poolSize) break;
       }
-    }
-
-    // Backfill if we didn't hit poolSize
-    if (pool.length < poolSize) {
-      this.shuffle(remaining);
-      pool.push(...remaining.slice(0, poolSize - pool.length));
+      if (!drewQuestion) break;
     }
 
     // Final shuffle so categories aren't grouped sequentially in hand
@@ -156,6 +128,7 @@ export class QuestionService {
   private mapToInternalCard(row: SupabaseQuestionRow, index: number): InternalCard {
     return {
       id: `card_${index + 1}`,
+      sourceQuestionId: row.id,
       prompt: row.prompt,
       options: [...row.options],
       correctOptionIndex: row.correct_option_index,

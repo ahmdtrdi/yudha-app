@@ -1,6 +1,7 @@
 import type { CardEffect, PublicQuestionCard } from '../../../../../contracts/question-card';
 
 export type InternalCard = PublicQuestionCard & {
+  sourceQuestionId: string;
   correctOptionIndex: number;
   explanation?: string;
   damageValue: number;
@@ -28,9 +29,3 @@ export type SupabaseQuestionRow = {
   is_active: boolean;
 };
 
-/** Category distribution config for building balanced match pools */
-export type CategoryDistribution = {
-  TWK: number;
-  TIU: number;
-  TKP: number;
-};

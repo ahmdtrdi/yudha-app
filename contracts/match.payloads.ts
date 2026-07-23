@@ -1,13 +1,21 @@
-import type { BattleRole, PublicBattleState } from './battle-state';
+import type {
+  BattleLoadout,
+  BattleRole,
+  BattleTarget,
+  MatchmakingMode,
+  PublicBattleState,
+} from './battle-state';
 import type { CardEffect } from './question-card';
 
 export type JoinQueuePayload = {
-  mode?: 'ranked' | 'casual' | 'bot';
+  mode?: MatchmakingMode;
 };
 
 export type QueueJoinedPayload = {
   position: number;
   queueDepth: number;
+  mode: MatchmakingMode;
+  target: BattleTarget;
 };
 
 export type QueueCancelledPayload = {
@@ -17,7 +25,11 @@ export type QueueCancelledPayload = {
 export type MatchFoundPayload = {
   roomId: string;
   opponentUserId: string;
+  opponentDisplayName: string;
+  opponentLoadout: BattleLoadout;
   role: BattleRole;
+  mode: MatchmakingMode;
+  target: BattleTarget;
 };
 
 export type OpenCardPayload = {
@@ -38,6 +50,7 @@ export type PlayCardPayload = {
 
 export type PlayCardResultPayload = {
   roomId: string;
+  actorUserId: string;
   cardId: string;
   correct: boolean;
   effect: CardEffect | 'none';
@@ -62,10 +75,13 @@ export type MatchResultReason =
   | 'round_timeout'
   | 'surrender'
   | 'question_exhaustion'
+  | 'disconnect'
   | 'draw';
 
 export type MatchResultPayload = {
   roomId: string;
+  mode: MatchmakingMode;
+  target: BattleTarget;
   outcome: 'win' | 'lose' | 'draw' | 'surrender';
   winnerUserId: string | null;
   loserUserId: string | null;
@@ -91,7 +107,10 @@ export type MatchResultPayload = {
 
 export type PresenceUpdatePayload = {
   roomId: string;
-  players: Record<string, { connected: boolean }>;
+  players: Record<
+    string,
+    { connected: boolean; reconnectDeadline?: string }
+  >;
 };
 
 export type MatchGatewayEvents = {

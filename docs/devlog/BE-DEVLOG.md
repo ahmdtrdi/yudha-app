@@ -334,3 +334,32 @@
 - Real-money payment and automatic premium entitlement are intentionally absent. `POST /store/beta-credits` is available only when `ENABLE_BETA_ECONOMY_CREDIT=true`.
 - The migration still needs to be applied to the target Supabase project before the new endpoints are used.
 - Mobile integration was deliberately excluded; existing clients will not consume the new authoritative responses until the frontend team wires them.
+
+## 2026-07-23 - Target-Aware, Reconnect-Safe Battle Backend
+
+**The Change:**
+- Added shared battle contracts for `BattleTarget` (`cpns|bumn`), `MatchmakingMode` (`ranked|casual|bot`), character/tower loadouts, enriched public room snapshots, reconnect deadlines, and authoritative match-result mode/target/deltas.
+- Added `GamePlayerProfileService` in `backend-game` to snapshot the authenticated user's display name, target, equipped character, and equipped tower from Supabase. Bot rooms use a fixed server-owned loadout and inherit the human player's target.
+- Changed matchmaking to FIFO buckets keyed by exact `(target, mode)`. Missing mode remains backward-compatible as Casual, unsupported modes are rejected, and Bot bypasses the human queue.
+- Changed room creation and public state so both players receive server-derived display names and character/tower loadouts. Target owns the shared CPNS/BUMN battle context; arena is no longer part of the live battle loadout.
+- Changed question loading to query active rows from Supabase's base `questions` table using the room target. Source Supabase question IDs remain internal while public card-instance IDs are generated separately.
+- Replaced finite runtime reserve exhaustion with deterministic room-pool recycling. Recycled draws receive fresh `card_r*` instance IDs, and `question_exhaustion` is no longer a normal match-end path.
+- Added independent 30-second disconnect grace timers. Card timers, the opponent, and Bot turns continue during the grace period. Reconnect replaces stale sockets, cancels the user's timer, and emits current state plus presence.
+- Added disconnect forfeits and abandoned draws: a connected opponent wins after timeout; two offline humans produce a persisted draw with zero progression. All disconnect timers are cleared on reconnect, normal completion, room completion, or destruction.
+- Added migration `20260723010000_target_aware_matchmaking.sql`: match modes become `ranked|casual|bot`, legacy `player` rows backfill to Ranked, battle target is stored, and `finalize_match_result` persists every mode while applying progression only to normal Ranked results.
+- Updated backend-api match history DTOs to expose normalized mode and battle target.
+- Expanded backend-game regression coverage from 153 to 166 passing tests. New cases cover target/mode isolation, FIFO, profile/loadout snapshots, invalid modes, target-specific Supabase filters, multi-cycle recycling, stale sockets, reconnect-before-timeout, disconnect forfeits, both-offline draws, normal completion during grace, timer cleanup, and zero-delta persistence contracts.
+- Verification: backend-game `tsc --noEmit` and 166/166 Jest tests pass; backend-api `tsc --noEmit` and 39/39 Jest tests pass; backend-scoped `git diff --check` passes.
+
+**The Reasoning:**
+- Target and cosmetics are loaded from the authenticated server profile so clients cannot select a different question domain or equip inventory they do not own.
+- Exact `(target, mode)` buckets prevent CPNS/BUMN and Ranked/Casual cross-matches while retaining predictable FIFO behavior.
+- A single pre-fetched Supabase pool avoids database calls during active battle. Recycling the immutable room pool keeps both players aligned at equivalent draw positions and removes content exhaustion as an artificial win condition.
+- Disconnect is treated as temporary presence loss rather than an immediate match end. Independent timers let the connected player and all server-owned turn timers continue without pausing the room.
+- Progression gating belongs in the transactional database function: every result remains auditable, but Casual, Bot, and abandoned matches cannot mutate competitive or economy state.
+
+**The Tech Debt:**
+- The new migration still needs to be applied and exercised against the target Supabase project. Unit tests verify the RPC contract with mocks but do not execute PostgreSQL transaction behavior.
+- The required two-account smoke test remains: target/mode isolation, distinct loadout rendering, reconnect restoration, 30-second forfeit, and Ranked-only progression should be verified against deployed backend instances.
+- Matchmaking queues, rooms, and grace timers are process-local. Horizontal scaling still requires Redis-backed queue/state coordination and distributed timer ownership.
+- Legacy test-compatible overloads remain in `GameEngine.createRoom`, `RoomManager.joinQueue`, and `RoomManager.createBotRoom`; remove them after all older backend callers and fixtures use profile-based room seeds.

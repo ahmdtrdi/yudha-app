@@ -1,4 +1,9 @@
-import type { PublicBattleState } from '../../../../../contracts/battle-state';
+import type {
+  BattleLoadout,
+  BattleTarget,
+  MatchmakingMode,
+  PublicBattleState,
+} from '../../../../../contracts/battle-state';
 import type {
   MatchResultPayload,
   MatchResultReason,
@@ -10,8 +15,16 @@ import type { InternalCard } from '../questions/question.types';
 export type BattleRole = 'playerA' | 'playerB';
 export type RoomStatus = 'waiting' | 'active' | 'finished' | 'cancelled';
 
+export type BattlePlayerSeed = {
+  userId: string;
+  displayName: string;
+  loadout: BattleLoadout;
+};
+
 export type InternalPlayerState = {
   userId: string;
+  displayName: string;
+  loadout: BattleLoadout;
   socketId: string | null;
   role: BattleRole;
   hp: number;
@@ -23,11 +36,14 @@ export type InternalPlayerState = {
   answeredCardIds: Set<string>;
   nextDrawIndex: number;
   connected: boolean;
+  reconnectDeadline?: Date;
 };
 
 export type InternalRoomState = {
   roomId: string;
   status: RoomStatus;
+  mode: MatchmakingMode;
+  target: BattleTarget;
   players: {
     playerA: InternalPlayerState;
     playerB: InternalPlayerState;

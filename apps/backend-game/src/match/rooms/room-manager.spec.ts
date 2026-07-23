@@ -2,10 +2,12 @@ import { RoomManager } from './room-manager';
 import { GameEngine } from '../engine/game-engine';
 import { QuestionDealer } from '../engine/question-dealer';
 import type { InternalCard } from '../questions/question.types';
+import type { GamePlayerProfile } from '../profiles/game-player-profile.service';
 
 const makeCards = (count: number): InternalCard[] =>
   Array.from({ length: count }, (_, i) => ({
     id: `card_${i + 1}`,
+    sourceQuestionId: `question_${i + 1}`,
     prompt: `Question ${i + 1}`,
     options: ['A', 'B', 'C', 'D'],
     correctOptionIndex: 0,
@@ -15,6 +17,18 @@ const makeCards = (count: number): InternalCard[] =>
     healValue: 0,
     timeLimitSeconds: 30,
   }));
+
+const profile = (
+  userId: string,
+  target: 'cpns' | 'bumn' = 'cpns',
+  characterId = 'character-basic-squire',
+  towerId = 'tower-garda-biru',
+): GamePlayerProfile => ({
+  userId,
+  displayName: `Display ${userId}`,
+  target,
+  loadout: { characterId, towerId },
+});
 
 describe('RoomManager', () => {
   let manager: RoomManager;
@@ -55,6 +69,21 @@ describe('RoomManager', () => {
   // ─── disconnectSocket ───
 
   describe('disconnectSocket', () => {
+    it('ignores a stale socket after the same user reconnects', () => {
+      manager.registerSocket('socket-a', 'user-a');
+      manager.registerSocket('socket-b', 'user-b');
+      manager.joinQueue(profile('user-a'), 'socket-a', 'casual', cards);
+      manager.joinQueue(profile('user-b'), 'socket-b', 'casual', cards);
+
+      manager.registerSocket('socket-a-new', 'user-a');
+      const stale = manager.disconnectSocket('socket-a');
+      const room = manager.getRoomForUser('user-a')!;
+
+      expect(stale.type).toBe('none');
+      expect(room.players.playerA.connected).toBe(true);
+      expect(room.players.playerA.socketId).toBe('socket-a-new');
+    });
+
     it('returns "none" for unknown socket', () => {
       const result = manager.disconnectSocket('unknown-socket');
       expect(result.type).toBe('none');
@@ -88,6 +117,102 @@ describe('RoomManager', () => {
   // ─── joinQueue ───
 
   describe('joinQueue', () => {
+    it('isolates queues by exact target while preserving FIFO', () => {
+      manager.registerSocket('socket-cpns-a', 'cpns-a');
+      manager.registerSocket('socket-bumn-a', 'bumn-a');
+      manager.registerSocket('socket-cpns-b', 'cpns-b');
+
+      manager.joinQueue(
+        profile('cpns-a', 'cpns'),
+        'socket-cpns-a',
+        'casual',
+        cards,
+      );
+      manager.joinQueue(
+        profile('bumn-a', 'bumn'),
+        'socket-bumn-a',
+        'casual',
+        cards,
+      );
+      const result = manager.joinQueue(
+        profile('cpns-b', 'cpns'),
+        'socket-cpns-b',
+        'casual',
+        cards,
+      );
+
+      expect(result.match?.playerA.userId).toBe('cpns-a');
+      expect(result.match?.playerB.userId).toBe('cpns-b');
+      expect(result.match?.room.target).toBe('cpns');
+      expect(manager.queuePositionFor('bumn-a', 'bumn', 'casual')).toBe(1);
+    });
+
+    it('isolates ranked and casual queues for the same target', () => {
+      manager.registerSocket('socket-ranked-a', 'ranked-a');
+      manager.registerSocket('socket-casual-a', 'casual-a');
+      manager.registerSocket('socket-ranked-b', 'ranked-b');
+
+      manager.joinQueue(
+        profile('ranked-a'),
+        'socket-ranked-a',
+        'ranked',
+        cards,
+      );
+      manager.joinQueue(
+        profile('casual-a'),
+        'socket-casual-a',
+        'casual',
+        cards,
+      );
+      const result = manager.joinQueue(
+        profile('ranked-b'),
+        'socket-ranked-b',
+        'ranked',
+        cards,
+      );
+
+      expect(result.match?.playerA.userId).toBe('ranked-a');
+      expect(result.match?.room.mode).toBe('ranked');
+      expect(manager.queuePositionFor('casual-a', 'cpns', 'casual')).toBe(1);
+    });
+
+    it('snapshots authoritative names and character/tower loadouts', () => {
+      const playerA = profile(
+        'user-a',
+        'bumn',
+        'character-rare-ignis',
+        'tower-benteng-bara',
+      );
+      const playerB = profile(
+        'user-b',
+        'bumn',
+        'character-basic-pip',
+        'tower-garda-biru',
+      );
+
+      manager.joinQueue(playerA, 'socket-a', 'ranked', cards);
+      const result = manager.joinQueue(
+        playerB,
+        'socket-b',
+        'ranked',
+        cards,
+      );
+      const room = result.match!.room;
+
+      expect(room.players.playerA.displayName).toBe('Display user-a');
+      expect(room.players.playerA.loadout).toEqual(playerA.loadout);
+      expect(room.players.playerB.displayName).toBe('Display user-b');
+      expect(room.players.playerB.loadout).toEqual(playerB.loadout);
+
+      const publicState = new GameEngine().buildPublicState(room, 'user-a');
+      expect(publicState.mode).toBe('ranked');
+      expect(publicState.target).toBe('bumn');
+      expect(publicState.self.displayName).toBe('Display user-a');
+      expect(publicState.self.loadout).toEqual(playerA.loadout);
+      expect(publicState.opponent.displayName).toBe('Display user-b');
+      expect(publicState.opponent.loadout).toEqual(playerB.loadout);
+    });
+
     it('queues a solo player without creating a match', () => {
       manager.registerSocket('socket-a', 'user-a');
 
@@ -142,7 +267,7 @@ describe('RoomManager', () => {
       const result = manager.joinQueue('user-b', 'socket-b', 'casual', cards, reserve);
 
       expect(result.match).toBeDefined();
-      expect(result.match!.room.reserveQueue.length).toBeGreaterThan(0);
+      expect(result.match!.room.sharedQueue.length).toBeGreaterThan(cards.length);
     });
   });
 
@@ -189,7 +314,7 @@ describe('RoomManager', () => {
       const reserve = makeCards(4).map((c, i) => ({ ...c, id: `reserve_${i}` }));
       const room = manager.createBotRoom('user-a', 'socket-a', cards, reserve);
 
-      expect(room.reserveQueue.length).toBeGreaterThan(0);
+      expect(room.sharedQueue.length).toBeGreaterThan(cards.length);
     });
   });
 
