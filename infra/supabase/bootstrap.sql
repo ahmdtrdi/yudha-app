@@ -23,8 +23,8 @@ create table if not exists public.profiles (
   losses integer not null default 0,
   winrate numeric(5, 2) not null default 0,
   coins integer not null default 0,
-  equipped_avatar_id uuid,
-  equipped_arena_id uuid,
+  equipped_avatar_id text,
+  equipped_arena_id text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint profiles_non_negative_stats check (
