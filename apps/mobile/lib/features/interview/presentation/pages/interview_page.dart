@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:record/record.dart';
+import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
 import 'package:yudha_mobile/features/interview/application/interview_providers.dart';
@@ -178,116 +179,134 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
             icon: const Icon(Icons.history_rounded),
             onPressed: () => _showHistory(state),
           ),
-          TextButton(
-            onPressed: isBusy ? null : _completeSession,
-            child: const Text(
-              'Selesai',
-              style: TextStyle(
-                color: Colors.redAccent,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+          if (state.status != InterviewViewStatus.completed)
+            TextButton(
+              onPressed: isBusy ? null : _completeSession,
+              child: const Text(
+                'Selesai',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          ),
         ],
       ),
       body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            if (!isVoiceMode || state.status == InterviewViewStatus.completed)
-              _InterviewHeader(
-                status: state.status,
+        child: state.status == InterviewViewStatus.completed
+            ? _InterviewResultView(
                 config: widget.config,
-                currentQuestion: currentQuestion,
-                finalSummary: state.finalSummary,
-              ),
-            if (state.errorMessage != null)
-              _ErrorBanner(
-                message: state.errorMessage!,
-                onRetry: () => ref
-                    .read(interviewControllerProvider(widget.config).notifier)
-                    .retry(),
-              ),
-            Expanded(
-              child: state.status == InterviewViewStatus.starting
-                  ? const Center(child: CircularProgressIndicator())
-                  : isVoiceMode
-                  ? Builder(
-                      builder: (BuildContext context) {
-                        final String? token = ref.watch(
-                          authAccessTokenProvider,
-                        );
-                        final controllerNotifier = ref.read(
-                          interviewControllerProvider(widget.config).notifier,
-                        );
-                        final String? audioUrl = currentQuestion == null
-                            ? null
-                            : controllerNotifier.getQuestionAudioUrl(
-                                currentQuestion.id,
+                summary: state.finalSummary,
+                latestEvaluation: state.latestEvaluation,
+                onStartNew: () => context.go(AppRoutes.interviewSetup),
+                onBackToPractice: () => context.go(AppRoutes.practice),
+              )
+            : Column(
+                children: <Widget>[
+                  if (!isVoiceMode)
+                    _InterviewHeader(
+                      status: state.status,
+                      config: widget.config,
+                      currentQuestion: currentQuestion,
+                      finalSummary: state.finalSummary,
+                    ),
+                  if (state.errorMessage != null)
+                    _ErrorBanner(
+                      message: state.errorMessage!,
+                      onRetry: () => ref
+                          .read(
+                            interviewControllerProvider(widget.config).notifier,
+                          )
+                          .retry(),
+                    ),
+                  Expanded(
+                    child: state.status == InterviewViewStatus.starting
+                        ? const Center(child: CircularProgressIndicator())
+                        : isVoiceMode
+                        ? Builder(
+                            builder: (BuildContext context) {
+                              final String? token = ref.watch(
+                                authAccessTokenProvider,
                               );
+                              final controllerNotifier = ref.read(
+                                interviewControllerProvider(
+                                  widget.config,
+                                ).notifier,
+                              );
+                              final String? audioUrl = currentQuestion == null
+                                  ? null
+                                  : controllerNotifier.getQuestionAudioUrl(
+                                      currentQuestion.id,
+                                    );
 
-                        return _VoiceRoomPanel(
-                          state: state,
-                          currentQuestion: currentQuestion,
-                          latestCandidateAnswer: latestCandidateAnswer,
-                          audioUrl: audioUrl,
-                          accessToken: token,
-                        );
-                      },
-                    )
-                  : Builder(
-                      builder: (BuildContext context) {
-                        final String? token = ref.watch(
-                          authAccessTokenProvider,
-                        );
-                        final controllerNotifier = ref.read(
-                          interviewControllerProvider(widget.config).notifier,
-                        );
-
-                        return ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-                          itemCount: state.messages.length + (isBusy ? 1 : 0),
-                          itemBuilder: (BuildContext context, int index) {
-                            if (index < state.messages.length) {
-                              final InterviewMessage msg =
-                                  state.messages[index];
-                              final String? audioUrl =
-                                  (msg.author ==
-                                          InterviewMessageAuthor.interviewer &&
-                                      (msg.audioAvailable ||
-                                          widget.config.responseStyle ==
-                                              'voice'))
-                                  ? controllerNotifier.getQuestionAudioUrl(
-                                      msg.id,
-                                    )
-                                  : null;
-                              return _ChatBubble(
-                                message: msg,
+                              return _VoiceRoomPanel(
+                                state: state,
+                                currentQuestion: currentQuestion,
+                                latestCandidateAnswer: latestCandidateAnswer,
                                 audioUrl: audioUrl,
                                 accessToken: token,
                               );
-                            }
-                            return const _TypingBubble();
-                          },
-                        );
-                      },
-                    ),
-            ),
-            if (state.latestEvaluation != null)
-              _EvaluationStrip(evaluation: state.latestEvaluation!),
-            if (state.status == InterviewViewStatus.completed)
-              const _CompletedBanner()
-            else
-              _AnswerComposer(
-                controller: _answerController,
-                enabled: state.canSubmit,
-                isBusy: isBusy,
-                config: widget.config,
-                onSubmit: _submitAnswer,
+                            },
+                          )
+                        : Builder(
+                            builder: (BuildContext context) {
+                              final String? token = ref.watch(
+                                authAccessTokenProvider,
+                              );
+                              final controllerNotifier = ref.read(
+                                interviewControllerProvider(
+                                  widget.config,
+                                ).notifier,
+                              );
+
+                              return ListView.builder(
+                                controller: _scrollController,
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  12,
+                                  16,
+                                  20,
+                                ),
+                                itemCount:
+                                    state.messages.length + (isBusy ? 1 : 0),
+                                itemBuilder: (BuildContext context, int index) {
+                                  if (index < state.messages.length) {
+                                    final InterviewMessage msg =
+                                        state.messages[index];
+                                    final String? audioUrl =
+                                        (msg.author ==
+                                                InterviewMessageAuthor
+                                                    .interviewer &&
+                                            (msg.audioAvailable ||
+                                                widget.config.responseStyle ==
+                                                    'voice'))
+                                        ? controllerNotifier
+                                              .getQuestionAudioUrl(msg.id)
+                                        : null;
+                                    return _ChatBubble(
+                                      message: msg,
+                                      audioUrl: audioUrl,
+                                      accessToken: token,
+                                    );
+                                  }
+                                  return const _TypingBubble();
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                  if (state.latestEvaluation != null)
+                    _EvaluationStrip(evaluation: state.latestEvaluation!),
+                  _AnswerComposer(
+                    controller: _answerController,
+                    enabled: state.canSubmit,
+                    isBusy: isBusy,
+                    config: widget.config,
+                    onSubmit: _submitAnswer,
+                  ),
+                ],
               ),
-          ],
-        ),
       ),
     );
   }
@@ -368,7 +387,7 @@ class _InterviewHeader extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${config.targetRole} - ${config.mode}',
+                      '${config.targetRole} - ${_humanizeInterviewMode(config.mode)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -480,14 +499,19 @@ class _VoiceRoomPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isListening = state.isRecording;
+    final bool isTranscribing = state.isTranscribing;
     final bool isThinking = state.status == InterviewViewStatus.submitting;
     final String title = isListening
         ? 'Saya mendengarkan...'
+        : isTranscribing
+        ? 'Menyiapkan transkrip...'
         : isThinking
         ? 'Menyiapkan respons...'
         : 'Siap mendengarkan';
     final String subtitle = isListening
         ? 'Bicara dengan tenang, lalu tekan selesai.'
+        : isTranscribing
+        ? 'Sebentar, jawaban suaramu sedang diubah menjadi teks.'
         : isThinking
         ? 'Pewawancara AI sedang menilai jawabanmu.'
         : 'Gunakan mic atau tetap ketik jawaban di bawah.';
@@ -539,7 +563,7 @@ class _VoiceRoomPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     const Text(
-                      'Voice Interview',
+                      'Interview Suara',
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
@@ -579,18 +603,14 @@ class _VoiceRoomPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 22),
-          _VoiceVisualizerOrb(isActive: isListening || isThinking),
+          _VoiceVisualizerOrb(
+            isActive: isListening || isTranscribing || isThinking,
+          ),
           const SizedBox(height: 24),
-          Text(
-            currentQuestion?.text ?? 'Menyiapkan pertanyaan interview...',
-            textAlign: TextAlign.center,
-            maxLines: 4,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              height: 1.38,
+          Flexible(
+            child: _ScrollableInterviewQuestion(
+              text:
+                  currentQuestion?.text ?? 'Menyiapkan pertanyaan interview...',
             ),
           ),
           if (latestCandidateAnswer != null) ...<Widget>[
@@ -619,6 +639,100 @@ class _VoiceRoomPanel extends StatelessWidget {
           ],
           const Spacer(),
         ],
+      ),
+    );
+  }
+}
+
+class _ScrollableInterviewQuestion extends StatefulWidget {
+  const _ScrollableInterviewQuestion({required this.text});
+
+  final String text;
+
+  @override
+  State<_ScrollableInterviewQuestion> createState() =>
+      _ScrollableInterviewQuestionState();
+}
+
+class _ScrollableInterviewQuestionState
+    extends State<_ScrollableInterviewQuestion> {
+  final ScrollController _scrollController = ScrollController();
+  bool _showTopFade = false;
+  bool _showBottomFade = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_updateFades);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateFades());
+  }
+
+  @override
+  void didUpdateWidget(covariant _ScrollableInterviewQuestion oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scrollController.hasClients) {
+          return;
+        }
+        _scrollController.jumpTo(0);
+        _updateFades();
+      });
+    }
+  }
+
+  void _updateFades() {
+    if (!mounted || !_scrollController.hasClients) {
+      return;
+    }
+    final ScrollPosition position = _scrollController.position;
+    final bool showTop = position.pixels > 1;
+    final bool showBottom =
+        position.maxScrollExtent > 0 &&
+        position.pixels < position.maxScrollExtent - 1;
+    if (showTop != _showTopFade || showBottom != _showBottomFade) {
+      setState(() {
+        _showTopFade = showTop;
+        _showBottomFade = showBottom;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_updateFades)
+      ..dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ShaderMask(
+      blendMode: BlendMode.dstIn,
+      shaderCallback: (Rect bounds) => LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: <Color>[
+          _showTopFade ? Colors.transparent : Colors.white,
+          Colors.white,
+          Colors.white,
+          _showBottomFade ? Colors.transparent : Colors.white,
+        ],
+        stops: const <double>[0, 0.12, 0.88, 1],
+      ).createShader(bounds),
+      child: SingleChildScrollView(
+        controller: _scrollController,
+        child: Text(
+          widget.text,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            height: 1.38,
+          ),
+        ),
       ),
     );
   }
@@ -851,14 +965,16 @@ class _AudioPlayButton extends StatefulWidget {
 
 class _AudioPlayButtonState extends State<_AudioPlayButton> {
   late AudioPlayer _player;
+  StreamSubscription<PlayerState>? _playerStateSubscription;
   bool _isPlaying = false;
   bool _isLoading = false;
+  bool _hasError = false;
 
   @override
   void initState() {
     super.initState();
     _player = AudioPlayer();
-    _player.playerStateStream.listen((state) {
+    _playerStateSubscription = _player.playerStateStream.listen((state) {
       if (mounted) {
         setState(() {
           _isPlaying =
@@ -873,28 +989,50 @@ class _AudioPlayButtonState extends State<_AudioPlayButton> {
   }
 
   @override
+  void didUpdateWidget(covariant _AudioPlayButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.audioUrl != widget.audioUrl) {
+      unawaited(_player.stop());
+      _isPlaying = false;
+      _hasError = false;
+    }
+  }
+
+  @override
   void dispose() {
+    _playerStateSubscription?.cancel();
     _player.dispose();
     super.dispose();
   }
 
   Future<void> _togglePlay() async {
+    if (_isLoading) {
+      return;
+    }
     if (_isPlaying) {
       await _player.pause();
     } else {
       try {
-        setState(() => _isLoading = true);
+        setState(() {
+          _isLoading = true;
+          _hasError = false;
+        });
         final Map<String, String> headers = <String, String>{
           if (widget.accessToken != null && widget.accessToken!.isNotEmpty)
             'authorization': 'Bearer ${widget.accessToken}',
         };
         await _player.setUrl(widget.audioUrl, headers: headers);
         await _player.play();
-      } catch (e) {
+      } catch (_) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Gagal memutar audio: $e')));
+          setState(() => _hasError = true);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Audio pertanyaan belum dapat diputar. Kamu tetap bisa membaca pertanyaannya.',
+              ),
+            ),
+          );
         }
       } finally {
         if (mounted) {
@@ -916,15 +1054,20 @@ class _AudioPlayButtonState extends State<_AudioPlayButton> {
         ),
       );
     }
-    return InkWell(
-      onTap: _togglePlay,
-      borderRadius: BorderRadius.circular(999),
-      child: Icon(
-        _isPlaying
-            ? Icons.pause_circle_filled_rounded
-            : Icons.volume_up_rounded,
-        color: widget.color,
-        size: 22,
+    return Tooltip(
+      message: _hasError ? 'Coba putar lagi' : 'Dengarkan pertanyaan',
+      child: InkWell(
+        onTap: _togglePlay,
+        borderRadius: BorderRadius.circular(999),
+        child: Icon(
+          _isPlaying
+              ? Icons.pause_circle_filled_rounded
+              : _hasError
+              ? Icons.replay_rounded
+              : Icons.volume_up_rounded,
+          color: widget.color,
+          size: 22,
+        ),
       ),
     );
   }
@@ -977,6 +1120,17 @@ class _EvaluationStrip extends StatelessWidget {
 
   final InterviewEvaluation evaluation;
 
+  Future<void> _showDetails(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) =>
+          _EvaluationDetailsSheet(evaluation: evaluation),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final String? firstImprovement = evaluation.improvements.isEmpty
@@ -989,20 +1143,291 @@ class _EvaluationStrip extends StatelessWidget {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-      padding: const EdgeInsets.all(12),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: AppColors.levelUpTeal.withAlpha(16),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.levelUpTeal.withAlpha(70)),
       ),
-      child: Text(
-        'Coach note: $note',
-        style: const TextStyle(
-          color: AppColors.textStrong,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          height: 1.35,
+      child: InkWell(
+        onTap: () => _showDetails(context),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: <Widget>[
+              CircleAvatar(
+                backgroundColor: AppColors.scholarCream,
+                child: Text(
+                  evaluation.overallScore.toStringAsFixed(0),
+                  style: const TextStyle(
+                    color: AppColors.warriorNavy,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const Text(
+                      'Umpan Balik Jawaban',
+                      style: TextStyle(
+                        color: AppColors.warriorNavy,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      note,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textStrong,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 19,
+                color: AppColors.warriorNavy,
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _EvaluationDetailsSheet extends StatelessWidget {
+  const _EvaluationDetailsSheet({required this.evaluation});
+
+  final InterviewEvaluation evaluation;
+
+  @override
+  Widget build(BuildContext context) {
+    final String? note = evaluation.coachNote?.trim();
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 680),
+        child: FractionallySizedBox(
+          heightFactor: 0.92,
+          widthFactor: 1,
+          child: Material(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: <Widget>[
+                Container(
+                  width: 42,
+                  height: 4,
+                  margin: const EdgeInsets.only(top: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.textMuted.withAlpha(70),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 8, 10),
+                  child: Row(
+                    children: <Widget>[
+                      CircleAvatar(
+                        backgroundColor: AppColors.scholarCream,
+                        child: Text(
+                          evaluation.overallScore.toStringAsFixed(0),
+                          style: const TextStyle(
+                            color: AppColors.warriorNavy,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Umpan Balik Jawaban',
+                          style: TextStyle(
+                            color: AppColors.warriorNavy,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Tutup',
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close_rounded),
+                        color: AppColors.warriorNavy,
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: AppColors.warriorNavy.withAlpha(20)),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        if (note != null && note.isNotEmpty) ...<Widget>[
+                          Text(
+                            note,
+                            style: const TextStyle(
+                              color: AppColors.textStrong,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              height: 1.45,
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                        ],
+                        if (evaluation.dimensions.hasScores) ...<Widget>[
+                          _DimensionGrid(dimensions: evaluation.dimensions),
+                          const SizedBox(height: 22),
+                        ],
+                        if (evaluation.strengths.isNotEmpty)
+                          _FeedbackList(
+                            title: 'Yang Sudah Kuat',
+                            icon: Icons.check_circle_outline_rounded,
+                            color: AppColors.levelUpTeal,
+                            items: evaluation.strengths,
+                          ),
+                        if (evaluation.improvements.isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 10),
+                          _FeedbackList(
+                            title: 'Fokus Perbaikan',
+                            icon: Icons.trending_up_rounded,
+                            color: AppColors.fireGold,
+                            items: evaluation.improvements,
+                          ),
+                        ],
+                        if ((evaluation.suggestedRewrite ?? '')
+                            .trim()
+                            .isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 10),
+                          _SuggestedRewrite(
+                            text: evaluation.suggestedRewrite!.trim(),
+                            title: 'Contoh Jawaban yang Lebih Kuat',
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DimensionGrid extends StatelessWidget {
+  const _DimensionGrid({required this.dimensions});
+
+  final InterviewDimensions dimensions;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<_DimensionScore> scores = <_DimensionScore>[
+      _DimensionScore('Relevansi', dimensions.relevance),
+      _DimensionScore('Kejelasan', dimensions.clarity),
+      _DimensionScore('Struktur', dimensions.structure),
+      _DimensionScore('Keyakinan', dimensions.confidence),
+      _DimensionScore('Dampak', dimensions.impact),
+      _DimensionScore('Keaslian', dimensions.authenticity),
+    ];
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final double itemWidth = (constraints.maxWidth - 10) / 2;
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: scores
+              .map(
+                (_DimensionScore score) => SizedBox(
+                  width: itemWidth,
+                  child: _DimensionTile(score: score),
+                ),
+              )
+              .toList(growable: false),
+        );
+      },
+    );
+  }
+}
+
+class _DimensionScore {
+  const _DimensionScore(this.label, this.value);
+
+  final String label;
+  final double value;
+}
+
+class _DimensionTile extends StatelessWidget {
+  const _DimensionTile({required this.score});
+
+  final _DimensionScore score;
+
+  @override
+  Widget build(BuildContext context) {
+    final double normalized = (score.value / 100).clamp(0, 1);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.scholarCream,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  score.label,
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                score.value.toStringAsFixed(0),
+                style: const TextStyle(
+                  color: AppColors.warriorNavy,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: normalized,
+              minHeight: 5,
+              color: score.value >= 75
+                  ? AppColors.levelUpTeal
+                  : AppColors.fireGold,
+              backgroundColor: AppColors.warriorNavy.withAlpha(16),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1031,17 +1456,35 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer> {
   final AudioRecorder _audioRecorder = AudioRecorder();
   bool _isRecording = false;
   bool _isTranscribing = false;
+  bool _isStopping = false;
   int _recordSeconds = 0;
   Timer? _recordTimer;
+  String? _recordingPath;
+  List<int>? _pendingAudioBytes;
+  String? _voiceMessage;
 
   @override
   void dispose() {
     _recordTimer?.cancel();
+    final String? path = _recordingPath;
+    if (path != null) {
+      unawaited(_deleteRecording(path));
+    }
     _audioRecorder.dispose();
     super.dispose();
   }
 
+  Future<void> _deleteRecording(String path) async {
+    final File file = File(path);
+    if (await file.exists()) {
+      await file.delete();
+    }
+  }
+
   Future<void> _startRecording() async {
+    if (_isRecording || _isStopping || _isTranscribing) {
+      return;
+    }
     try {
       if (await _audioRecorder.hasPermission()) {
         final String tempDir = Directory.systemTemp.path;
@@ -1056,6 +1499,9 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer> {
         setState(() {
           _isRecording = true;
           _recordSeconds = 0;
+          _recordingPath = path;
+          _pendingAudioBytes = null;
+          _voiceMessage = null;
         });
         ref
             .read(interviewControllerProvider(widget.config).notifier)
@@ -1069,67 +1515,103 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer> {
         });
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Izin mikrofon diperlukan untuk merekam suara.'),
-            ),
-          );
+          setState(() {
+            _voiceMessage =
+                'Aktifkan izin mikrofon dari pengaturan perangkat, atau ketik jawaban.';
+          });
         }
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal memulai rekaman: $e')));
+        setState(() {
+          _voiceMessage =
+              'Rekaman belum dapat dimulai. Kamu tetap bisa mengetik jawaban.';
+        });
       }
     }
   }
 
   Future<void> _stopRecording({bool cancel = false}) async {
+    if (_isStopping) {
+      return;
+    }
     _recordTimer?.cancel();
+    setState(() => _isStopping = true);
     try {
       final String? path = await _audioRecorder.stop();
       if (mounted) {
-        setState(() => _isRecording = false);
+        setState(() {
+          _isRecording = false;
+          _recordingPath = null;
+        });
       }
       ref
           .read(interviewControllerProvider(widget.config).notifier)
           .setRecording(false);
 
-      if (!cancel && path != null && path.isNotEmpty) {
-        final File file = File(path);
-        if (await file.exists()) {
-          final List<int> bytes = await file.readAsBytes();
-          if (mounted) {
-            setState(() => _isTranscribing = true);
+      if (path != null && path.isNotEmpty) {
+        try {
+          final File file = File(path);
+          if (!cancel && await file.exists()) {
+            _pendingAudioBytes = await file.readAsBytes();
           }
-
-          final String? transcript = await ref
-              .read(interviewControllerProvider(widget.config).notifier)
-              .transcribeAudio(bytes, 'recording.m4a');
-
-          if (mounted) {
-            setState(() => _isTranscribing = false);
-            if (transcript != null && transcript.trim().isNotEmpty) {
-              widget.controller.text = transcript;
-            }
-          }
+        } finally {
+          await _deleteRecording(path);
         }
       }
-    } catch (e) {
+      if (!cancel && _pendingAudioBytes != null) {
+        await _transcribePendingAudio();
+      } else if (mounted && cancel) {
+        setState(() {
+          _pendingAudioBytes = null;
+          _voiceMessage = null;
+        });
+      }
+    } catch (_) {
       if (mounted) {
         setState(() {
           _isRecording = false;
           _isTranscribing = false;
+          _voiceMessage =
+              'Rekaman belum dapat diproses. Coba lagi atau ketik jawaban.';
         });
         ref
             .read(interviewControllerProvider(widget.config).notifier)
             .setRecording(false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal memproses rekaman: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isStopping = false);
       }
     }
+  }
+
+  Future<void> _transcribePendingAudio() async {
+    final List<int>? bytes = _pendingAudioBytes;
+    if (bytes == null || bytes.isEmpty || _isTranscribing) {
+      return;
+    }
+    setState(() {
+      _isTranscribing = true;
+      _voiceMessage = 'Sedang menyiapkan transkrip jawaban...';
+    });
+    final String? transcript = await ref
+        .read(interviewControllerProvider(widget.config).notifier)
+        .transcribeAudio(bytes, 'recording.m4a');
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isTranscribing = false;
+      if (transcript != null && transcript.trim().isNotEmpty) {
+        widget.controller.text = transcript.trim();
+        _pendingAudioBytes = null;
+        _voiceMessage = 'Transkrip siap. Periksa sebelum mengirim.';
+      } else {
+        _voiceMessage =
+            'Suara belum berhasil diubah menjadi teks. Coba transkripsi lagi.';
+      }
+    });
   }
 
   @override
@@ -1168,7 +1650,9 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer> {
             IconButton(
               tooltip: 'Batal',
               icon: const Icon(Icons.close_rounded, color: AppColors.textMuted),
-              onPressed: () => _stopRecording(cancel: true),
+              onPressed: _isStopping
+                  ? null
+                  : () => _stopRecording(cancel: true),
             ),
             IconButton(
               tooltip: 'Selesai & Transkripsi',
@@ -1177,7 +1661,9 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer> {
                 color: AppColors.levelUpTeal,
                 size: 32,
               ),
-              onPressed: () => _stopRecording(cancel: false),
+              onPressed: _isStopping
+                  ? null
+                  : () => _stopRecording(cancel: false),
             ),
           ],
         ),
@@ -1198,105 +1684,385 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer> {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          if (isVoice) ...<Widget>[
-            IconButton(
-              tooltip: 'Rekam Suara (Whisper STT)',
-              icon: Icon(
-                Icons.mic_rounded,
-                color: widget.enabled && !isBusy
-                    ? AppColors.levelUpTeal
-                    : AppColors.textMuted,
-              ),
-              onPressed: widget.enabled && !isBusy ? _startRecording : null,
+          if (isVoice && _voiceMessage != null) ...<Widget>[
+            Row(
+              children: <Widget>[
+                Icon(
+                  _pendingAudioBytes == null
+                      ? Icons.info_outline_rounded
+                      : Icons.refresh_rounded,
+                  size: 17,
+                  color: AppColors.levelUpTeal,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _voiceMessage!,
+                    style: const TextStyle(
+                      color: AppColors.textStrong,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (_pendingAudioBytes != null && !_isTranscribing)
+                  TextButton(
+                    onPressed: _transcribePendingAudio,
+                    child: const Text('Coba lagi'),
+                  ),
+              ],
             ),
-            const SizedBox(width: 4),
+            const SizedBox(height: 8),
           ],
-          Expanded(
-            child: TextField(
-              controller: widget.controller,
-              enabled: widget.enabled && !_isTranscribing,
-              minLines: 1,
-              maxLines: 4,
-              textInputAction: TextInputAction.newline,
-              decoration: InputDecoration(
-                hintText: _isTranscribing
-                    ? 'Memproses transkripsi suara...'
-                    : widget.enabled
-                    ? (isVoice
-                          ? 'Bicara via mic atau ketik jawaban...'
-                          : 'Ketik jawaban interview kamu...')
-                    : 'Tunggu pewawancara AI...',
-                filled: true,
-                fillColor: AppColors.scholarCream,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide.none,
+          Row(
+            children: <Widget>[
+              if (isVoice) ...<Widget>[
+                IconButton(
+                  tooltip: 'Rekam jawaban',
+                  icon: Icon(
+                    Icons.mic_rounded,
+                    color: widget.enabled && !isBusy
+                        ? AppColors.levelUpTeal
+                        : AppColors.textMuted,
+                  ),
+                  onPressed: widget.enabled && !isBusy ? _startRecording : null,
+                ),
+                const SizedBox(width: 4),
+              ],
+              Expanded(
+                child: TextField(
+                  controller: widget.controller,
+                  enabled: widget.enabled && !_isTranscribing,
+                  minLines: 1,
+                  maxLines: 4,
+                  textInputAction: TextInputAction.newline,
+                  decoration: InputDecoration(
+                    hintText: _isTranscribing
+                        ? 'Memproses transkripsi suara...'
+                        : widget.enabled
+                        ? (isVoice
+                              ? 'Bicara via mic atau ketik jawaban...'
+                              : 'Ketik jawaban interview kamu...')
+                        : 'Tunggu pewawancara AI...',
+                    filled: true,
+                    fillColor: AppColors.scholarCream,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(width: 10),
+              if (_isTranscribing)
+                const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: AppColors.levelUpTeal,
+                  ),
+                )
+              else
+                FilledButton(
+                  onPressed: widget.enabled && !isBusy ? widget.onSubmit : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.warriorNavy,
+                    shape: const CircleBorder(),
+                    padding: const EdgeInsets.all(16),
+                  ),
+                  child: const Icon(Icons.send_rounded),
+                ),
+            ],
           ),
-          const SizedBox(width: 10),
-          if (_isTranscribing)
-            const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: AppColors.levelUpTeal,
-              ),
-            )
-          else
-            FilledButton(
-              onPressed: widget.enabled && !isBusy ? widget.onSubmit : null,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.warriorNavy,
-                shape: const CircleBorder(),
-                padding: const EdgeInsets.all(16),
-              ),
-              child: const Icon(Icons.send_rounded),
-            ),
         ],
       ),
     );
   }
 }
 
-class _CompletedBanner extends StatelessWidget {
-  const _CompletedBanner();
+class _InterviewResultView extends StatelessWidget {
+  const _InterviewResultView({
+    required this.config,
+    required this.summary,
+    required this.latestEvaluation,
+    required this.onStartNew,
+    required this.onBackToPractice,
+  });
+
+  final InterviewLaunchConfig config;
+  final InterviewFinalSummary? summary;
+  final InterviewEvaluation? latestEvaluation;
+  final VoidCallback onStartNew;
+  final VoidCallback onBackToPractice;
+
+  @override
+  Widget build(BuildContext context) {
+    final InterviewFinalSummary? result = summary;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: AppColors.warriorNavy,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              children: <Widget>[
+                const Icon(
+                  Icons.task_alt_rounded,
+                  color: AppColors.levelUpTeal,
+                  size: 36,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'INTERVIEW SELESAI',
+                  style: GoogleFonts.orbitron(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  config.companyName,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withAlpha(210),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  result == null
+                      ? '--'
+                      : result.overallScore.toStringAsFixed(0),
+                  style: const TextStyle(
+                    color: AppColors.fireGold,
+                    fontSize: 48,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  result == null
+                      ? 'Ringkasan belum tersedia'
+                      : '${result.answerCount} jawaban dinilai',
+                  style: TextStyle(
+                    color: Colors.white.withAlpha(190),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (result != null) ...<Widget>[
+            if (result.dimensions.hasScores) ...<Widget>[
+              const SizedBox(height: 24),
+              const _ResultSectionTitle(
+                icon: Icons.analytics_outlined,
+                title: 'Rincian Penilaian',
+              ),
+              const SizedBox(height: 12),
+              _DimensionGrid(dimensions: result.dimensions),
+            ],
+            if (result.strengths.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 24),
+              _FeedbackList(
+                title: 'Yang Sudah Kuat',
+                icon: Icons.check_circle_outline_rounded,
+                color: AppColors.levelUpTeal,
+                items: result.strengths,
+              ),
+            ],
+            if (result.improvements.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 20),
+              _FeedbackList(
+                title: 'Fokus Perbaikan',
+                icon: Icons.trending_up_rounded,
+                color: AppColors.fireGold,
+                items: result.improvements,
+              ),
+            ],
+          ],
+          if ((latestEvaluation?.suggestedRewrite ?? '')
+              .trim()
+              .isNotEmpty) ...<Widget>[
+            const SizedBox(height: 20),
+            _SuggestedRewrite(
+              text: latestEvaluation!.suggestedRewrite!.trim(),
+              title: 'Contoh Perbaikan Jawaban Terakhir',
+            ),
+          ],
+          const SizedBox(height: 28),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onStartNew,
+              icon: const Icon(Icons.replay_rounded),
+              label: const Text('Mulai Interview Baru'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.warriorNavy,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onBackToPractice,
+              icon: const Icon(Icons.arrow_back_rounded),
+              label: const Text('Kembali ke Latihan'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.warriorNavy,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultSectionTitle extends StatelessWidget {
+  const _ResultSectionTitle({required this.icon, required this.title});
+
+  final IconData icon;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Icon(icon, color: AppColors.warriorNavy, size: 20),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.warriorNavy,
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FeedbackList extends StatelessWidget {
+  const _FeedbackList({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.items,
+  });
+
+  final String title;
+  final IconData icon;
+  final Color color;
+  final List<String> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _ResultSectionTitle(icon: icon, title: title),
+        const SizedBox(height: 10),
+        for (final String item in items) ...<Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  item,
+                  style: const TextStyle(
+                    color: AppColors.textStrong,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.45,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+        ],
+      ],
+    );
+  }
+}
+
+class _SuggestedRewrite extends StatelessWidget {
+  const _SuggestedRewrite({required this.text, required this.title});
+
+  final String text;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: AppColors.warriorNavy.withAlpha(20),
-            blurRadius: 20,
-            offset: const Offset(0, -8),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.levelUpTeal.withAlpha(70)),
       ),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Icon(
-            Icons.check_circle_outline_rounded,
-            color: AppColors.levelUpTeal,
-            size: 20,
+          Row(
+            children: <Widget>[
+              const Icon(
+                Icons.auto_awesome_outlined,
+                color: AppColors.levelUpTeal,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.warriorNavy,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
           ),
-          SizedBox(width: 8),
+          const SizedBox(height: 10),
           Text(
-            'Sesi interview telah selesai.',
-            style: TextStyle(
+            text,
+            style: const TextStyle(
               color: AppColors.textStrong,
-              fontWeight: FontWeight.bold,
               fontSize: 13,
+              fontWeight: FontWeight.w500,
+              height: 1.5,
             ),
           ),
         ],
@@ -1458,7 +2224,7 @@ class _SessionsSheet extends ConsumerWidget {
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        '${session.targetRole} - ${session.mode}',
+                                        '${session.targetRole} - ${_humanizeInterviewMode(session.mode)}',
                                         style: const TextStyle(
                                           color: AppColors.textMuted,
                                           fontSize: 12,
@@ -1550,7 +2316,7 @@ class _SessionDetailSheet extends ConsumerWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${detail.targetRole} - ${detail.mode}',
+                  '${detail.targetRole} - ${_humanizeInterviewMode(detail.mode)}',
                   style: const TextStyle(
                     color: AppColors.textMuted,
                     fontSize: 12,
@@ -1708,7 +2474,7 @@ class _SessionTranscriptTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'Coach note: ${message.evaluation!.coachNote!}',
+                'Catatan untuk jawabanmu: ${message.evaluation!.coachNote!}',
                 style: const TextStyle(
                   color: AppColors.textStrong,
                   fontSize: 12,
@@ -1724,8 +2490,23 @@ class _SessionTranscriptTile extends StatelessWidget {
 }
 
 String _humanizeCompanyId(String companyId) {
+  const Map<String, String> companyNames = <String, String>{
+    'adhi-karya': 'PT Adhi Karya (Persero) Tbk',
+    'bank-indonesia': 'Bank Indonesia',
+    'bank-mandiri': 'PT Bank Mandiri (Persero) Tbk',
+    'garuda-indonesia': 'PT Garuda Indonesia (Persero) Tbk',
+    'injourney': 'PT Aviasi Pariwisata Indonesia (Persero)',
+    'kementerian-keuangan': 'Kementerian Keuangan Republik Indonesia',
+    'kereta-api-indonesia': 'PT Kereta Api Indonesia (Persero)',
+    'perusahaan-listrik-negara': 'PT PLN (Persero)',
+    'pertamina': 'PT Pertamina (Persero)',
+  };
   if (companyId.trim().isEmpty) {
-    return 'Interview Session';
+    return 'Sesi Interview';
+  }
+  final String normalized = companyId.trim().toLowerCase();
+  if (companyNames.containsKey(normalized)) {
+    return companyNames[normalized]!;
   }
   return companyId
       .split(RegExp(r'[-_]'))
@@ -1735,6 +2516,17 @@ String _humanizeCompanyId(String companyId) {
             '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
       )
       .join(' ');
+}
+
+String _humanizeInterviewMode(String mode) {
+  switch (mode.trim().toLowerCase()) {
+    case 'coaching':
+      return 'Coaching';
+    case 'realistic':
+      return 'Realistik';
+    default:
+      return mode.trim().isEmpty ? 'Interview' : mode.trim();
+  }
 }
 
 String _sessionTimestamp(DateTime time) {

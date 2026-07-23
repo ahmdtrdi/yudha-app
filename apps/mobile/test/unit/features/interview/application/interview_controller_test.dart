@@ -42,9 +42,32 @@ void main() {
     await controller.retry();
     expect(controller.state.status, InterviewViewStatus.completed);
   });
+
+  test('transcription failure keeps the interview session usable', () async {
+    final InterviewController controller = InterviewController(
+      repository: _FakeInterviewRepository(shouldFailTranscription: true),
+      config: InterviewLaunchConfig.bumnDefault(),
+    );
+
+    await controller.start();
+    final String? transcript = await controller.transcribeAudio(<int>[
+      1,
+      2,
+      3,
+    ], 'recording.m4a');
+
+    expect(transcript, isNull);
+    expect(controller.state.status, InterviewViewStatus.active);
+    expect(controller.state.errorMessage, isNull);
+    expect(controller.state.isTranscribing, isFalse);
+  });
 }
 
 class _FakeInterviewRepository implements InterviewRepository {
+  _FakeInterviewRepository({this.shouldFailTranscription = false});
+
+  final bool shouldFailTranscription;
+
   @override
   Future<InterviewSessionDetailRecord> getSession(String sessionId) async {
     return const InterviewSessionDetailRecord(
@@ -77,6 +100,9 @@ class _FakeInterviewRepository implements InterviewRepository {
     required List<int> audioBytes,
     required String filename,
   }) async {
+    if (shouldFailTranscription) {
+      throw Exception('transcription unavailable');
+    }
     return 'Transkrip jawaban suara.';
   }
 

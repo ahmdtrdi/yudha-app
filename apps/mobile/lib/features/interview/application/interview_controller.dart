@@ -51,8 +51,8 @@ class InterviewController extends StateNotifier<InterviewState> {
         clearError: true,
       );
       try {
-        final InterviewSessionDetailRecord detail =
-            await _repository.getSession(sessionId);
+        final InterviewSessionDetailRecord detail = await _repository
+            .getSession(sessionId);
         state = state.copyWith(
           status: detail.status == 'completed'
               ? InterviewViewStatus.completed
@@ -150,10 +150,7 @@ class InterviewController extends StateNotifier<InterviewState> {
       return null;
     }
 
-    state = state.copyWith(
-      isTranscribing: true,
-      clearError: true,
-    );
+    state = state.copyWith(isTranscribing: true, clearError: true);
 
     try {
       final String transcript = await _repository.transcribeAnswerAudio(
@@ -166,10 +163,10 @@ class InterviewController extends StateNotifier<InterviewState> {
         transcriptionText: transcript,
       );
       return transcript;
-    } catch (error) {
+    } catch (_) {
       state = state.copyWith(
         isTranscribing: false,
-        errorMessage: error.toString(),
+        clearTranscriptionText: true,
       );
       return null;
     }

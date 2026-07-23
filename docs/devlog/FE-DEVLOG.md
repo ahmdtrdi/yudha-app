@@ -1544,3 +1544,85 @@
 ### The Tech Debt
 - The formatter handles identifier-style labels, not arbitrary localized copy. If the backend later exposes dedicated localized display labels, those should replace frontend-derived labels.
 - Targeted analysis reported no issues before the known Dart telemetry permission failure. The targeted Flutter test runner timed out without producing output on this Windows environment and still needs local confirmation.
+
+## 2026-07-23 - AI Interview Feedback, Results, And Voice Recovery
+
+### The Change
+- Replaced invalid interview setup company IDs with six reviewed backend company profiles and complete human-facing company names and default roles.
+- Preserved the backend's six evaluation dimensions, candidate facts, and suggested rewrite in the mobile domain mapping.
+- Expanded coaching feedback into a compact, optional detail view with readable score dimensions, strengths, improvements, and a suggested answer rewrite.
+- Added a dedicated completed-session result view with overall score, dimension breakdown, strengths, improvement areas, latest rewrite, and clear navigation actions.
+- Humanized company and interview-mode identifiers across active sessions, history, and session details.
+- Added friendly timeout and API failure copy at the repository boundary so backend implementation details no longer appear in the interface.
+- Hardened voice mode with local permission guidance, transcription retry, temporary recording cleanup, guarded recorder actions, playback retry, and audio subscription cleanup while keeping typed answers available.
+- Added regression coverage for the reviewed company catalog, complete evaluation mapping, summary dimensions, and non-blocking transcription failures.
+
+### The Reasoning
+- The setup picker must send IDs that the backend can actually resolve; displaying known-good profiles avoids a session failing only after the user finishes setup.
+- Coaching data is useful when it is progressively disclosed. A short summary keeps the conversation readable, while deeper feedback remains one tap away.
+- Voice features are an optional input path, so microphone, transcription, or playback failures should stay close to those controls and must not make the entire interview look broken.
+- Final results deserve a stable review surface instead of a completion banner because users need to compare dimensions and leave with concrete next steps.
+
+### The Tech Debt
+- The reviewed company catalog remains frontend-owned until the backend exposes a company-profile listing endpoint. Seeded profiles without complete interview context remain intentionally hidden.
+- The visualizer is still state-driven rather than connected to live microphone amplitude.
+- Streaming interview responses are not wired because the current backend contract does not expose an SSE or WebSocket endpoint.
+- Targeted Dart analysis reported no issues. The targeted Flutter test command timed out after 130 seconds without producing a test failure on the current Windows runner and still needs local confirmation.
+
+## 2026-07-23 - Practice Hint Compile Fix
+
+### The Change
+- Removed the stale `setHintToBuy()` call from the practice quiz hint action and kept the current `unlockHint()` controller flow.
+
+### The Reasoning
+- The backend-wired practice controller no longer defines a purchase-selection step, and the UI already unlocks and reports hint usage through the active session state.
+
+### The Tech Debt
+- Hint monetization remains intentionally unwired until a real ad or purchase contract exists; the current hint action unlocks the server-provided hint directly.
+
+## 2026-07-23 - Flutter-Compatible Arena Audio Dependency
+
+### The Change
+- Downgraded the direct `audioplayers` constraint from `^6.8.1` to `^6.7.1` and regenerated `apps/mobile/pubspec.lock` for Flutter 3.41.4.
+
+### The Reasoning
+- `audioplayers 6.8.1` requires Flutter 3.44 or newer, while 6.7.1 supports the project's installed SDK and retains the APIs used by the arena audio controller.
+
+### The Tech Debt
+- The dependency can be upgraded again when the project standardizes on Flutter 3.44 or newer. Keep the Flutter SDK and lockfile in sync when doing so.
+
+## 2026-07-23 - Readable Voice Interview Prompts
+
+### The Change
+- Removed the four-line cap from the voice-room question and placed long prompts in a flexible vertical scroll area.
+
+### The Reasoning
+- Opening questions can include enough company and role context to exceed four lines. Scrolling preserves the complete prompt without displacing the answer composer on smaller phones.
+
+### The Tech Debt
+- The latest-answer preview remains intentionally compact because the editable full answer is available in the composer.
+
+## 2026-07-23 - Interview Feedback Bottom Sheet
+
+### The Change
+- Replaced the inline expandable coaching feedback with a compact transcript summary that opens a modal bottom sheet.
+- Added a fixed score and close header above a scrollable body containing dimensions, strengths, improvements, and the suggested rewrite.
+
+### The Reasoning
+- Detailed feedback can exceed the interview viewport. Moving it outside the transcript prevents layout overflow and preserves the user's chat position.
+- A modal bottom sheet provides familiar close, swipe, and system-back interactions for long mobile content.
+
+### The Tech Debt
+- The sheet uses a fixed 92 percent height rather than multiple draggable snap points; those can be added if user testing shows a need.
+
+## 2026-07-23 - Voice Question Scroll Fades
+
+### The Change
+- Added adaptive opacity fades to the top and bottom edges of the scrollable voice-interview question.
+- The bottom fade appears only while more text remains, while the top fade appears after the user scrolls away from the beginning.
+
+### The Reasoning
+- The fades communicate that long prompts can be scrolled without adding permanent controls or covering the question with a background color that conflicts with the voice-room gradient.
+
+### The Tech Debt
+- Fade depth is currently fixed as a percentage of the question viewport; it can be tuned after checking a broader range of device heights.

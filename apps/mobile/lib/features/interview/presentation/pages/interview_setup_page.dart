@@ -22,50 +22,45 @@ class InterviewCompanyOption {
   final ProfileTarget targetGroup;
 }
 
-const List<InterviewCompanyOption> kInterviewCompanies = <InterviewCompanyOption>[
-  InterviewCompanyOption(
-    id: 'bank-mandiri',
-    name: 'PT Bank Mandiri',
-    defaultRole: 'Officer Development Program',
-    targetGroup: ProfileTarget.bumn,
-  ),
-  InterviewCompanyOption(
-    id: 'telkom-indonesia',
-    name: 'PT Telkom Indonesia',
-    defaultRole: 'Great People Trainee Program',
-    targetGroup: ProfileTarget.bumn,
-  ),
-  InterviewCompanyOption(
-    id: 'pertamina',
-    name: 'PT Pertamina (Persero)',
-    defaultRole: 'Bimbingan Profesi Sarjana',
-    targetGroup: ProfileTarget.bumn,
-  ),
-  InterviewCompanyOption(
-    id: 'pln',
-    name: 'PT PLN (Persero)',
-    defaultRole: 'Junior Officer Development Program',
-    targetGroup: ProfileTarget.bumn,
-  ),
-  InterviewCompanyOption(
-    id: 'kementerian-keuangan',
-    name: 'Kementerian Keuangan',
-    defaultRole: 'Staf Pengelola Keuangan Negara',
-    targetGroup: ProfileTarget.cpns,
-  ),
-  InterviewCompanyOption(
-    id: 'kemenkumham',
-    name: 'Kementerian Hukum & HAM',
-    defaultRole: 'Pemeriksa Keimigrasian / Analis Hukum',
-    targetGroup: ProfileTarget.cpns,
-  ),
-  InterviewCompanyOption(
-    id: 'kemenkes',
-    name: 'Kementerian Kesehatan',
-    defaultRole: 'Tenaga Ahli Kesehatan Masyarakat',
-    targetGroup: ProfileTarget.cpns,
-  ),
-];
+const List<InterviewCompanyOption> kInterviewCompanies =
+    <InterviewCompanyOption>[
+      InterviewCompanyOption(
+        id: 'adhi-karya',
+        name: 'PT Adhi Karya (Persero) Tbk',
+        defaultRole: 'Management Trainee',
+        targetGroup: ProfileTarget.bumn,
+      ),
+      InterviewCompanyOption(
+        id: 'bank-indonesia',
+        name: 'Bank Indonesia',
+        defaultRole: 'Asisten Manajer',
+        targetGroup: ProfileTarget.bumn,
+      ),
+      InterviewCompanyOption(
+        id: 'bank-mandiri',
+        name: 'PT Bank Mandiri (Persero) Tbk',
+        defaultRole: 'Officer Development Program',
+        targetGroup: ProfileTarget.bumn,
+      ),
+      InterviewCompanyOption(
+        id: 'garuda-indonesia',
+        name: 'PT Garuda Indonesia (Persero) Tbk',
+        defaultRole: 'Management Trainee',
+        targetGroup: ProfileTarget.bumn,
+      ),
+      InterviewCompanyOption(
+        id: 'pertamina',
+        name: 'PT Pertamina (Persero)',
+        defaultRole: 'Bimbingan Profesi Sarjana',
+        targetGroup: ProfileTarget.bumn,
+      ),
+      InterviewCompanyOption(
+        id: 'kementerian-keuangan',
+        name: 'Kementerian Keuangan Republik Indonesia',
+        defaultRole: 'Staf Pengelola Keuangan Negara',
+        targetGroup: ProfileTarget.cpns,
+      ),
+    ];
 
 class InterviewSetupPage extends ConsumerStatefulWidget {
   const InterviewSetupPage({super.key});
@@ -89,7 +84,9 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
         .where((c) => c.targetGroup == userTarget)
         .toList();
 
-    _selectedCompany = matching.isNotEmpty ? matching.first : kInterviewCompanies.first;
+    _selectedCompany = matching.isNotEmpty
+        ? matching.first
+        : kInterviewCompanies.first;
     _roleController = TextEditingController(text: _selectedCompany.defaultRole);
   }
 
@@ -187,7 +184,8 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
                     ),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<InterviewCompanyOption>(
-                      initialValue: availableCompanies.contains(_selectedCompany)
+                      initialValue:
+                          availableCompanies.contains(_selectedCompany)
                           ? _selectedCompany
                           : availableCompanies.first,
                       isExpanded: true,
@@ -308,11 +306,11 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _SelectCard(
-                      title: 'Suara (Voice)',
-                      subtitle: 'Bicara (Whisper) & dengar (ElevenLabs)',
+                      title: 'Suara',
+                      subtitle: 'Rekam jawaban dan dengarkan pertanyaan',
                       icon: Icons.mic_none_outlined,
                       isSelected: _responseStyle == 'voice',
-                      badgeText: 'PREMIUM',
+                      badgeText: 'BETA',
                       onTap: () => setState(() => _responseStyle = 'voice'),
                     ),
                   ),

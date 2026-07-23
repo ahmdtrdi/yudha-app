@@ -177,7 +177,6 @@ class PracticeQuizPage extends ConsumerWidget {
                     else
                       InkWell(
                         onTap: () {
-                          controller.setHintToBuy();
                           controller.unlockHint();
                         },
                         borderRadius: BorderRadius.circular(16),
