@@ -9,6 +9,7 @@ export interface LeaderboardEntry {
   winrate: number;
   equippedAvatarId: string | null;
   equippedArenaId: string | null;
+  equippedTowerId: string | null;
 }
 
 export interface LeaderboardQuery {
