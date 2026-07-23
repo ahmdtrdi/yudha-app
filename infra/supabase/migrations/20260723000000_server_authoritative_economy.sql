@@ -6,6 +6,18 @@ alter table public.profiles
   add column if not exists equipped_tower_id text,
   add column if not exists hired_pass_expires_at timestamptz;
 
+-- Legacy bootstrap files created avatar/arena IDs as UUID. The shipped
+-- cosmetic catalog uses stable text IDs, so normalize all loadout columns
+-- before comparing them or adding catalog foreign keys. Existing UUID values
+-- become text and are reset below when no matching catalog item exists.
+alter table public.profiles
+  alter column equipped_avatar_id drop default,
+  alter column equipped_arena_id drop default,
+  alter column equipped_tower_id drop default,
+  alter column equipped_avatar_id type text using equipped_avatar_id::text,
+  alter column equipped_arena_id type text using equipped_arena_id::text,
+  alter column equipped_tower_id type text using equipped_tower_id::text;
+
 create table if not exists public.store_items (
   id text primary key,
   type text not null check (type in ('character_skin', 'arena', 'tower')),
@@ -205,24 +217,27 @@ update public.profiles
 set equipped_avatar_id = null
 where equipped_avatar_id is not null
   and not exists (
-    select 1 from public.store_items
-    where id = profiles.equipped_avatar_id and type = 'character_skin'
+    select 1 from public.store_items item
+    where item.id = profiles.equipped_avatar_id
+      and item.type = 'character_skin'
   );
 
 update public.profiles
 set equipped_arena_id = null
 where equipped_arena_id is not null
   and not exists (
-    select 1 from public.store_items
-    where id = profiles.equipped_arena_id and type = 'arena'
+    select 1 from public.store_items item
+    where item.id = profiles.equipped_arena_id
+      and item.type = 'arena'
   );
 
 update public.profiles
 set equipped_tower_id = null
 where equipped_tower_id is not null
   and not exists (
-    select 1 from public.store_items
-    where id = profiles.equipped_tower_id and type = 'tower'
+    select 1 from public.store_items item
+    where item.id = profiles.equipped_tower_id
+      and item.type = 'tower'
   );
 
 insert into public.user_inventory (user_id, item_id, source, source_ref)
