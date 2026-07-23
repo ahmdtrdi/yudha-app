@@ -16,7 +16,6 @@ class _QuestionBattleSheet extends StatefulWidget {
 }
 
 class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
-  static const int _maxSeconds = 10;
   static const Color _ink = Color(0xFF17233F);
   static const Color _warmCanvas = Color(0xFFFFF8EC);
   static const Color _mutedInk = Color(0xFF66708A);
@@ -24,7 +23,8 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
   static const Color _danger = Color(0xFFF05E5E);
 
   Timer? _timer;
-  int _remainingSeconds = _maxSeconds;
+  late final int _maxSeconds;
+  late int _remainingSeconds;
   int? _selectedIndex;
   bool _locked = false;
   bool _allowPop = false;
@@ -34,13 +34,22 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
   @override
   void initState() {
     super.initState();
-    if (widget.isOnline) {
-      return;
-    }
+    _maxSeconds = widget.question.timeLimitSeconds.clamp(1, 300);
+    _remainingSeconds = _maxSeconds;
     _timer = Timer.periodic(const Duration(seconds: 1), (Timer timer) {
       if (_remainingSeconds <= 1) {
         timer.cancel();
-        _submitAnswer(-1, timedOut: true);
+        if (widget.isOnline) {
+          if (mounted) {
+            setState(() {
+              _remainingSeconds = 0;
+              _locked = true;
+              _feedback = 'Waktu habis. Menunggu konfirmasi arena...';
+            });
+          }
+        } else {
+          _submitAnswer(-1, timedOut: true);
+        }
         return;
       }
 
@@ -201,17 +210,12 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
                           ],
                         ),
                       ),
-                      if (!widget.isOnline) ...<Widget>[
-                        const SizedBox(width: 10),
-                        _TimerRing(
-                          remainingSeconds: _remainingSeconds,
-                          progress: timerProgress,
-                          accent: categoryColor,
-                        ),
-                      ] else ...<Widget>[
-                        const SizedBox(width: 10),
-                        const _ServerBadge(),
-                      ],
+                      const SizedBox(width: 10),
+                      _TimerRing(
+                        remainingSeconds: _remainingSeconds,
+                        progress: timerProgress,
+                        accent: categoryColor,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 18),
@@ -577,30 +581,6 @@ class _QuestionFeedback extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ServerBadge extends StatelessWidget {
-  const _ServerBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: 'Jawaban diverifikasi server',
-      child: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          color: const Color(0xFFE9F1FF),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Icon(
-          Icons.cloud_done_rounded,
-          color: Color(0xFF2878F0),
-          size: 24,
-        ),
       ),
     );
   }

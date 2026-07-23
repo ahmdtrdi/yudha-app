@@ -557,6 +557,24 @@ describe('GameEngine', () => {
     it('keeps the match active after complete question-pool cycles', () => {
       const cards = makeCards(QuestionDealer.HAND_SIZE);
       const room = engine.createRoom('room_1', 'a', 'b', cards);
+
+      for (const card of [...room.players.playerA.hand]) {
+        engine.openCard(room, 'a', card.id);
+        engine.playCard(room, 'a', card.id, 1);
+      }
+      for (const card of [...room.players.playerB.hand]) {
+        engine.openCard(room, 'b', card.id);
+        engine.playCard(room, 'b', card.id, 0);
+      }
+
+      expect(room.status).toBe('active');
+      expect(room.result).toBeUndefined();
+      expect(
+        room.players.playerA.hand.every((card) => card.id.startsWith('card_r')),
+      ).toBe(true);
+    });
+  });
+
   describe('round timeout', () => {
     it('higher HP wins the round and two round wins finish the match', () => {
       const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
@@ -570,11 +588,6 @@ describe('GameEngine', () => {
       room.players.playerB.hp = 70;
       const result = engine.finishRoundOnTimeout(room);
 
-      expect(room.status).toBe('active');
-      expect(room.result).toBeUndefined();
-      expect(
-        room.players.playerA.hand.every((card) => card.id.startsWith('card_r')),
-      ).toBe(true);
       expect(result).toBeDefined();
       expect(room.status).toBe('finished');
       expect(result?.reason).toBe('round_timeout');

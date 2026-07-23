@@ -9,7 +9,8 @@ class _ArenaMenuSection extends StatelessWidget {
     required this.selectedTower,
     required this.onBackHome,
     required this.onStartBot,
-    required this.onStartPlayer,
+    required this.onStartCasual,
+    required this.onStartRanked,
   });
 
   final String playerDisplayName;
@@ -19,7 +20,8 @@ class _ArenaMenuSection extends StatelessWidget {
   final CosmeticItem selectedTower;
   final VoidCallback onBackHome;
   final VoidCallback onStartBot;
-  final VoidCallback onStartPlayer;
+  final VoidCallback onStartCasual;
+  final VoidCallback onStartRanked;
 
   @override
   Widget build(BuildContext context) {
@@ -127,8 +129,9 @@ class _ArenaMenuSection extends StatelessWidget {
                     _ModeCard(
                       key: const ValueKey<String>('mode-online'),
                       title: 'Lawan Player',
-                      description: 'Cari peserta lain melalui matchmaking.',
-                      actionLabel: 'Cari lawan',
+                      description:
+                          'Casual match tanpa perubahan rating atau hadiah.',
+                      actionLabel: 'Main casual',
                       accent: const Color(0xFF7559D4),
                       visual: _ModeVisual(
                         key: const ValueKey<String>('online-mode-visual'),
@@ -137,7 +140,25 @@ class _ArenaMenuSection extends StatelessWidget {
                         online: true,
                       ),
                       compact: compact,
-                      onTap: onStartPlayer,
+                      onTap: onStartCasual,
+                    ),
+                    SizedBox(height: compact ? 12 : 15),
+                    _ModeCard(
+                      key: const ValueKey<String>('mode-ranked'),
+                      title: 'Ranked Match',
+                      description:
+                          'Pertandingan kompetitif dengan rating dan Y-Coin.',
+                      actionLabel: 'Main ranked',
+                      accent: const Color(0xFFE0922F),
+                      visual: _ModeVisual(
+                        key: const ValueKey<String>('ranked-mode-visual'),
+                        playerAsset: playerAvatarAsset,
+                        opponentAsset: opponentAvatarAsset,
+                        online: true,
+                        avatarKey: 'ranked-player-avatar',
+                      ),
+                      compact: compact,
+                      onTap: onStartRanked,
                     ),
                   ],
                 ),
@@ -349,12 +370,14 @@ class _ModeVisual extends StatelessWidget {
     required this.playerAsset,
     required this.opponentAsset,
     required this.online,
+    this.avatarKey,
     super.key,
   });
 
   final String playerAsset;
   final String opponentAsset;
   final bool online;
+  final String? avatarKey;
 
   @override
   Widget build(BuildContext context) {
@@ -368,7 +391,8 @@ class _ModeVisual extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(5, 7, 5, 0),
         child: _ModeAvatar(
           key: ValueKey<String>(
-            online ? 'online-player-avatar' : 'bot-opponent-avatar',
+            avatarKey ??
+                (online ? 'online-player-avatar' : 'bot-opponent-avatar'),
           ),
           assetPath: online ? playerAsset : opponentAsset,
         ),

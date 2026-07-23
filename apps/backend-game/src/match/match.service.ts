@@ -48,6 +48,10 @@ export class MatchService {
     string,
     ReturnType<typeof setTimeout>
   >();
+  private readonly disconnectTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
 
   constructor(
     private readonly engine: GameEngine,
@@ -69,6 +73,11 @@ export class MatchService {
     this.botBattleService.setEmitCallback(callback);
     this.botBattleService.setRoundBreakCallback((room) => {
       this.handleRoundBreak(room);
+    });
+    this.botBattleService.setMatchFinishedCallback((room) => {
+      this.clearRoundTimers(room.roomId);
+      this.clearDisconnectTimersForRoom(room.roomId);
+      this.cardTimeoutService.cancelAllTimersForRoom(room.roomId);
     });
   }
 
@@ -238,6 +247,7 @@ export class MatchService {
 
     const room = await this.botBattleService.createBotMatch(profile, socketId);
     const bot = room.players.playerB;
+    this.scheduleRoundTimeout(room);
 
     const matchFound: MatchFoundPayload = {
       roomId: room.roomId,
@@ -279,8 +289,22 @@ export class MatchService {
   handleOpenCard(
     userId: string,
     socketId: string,
-    payload: OpenCardPayload,
+    payload?: OpenCardPayload,
   ): MatchServiceResult {
+    if (
+      !payload ||
+      typeof payload.roomId !== 'string' ||
+      typeof payload.cardId !== 'string'
+    ) {
+      return this.reject(
+        socketId,
+        'open_card',
+        undefined,
+        'invalid_payload',
+        'roomId and cardId are required.',
+        false,
+      );
+    }
     const room = this.rooms.getRoom(payload.roomId);
     if (!room)
       return this.reject(
@@ -341,8 +365,23 @@ export class MatchService {
   async handlePlayCard(
     userId: string,
     socketId: string,
-    payload: PlayCardPayload,
+    payload?: PlayCardPayload,
   ): Promise<MatchServiceResult> {
+    if (
+      !payload ||
+      typeof payload.roomId !== 'string' ||
+      typeof payload.cardId !== 'string' ||
+      !Number.isInteger(payload.selectedOptionIndex)
+    ) {
+      return this.reject(
+        socketId,
+        'play_card',
+        undefined,
+        'invalid_payload',
+        'roomId, cardId, and an integer selectedOptionIndex are required.',
+        false,
+      );
+    }
     const room = this.rooms.getRoom(payload.roomId);
     if (!room)
       return this.reject(
@@ -355,6 +394,20 @@ export class MatchService {
 
     // Clear card timeout timer before executing answer
     this.cardTimeoutService.clearTimeout(payload.roomId, userId);
+
+    const playerBefore = this.engine.getPlayer(room, userId);
+    const opponentBefore = this.engine.getOpponent(room, userId);
+    const cardBefore = playerBefore?.hand.find(
+      (card) => card.id === payload.cardId,
+    );
+    const snapshotBefore = {
+      hp: playerBefore?.hp,
+      opponentHp: opponentBefore?.hp,
+      points: playerBefore?.points,
+      responseTimeMs: playerBefore?.openedCardAt
+        ? Math.max(0, Date.now() - playerBefore.openedCardAt.getTime())
+        : undefined,
+    };
 
     const result = this.engine.playCard(
       room,
@@ -376,11 +429,19 @@ export class MatchService {
     // Log the play_card action
     this.logBuffer.record(payload.roomId, userId, 'play_card', {
       cardId: payload.cardId,
-      questionId: this.findSourceQuestionId(room, userId, payload.cardId),
+      questionId: cardBefore?.sourceQuestionId,
       selectedOptionIndex: payload.selectedOptionIndex,
+      playerAnswer: cardBefore?.options[payload.selectedOptionIndex],
       correct: result.playResult.correct,
       effect: result.playResult.effect,
       effectValue: result.playResult.effectValue,
+      hpBefore: snapshotBefore.hp,
+      hpAfter: playerBefore?.hp,
+      opponentHpBefore: snapshotBefore.opponentHp,
+      opponentHpAfter: opponentBefore?.hp,
+      pointsBefore: snapshotBefore.points,
+      pointsAfter: playerBefore?.points,
+      responseTimeMs: snapshotBefore.responseTimeMs,
     });
 
     const emits: MatchEmit[] = [
@@ -417,11 +478,32 @@ export class MatchService {
     const room = this.rooms.getRoom(roomId);
     if (!room || room.status !== 'active') return;
 
+    const playerBefore = this.engine.getPlayer(room, userId);
+    const opponentBefore = this.engine.getOpponent(room, userId);
+    const cardBefore = playerBefore?.hand.find((card) => card.id === cardId);
+    const snapshotBefore = {
+      hp: playerBefore?.hp,
+      opponentHp: opponentBefore?.hp,
+      points: playerBefore?.points,
+      responseTimeMs: playerBefore?.openedCardAt
+        ? Math.max(0, Date.now() - playerBefore.openedCardAt.getTime())
+        : undefined,
+    };
     const result = this.engine.timeoutCard(room, userId, cardId);
     if (!result.ok) return;
 
     // Log the timeout action
-    this.logBuffer.record(roomId, userId, 'timeout', { cardId });
+    this.logBuffer.record(roomId, userId, 'timeout', {
+      cardId,
+      questionId: cardBefore?.sourceQuestionId,
+      hpBefore: snapshotBefore.hp,
+      hpAfter: playerBefore?.hp,
+      opponentHpBefore: snapshotBefore.opponentHp,
+      opponentHpAfter: opponentBefore?.hp,
+      pointsBefore: snapshotBefore.points,
+      pointsAfter: playerBefore?.points,
+      responseTimeMs: snapshotBefore.responseTimeMs,
+    });
 
     const emits: MatchEmit[] = [...this.stateEmits(room)];
 
@@ -456,8 +538,19 @@ export class MatchService {
   async handleSurrender(
     userId: string,
     socketId: string,
-    payload: SurrenderPayload,
+    payload?: SurrenderPayload,
   ): Promise<MatchServiceResult> {
+    if (!payload || typeof payload.roomId !== 'string') {
+      return {
+        emits: [
+          {
+            socketId,
+            event: SERVER_MATCH_EVENTS.error,
+            payload: { message: 'roomId is required.' },
+          },
+        ],
+      };
+    }
     const room = this.rooms.getRoom(payload.roomId);
     if (!room) {
       return {
@@ -559,6 +652,7 @@ export class MatchService {
     const emits = [...this.stateEmits(room)];
     if (matchResult) {
       this.clearRoundTimers(roomId);
+      this.clearDisconnectTimersForRoom(roomId);
       await this.persistAndEnrich(room);
       emits.push(...this.matchResultEmits(room));
       this.rooms.scheduleCleanup(roomId);
@@ -727,6 +821,7 @@ export class MatchService {
     this.engine.finishDisconnected(room, userId);
     this.botBattleService.cancelBotSchedule(room.roomId);
     this.cardTimeoutService.cancelAllTimersForRoom(room.roomId);
+    this.clearRoundTimers(room.roomId);
     this.clearDisconnectTimersForRoom(room.roomId);
     await this.persistAndEnrich(room);
 
@@ -763,20 +858,6 @@ export class MatchService {
 
   private isMatchmakingMode(value: unknown): value is MatchmakingMode {
     return value === 'ranked' || value === 'casual' || value === 'bot';
-  }
-
-  private findSourceQuestionId(
-    room: InternalRoomState,
-    userId: string,
-    cardId: string,
-  ): string | undefined {
-    const player = this.engine.getPlayer(room, userId);
-    const inHand = player?.hand.find((card) => card.id === cardId);
-    if (inHand) return inHand.sourceQuestionId;
-    const sourceIndex = Number(cardId.replace(/\D/g, '')) - 1;
-    if (!Number.isInteger(sourceIndex) || sourceIndex < 0) return undefined;
-    return room.sharedQueue[sourceIndex % room.sharedQueue.length]
-      ?.sourceQuestionId;
   }
 
   private reject(

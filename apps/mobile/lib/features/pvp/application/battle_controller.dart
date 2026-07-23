@@ -26,6 +26,7 @@ class BattleController extends StateNotifier<BattleState> {
     _onlineUpdatesSubscription = _onlineRepository.updates.listen(
       _handleOnlineUpdate,
     );
+    unawaited(_onlineRepository.reconnectIfActive().catchError((_) {}));
   }
 
   final BattleRepository _botRepository;
@@ -42,6 +43,7 @@ class BattleController extends StateNotifier<BattleState> {
   Timer? _roundTimer;
   bool _roundClockPaused = false;
   bool _acceptOnlineUpdates = false;
+  bool _matchmakingCancelled = false;
   String? _preparedQuestionId;
 
   void setMode(BattleMode mode) {
@@ -63,6 +65,7 @@ class BattleController extends StateNotifier<BattleState> {
       playerPoints: 0,
       opponentPoints: 0,
       ratingDelta: 0,
+      coinsDelta: 0,
       availableQuestions: const <BattleQuestion>[],
       answeredQuestionIds: const <String>[],
       rewardClaimed: false,
@@ -73,10 +76,28 @@ class BattleController extends StateNotifier<BattleState> {
       playerRoundWins: 0,
       opponentRoundWins: 0,
       roundSecondsRemaining: _roundDurationSeconds,
+      progressionPersisted: false,
+      opponentConnected: true,
       statusMessage: 'Mode ${_modeLabel(mode)} dipilih. Tekan mulai battle.',
       clearErrorMessage: true,
       clearBattleEvent: true,
       clearLastRoundOutcome: true,
+      clearBattleTarget: true,
+      clearPlayerLoadout: true,
+      clearOpponentLoadout: true,
+      clearReconnectDeadline: true,
+    );
+  }
+
+  void setOnlineMatchmakingMode(OnlineMatchmakingMode mode) {
+    if (state.isMatchActive || state.isLoading) {
+      return;
+    }
+    state = state.copyWith(
+      onlineMatchmakingMode: mode,
+      statusMessage:
+          'Mode online ${mode == OnlineMatchmakingMode.ranked ? 'Ranked' : 'Casual'} dipilih.',
+      clearErrorMessage: true,
     );
   }
 
@@ -95,6 +116,7 @@ class BattleController extends StateNotifier<BattleState> {
       playerPoints: 0,
       opponentPoints: 0,
       ratingDelta: 0,
+      coinsDelta: 0,
       availableQuestions: const <BattleQuestion>[],
       answeredQuestionIds: const <String>[],
       rewardClaimed: false,
@@ -105,10 +127,16 @@ class BattleController extends StateNotifier<BattleState> {
       playerRoundWins: 0,
       opponentRoundWins: 0,
       roundSecondsRemaining: _roundDurationSeconds,
+      progressionPersisted: false,
+      opponentConnected: true,
       statusMessage: 'Pilih mode arena.',
       clearErrorMessage: true,
       clearBattleEvent: true,
       clearLastRoundOutcome: true,
+      clearBattleTarget: true,
+      clearPlayerLoadout: true,
+      clearOpponentLoadout: true,
+      clearReconnectDeadline: true,
     );
   }
 
@@ -130,6 +158,7 @@ class BattleController extends StateNotifier<BattleState> {
 
     _preparedQuestionId = null;
     _resetBattleTimers();
+    _matchmakingCancelled = false;
     _acceptOnlineUpdates = state.mode == BattleMode.online;
     state = state.copyWith(
       isLoading: true,
@@ -138,9 +167,11 @@ class BattleController extends StateNotifier<BattleState> {
     );
 
     try {
-      final session = await _activeRepositoryForMode(
-        state.mode,
-      ).createSession();
+      final session = state.mode == BattleMode.online
+          ? await _onlineRepository.createSession(
+              matchmakingMode: state.onlineMatchmakingMode,
+            )
+          : await _botRepository.createSession();
 
       state = state.copyWith(
         phase: BattlePhase.inBattle,
@@ -153,6 +184,7 @@ class BattleController extends StateNotifier<BattleState> {
         playerPoints: 0,
         opponentPoints: 0,
         ratingDelta: 0,
+        coinsDelta: 0,
         rewardClaimed: false,
         comboLevel: 1,
         comboSecondsRemaining: 0,
@@ -162,6 +194,8 @@ class BattleController extends StateNotifier<BattleState> {
         opponentRoundWins: 0,
         roundSecondsRemaining: _roundDurationSeconds,
         isLoading: false,
+        progressionPersisted: false,
+        opponentConnected: true,
         statusMessage: state.mode == BattleMode.online
             ? 'Lawan ditemukan. Arena dimulai.'
             : 'Battle dimulai.',
@@ -169,13 +203,33 @@ class BattleController extends StateNotifier<BattleState> {
         clearBattleEvent: true,
         clearLastRoundOutcome: true,
       );
-    } catch (_) {
+    } catch (error) {
       _acceptOnlineUpdates = false;
+      if (_matchmakingCancelled) {
+        _matchmakingCancelled = false;
+        return;
+      }
       state = state.copyWith(
         isLoading: false,
-        errorMessage: 'Gagal memulai battle. Coba lagi.',
+        phase: BattlePhase.arenaMenu,
+        errorMessage: _battleStartError(error),
       );
     }
+  }
+
+  Future<void> cancelMatchmaking() async {
+    if (state.mode != BattleMode.online || !state.isLoading) {
+      return;
+    }
+    _matchmakingCancelled = true;
+    _acceptOnlineUpdates = false;
+    await _onlineRepository.cancelQueue();
+    state = state.copyWith(
+      phase: BattlePhase.arenaMenu,
+      isLoading: false,
+      statusMessage: 'Pencarian lawan dibatalkan.',
+      clearErrorMessage: true,
+    );
   }
 
   Future<bool> answerQuestion({
@@ -324,7 +378,7 @@ class BattleController extends StateNotifier<BattleState> {
       phase: BattlePhase.finished,
       outcome: BattleOutcome.lose,
       playerHp: 0,
-      ratingDelta: -12,
+      ratingDelta: 0,
       statusMessage: 'Kamu menyerah.',
       clearErrorMessage: true,
       clearBattleEvent: true,
@@ -337,6 +391,7 @@ class BattleController extends StateNotifier<BattleState> {
     _resetBattleTimers();
     state = BattleState.initial().copyWith(
       mode: state.mode,
+      onlineMatchmakingMode: state.onlineMatchmakingMode,
       phase: BattlePhase.arenaMenu,
       opponentName: state.mode == BattleMode.bot ? 'BOT YUDHA' : 'Player Match',
       clearBattleEvent: true,
@@ -377,10 +432,6 @@ class BattleController extends StateNotifier<BattleState> {
     }
 
     state = state.copyWith(rewardClaimed: true);
-  }
-
-  BattleRepository _activeRepositoryForMode(BattleMode mode) {
-    return mode == BattleMode.bot ? _botRepository : _onlineRepository;
   }
 
   @override
@@ -485,7 +536,7 @@ class BattleController extends StateNotifier<BattleState> {
       opponentRoundWins: opponentRoundWins,
       comboLevel: 1,
       comboSecondsRemaining: 0,
-      ratingDelta: _ratingDeltaForOutcome(matchOutcome),
+      ratingDelta: 0,
       lastRoundOutcome: roundOutcome,
       statusMessage: '$roundMessage ${_matchResultMessage(matchOutcome)}',
       clearErrorMessage: true,
@@ -513,12 +564,23 @@ class BattleController extends StateNotifier<BattleState> {
 
   void _handleOnlineUpdate(OnlineBattleUpdate update) {
     if (!_acceptOnlineUpdates) {
-      return;
+      if (update is! GameStateUpdated) {
+        return;
+      }
+      _acceptOnlineUpdates = true;
+      state = state.copyWith(
+        mode: BattleMode.online,
+        isLoading: true,
+        statusMessage: 'Memulihkan battle online...',
+        clearErrorMessage: true,
+      );
     }
     switch (update) {
       case QueueJoinedUpdate():
         state = state.copyWith(
           isLoading: true,
+          onlineMatchmakingMode: update.matchmakingMode,
+          battleTarget: update.target,
           statusMessage:
               'Mencari lawan... posisi ${update.position} dari ${update.queueDepth}.',
           clearErrorMessage: true,
@@ -533,7 +595,11 @@ class BattleController extends StateNotifier<BattleState> {
         break;
       case MatchFoundUpdate():
         state = state.copyWith(
-          opponentName: _displayNameForOpponent(update.opponentUserId),
+          opponentName: update.opponentDisplayName,
+          opponentCharacterId: update.opponentCharacterId,
+          opponentTowerId: update.opponentTowerId,
+          onlineMatchmakingMode: update.matchmakingMode,
+          battleTarget: update.target,
           statusMessage: 'Lawan ditemukan. Menyiapkan arena...',
           clearErrorMessage: true,
         );
@@ -547,9 +613,15 @@ class BattleController extends StateNotifier<BattleState> {
         if (onlinePhase == BattlePhase.roundBreak) {
           _resetBattleTimers();
         }
+        if (_preparedQuestionId != null &&
+            !update.availableQuestions.any(
+              (question) => question.id == _preparedQuestionId,
+            )) {
+          _preparedQuestionId = null;
+        }
         state = state.copyWith(
           phase: onlinePhase,
-          opponentName: state.opponentName,
+          opponentName: update.opponentDisplayName,
           playerHp: update.playerHp,
           opponentHp: update.opponentHp,
           playerPoints: update.playerPoints,
@@ -562,6 +634,13 @@ class BattleController extends StateNotifier<BattleState> {
           lastRoundOutcome: update.lastRoundOutcome,
           availableQuestions: update.availableQuestions,
           answeredQuestionIds: update.answeredQuestionIds,
+          playerCharacterId: update.playerCharacterId,
+          playerTowerId: update.playerTowerId,
+          opponentCharacterId: update.opponentCharacterId,
+          opponentTowerId: update.opponentTowerId,
+          onlineMatchmakingMode: update.matchmakingMode,
+          battleTarget: update.target,
+          opponentConnected: update.opponentConnected,
           isLoading: false,
           rewardClaimed: false,
           statusMessage: update.phase == 'round_break'
@@ -569,15 +648,18 @@ class BattleController extends StateNotifier<BattleState> {
               : _statusForOnlinePhase(update.phase),
           clearErrorMessage: true,
           clearLastRoundOutcome: update.lastRoundOutcome == null,
+          clearReconnectDeadline: update.opponentConnected,
         );
         break;
       case CardPlayedUpdate():
         final BattleQuestion? question = _findQuestionById(update.cardId);
         final QuestionEffect? effect = update.effect;
         final bool isCorrect = update.correct;
-        final BattleState eventState = state.copyWith(
+        state = state.copyWith(
           battleEventId: state.battleEventId + 1,
-          lastActor: isCorrect ? BattleActor.player : BattleActor.opponent,
+          lastActor: update.isSelfAction
+              ? BattleActor.player
+              : BattleActor.opponent,
           lastVisualEffect: effect == null
               ? null
               : effect == QuestionEffect.heal
@@ -587,24 +669,28 @@ class BattleController extends StateNotifier<BattleState> {
                 ),
           lastEventCategory: question?.category ?? 'numerik',
           statusMessage: _statusForPlayResult(
+            isSelfAction: update.isSelfAction,
             isCorrect: isCorrect,
             effect: effect,
             effectValue: update.effectValue,
           ),
           clearErrorMessage: true,
           clearBattleEvent: effect == null,
+          lastProjectileLevel: update.projectileLevel,
         );
-        state = isCorrect
-            ? _raiseCombo(eventState, projectileLevel: update.projectileLevel)
-            : _lowerCombo(eventState, projectileLevel: 1);
         break;
       case MatchResultUpdate():
+        _acceptOnlineUpdates = false;
         _preparedQuestionId = null;
         _resetBattleTimers();
         state = state.copyWith(
           phase: BattlePhase.finished,
           outcome: update.outcome,
-          ratingDelta: _ratingDeltaForOutcome(update.outcome),
+          ratingDelta: update.ratingDelta,
+          coinsDelta: update.coinsDelta,
+          progressionPersisted: update.progressionPersisted,
+          onlineMatchmakingMode: update.matchmakingMode,
+          battleTarget: update.target,
           isLoading: false,
           statusMessage: _resultMessage(update.outcome, update.reason),
           clearErrorMessage: true,
@@ -613,7 +699,16 @@ class BattleController extends StateNotifier<BattleState> {
       case PresenceUpdated():
         if (!update.opponentConnected) {
           state = state.copyWith(
-            statusMessage: 'Lawan terputus. Menunggu hasil akhir arena...',
+            opponentConnected: false,
+            opponentReconnectDeadline: update.opponentReconnectDeadline,
+            statusMessage:
+                'Lawan terputus. Menunggu reconnect hingga 30 detik...',
+          );
+        } else {
+          state = state.copyWith(
+            opponentConnected: true,
+            statusMessage: 'Lawan kembali terhubung.',
+            clearReconnectDeadline: true,
           );
         }
         break;
@@ -676,28 +771,27 @@ class BattleController extends StateNotifier<BattleState> {
   }
 
   String _statusForPlayResult({
+    required bool isSelfAction,
     required bool isCorrect,
     required QuestionEffect? effect,
     required int effectValue,
   }) {
     if (!isCorrect) {
-      return 'Jawaban belum tepat. Arena berpindah ke lawan.';
+      return isSelfAction
+          ? 'Jawaban belum tepat.'
+          : '${state.opponentName} belum menjawab dengan tepat.';
     }
     if (effect == QuestionEffect.heal) {
-      return 'Jawaban benar. HP pulih $effectValue poin.';
+      return isSelfAction
+          ? 'Jawaban benar. HP pulih $effectValue poin.'
+          : '${state.opponentName} memulihkan $effectValue HP.';
     }
     if (effect == QuestionEffect.damage) {
-      return 'Jawaban benar. Serangan masuk $effectValue damage.';
+      return isSelfAction
+          ? 'Jawaban benar. Serangan masuk $effectValue damage.'
+          : '${state.opponentName} menyerang $effectValue damage.';
     }
     return 'Jawaban diproses arena.';
-  }
-
-  int _ratingDeltaForOutcome(BattleOutcome outcome) {
-    return switch (outcome) {
-      BattleOutcome.win => 20,
-      BattleOutcome.lose => -12,
-      BattleOutcome.draw || BattleOutcome.inProgress => 0,
-    };
   }
 
   String _resultMessage(BattleOutcome outcome, String reason) {
@@ -713,15 +807,14 @@ class BattleController extends StateNotifier<BattleState> {
     return outcomeLabel;
   }
 
-  String _displayNameForOpponent(String opponentUserId) {
-    if (opponentUserId.trim().isEmpty) {
-      return 'Player Match';
+  String _battleStartError(Object error) {
+    if (error is TimeoutException) {
+      return error.message ?? 'Matchmaking online sedang sibuk.';
     }
-    final String compact = opponentUserId.replaceAll('-', '');
-    final String suffix = compact.length > 6
-        ? compact.substring(compact.length - 6).toUpperCase()
-        : compact.toUpperCase();
-    return 'Player $suffix';
+    if (error is StateError && error.message.toString().trim().isNotEmpty) {
+      return error.message.toString();
+    }
+    return 'Gagal memulai battle. Coba lagi.';
   }
 
   BattleState _raiseCombo(

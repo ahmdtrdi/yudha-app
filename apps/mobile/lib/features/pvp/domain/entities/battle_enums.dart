@@ -1,5 +1,9 @@
 enum BattleMode { bot, online }
 
+enum OnlineMatchmakingMode { casual, ranked }
+
+enum BattleTarget { cpns, bumn }
+
 enum BattlePhase { preBattle, arenaMenu, inBattle, roundBreak, finished }
 
 enum BattleOutcome { inProgress, win, lose, draw }

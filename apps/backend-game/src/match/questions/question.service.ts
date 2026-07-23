@@ -134,6 +134,7 @@ export class QuestionService {
       correctOptionIndex: row.correct_option_index,
       weight: row.weight,
       effect: row.effect,
+      category: row.category,
       explanation: row.explanation,
       damageValue: row.damage_value,
       healValue: row.heal_value,

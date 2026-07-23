@@ -12,6 +12,8 @@ class BattleState {
     required this.playerPoints,
     required this.opponentPoints,
     required this.ratingDelta,
+    required this.coinsDelta,
+    required this.onlineMatchmakingMode,
     required this.availableQuestions,
     required this.answeredQuestionIds,
     required this.isLoading,
@@ -24,6 +26,14 @@ class BattleState {
     required this.playerRoundWins,
     required this.opponentRoundWins,
     required this.roundSecondsRemaining,
+    required this.progressionPersisted,
+    required this.opponentConnected,
+    this.battleTarget,
+    this.playerCharacterId,
+    this.playerTowerId,
+    this.opponentCharacterId,
+    this.opponentTowerId,
+    this.opponentReconnectDeadline,
     this.statusMessage,
     this.errorMessage,
     this.lastActor,
@@ -43,6 +53,8 @@ class BattleState {
       playerPoints: 0,
       opponentPoints: 0,
       ratingDelta: 0,
+      coinsDelta: 0,
+      onlineMatchmakingMode: OnlineMatchmakingMode.casual,
       availableQuestions: <BattleQuestion>[],
       answeredQuestionIds: <String>[],
       isLoading: false,
@@ -55,6 +67,8 @@ class BattleState {
       playerRoundWins: 0,
       opponentRoundWins: 0,
       roundSecondsRemaining: 180,
+      progressionPersisted: false,
+      opponentConnected: true,
     );
   }
 
@@ -67,6 +81,8 @@ class BattleState {
   final int playerPoints;
   final int opponentPoints;
   final int ratingDelta;
+  final int coinsDelta;
+  final OnlineMatchmakingMode onlineMatchmakingMode;
   final List<BattleQuestion> availableQuestions;
   final List<String> answeredQuestionIds;
   final bool isLoading;
@@ -79,6 +95,14 @@ class BattleState {
   final int playerRoundWins;
   final int opponentRoundWins;
   final int roundSecondsRemaining;
+  final bool progressionPersisted;
+  final bool opponentConnected;
+  final BattleTarget? battleTarget;
+  final String? playerCharacterId;
+  final String? playerTowerId;
+  final String? opponentCharacterId;
+  final String? opponentTowerId;
+  final DateTime? opponentReconnectDeadline;
   final String? statusMessage;
   final String? errorMessage;
   final BattleActor? lastActor;
@@ -101,6 +125,8 @@ class BattleState {
     int? playerPoints,
     int? opponentPoints,
     int? ratingDelta,
+    int? coinsDelta,
+    OnlineMatchmakingMode? onlineMatchmakingMode,
     List<BattleQuestion>? availableQuestions,
     List<String>? answeredQuestionIds,
     bool? isLoading,
@@ -113,6 +139,14 @@ class BattleState {
     int? playerRoundWins,
     int? opponentRoundWins,
     int? roundSecondsRemaining,
+    bool? progressionPersisted,
+    bool? opponentConnected,
+    BattleTarget? battleTarget,
+    String? playerCharacterId,
+    String? playerTowerId,
+    String? opponentCharacterId,
+    String? opponentTowerId,
+    DateTime? opponentReconnectDeadline,
     String? statusMessage,
     String? errorMessage,
     BattleActor? lastActor,
@@ -123,6 +157,10 @@ class BattleState {
     bool clearErrorMessage = false,
     bool clearBattleEvent = false,
     bool clearLastRoundOutcome = false,
+    bool clearBattleTarget = false,
+    bool clearPlayerLoadout = false,
+    bool clearOpponentLoadout = false,
+    bool clearReconnectDeadline = false,
   }) {
     return BattleState(
       mode: mode ?? this.mode,
@@ -134,6 +172,9 @@ class BattleState {
       playerPoints: playerPoints ?? this.playerPoints,
       opponentPoints: opponentPoints ?? this.opponentPoints,
       ratingDelta: ratingDelta ?? this.ratingDelta,
+      coinsDelta: coinsDelta ?? this.coinsDelta,
+      onlineMatchmakingMode:
+          onlineMatchmakingMode ?? this.onlineMatchmakingMode,
       availableQuestions: availableQuestions ?? this.availableQuestions,
       answeredQuestionIds: answeredQuestionIds ?? this.answeredQuestionIds,
       isLoading: isLoading ?? this.isLoading,
@@ -148,6 +189,26 @@ class BattleState {
       opponentRoundWins: opponentRoundWins ?? this.opponentRoundWins,
       roundSecondsRemaining:
           roundSecondsRemaining ?? this.roundSecondsRemaining,
+      progressionPersisted: progressionPersisted ?? this.progressionPersisted,
+      opponentConnected: opponentConnected ?? this.opponentConnected,
+      battleTarget: clearBattleTarget
+          ? null
+          : battleTarget ?? this.battleTarget,
+      playerCharacterId: clearPlayerLoadout
+          ? null
+          : playerCharacterId ?? this.playerCharacterId,
+      playerTowerId: clearPlayerLoadout
+          ? null
+          : playerTowerId ?? this.playerTowerId,
+      opponentCharacterId: clearOpponentLoadout
+          ? null
+          : opponentCharacterId ?? this.opponentCharacterId,
+      opponentTowerId: clearOpponentLoadout
+          ? null
+          : opponentTowerId ?? this.opponentTowerId,
+      opponentReconnectDeadline: clearReconnectDeadline
+          ? null
+          : opponentReconnectDeadline ?? this.opponentReconnectDeadline,
       statusMessage: clearStatusMessage
           ? null
           : statusMessage ?? this.statusMessage,

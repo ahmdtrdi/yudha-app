@@ -6,4 +6,6 @@ export type PublicQuestionCard = {
   options: string[];
   weight: number;
   effect: CardEffect;
+  category?: string;
+  timeLimitSeconds?: number;
 };

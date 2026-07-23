@@ -33,6 +33,7 @@ export type InternalPlayerState = {
   comboExpiresAt?: Date;
   hand: InternalCard[];
   openedCardId?: string;
+  openedCardAt?: Date;
   answeredCardIds: Set<string>;
   nextDrawIndex: number;
   connected: boolean;
@@ -106,5 +107,7 @@ export function toPublicCard(card: InternalCard): PublicQuestionCard {
     options: [...card.options],
     weight: card.weight,
     effect: card.effect,
+    category: card.category,
+    timeLimitSeconds: card.timeLimitSeconds,
   };
 }

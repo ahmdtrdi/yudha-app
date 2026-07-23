@@ -66,6 +66,7 @@ const mockBotBattleService = {
     .mockImplementation((room) => room?.players?.playerB?.userId === 'bot'),
   setEmitCallback: jest.fn(),
   setRoundBreakCallback: jest.fn(),
+  setMatchFinishedCallback: jest.fn(),
   resumeBotSchedule: jest.fn(),
 };
 
@@ -220,19 +221,6 @@ describe('MatchService', () => {
       );
       expect(result.emits.some((emit) => emit.event === SERVER_MATCH_EVENTS.matchFound)).toBe(true);
       expect(result.emits.some((emit) => emit.event === SERVER_MATCH_EVENTS.gameStateUpdate)).toBe(true);
-        'player-a',
-        'socket-a',
-      );
-      expect(
-        result.emits.some(
-          (emit) => emit.event === SERVER_MATCH_EVENTS.matchFound,
-        ),
-      ).toBe(true);
-      expect(
-        result.emits.some(
-          (emit) => emit.event === SERVER_MATCH_EVENTS.gameStateUpdate,
-        ),
-      ).toBe(true);
     });
 
     it('rejects bot mode join if player is already in an active room', async () => {
@@ -516,7 +504,9 @@ describe('MatchService', () => {
       try {
         const { roomId, room } = await createCasualMatch();
         service.handleDisconnect('socket-a');
-        room.players.playerA.hp = 10;
+        room.currentRound = 2;
+        room.playerBRoundWins = 1;
+        room.players.playerA.hp = 5;
 
         service.handleOpenCard('player-b', 'socket-b', {
           roomId,

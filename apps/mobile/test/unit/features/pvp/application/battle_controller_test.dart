@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yudha_mobile/features/pvp/application/battle_controller.dart';
 import 'package:yudha_mobile/features/pvp/data/repositories/battle_repository.dart';
@@ -22,7 +24,9 @@ class _FakeOnlineRepository extends OnlineBattleRepository {
       const Stream<OnlineBattleUpdate>.empty();
 
   @override
-  Future<BattleSessionSeed> createSession() async => const BattleSessionSeed(
+  Future<BattleSessionSeed> createSession({
+    OnlineMatchmakingMode matchmakingMode = OnlineMatchmakingMode.casual,
+  }) async => const BattleSessionSeed(
     opponentName: 'ONLINE TEST',
     questions: <BattleQuestion>[],
   );
@@ -32,6 +36,57 @@ class _FakeOnlineRepository extends OnlineBattleRepository {
 
   @override
   void dispose() {}
+
+  @override
+  Future<void> openCard({required String cardId}) async {}
+
+  @override
+  Future<void> submitAnswer({
+    required String cardId,
+    required int selectedOptionIndex,
+  }) async {}
+
+  @override
+  Future<void> surrender() async {}
+}
+
+class _ControllableOnlineRepository extends OnlineBattleRepository {
+  final StreamController<OnlineBattleUpdate> _updates =
+      StreamController<OnlineBattleUpdate>.broadcast(sync: true);
+
+  OnlineMatchmakingMode? requestedMode;
+
+  @override
+  Stream<OnlineBattleUpdate> get updates => _updates.stream;
+
+  void emit(OnlineBattleUpdate update) => _updates.add(update);
+
+  @override
+  Future<BattleSessionSeed> createSession({
+    OnlineMatchmakingMode matchmakingMode = OnlineMatchmakingMode.casual,
+  }) async {
+    requestedMode = matchmakingMode;
+    return const BattleSessionSeed(
+      opponentName: 'SERVER OPPONENT',
+      questions: <BattleQuestion>[
+        BattleQuestion(
+          id: 'q-online',
+          prompt: 'Online question',
+          options: <String>['A', 'B'],
+          weight: 1,
+          effect: QuestionEffect.damage,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<void> cancelQueue() async {}
+
+  @override
+  void dispose() {
+    _updates.close();
+  }
 
   @override
   Future<void> openCard({required String cardId}) async {}
@@ -358,6 +413,135 @@ void main() {
       expect(controller.state.outcome, BattleOutcome.draw);
       expect(controller.state.playerRoundWins, 0);
       expect(controller.state.opponentRoundWins, 0);
+    });
+  });
+
+  group('BattleController authoritative online state', () {
+    test('restores an active server room after controller recreation', () {
+      final _ControllableOnlineRepository online =
+          _ControllableOnlineRepository();
+      final BattleController controller = BattleController(
+        botRepository: const _FakeBotRepository(
+          BattleSessionSeed(
+            opponentName: 'BOT TEST',
+            questions: <BattleQuestion>[selectedQuestion],
+          ),
+        ),
+        onlineRepository: online,
+      );
+      addTearDown(controller.dispose);
+
+      online.emit(
+        const GameStateUpdated(
+          roomId: 'room-restored',
+          phase: 'active',
+          playerHp: 80,
+          opponentHp: 65,
+          playerPoints: 20,
+          opponentPoints: 10,
+          playerComboLevel: 2,
+          currentRound: 2,
+          roundSecondsRemaining: 90,
+          playerRoundWins: 1,
+          opponentRoundWins: 0,
+          lastRoundOutcome: BattleOutcome.win,
+          availableQuestions: <BattleQuestion>[selectedQuestion],
+          answeredQuestionIds: <String>[],
+          playerDisplayName: 'Yudha',
+          opponentDisplayName: 'Bima',
+          matchmakingMode: OnlineMatchmakingMode.ranked,
+          target: BattleTarget.cpns,
+        ),
+      );
+
+      expect(controller.state.mode, BattleMode.online);
+      expect(controller.state.phase, BattlePhase.inBattle);
+      expect(controller.state.opponentName, 'Bima');
+      expect(controller.state.playerHp, 80);
+    });
+
+    test('uses ranked queue choice and server-owned result metadata', () async {
+      final _ControllableOnlineRepository online =
+          _ControllableOnlineRepository();
+      final BattleController controller = BattleController(
+        botRepository: const _FakeBotRepository(
+          BattleSessionSeed(
+            opponentName: 'BOT TEST',
+            questions: <BattleQuestion>[selectedQuestion],
+          ),
+        ),
+        onlineRepository: online,
+      );
+      addTearDown(controller.dispose);
+
+      controller.enterArena();
+      controller.setMode(BattleMode.online);
+      controller.setOnlineMatchmakingMode(OnlineMatchmakingMode.ranked);
+      await controller.startBattle();
+
+      expect(online.requestedMode, OnlineMatchmakingMode.ranked);
+
+      online.emit(
+        const GameStateUpdated(
+          roomId: 'room-1',
+          phase: 'active',
+          playerHp: 90,
+          opponentHp: 75,
+          playerPoints: 15,
+          opponentPoints: 5,
+          playerComboLevel: 2,
+          currentRound: 2,
+          roundSecondsRemaining: 121,
+          playerRoundWins: 1,
+          opponentRoundWins: 0,
+          lastRoundOutcome: BattleOutcome.win,
+          availableQuestions: <BattleQuestion>[selectedQuestion],
+          answeredQuestionIds: <String>['card-old'],
+          playerDisplayName: 'Yudha',
+          opponentDisplayName: 'Bima',
+          playerCharacterId: 'character-basic-squire',
+          playerTowerId: 'tower-garda-biru',
+          opponentCharacterId: 'character-basic-pip',
+          opponentTowerId: 'tower-benteng-bara',
+          matchmakingMode: OnlineMatchmakingMode.ranked,
+          target: BattleTarget.bumn,
+        ),
+      );
+
+      expect(controller.state.opponentName, 'Bima');
+      expect(controller.state.battleTarget, BattleTarget.bumn);
+      expect(controller.state.opponentCharacterId, 'character-basic-pip');
+      expect(controller.state.opponentTowerId, 'tower-benteng-bara');
+      expect(controller.state.playerHp, 90);
+
+      online.emit(
+        const CardPlayedUpdate(
+          cardId: 'server-card',
+          correct: true,
+          effect: QuestionEffect.damage,
+          effectValue: 10,
+          projectileLevel: 2,
+          isSelfAction: false,
+        ),
+      );
+      expect(controller.state.lastActor, BattleActor.opponent);
+
+      online.emit(
+        const MatchResultUpdate(
+          outcome: BattleOutcome.lose,
+          reason: 'hp_zero',
+          ratingDelta: -12,
+          coinsDelta: 3,
+          progressionPersisted: true,
+          matchmakingMode: OnlineMatchmakingMode.ranked,
+          target: BattleTarget.bumn,
+        ),
+      );
+
+      expect(controller.state.phase, BattlePhase.finished);
+      expect(controller.state.ratingDelta, -12);
+      expect(controller.state.coinsDelta, 3);
+      expect(controller.state.progressionPersisted, isTrue);
     });
   });
 }

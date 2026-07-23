@@ -108,6 +108,11 @@ class _ResultSection extends StatelessWidget {
                     SizedBox(height: compact ? 10 : 12),
                     _RewardCard(
                       ratingText: ratingText,
+                      coinsDelta: state.coinsDelta,
+                      isRanked:
+                          state.mode == BattleMode.online &&
+                          state.onlineMatchmakingMode ==
+                              OnlineMatchmakingMode.ranked,
                       claimed: state.rewardClaimed,
                       accent: accent,
                       compact: compact,
@@ -562,12 +567,16 @@ class _MiniMetric extends StatelessWidget {
 class _RewardCard extends StatelessWidget {
   const _RewardCard({
     required this.ratingText,
+    required this.coinsDelta,
+    required this.isRanked,
     required this.claimed,
     required this.accent,
     required this.compact,
   });
 
   final String ratingText;
+  final int coinsDelta;
+  final bool isRanked;
   final bool claimed;
   final Color accent;
   final bool compact;
@@ -606,7 +615,7 @@ class _RewardCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'Perubahan rating',
+                  isRanked ? 'Rating & Y-Coin' : 'Mode tanpa progression',
                   style: GoogleFonts.dmSans(
                     color: _ResultSection._mutedInk,
                     fontSize: 11,
@@ -615,7 +624,9 @@ class _RewardCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  ratingText,
+                  isRanked
+                      ? '$ratingText rating  •  +$coinsDelta Y-Coin'
+                      : 'Rating tetap',
                   style: GoogleFonts.fredoka(
                     color: _ResultSection._ink,
                     fontSize: 20,
