@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { PublicBattleState } from '../../../../../contracts/battle-state';
-import type { MatchResultPayload } from '../../../../../contracts/match.payloads';
+import type { PublicBattleState } from '../../contracts/battle-state';
+import type { MatchResultPayload } from '../../contracts/match.payloads';
 import { QuestionDealer } from './question-dealer';
 import type {
   BattleActionResult,

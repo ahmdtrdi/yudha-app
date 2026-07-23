@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type {
   BattleLoadout,
   BattleTarget,
-} from '../../../../../contracts/battle-state';
+} from '../../contracts/battle-state';
 import { SupabaseService } from '../../supabase/supabase.service';
 
 const DEFAULT_CHARACTER_ID = 'character-basic-squire';
