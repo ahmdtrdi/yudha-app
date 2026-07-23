@@ -151,7 +151,7 @@ async function startGameServer() {
   }
   gameServer = spawn(
     process.execPath,
-    ['dist/apps/backend-game/src/main.js'],
+    ['dist/main.js'],
     {
       cwd: projectDirectory,
       env: { ...process.env, PORT: String(port) },

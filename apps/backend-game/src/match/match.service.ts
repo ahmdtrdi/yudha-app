@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { SERVER_MATCH_EVENTS } from '../../../../contracts/match.events';
+import { SERVER_MATCH_EVENTS } from '../contracts/match.events';
 import type {
   CardActionRejectedPayload,
   JoinQueuePayload,
@@ -7,8 +7,8 @@ import type {
   OpenCardPayload,
   PlayCardPayload,
   SurrenderPayload,
-} from '../../../../contracts/match.payloads';
-import type { MatchmakingMode } from '../../../../contracts/battle-state';
+} from '../contracts/match.payloads';
+import type { MatchmakingMode } from '../contracts/battle-state';
 import { GameEngine } from './engine/game-engine';
 import type { InternalRoomState } from './engine/battle.types';
 import { QuestionService } from './questions/question.service';

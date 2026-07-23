@@ -3,13 +3,13 @@ import type {
   BattleTarget,
   MatchmakingMode,
   PublicBattleState,
-} from '../../../../../contracts/battle-state';
+} from '../../contracts/battle-state';
 import type {
   MatchResultPayload,
   MatchResultReason,
   PlayCardResultPayload,
-} from '../../../../../contracts/match.payloads';
-import type { PublicQuestionCard } from '../../../../../contracts/question-card';
+} from '../../contracts/match.payloads';
+import type { PublicQuestionCard } from '../../contracts/question-card';
 import type { InternalCard } from '../questions/question.types';
 
 export type BattleRole = 'playerA' | 'playerB';

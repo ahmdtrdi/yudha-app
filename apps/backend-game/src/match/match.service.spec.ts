@@ -10,7 +10,7 @@ import { BotBattleService } from './bot/bot-battle.service';
 import { CardTimeoutService } from './timeout/card-timeout.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import type { InternalCard } from './questions/question.types';
-import { SERVER_MATCH_EVENTS } from '../../../../contracts/match.events';
+import { SERVER_MATCH_EVENTS } from '../contracts/match.events';
 import { GamePlayerProfileService } from './profiles/game-player-profile.service';
 
 /** Stub cards for testing — mimics DB-sourced values */

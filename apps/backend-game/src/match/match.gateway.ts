@@ -9,13 +9,13 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { CLIENT_MATCH_EVENTS } from '../../../../contracts/match.events';
+import { CLIENT_MATCH_EVENTS } from '../contracts/match.events';
 import type {
   JoinQueuePayload,
   OpenCardPayload,
   PlayCardPayload,
   SurrenderPayload,
-} from '../../../../contracts/match.payloads';
+} from '../contracts/match.payloads';
 import { SupabaseService } from '../supabase/supabase.service';
 import { MatchService, type MatchServiceResult } from './match.service';
 

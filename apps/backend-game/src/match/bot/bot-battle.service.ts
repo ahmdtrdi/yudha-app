@@ -6,7 +6,7 @@ import { MatchResultService } from '../results/match-result.service';
 import type { InternalRoomState } from '../engine/battle.types';
 import type { InternalCard } from '../questions/question.types';
 import type { MatchEmit, MatchServiceResult } from '../match.service';
-import { SERVER_MATCH_EVENTS } from '../../../../../contracts/match.events';
+import { SERVER_MATCH_EVENTS } from '../../contracts/match.events';
 import {
   GamePlayerProfileService,
   type GamePlayerProfile,

@@ -1,4 +1,7 @@
-import type { CardEffect, PublicQuestionCard } from '../../../../../contracts/question-card';
+import type {
+  CardEffect,
+  PublicQuestionCard,
+} from '../../contracts/question-card';
 
 export type InternalCard = PublicQuestionCard & {
   sourceQuestionId: string;

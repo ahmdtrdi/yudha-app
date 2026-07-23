@@ -3,7 +3,7 @@ import type {
   BattleLoadout,
   BattleTarget,
   MatchmakingMode,
-} from '../../../../../contracts/battle-state';
+} from '../../contracts/battle-state';
 
 export type QueueEntry = {
   userId: string;
