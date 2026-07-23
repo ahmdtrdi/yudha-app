@@ -32,6 +32,8 @@ class _InBattleSection extends StatefulWidget {
     required this.arenaTheme,
     required this.soundEnabled,
     required this.onPause,
+    required this.onRoundReady,
+    required this.onArenaDisposed,
     required this.onBotAnswer,
     required this.onPickQuestion,
   });
@@ -44,6 +46,8 @@ class _InBattleSection extends StatefulWidget {
   final ArenaVisualTheme arenaTheme;
   final bool soundEnabled;
   final Future<void> Function() onPause;
+  final VoidCallback onRoundReady;
+  final VoidCallback onArenaDisposed;
   final VoidCallback onBotAnswer;
   final Future<void> Function(BattleQuestion question) onPickQuestion;
 
@@ -141,11 +145,28 @@ class _InBattleSectionState extends State<_InBattleSection>
     final int playerDelta = widget.state.playerHp - oldWidget.state.playerHp;
     final int opponentDelta =
         widget.state.opponentHp - oldWidget.state.opponentHp;
-    if (playerDelta != 0 || opponentDelta != 0) {
+    final bool startingNextRound =
+        oldWidget.state.phase == BattlePhase.roundBreak &&
+        widget.state.phase == BattlePhase.inBattle;
+    if (startingNextRound && _countdownDone) {
+      widget.onRoundReady();
+    }
+    if (!startingNextRound && (playerDelta != 0 || opponentDelta != 0)) {
       _prepareBattleEffect(
         playerDelta: playerDelta,
         opponentDelta: opponentDelta,
       );
+    }
+
+    if (oldWidget.state.phase != BattlePhase.roundBreak &&
+        widget.state.phase == BattlePhase.roundBreak) {
+      _countdownValue = 3;
+      _countdownDone = false;
+      _interactionLocked = false;
+      _selectedQuestionId = null;
+      _playerQuestionReady = false;
+      _arenaAudio.playCountdown();
+      _startCountdownTimer();
     }
 
     final String? newError = widget.state.errorMessage;
@@ -199,6 +220,7 @@ class _InBattleSectionState extends State<_InBattleSection>
       setState(() {
         _countdownDone = true;
       });
+      widget.onRoundReady();
       _scheduleBotAttack();
     });
   }
@@ -436,7 +458,10 @@ class _InBattleSectionState extends State<_InBattleSection>
   }
 
   Future<void> _handlePickQuestion(BattleQuestion question) async {
-    if (!_countdownDone || _interactionLocked || _pauseOpen) {
+    if (!_countdownDone ||
+        _interactionLocked ||
+        _pauseOpen ||
+        widget.state.phase != BattlePhase.inBattle) {
       return;
     }
 
@@ -506,6 +531,7 @@ class _InBattleSectionState extends State<_InBattleSection>
     _ambientController.dispose();
     _effectController.dispose();
     unawaited(_arenaAudio.dispose());
+    widget.onArenaDisposed();
     super.dispose();
   }
 
@@ -539,6 +565,10 @@ class _InBattleSectionState extends State<_InBattleSection>
                     points: widget.state.opponentPoints,
                     mode: widget.state.mode,
                     compact: compact,
+                    currentRound: widget.state.currentRound,
+                    roundSecondsRemaining: widget.state.roundSecondsRemaining,
+                    playerRoundWins: widget.state.playerRoundWins,
+                    opponentRoundWins: widget.state.opponentRoundWins,
                     onPause: _handlePause,
                   ),
                   Expanded(
@@ -586,7 +616,10 @@ class _InBattleSectionState extends State<_InBattleSection>
                     questions: _hand,
                     compact: compact,
                     enabled:
-                        _countdownDone && !_interactionLocked && !_pauseOpen,
+                        widget.state.phase == BattlePhase.inBattle &&
+                        _countdownDone &&
+                        !_interactionLocked &&
+                        !_pauseOpen,
                     selectedQuestionId: _selectedQuestionId,
                     onPickQuestion: _handlePickQuestion,
                   ),
@@ -609,7 +642,16 @@ class _InBattleSectionState extends State<_InBattleSection>
                   ),
                 ),
               ),
-              if (!_countdownDone) _CountdownOverlay(value: _countdownValue),
+              if (!_countdownDone)
+                _CountdownOverlay(
+                  value: _countdownValue,
+                  round: widget.state.phase == BattlePhase.roundBreak
+                      ? widget.state.currentRound + 1
+                      : widget.state.currentRound,
+                  resultMessage: widget.state.phase == BattlePhase.roundBreak
+                      ? widget.state.statusMessage
+                      : null,
+                ),
             ],
           ),
         );
@@ -630,6 +672,10 @@ class _BattleHud extends StatelessWidget {
     this.onPause,
     this.comboLevel,
     this.comboSecondsRemaining,
+    this.currentRound,
+    this.roundSecondsRemaining,
+    this.playerRoundWins,
+    this.opponentRoundWins,
   });
 
   final bool isOpponent;
@@ -642,6 +688,10 @@ class _BattleHud extends StatelessWidget {
   final VoidCallback? onPause;
   final int? comboLevel;
   final int? comboSecondsRemaining;
+  final int? currentRound;
+  final int? roundSecondsRemaining;
+  final int? playerRoundWins;
+  final int? opponentRoundWins;
 
   @override
   Widget build(BuildContext context) {
@@ -714,6 +764,16 @@ class _BattleHud extends StatelessWidget {
             ),
             const SizedBox(width: 6),
           ],
+          if (isOpponent && currentRound != null) ...<Widget>[
+            _RoundClockPill(
+              round: currentRound!,
+              secondsRemaining: roundSecondsRemaining ?? 0,
+              playerWins: playerRoundWins ?? 0,
+              opponentWins: opponentRoundWins ?? 0,
+              compact: compact,
+            ),
+            const SizedBox(width: 6),
+          ],
           _ScorePill(points: points, accent: accent),
           if (onPause != null) ...<Widget>[
             const SizedBox(width: 4),
@@ -773,7 +833,7 @@ class _ComboBadge extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Text(
-              'COMBO x$level',
+              'COMBO',
               maxLines: 1,
               style: GoogleFonts.dmSans(
                 color: accent,
@@ -782,11 +842,74 @@ class _ComboBadge extends StatelessWidget {
               ),
             ),
             Text(
-              active ? '${secondsRemaining}s' : 'PROJ 1',
+              'x$level',
               style: GoogleFonts.jetBrainsMono(
                 color: const Color(0xFF17233F),
+                fontSize: compact ? 10 : 11,
+                fontWeight: FontWeight.w900,
+                height: 1.1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RoundClockPill extends StatelessWidget {
+  const _RoundClockPill({
+    required this.round,
+    required this.secondsRemaining,
+    required this.playerWins,
+    required this.opponentWins,
+    required this.compact,
+  });
+
+  final int round;
+  final int secondsRemaining;
+  final int playerWins;
+  final int opponentWins;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final int safeSeconds = secondsRemaining.clamp(
+      0,
+      BattleController.roundDurationSeconds,
+    );
+    final String minutes = (safeSeconds ~/ 60).toString().padLeft(2, '0');
+    final String seconds = (safeSeconds % 60).toString().padLeft(2, '0');
+    return Semantics(
+      label: 'Ronde $round',
+      value:
+          '$minutes menit $seconds detik, skor ronde '
+          '$playerWins lawan $opponentWins',
+      child: Container(
+        key: const ValueKey<String>('round-clock'),
+        constraints: BoxConstraints(minWidth: compact ? 58 : 66),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0D2A52),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              'R$round  $minutes:$seconds',
+              style: GoogleFonts.jetBrainsMono(
+                color: Colors.white,
                 fontSize: compact ? 8 : 9,
                 fontWeight: FontWeight.w800,
+              ),
+            ),
+            Text(
+              '$playerWins  •  $opponentWins',
+              style: GoogleFonts.dmSans(
+                color: const Color(0xFFFFC857),
+                fontSize: compact ? 8 : 9,
+                fontWeight: FontWeight.w900,
                 height: 1.1,
               ),
             ),
@@ -2059,9 +2182,15 @@ class _ArenaNotice extends StatelessWidget {
 }
 
 class _CountdownOverlay extends StatelessWidget {
-  const _CountdownOverlay({required this.value});
+  const _CountdownOverlay({
+    required this.value,
+    required this.round,
+    this.resultMessage,
+  });
 
   final int value;
+  final int round;
+  final String? resultMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -2073,8 +2202,35 @@ class _CountdownOverlay extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
+              if (resultMessage != null) ...<Widget>[
+                Container(
+                  constraints: const BoxConstraints(maxWidth: 320),
+                  margin: const EdgeInsets.only(bottom: 18),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: const Color(0xFFFFC857).withAlpha(180),
+                      width: 2,
+                    ),
+                  ),
+                  child: Text(
+                    resultMessage!,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.fredoka(
+                      color: const Color(0xFF17233F),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
               Text(
-                ready ? 'Mulai!' : 'Bersiap',
+                ready ? 'Ronde $round mulai!' : 'Ronde $round dimulai dalam',
                 style: GoogleFonts.dmSans(
                   color: Colors.white.withAlpha(205),
                   fontSize: 15,

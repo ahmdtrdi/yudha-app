@@ -6,17 +6,24 @@ import type { InternalCard } from '../questions/question.types';
 import type { MatchLogRpcEntry } from '../logs/match-log.types';
 
 /** Helper to create a finished room state for testing */
-function createFinishedRoom(overrides: Partial<{
-  roomId: string;
-  playerAUserId: string;
-  playerBUserId: string;
-  winnerUserId: string | null;
-  loserUserId: string | null;
-  reason: 'hp_zero' | 'surrender' | 'question_exhaustion' | 'draw';
-  outcome: 'win' | 'lose' | 'draw' | 'surrender';
-  playerAHp: number;
-  playerBHp: number;
-}> = {}): InternalRoomState {
+function createFinishedRoom(
+  overrides: Partial<{
+    roomId: string;
+    playerAUserId: string;
+    playerBUserId: string;
+    winnerUserId: string | null;
+    loserUserId: string | null;
+    reason:
+      | 'hp_zero'
+      | 'round_timeout'
+      | 'surrender'
+      | 'question_exhaustion'
+      | 'draw';
+    outcome: 'win' | 'lose' | 'draw' | 'surrender';
+    playerAHp: number;
+    playerBHp: number;
+  }> = {},
+): InternalRoomState {
   const playerAUserId = overrides.playerAUserId ?? 'user-a';
   const playerBUserId = overrides.playerBUserId ?? 'user-b';
 
@@ -55,12 +62,26 @@ function createFinishedRoom(overrides: Partial<{
     result: {
       roomId: overrides.roomId ?? 'room_test',
       outcome: overrides.outcome ?? 'win',
-      winnerUserId: overrides.winnerUserId !== undefined ? overrides.winnerUserId : playerAUserId,
-      loserUserId: overrides.loserUserId !== undefined ? overrides.loserUserId : playerBUserId,
+      winnerUserId:
+        overrides.winnerUserId !== undefined
+          ? overrides.winnerUserId
+          : playerAUserId,
+      loserUserId:
+        overrides.loserUserId !== undefined
+          ? overrides.loserUserId
+          : playerBUserId,
       reason: overrides.reason ?? 'hp_zero',
       finalState: {
-        playerA: { userId: playerAUserId, hp: overrides.playerAHp ?? 80, points: 20 },
-        playerB: { userId: playerBUserId, hp: overrides.playerBHp ?? 0, points: 10 },
+        playerA: {
+          userId: playerAUserId,
+          hp: overrides.playerAHp ?? 80,
+          points: 20,
+        },
+        playerB: {
+          userId: playerBUserId,
+          hp: overrides.playerBHp ?? 0,
+          points: 10,
+        },
       },
     },
   };
@@ -114,22 +135,25 @@ describe('MatchResultService', () => {
 
       const deltas = await service.finalizeMatch(room);
 
-      expect(mockRpc).toHaveBeenCalledWith('finalize_match_result', expect.objectContaining({
-        p_room_id: 'room_test',
-        p_mode: 'player',
-        p_player_a_id: 'user-a',
-        p_player_b_id: 'user-b',
-        p_winner_user_id: 'user-a',
-        p_loser_user_id: 'user-b',
-        p_outcome: 'player_a_win',
-        p_reason: 'hp_zero',
-        p_player_a_hp: 80,
-        p_player_b_hp: 0,
-        p_player_a_points: 20,
-        p_player_b_points: 10,
-        p_duration_seconds: 300,
-        p_started_at: expect.any(String),
-      }));
+      expect(mockRpc).toHaveBeenCalledWith(
+        'finalize_match_result',
+        expect.objectContaining({
+          p_room_id: 'room_test',
+          p_mode: 'player',
+          p_player_a_id: 'user-a',
+          p_player_b_id: 'user-b',
+          p_winner_user_id: 'user-a',
+          p_loser_user_id: 'user-b',
+          p_outcome: 'player_a_win',
+          p_reason: 'hp_zero',
+          p_player_a_hp: 80,
+          p_player_b_hp: 0,
+          p_player_a_points: 20,
+          p_player_b_points: 10,
+          p_duration_seconds: 300,
+          p_started_at: expect.any(String),
+        }),
+      );
 
       expect(deltas).toEqual({
         ratingDeltaA: 20,
@@ -151,7 +175,10 @@ describe('MatchResultService', () => {
 
     it('retries once on RPC failure, returns deltas on second success', async () => {
       mockRpc
-        .mockResolvedValueOnce({ data: null, error: { message: 'transient error' } })
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: 'transient error' },
+        })
         .mockResolvedValueOnce({
           data: {
             persisted: true,
@@ -177,7 +204,10 @@ describe('MatchResultService', () => {
     });
 
     it('returns null if both RPC attempts fail', async () => {
-      mockRpc.mockResolvedValue({ data: null, error: { message: 'persistent error' } });
+      mockRpc.mockResolvedValue({
+        data: null,
+        error: { message: 'persistent error' },
+      });
 
       const room = createFinishedRoom();
       const deltas = await service.finalizeMatch(room);
@@ -195,11 +225,14 @@ describe('MatchResultService', () => {
 
       await service.finalizeMatch(room);
 
-      expect(mockRpc).toHaveBeenCalledWith('finalize_match_result', expect.objectContaining({
-        p_mode: 'bot',
-        p_player_b_id: null,
-        p_loser_user_id: null,
-      }));
+      expect(mockRpc).toHaveBeenCalledWith(
+        'finalize_match_result',
+        expect.objectContaining({
+          p_mode: 'bot',
+          p_player_b_id: null,
+          p_loser_user_id: null,
+        }),
+      );
     });
 
     it('sanitizes bot as winner (p_winner_user_id=null)', async () => {
@@ -211,10 +244,13 @@ describe('MatchResultService', () => {
 
       await service.finalizeMatch(room);
 
-      expect(mockRpc).toHaveBeenCalledWith('finalize_match_result', expect.objectContaining({
-        p_winner_user_id: null,
-        p_loser_user_id: 'user-a',
-      }));
+      expect(mockRpc).toHaveBeenCalledWith(
+        'finalize_match_result',
+        expect.objectContaining({
+          p_winner_user_id: null,
+          p_loser_user_id: 'user-a',
+        }),
+      );
     });
 
     it('maps outcome correctly for player_b_win', async () => {
@@ -226,9 +262,12 @@ describe('MatchResultService', () => {
 
       await service.finalizeMatch(room);
 
-      expect(mockRpc).toHaveBeenCalledWith('finalize_match_result', expect.objectContaining({
-        p_outcome: 'player_b_win',
-      }));
+      expect(mockRpc).toHaveBeenCalledWith(
+        'finalize_match_result',
+        expect.objectContaining({
+          p_outcome: 'player_b_win',
+        }),
+      );
     });
 
     it('maps outcome correctly for draw', async () => {
@@ -241,10 +280,13 @@ describe('MatchResultService', () => {
 
       await service.finalizeMatch(room);
 
-      expect(mockRpc).toHaveBeenCalledWith('finalize_match_result', expect.objectContaining({
-        p_outcome: 'draw',
-        p_reason: 'draw',
-      }));
+      expect(mockRpc).toHaveBeenCalledWith(
+        'finalize_match_result',
+        expect.objectContaining({
+          p_outcome: 'draw',
+          p_reason: 'draw',
+        }),
+      );
     });
   });
 
@@ -252,15 +294,33 @@ describe('MatchResultService', () => {
     it('bulk-inserts logs after successful RPC', async () => {
       const room = createFinishedRoom();
       const logEntries: MatchLogRpcEntry[] = [
-        { user_id: 'user-a', action: 'open_card', payload: { cardId: 'c1' }, created_at: '2026-07-01T00:00:01Z' },
-        { user_id: 'user-a', action: 'play_card', payload: { cardId: 'c1' }, created_at: '2026-07-01T00:00:05Z' },
+        {
+          user_id: 'user-a',
+          action: 'open_card',
+          payload: { cardId: 'c1' },
+          created_at: '2026-07-01T00:00:01Z',
+        },
+        {
+          user_id: 'user-a',
+          action: 'play_card',
+          payload: { cardId: 'c1' },
+          created_at: '2026-07-01T00:00:05Z',
+        },
       ];
 
       await service.finalizeMatch(room, logEntries);
 
       expect(mockInsert).toHaveBeenCalledWith([
-        expect.objectContaining({ match_id: 'result-123', user_id: 'user-a', action: 'open_card' }),
-        expect.objectContaining({ match_id: 'result-123', user_id: 'user-a', action: 'play_card' }),
+        expect.objectContaining({
+          match_id: 'result-123',
+          user_id: 'user-a',
+          action: 'open_card',
+        }),
+        expect.objectContaining({
+          match_id: 'result-123',
+          user_id: 'user-a',
+          action: 'play_card',
+        }),
       ]);
     });
 
@@ -272,7 +332,12 @@ describe('MatchResultService', () => {
 
       const room = createFinishedRoom();
       const logEntries: MatchLogRpcEntry[] = [
-        { user_id: 'user-a', action: 'open_card', payload: {}, created_at: '2026-07-01T00:00:01Z' },
+        {
+          user_id: 'user-a',
+          action: 'open_card',
+          payload: {},
+          created_at: '2026-07-01T00:00:01Z',
+        },
       ];
 
       await service.finalizeMatch(room, logEntries);

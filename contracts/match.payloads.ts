@@ -42,6 +42,7 @@ export type PlayCardResultPayload = {
   correct: boolean;
   effect: CardEffect | 'none';
   effectValue: number;
+  projectileLevel: number;
 };
 
 export type CardActionRejectedPayload = {
@@ -58,6 +59,7 @@ export type SurrenderPayload = {
 
 export type MatchResultReason =
   | 'hp_zero'
+  | 'round_timeout'
   | 'surrender'
   | 'question_exhaustion'
   | 'draw';

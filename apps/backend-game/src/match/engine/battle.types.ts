@@ -16,6 +16,8 @@ export type InternalPlayerState = {
   role: BattleRole;
   hp: number;
   points: number;
+  comboLevel: number;
+  comboExpiresAt?: Date;
   hand: InternalCard[];
   openedCardId?: string;
   answeredCardIds: Set<string>;
@@ -35,6 +37,13 @@ export type InternalRoomState = {
   reserveQueue: InternalCard[];
   /** Counter for generating unique card-instance IDs for recycled cards */
   nextRecycleId: number;
+  currentRound: number;
+  playerARoundWins: number;
+  playerBRoundWins: number;
+  roundStatus: 'active' | 'break';
+  roundEndsAt?: Date;
+  nextRoundAt?: Date;
+  lastRoundWinnerUserId?: string | null;
   startedAt: Date;
   endedAt?: Date;
   result?: MatchResultPayload;

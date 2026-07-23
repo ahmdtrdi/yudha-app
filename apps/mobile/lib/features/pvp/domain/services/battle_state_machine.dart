@@ -13,7 +13,8 @@ abstract final class BattleStateMachine {
     required int selectedOptionIndex,
   }) {
     final bool isCorrect = selectedOptionIndex == question.correctOptionIndex;
-    final int impact = impactFromWeight(question.weight);
+    final int damage = damageFromCombo(state.comboLevel);
+    final int heal = impactFromWeight(question.weight);
 
     int playerHp = state.playerHp;
     int opponentHp = state.opponentHp;
@@ -24,12 +25,13 @@ abstract final class BattleStateMachine {
 
     if (question.effect == QuestionEffect.damage) {
       if (isCorrect) {
-        opponentHp -= impact;
-        playerPoints += impact;
+        opponentHp -= damage;
+        playerPoints += damage;
         statusMessage =
-            '${_attackLabel(question.category)} masuk. Musuh menerima $impact damage.';
+            '${_attackLabel(question.category)} x${state.comboLevel} masuk. '
+            'Musuh menerima $damage damage.';
       } else {
-        final int reflectedDamage = max(1, impact ~/ 2);
+        final int reflectedDamage = damageFromCombo(1);
         playerHp -= reflectedDamage;
         opponentPoints += reflectedDamage;
         statusMessage =
@@ -37,11 +39,11 @@ abstract final class BattleStateMachine {
       }
     } else {
       if (isCorrect) {
-        playerHp += impact;
-        playerPoints += max(1, impact ~/ 2);
-        statusMessage = 'TWK Heal aktif. Kamu memulihkan HP sebesar $impact.';
+        playerHp += heal;
+        playerPoints += max(1, heal ~/ 2);
+        statusMessage = 'TWK Heal aktif. Kamu memulihkan HP sebesar $heal.';
       } else {
-        final int opponentHeal = max(1, impact ~/ 2);
+        final int opponentHeal = max(1, heal ~/ 2);
         opponentHp += opponentHeal;
         opponentPoints += opponentHeal;
         statusMessage =
@@ -70,18 +72,7 @@ abstract final class BattleStateMachine {
       answeredQuestions = const <String>[];
     }
 
-    final ({BattlePhase phase, BattleOutcome outcome, int ratingDelta}) finish =
-        _resolvePhase(
-          playerHp: playerHp,
-          opponentHp: opponentHp,
-          playerPoints: playerPoints,
-          opponentPoints: opponentPoints,
-        );
-
     return state.copyWith(
-      phase: finish.phase,
-      outcome: finish.outcome,
-      ratingDelta: finish.ratingDelta,
       playerHp: playerHp,
       opponentHp: opponentHp,
       playerPoints: playerPoints,
@@ -95,9 +86,7 @@ abstract final class BattleStateMachine {
         isCorrect: isCorrect,
       ),
       lastEventCategory: question.category,
-      statusMessage: finish.phase == BattlePhase.finished
-          ? '$statusMessage ${_resultLabel(finish.outcome)}'
-          : statusMessage,
+      statusMessage: statusMessage,
       clearErrorMessage: true,
     );
   }
@@ -106,7 +95,8 @@ abstract final class BattleStateMachine {
     required BattleState state,
     required BattleQuestion question,
   }) {
-    final int impact = impactFromWeight(question.weight);
+    final int damage = damageFromCombo(1);
+    final int heal = impactFromWeight(question.weight);
 
     int playerHp = state.playerHp;
     int opponentHp = state.opponentHp;
@@ -116,30 +106,19 @@ abstract final class BattleStateMachine {
     late final String statusMessage;
 
     if (question.effect == QuestionEffect.heal) {
-      opponentHp += impact;
-      opponentPoints += max(1, impact ~/ 2);
-      statusMessage = 'BOT YUDHA menjawab TWK. Musuh memulihkan HP $impact.';
+      opponentHp += heal;
+      opponentPoints += max(1, heal ~/ 2);
+      statusMessage = 'BOT YUDHA menjawab TWK. Musuh memulihkan HP $heal.';
     } else {
-      playerHp -= impact;
-      opponentPoints += impact;
-      statusMessage = 'BOT YUDHA menjawab benar. Kamu menerima $impact damage.';
+      playerHp -= damage;
+      opponentPoints += damage;
+      statusMessage = 'BOT YUDHA menjawab benar. Kamu menerima $damage damage.';
     }
 
     playerHp = _clampHp(playerHp);
     opponentHp = _clampHp(opponentHp);
 
-    final ({BattlePhase phase, BattleOutcome outcome, int ratingDelta}) finish =
-        _resolvePhase(
-          playerHp: playerHp,
-          opponentHp: opponentHp,
-          playerPoints: playerPoints,
-          opponentPoints: opponentPoints,
-        );
-
     return state.copyWith(
-      phase: finish.phase,
-      outcome: finish.outcome,
-      ratingDelta: finish.ratingDelta,
       playerHp: playerHp,
       opponentHp: opponentHp,
       playerPoints: playerPoints,
@@ -154,9 +133,7 @@ abstract final class BattleStateMachine {
           ? BattleVisualEffect.heal
           : visualEffectForCategory(question.category),
       lastEventCategory: question.category,
-      statusMessage: finish.phase == BattlePhase.finished
-          ? '$statusMessage ${_resultLabel(finish.outcome)}'
-          : statusMessage,
+      statusMessage: statusMessage,
       clearErrorMessage: true,
     );
   }
@@ -164,6 +141,10 @@ abstract final class BattleStateMachine {
   static int impactFromWeight(int weight) {
     final int boundedWeight = weight.clamp(1, 4);
     return 8 + (boundedWeight * 6);
+  }
+
+  static int damageFromCombo(int comboLevel) {
+    return comboLevel.clamp(1, 3) * 5;
   }
 
   static BattleVisualEffect visualEffectForCategory(String category) {
@@ -199,63 +180,6 @@ abstract final class BattleStateMachine {
 
   static int _clampHp(int value) {
     return value.clamp(0, 100);
-  }
-
-  static ({BattlePhase phase, BattleOutcome outcome, int ratingDelta})
-  _resolvePhase({
-    required int playerHp,
-    required int opponentHp,
-    required int playerPoints,
-    required int opponentPoints,
-  }) {
-    // Game only ends when someone's HP reaches 0
-    if (playerHp > 0 && opponentHp > 0) {
-      return (
-        phase: BattlePhase.inBattle,
-        outcome: BattleOutcome.inProgress,
-        ratingDelta: 0,
-      );
-    }
-
-    final BattleOutcome outcome;
-    if (playerHp == 0 && opponentHp == 0) {
-      outcome = BattleOutcome.draw;
-    } else if (opponentHp == 0) {
-      outcome = BattleOutcome.win;
-    } else if (playerHp == 0) {
-      outcome = BattleOutcome.lose;
-    } else if (playerHp > opponentHp) {
-      outcome = BattleOutcome.win;
-    } else if (playerHp < opponentHp) {
-      outcome = BattleOutcome.lose;
-    } else if (playerPoints > opponentPoints) {
-      outcome = BattleOutcome.win;
-    } else if (playerPoints < opponentPoints) {
-      outcome = BattleOutcome.lose;
-    } else {
-      outcome = BattleOutcome.draw;
-    }
-
-    final int ratingDelta = switch (outcome) {
-      BattleOutcome.win => 20,
-      BattleOutcome.lose => -12,
-      BattleOutcome.draw || BattleOutcome.inProgress => 0,
-    };
-
-    return (
-      phase: BattlePhase.finished,
-      outcome: outcome,
-      ratingDelta: ratingDelta,
-    );
-  }
-
-  static String _resultLabel(BattleOutcome outcome) {
-    return switch (outcome) {
-      BattleOutcome.win => 'Kamu menang.',
-      BattleOutcome.lose => 'Kamu kalah.',
-      BattleOutcome.draw => 'Hasil seri.',
-      BattleOutcome.inProgress => '',
-    };
   }
 
   static String _attackLabel(String category) {
