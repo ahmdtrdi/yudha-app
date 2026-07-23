@@ -3,7 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_storage.dart';
+import 'package:yudha_mobile/features/profile/application/user_profile_controller.dart';
+import 'package:yudha_mobile/features/profile/application/user_profile_providers.dart';
+import 'package:yudha_mobile/features/profile/data/repositories/user_profile_repository.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_settings.dart';
+import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
+import 'package:yudha_mobile/features/profile/domain/entities/user_profile.dart';
 import 'package:yudha_mobile/features/profile/presentation/pages/profile_page.dart';
 
 void main() {
@@ -13,28 +18,52 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Profil Personal'), findsOneWidget);
+    expect(find.text('Raka Saputra'), findsOneWidget);
     expect(find.text('Analisis Performa'), findsOneWidget);
     expect(find.text('Pengaturan Profil'), findsOneWidget);
-    expect(find.text('Target aktif: -'), findsOneWidget);
   });
 
-  testWidgets('can switch active target label', (WidgetTester tester) async {
-    await _pumpProfilePage(tester);
+  testWidgets('edits and explicitly saves backend profile fields', (
+    WidgetTester tester,
+  ) async {
+    final _FakeUserProfileRepository repository = _FakeUserProfileRepository();
+    await _pumpProfilePage(tester, repository: repository);
 
     await tester.pumpAndSettle();
 
+    await tester.tap(find.byKey(const Key('edit-profile-button')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('profile-full-name-field')),
+      'Raka Baru',
+    );
     await tester.tap(find.text('BUMN'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('save-profile-button')));
+    await tester.pumpAndSettle();
 
-    expect(find.text('Target aktif: BUMN'), findsOneWidget);
+    expect(repository.lastUpdate?.fullName, 'Raka Baru');
+    expect(repository.lastUpdate?.target, ProfileTarget.bumn);
+    expect(find.text('Raka Baru'), findsOneWidget);
   });
 }
 
-Future<void> _pumpProfilePage(WidgetTester tester) async {
+Future<void> _pumpProfilePage(
+  WidgetTester tester, {
+  _FakeUserProfileRepository? repository,
+}) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = const Size(430, 1200);
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+
+  final _FakeUserProfileRepository profileRepository =
+      repository ?? _FakeUserProfileRepository();
+  final UserProfileController profileController = UserProfileController(
+    repository: profileRepository,
+  );
+  await profileController.load();
 
   await tester.pumpWidget(
     ProviderScope(
@@ -42,6 +71,7 @@ Future<void> _pumpProfilePage(WidgetTester tester) async {
         profileSettingsStorageProvider.overrideWithValue(
           _ProfileSettingsMemoryStorage(),
         ),
+        userProfileProvider.overrideWith((ref) => profileController),
       ],
       child: const MaterialApp(home: ProfilePage()),
     ),
@@ -57,5 +87,30 @@ class _ProfileSettingsMemoryStorage implements ProfileSettingsStorage {
   @override
   Future<void> save(ProfileSettings settings) async {
     this.settings = settings;
+  }
+}
+
+class _FakeUserProfileRepository implements UserProfileRepository {
+  UserProfileUpdate? lastUpdate;
+
+  @override
+  Future<UserProfile> fetchProfile() async {
+    return const UserProfile(
+      id: 'user-1',
+      username: 'raka',
+      fullName: 'Raka Saputra',
+      target: ProfileTarget.cpns,
+    );
+  }
+
+  @override
+  Future<UserProfile> updateProfile(UserProfileUpdate update) async {
+    lastUpdate = update;
+    return UserProfile(
+      id: 'user-1',
+      username: update.username,
+      fullName: update.fullName,
+      target: update.target,
+    );
   }
 }
