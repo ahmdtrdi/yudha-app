@@ -11,7 +11,7 @@ create or replace function public.finalize_match_result(
   p_winner_user_id uuid,       -- null for draw
   p_loser_user_id uuid,        -- null for draw
   p_outcome text,              -- 'player_a_win' | 'player_b_win' | 'draw'
-  p_reason text,               -- 'hp_zero' | 'surrender' | 'question_exhaustion' | 'draw'
+  p_reason text,               -- 'hp_zero' | 'round_timeout' | 'surrender' | 'question_exhaustion' | 'draw'
   p_player_a_hp int,
   p_player_b_hp int,
   p_player_a_points int,

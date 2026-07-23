@@ -20,11 +20,16 @@ class BattleState {
     required this.comboLevel,
     required this.comboSecondsRemaining,
     required this.lastProjectileLevel,
+    required this.currentRound,
+    required this.playerRoundWins,
+    required this.opponentRoundWins,
+    required this.roundSecondsRemaining,
     this.statusMessage,
     this.errorMessage,
     this.lastActor,
     this.lastVisualEffect,
     this.lastEventCategory,
+    this.lastRoundOutcome,
   });
 
   factory BattleState.initial() {
@@ -46,6 +51,10 @@ class BattleState {
       comboLevel: 1,
       comboSecondsRemaining: 0,
       lastProjectileLevel: 1,
+      currentRound: 1,
+      playerRoundWins: 0,
+      opponentRoundWins: 0,
+      roundSecondsRemaining: 180,
     );
   }
 
@@ -66,13 +75,20 @@ class BattleState {
   final int comboLevel;
   final int comboSecondsRemaining;
   final int lastProjectileLevel;
+  final int currentRound;
+  final int playerRoundWins;
+  final int opponentRoundWins;
+  final int roundSecondsRemaining;
   final String? statusMessage;
   final String? errorMessage;
   final BattleActor? lastActor;
   final BattleVisualEffect? lastVisualEffect;
   final String? lastEventCategory;
+  final BattleOutcome? lastRoundOutcome;
 
   bool get isBattleActive => phase == BattlePhase.inBattle;
+  bool get isMatchActive =>
+      phase == BattlePhase.inBattle || phase == BattlePhase.roundBreak;
   bool get isBattleFinished => phase == BattlePhase.finished;
 
   BattleState copyWith({
@@ -93,14 +109,20 @@ class BattleState {
     int? comboLevel,
     int? comboSecondsRemaining,
     int? lastProjectileLevel,
+    int? currentRound,
+    int? playerRoundWins,
+    int? opponentRoundWins,
+    int? roundSecondsRemaining,
     String? statusMessage,
     String? errorMessage,
     BattleActor? lastActor,
     BattleVisualEffect? lastVisualEffect,
     String? lastEventCategory,
+    BattleOutcome? lastRoundOutcome,
     bool clearStatusMessage = false,
     bool clearErrorMessage = false,
     bool clearBattleEvent = false,
+    bool clearLastRoundOutcome = false,
   }) {
     return BattleState(
       mode: mode ?? this.mode,
@@ -121,6 +143,11 @@ class BattleState {
       comboSecondsRemaining:
           comboSecondsRemaining ?? this.comboSecondsRemaining,
       lastProjectileLevel: lastProjectileLevel ?? this.lastProjectileLevel,
+      currentRound: currentRound ?? this.currentRound,
+      playerRoundWins: playerRoundWins ?? this.playerRoundWins,
+      opponentRoundWins: opponentRoundWins ?? this.opponentRoundWins,
+      roundSecondsRemaining:
+          roundSecondsRemaining ?? this.roundSecondsRemaining,
       statusMessage: clearStatusMessage
           ? null
           : statusMessage ?? this.statusMessage,
@@ -134,6 +161,9 @@ class BattleState {
       lastEventCategory: clearBattleEvent
           ? null
           : lastEventCategory ?? this.lastEventCategory,
+      lastRoundOutcome: clearLastRoundOutcome
+          ? null
+          : lastRoundOutcome ?? this.lastRoundOutcome,
     );
   }
 }

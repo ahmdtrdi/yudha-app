@@ -397,7 +397,7 @@ class _ScoreCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                'Skor akhir',
+                'Skor ronde',
                 style: GoogleFonts.fredoka(
                   color: _ResultSection._ink,
                   fontSize: 16,
@@ -413,7 +413,7 @@ class _ScoreCard extends StatelessWidget {
               Expanded(
                 child: _ScoreColumn(
                   label: playerName,
-                  value: '${state.playerPoints}',
+                  value: '${state.playerRoundWins}',
                   color: _ResultSection._playerBlue,
                   compact: compact,
                 ),
@@ -432,7 +432,7 @@ class _ScoreCard extends StatelessWidget {
               Expanded(
                 child: _ScoreColumn(
                   label: opponentName,
-                  value: '${state.opponentPoints}',
+                  value: '${state.opponentRoundWins}',
                   color: _ResultSection._rivalCoral,
                   compact: compact,
                 ),

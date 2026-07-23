@@ -115,6 +115,7 @@ class _ArenaMenuSection extends StatelessWidget {
                       actionLabel: 'Main sekarang',
                       accent: const Color(0xFF2878F0),
                       visual: _ModeVisual(
+                        key: const ValueKey<String>('bot-mode-visual'),
                         playerAsset: playerAvatarAsset,
                         opponentAsset: opponentAvatarAsset,
                         online: false,
@@ -130,6 +131,7 @@ class _ArenaMenuSection extends StatelessWidget {
                       actionLabel: 'Cari lawan',
                       accent: const Color(0xFF7559D4),
                       visual: _ModeVisual(
+                        key: const ValueKey<String>('online-mode-visual'),
                         playerAsset: playerAvatarAsset,
                         opponentAsset: opponentAvatarAsset,
                         online: true,
@@ -347,6 +349,7 @@ class _ModeVisual extends StatelessWidget {
     required this.playerAsset,
     required this.opponentAsset,
     required this.online,
+    super.key,
   });
 
   final String playerAsset;
@@ -363,29 +366,12 @@ class _ModeVisual extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(5, 7, 5, 0),
-        child: online
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  Expanded(
-                    child: _ModeAvatar(
-                      key: const ValueKey<String>('online-player-avatar'),
-                      assetPath: playerAsset,
-                    ),
-                  ),
-                  const SizedBox(width: 2),
-                  Expanded(
-                    child: _ModeAvatar(
-                      key: const ValueKey<String>('online-opponent-avatar'),
-                      assetPath: opponentAsset,
-                    ),
-                  ),
-                ],
-              )
-            : _ModeAvatar(
-                key: const ValueKey<String>('bot-opponent-avatar'),
-                assetPath: opponentAsset,
-              ),
+        child: _ModeAvatar(
+          key: ValueKey<String>(
+            online ? 'online-player-avatar' : 'bot-opponent-avatar',
+          ),
+          assetPath: online ? playerAsset : opponentAsset,
+        ),
       ),
     );
   }

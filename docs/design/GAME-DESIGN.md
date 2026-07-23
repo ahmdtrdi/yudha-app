@@ -55,31 +55,53 @@ The existing phase model remains the implementation contract:
 
 ### Answer resolution
 
-Bot sessions keep the current local-domain formula:
+Damage is determined by the active combo:
 
 ```text
-impact = 8 + (weight clamped from 1 to 4 × 6)
+x1 = 5 damage
+x2 = 10 damage
+x3 = 15 damage
 ```
 
 | Bot card result | Battle result |
 |---|---|
-| Correct damage answer | Full damage to opponent; full points to player. |
-| Wrong damage answer or timeout | Half damage reflected to player. |
+| Correct damage answer | Combo damage to opponent; the same amount becomes player points. |
+| Wrong damage answer | `x1` (5) damage reflected to player. |
 | Correct heal answer | Full heal to player; half-impact points. |
 | Wrong heal answer | Half heal to opponent. |
-| Bot damage turn | Full damage to player. |
+| Bot damage turn | `x1` (5) damage to player. |
 | Bot heal turn | Full heal to opponent. |
 
-HP remains clamped from 0 to 100. A match ends when either side reaches 0 HP. Rating deltas stay `+20` for win, `-12` for loss, and `0` for draw.
+Healing still uses `8 + (weight clamped from 1 to 4 × 6)`, and HP
+remains clamped from 0 to 100.
+
+### Round structure
+
+- Every round starts both players at 100 HP and lasts 180 seconds.
+- A round ends immediately when either HP reaches 0, or when its clock reaches
+  0. At timeout, the player with more HP wins; equal HP is a tied round.
+- A match has at most three rounds. The first player to two round wins takes
+  the match; if three rounds finish without a leader, the match is a draw.
+- After a non-final round, the arena announces the winner, counts down from
+  three, restores both players to 100 HP, and starts the next round.
+- Rating deltas stay `+20` for a match win, `-12` for a match loss, and `0`
+  for a draw.
 
 ### Visual combo chain
 
 - Every battle starts at `COMBO x1`; the first successful attack uses `proj1`.
 - A correct answer advances the next projectile to `x2`, then `x3`, and refreshes a seven-second countdown.
 - A wrong answer or an incoming hit lowers the combo by one level. Countdown expiry resets it to `x1`.
-- `x1`, `x2`, and `x3` select the equipped character's `proj1`, `proj2`, and `proj3` art respectively. Combo is visual feedback and never changes damage, healing, score, or rating.
+- `x1`, `x2`, and `x3` select the equipped character's `proj1`, `proj2`, and
+  `proj3` art and deal 5, 10, and 15 damage respectively. Combo never
+  multiplies healing or rating.
 
-Online sessions are server-authoritative and asynchronous: both players may answer independently, public cards do not expose their correct option, and the server decides their final damage/heal. The client therefore shows power pips rather than promising an exact impact, waits for the server result before correctness feedback, and animates incoming HP deltas even when attack metadata is unavailable.
+Online sessions are server-authoritative and asynchronous: both players may
+answer independently, public cards do not expose their correct option, and the
+server owns combo damage, round clocks, round wins, and final results. The
+client mirrors the server clock between updates, waits for the server result
+before correctness feedback, and animates incoming HP deltas even when attack
+metadata is unavailable.
 
 ### Category identity
 

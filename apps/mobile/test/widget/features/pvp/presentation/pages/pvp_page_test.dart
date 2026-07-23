@@ -110,6 +110,34 @@ void main() {
       ),
     );
     expect(
+      tester
+          .getBottomLeft(
+            find.byKey(const ValueKey<String>('loadout-character-label')),
+          )
+          .dy,
+      lessThan(
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey<String>('loadout-character-preview')),
+            )
+            .dy,
+      ),
+    );
+    expect(
+      tester
+          .getBottomLeft(
+            find.byKey(const ValueKey<String>('loadout-tower-label')),
+          )
+          .dy,
+      lessThan(
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey<String>('loadout-tower-preview')),
+            )
+            .dy,
+      ),
+    );
+    expect(
       tester.getSize(
         find.byKey(
           const ValueKey<String>('loadout-preview-character-basic-squire'),
@@ -149,9 +177,11 @@ void main() {
       tester.getSize(
         find.byKey(const ValueKey<String>('online-player-avatar')),
       ),
-      tester.getSize(
-        find.byKey(const ValueKey<String>('online-opponent-avatar')),
-      ),
+      tester.getSize(find.byKey(const ValueKey<String>('bot-opponent-avatar'))),
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey<String>('online-mode-visual'))),
+      tester.getSize(find.byKey(const ValueKey<String>('bot-mode-visual'))),
     );
   });
 
@@ -247,16 +277,50 @@ void main() {
     expect(find.text('BOT TEST'), findsOneWidget);
     expect(find.text('Kamu'), findsOneWidget);
     expect(find.byKey(const ValueKey<String>('combo-meter')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('combo-meter')),
+        matching: find.text('x1'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey<String>('round-clock')), findsOneWidget);
 
-    for (final String questionId in <String>['q1', 'q2', 'q3', 'q4']) {
-      await battleController.answerQuestion(
-        questionId: questionId,
-        selectedOptionIndex: 0,
-      );
+    Future<void> winCurrentRound() async {
+      int safety = 0;
+      while (battleController.state.opponentHp > 0 && safety < 12) {
+        final BattleQuestion question =
+            battleController.state.availableQuestions.first;
+        await battleController.answerQuestion(
+          questionId: question.id,
+          selectedOptionIndex: question.correctOptionIndex!,
+        );
+        safety += 1;
+      }
     }
+
+    await winCurrentRound();
+    await tester.pump();
+
+    expect(
+      find.text('Kamu memenangkan ronde 1. Ronde 2 segera dimulai.'),
+      findsOneWidget,
+    );
+    expect(battleController.state.playerRoundWins, 1);
+    expect(battleController.state.phase, BattlePhase.roundBreak);
+
+    await tester.pump(const Duration(milliseconds: 3000));
+    expect(battleController.state.currentRound, 2);
+    expect(battleController.state.playerHp, 100);
+    expect(battleController.state.opponentHp, 100);
+
+    await winCurrentRound();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 800));
 
+    expect(battleController.state.playerRoundWins, 2);
+    expect(battleController.state.currentRound, 2);
+    expect(battleController.state.phase, BattlePhase.finished);
     expect(find.text('VICTORY!'), findsOneWidget);
   });
 

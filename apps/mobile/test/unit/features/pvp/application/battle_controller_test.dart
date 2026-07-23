@@ -85,6 +85,17 @@ void main() {
     );
   }
 
+  BattleController createFastRoundController(List<BattleQuestion> questions) {
+    return BattleController(
+      botRepository: _FakeBotRepository(
+        BattleSessionSeed(opponentName: 'BOT TEST', questions: questions),
+      ),
+      onlineRepository: _FakeOnlineRepository(),
+      roundTickDuration: const Duration(milliseconds: 5),
+      roundDuration: 2,
+    );
+  }
+
   group('BattleController question reservation', () {
     test(
       'bot attacks without consuming the selected or alternative card',
@@ -261,6 +272,92 @@ void main() {
 
       expect(controller.state.comboLevel, 1);
       expect(controller.state.comboSecondsRemaining, 0);
+    });
+  });
+
+  group('BattleController rounds', () {
+    test(
+      'a round times out after three minutes and awards higher HP',
+      () async {
+        final BattleController controller = createFastRoundController(
+          const <BattleQuestion>[selectedQuestion, botQuestion],
+        );
+        addTearDown(controller.dispose);
+        controller.setMode(BattleMode.bot);
+        await controller.startBattle();
+        await controller.answerQuestion(
+          questionId: selectedQuestion.id,
+          selectedOptionIndex: 0,
+        );
+
+        controller.beginRound();
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+
+        expect(controller.state.roundSecondsRemaining, 0);
+        expect(controller.state.phase, BattlePhase.roundBreak);
+        expect(controller.state.playerRoundWins, 1);
+        expect(controller.state.opponentRoundWins, 0);
+      },
+    );
+
+    test('first player to win two rounds wins the game', () async {
+      final BattleController controller = createController(
+        const <BattleQuestion>[selectedQuestion, botQuestion],
+      );
+      addTearDown(controller.dispose);
+      controller.setMode(BattleMode.bot);
+      await controller.startBattle();
+
+      Future<void> winRound() async {
+        int safety = 0;
+        while (controller.state.opponentHp > 0 && safety < 12) {
+          final BattleQuestion question =
+              controller.state.availableQuestions.first;
+          await controller.answerQuestion(
+            questionId: question.id,
+            selectedOptionIndex: question.correctOptionIndex!,
+          );
+          safety += 1;
+        }
+      }
+
+      await winRound();
+      expect(controller.state.phase, BattlePhase.roundBreak);
+      expect(controller.state.playerRoundWins, 1);
+
+      controller.beginRound();
+      expect(controller.state.currentRound, 2);
+      expect(controller.state.playerHp, 100);
+      expect(controller.state.opponentHp, 100);
+
+      await winRound();
+      expect(controller.state.phase, BattlePhase.finished);
+      expect(controller.state.outcome, BattleOutcome.win);
+      expect(controller.state.playerRoundWins, 2);
+      expect(controller.state.opponentRoundWins, 0);
+    });
+
+    test('a game ends after at most three tied rounds', () async {
+      final BattleController controller = createFastRoundController(
+        const <BattleQuestion>[selectedQuestion, botQuestion],
+      );
+      addTearDown(controller.dispose);
+      controller.setMode(BattleMode.bot);
+      await controller.startBattle();
+
+      for (int round = 1; round <= 3; round += 1) {
+        controller.beginRound();
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        if (round < 3) {
+          expect(controller.state.phase, BattlePhase.roundBreak);
+        }
+      }
+
+      expect(controller.state.currentRound, 3);
+      expect(controller.state.phase, BattlePhase.finished);
+      expect(controller.state.outcome, BattleOutcome.draw);
+      expect(controller.state.playerRoundWins, 0);
+      expect(controller.state.opponentRoundWins, 0);
     });
   });
 }
