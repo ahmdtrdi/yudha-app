@@ -12,7 +12,7 @@
 Modul **AI Mock Interview** di YUDHA adalah mesin wawancara cerdas berbasis persona interviewer yang mensimulasikan proses seleksi kerja (CPNS & BUMN). Modul ini menawarkan:
 1. **High Reasoning & Precise Evaluation**: Menggunakan **Gemini Flash 3.5 / 2.5** untuk analisa jawaban kandidat berakurasi tinggi (penilaian STAR framework & core values AKHLAK/CPNS).
 2. **Ultra-Low Token Footprint (75%–85% Token Reduction)**: Memanfaatkan *Anthropic Contextual Retrieval*, *Gemini Context Caching*, dan *Rolling State Compression*.
-3. **Dual Mode Execution**: Mode **Text-to-Text (T2T)** untuk pemodelan cepat dan mode **Speech-to-Speech (S2S)** dengan STT Groq Whisper (`whisper-large-v3-turbo`) dan TTS engine streaming.
+3. **Dual Mode Execution**: Mode **Text-to-Text (T2T)** untuk pemodelan cepat dan mode **Speech-to-Speech (S2S)** dengan STT Groq Whisper (`whisper-large-v3-turbo`) dan TTS engine **Groq Orpheus** (`canopylabs/orpheus-v1-english`) pada Free Tier, serta arsitektur modular yang dapat dengan mudah di-switch ke **ElevenLabs** di masa depan.
 4. **Low-Latency Streaming Protocol**: Menggunakan **HTTP/2 Server-Sent Events (SSE)** untuk Text Streaming dan **WebSocket (Socket.IO)** untuk Voice Streaming, menghindari bottleneck tanpa menambah kompleksitas overhead gRPC pada client mobile.
 
 ---
@@ -69,7 +69,7 @@ graph TD
 
     Service -->|HTTPS REST / gRPC| Gemini[Gemini Flash 3.5 API]
     Service -->|HTTPS REST| Groq[Groq Whisper STT API]
-    Service -->|HTTPS Stream| TTS[Groq / ElevenLabs TTS API]
+    Service -->|HTTPS Stream| TTS["Groq Orpheus TTS (Free Tier) / ElevenLabs API (Modular)"]
 ```
 
 1. **Text-to-Text Mode**: **HTTP/2 REST dengan Server-Sent Events (SSE)**.
@@ -152,7 +152,7 @@ sequenceDiagram
     participant WS as NestJS Interview Gateway
     participant Groq as Groq Whisper STT
     participant Gemini as Gemini Flash API
-    participant TTS as ElevenLabs / Groq TTS
+    participant TTS as Groq Orpheus TTS (Free) / ElevenLabs
 
     User->>WS: Emit 'submit_audio_chunk' (Binary M4A/WAV)
     WS->>Groq: Transcribe Audio File
@@ -173,9 +173,12 @@ Struktur arsitektur ini selaras dengan kode canonical NestJS yang ada:
 
 * [`InterviewService`](file:*/interview.service.ts): Mengorkestrasi session state, claim turn idempotency, dan memanggil LLM client.
 * [`CompanyContextService`](file:*/services/company-context.service.ts): Mengambil RAG snapshot berbasis priority & max char limit.
-* `GeminiLlmService` *(New / Refactored from GroqLlmService)*: Mengimplementasikan `InterviewLlmClient` menggunakan `@google/genai` dengan support **Context Caching** dan **Structured Schema**.
+* `GeminiLlmService`: Mengimplementasikan `InterviewLlmClient` menggunakan `@google/genai` dengan support **Context Caching** dan **Structured Schema**.
 * [`GroqSttService`](file:/*/services/groq-stt.service.ts): Service transkripsi suara kandidat berbasis Whisper Turbo.
-* [`ElevenLabsTtsService`](file:*services/elevenlabs-tts.service.ts): Service sintesis suara interviewer.
+* [`GroqTtsService`](file:/*/services/groq-tts.service.ts): Service sintesis suara interviewer berbasis **Groq Orpheus** (`canopylabs/orpheus-v1-english`) untuk Free Tier.
+* [`ElevenLabsTtsService`](file:/*/services/elevenlabs-tts.service.ts): Service sintesis suara interviewer modular (ElevenLabs Flash v2.5) sebagai provider alternatif.
+* **Modular TTS Switcher**: Menggunakan `INTERVIEW_SPEECH_SYNTHESIS_CLIENT` NestJS provider factory yang dikonfigurasi via `INTERVIEW_TTS_PROVIDER=groq` (default) atau `INTERVIEW_TTS_PROVIDER=elevenlabs`.
+
 
 ---
 
