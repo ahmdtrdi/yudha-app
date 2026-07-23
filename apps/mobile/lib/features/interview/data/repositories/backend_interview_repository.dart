@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -11,10 +12,12 @@ class InterviewApiConfig {
   const InterviewApiConfig({
     this.baseUrl = AppConfig.apiBaseUrl,
     this.accessToken,
+    this.requestTimeout = const Duration(seconds: 30),
   });
 
   final String baseUrl;
   final String? accessToken;
+  final Duration requestTimeout;
 
   bool get hasAccessToken => accessToken?.trim().isNotEmpty ?? false;
 }
@@ -159,9 +162,19 @@ class BackendInterviewRepository implements InterviewRepository {
       http.MultipartFile.fromBytes('audio', audioBytes, filename: filename),
     );
 
-    final http.StreamedResponse streamedResponse = await _client.send(request);
-    final http.Response response =
-        await http.Response.fromStream(streamedResponse);
+    final http.StreamedResponse streamedResponse;
+    try {
+      streamedResponse = await _client
+          .send(request)
+          .timeout(_config.requestTimeout);
+    } on TimeoutException {
+      throw const InterviewApiException(
+        'Transkripsi membutuhkan waktu terlalu lama. Coba rekam ulang.',
+      );
+    }
+    final http.Response response = await http.Response.fromStream(
+      streamedResponse,
+    );
     final Map<String, dynamic> decoded = _decodeResponse(response);
 
     final Object? transcriptObj = decoded['transcript'];
@@ -191,11 +204,16 @@ class BackendInterviewRepository implements InterviewRepository {
     _ensureAuthenticated();
 
     final Uri uri = Uri.parse('${_config.baseUrl}$path');
-    final http.Response response = await _client.post(
-      uri,
-      headers: _headers,
-      body: jsonEncode(body),
-    );
+    final http.Response response;
+    try {
+      response = await _client
+          .post(uri, headers: _headers, body: jsonEncode(body))
+          .timeout(_config.requestTimeout);
+    } on TimeoutException {
+      throw const InterviewApiException(
+        'Pewawancara AI belum merespons. Coba lagi sebentar.',
+      );
+    }
 
     return _decodeResponse(response);
   }
@@ -204,7 +222,16 @@ class BackendInterviewRepository implements InterviewRepository {
     _ensureAuthenticated();
 
     final Uri uri = Uri.parse('${_config.baseUrl}$path');
-    final http.Response response = await _client.get(uri, headers: _headers);
+    final http.Response response;
+    try {
+      response = await _client
+          .get(uri, headers: _headers)
+          .timeout(_config.requestTimeout);
+    } on TimeoutException {
+      throw const InterviewApiException(
+        'Sesi interview belum berhasil dimuat. Coba lagi.',
+      );
+    }
 
     return _decodeResponse(response);
   }
@@ -228,17 +255,52 @@ class BackendInterviewRepository implements InterviewRepository {
         : jsonDecode(response.body);
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final String message = decoded is Map<String, dynamic>
+      final String backendMessage = decoded is Map<String, dynamic>
           ? decoded['message']?.toString() ?? response.reasonPhrase ?? 'Error'
           : response.reasonPhrase ?? 'Error';
-      throw InterviewApiException(message);
+      throw InterviewApiException(
+        _friendlyErrorMessage(response.statusCode, backendMessage),
+      );
     }
 
     if (decoded is Map<String, dynamic>) {
       return decoded;
     }
 
-    throw const InterviewApiException('Interview API returned invalid JSON.');
+    throw const InterviewApiException(
+      'Respons interview belum dapat dibaca. Silakan coba lagi.',
+    );
+  }
+
+  String _friendlyErrorMessage(int statusCode, String backendMessage) {
+    final String normalized = backendMessage.toLowerCase();
+    if (statusCode == 401 || statusCode == 403) {
+      return 'Sesi loginmu sudah berakhir. Silakan masuk kembali.';
+    }
+    if (statusCode == 404 && normalized.contains('company')) {
+      return 'Profil perusahaan ini belum tersedia. Pilih perusahaan lain.';
+    }
+    if (statusCode == 404) {
+      return 'Sesi interview ini tidak ditemukan.';
+    }
+    if (statusCode == 409 || normalized.contains('not active')) {
+      return 'Sesi interview ini sudah selesai atau sedang diproses.';
+    }
+    if (statusCode == 413) {
+      return 'Rekaman terlalu besar. Coba rekam jawaban yang lebih singkat.';
+    }
+    if (statusCode == 429) {
+      return 'Pewawancara AI sedang ramai. Tunggu sebentar lalu coba lagi.';
+    }
+    if (statusCode >= 500 ||
+        normalized.contains('model') ||
+        normalized.contains('provider')) {
+      return 'Pewawancara AI sedang tidak tersedia. Coba lagi sebentar.';
+    }
+    if (normalized.contains('submit at least one')) {
+      return 'Jawab setidaknya satu pertanyaan sebelum menyelesaikan sesi.';
+    }
+    return 'Permintaan interview belum berhasil. Silakan coba lagi.';
   }
 
   InterviewMessage _questionFromJson(Map<String, dynamic> json) {
