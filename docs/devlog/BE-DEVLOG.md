@@ -315,6 +315,7 @@
 
 **The Change:**
 - Added migration `20260723000000_server_authoritative_economy.sql` with the Store catalog, user inventory, purchase and coin ledgers, Hired Pass seasons/missions/rewards/progress/claims, starter-item backfills, and the missing profile tower/pass fields.
+- Normalized legacy UUID-typed avatar/arena profile columns to text so they can reference stable cosmetic catalog IDs, and aligned both recovery bootstrap files.
 - Added service-role-only transactional functions for purchases, loadout changes, beta credits, reward claims, and idempotent learning activity. Direct authenticated profile/economy writes are revoked.
 - Replaced `finalize_match_result` so duplicate calls return the original deltas, coin rewards are audited, and completed bot/player matches advance Hired Pass missions atomically.
 - Added database triggers that advance Hired Pass missions when practice or interview sessions first become completed.

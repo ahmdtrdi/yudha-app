@@ -65,7 +65,9 @@ class BackendPlayerProgressRepository implements PlayerProgressRepository {
     final int losses = _readInt(decoded['losses']);
     final int totalMatches = _readInt(decoded['total_matches']);
     final int draws = (totalMatches - wins - losses).clamp(0, totalMatches);
-    final String displayName = decoded['username']?.toString().trim() ?? '';
+    final String fullName = decoded['full_name']?.toString().trim() ?? '';
+    final String username = decoded['username']?.toString().trim() ?? '';
+    final String displayName = fullName.isNotEmpty ? fullName : username;
 
     return PlayerProgressSnapshot(
       playerId: decoded['id']?.toString() ?? 'you',

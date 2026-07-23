@@ -4,6 +4,7 @@ import 'package:yudha_mobile/features/practice/application/practice_controller.d
 import 'package:yudha_mobile/features/practice/application/practice_state.dart';
 import 'package:yudha_mobile/features/practice/data/repositories/backend_practice_repository.dart';
 import 'package:yudha_mobile/features/practice/data/repositories/practice_repository.dart';
+import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 
 final Provider<PracticeApiConfig> practiceApiConfigProvider =
     Provider<PracticeApiConfig>(
@@ -20,7 +21,9 @@ final Provider<PracticeRepository> practiceRepositoryProvider =
 
 final StateNotifierProvider<PracticeController, PracticeState>
 practiceControllerProvider =
-    StateNotifierProvider<PracticeController, PracticeState>(
-      (Ref ref) =>
-          PracticeController(repository: ref.watch(practiceRepositoryProvider)),
-    );
+    StateNotifierProvider<PracticeController, PracticeState>((Ref ref) {
+      ref.watch(profileSettingsProvider.select((settings) => settings.target));
+      return PracticeController(
+        repository: ref.watch(practiceRepositoryProvider),
+      );
+    });

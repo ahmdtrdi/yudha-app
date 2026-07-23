@@ -21,6 +21,7 @@ export class BotBattleService {
   private readonly logger = new Logger(BotBattleService.name);
   private readonly botTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private emitCallback: ((result: MatchServiceResult) => void) | null = null;
+  private roundBreakCallback: ((room: InternalRoomState) => void) | null = null;
 
   constructor(
     private readonly engine: GameEngine,
@@ -33,6 +34,10 @@ export class BotBattleService {
   /** Called by the gateway once the Server instance is available. */
   setEmitCallback(callback: (result: MatchServiceResult) => void): void {
     this.emitCallback = callback;
+  }
+
+  setRoundBreakCallback(callback: (room: InternalRoomState) => void): void {
+    this.roundBreakCallback = callback;
   }
 
   /**
@@ -72,13 +77,20 @@ export class BotBattleService {
     }
   }
 
+  resumeBotSchedule(roomId: string): void {
+    if (!this.botTimers.has(roomId)) {
+      this.scheduleNextBotTurn(roomId);
+    }
+  }
+
   /** Check if a room is a bot match by inspecting playerB's userId. */
   isBotMatch(room: InternalRoomState): boolean {
     return room.players.playerB.userId === BOT_USER_ID;
   }
 
   private scheduleNextBotTurn(roomId: string): void {
-    const delay = BOT_MIN_DELAY_MS + Math.random() * (BOT_MAX_DELAY_MS - BOT_MIN_DELAY_MS);
+    const delay =
+      BOT_MIN_DELAY_MS + Math.random() * (BOT_MAX_DELAY_MS - BOT_MIN_DELAY_MS);
     const timer = setTimeout(() => this.executeBotTurn(roomId), delay);
     this.botTimers.set(roomId, timer);
   }
@@ -101,7 +113,9 @@ export class BotBattleService {
     const card = this.selectBotCard(botPlayer.hand);
     if (!card) {
       // No cards in hand — skip turn, reschedule
-      this.logger.warn(`Bot has no cards in hand: room=${roomId}, rescheduling`);
+      this.logger.warn(
+        `Bot has no cards in hand: room=${roomId}, rescheduling`,
+      );
       this.scheduleNextBotTurn(roomId);
       return;
     }
@@ -109,15 +123,24 @@ export class BotBattleService {
     // Step 1: Open the card
     const openResult = this.engine.openCard(room, BOT_USER_ID, card.id);
     if (!openResult.ok) {
-      this.logger.warn(`Bot open_card failed: room=${roomId} reason=${openResult.reason}`);
+      this.logger.warn(
+        `Bot open_card failed: room=${roomId} reason=${openResult.reason}`,
+      );
       this.scheduleNextBotTurn(roomId);
       return;
     }
 
     // Step 2: Play the card with the correct answer
-    const playResult = this.engine.playCard(room, BOT_USER_ID, card.id, card.correctOptionIndex);
+    const playResult = this.engine.playCard(
+      room,
+      BOT_USER_ID,
+      card.id,
+      card.correctOptionIndex,
+    );
     if (!playResult.ok) {
-      this.logger.warn(`Bot play_card failed: room=${roomId} reason=${playResult.reason}`);
+      this.logger.warn(
+        `Bot play_card failed: room=${roomId} reason=${playResult.reason}`,
+      );
       this.scheduleNextBotTurn(roomId);
       return;
     }
@@ -157,6 +180,8 @@ export class BotBattleService {
       }
 
       this.rooms.scheduleCleanup(roomId);
+    } else if (room.roundStatus === 'break') {
+      this.roundBreakCallback?.(room);
     } else {
       // Match continues — schedule next bot turn
       this.scheduleNextBotTurn(roomId);

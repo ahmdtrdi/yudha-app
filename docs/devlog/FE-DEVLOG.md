@@ -1626,3 +1626,67 @@
 
 ### The Tech Debt
 - Fade depth is currently fixed as a percentage of the question viewport; it can be tuned after checking a broader range of device heights.
+
+## 2026-07-23 - Backend-Wired Profile Editing
+
+### The Change
+- Added typed, authenticated profile loading and updating through the existing `GET /profile` and `PATCH /profile` endpoints.
+- Updated the profile header to use the backend `full_name`, `username`, and target values, with pull-to-refresh and human-readable loading and error states.
+- Added a focused profile editor with an explicit save action, saving feedback, validation, retry-friendly errors, and an unsaved-changes confirmation.
+- Removed the language preference so Indonesian remains the fixed application language, while keeping device preferences such as notifications, sound, and haptics locally persisted.
+- Synced successful profile updates into the existing local profile and player-progress state, and made player progress prefer the backend full name.
+- Added repository, controller, persistence, and profile-page tests for loading and saving profile data.
+
+### The Reasoning
+- Identity and preparation-target changes affect backend-owned user data, so they require an explicit save action and use the returned server profile as the source of truth.
+- Device-only preferences can remain immediate local toggles because the current backend contract does not expose fields for them.
+- Removing the unused language control avoids presenting a setting that does not change the application's language.
+
+### The Tech Debt
+- Performance analytics remain outside this change and should be wired to the existing analytics endpoint in the next profile slice.
+- Notification and haptic preferences are persisted but still need to be consumed by their respective runtime features.
+- The avatar remains initials-based until the cosmetics or media owner exposes an editable avatar contract.
+- Targeted Dart analysis reported no issues. The targeted Flutter test command timed out without producing a failure on the current Windows runner and still needs local confirmation.
+
+## 2026-07-23 - Visible Profile Edit Action
+
+### The Change
+- Set the profile app bar edit icon to the application's primary blue.
+
+### The Reasoning
+- The inherited app bar icon color did not provide reliable contrast against the light profile background.
+
+### The Tech Debt
+- None.
+
+## 2026-07-23 - Automatic Practice Target Refresh
+
+### The Change
+- Made the practice dashboard controller react to changes in the saved profile target.
+- Changing between CPNS and BUMN now recreates the stale practice state and fetches the matching server-filtered dashboard automatically.
+
+### The Reasoning
+- The profile target updated successfully, but the long-lived practice provider retained categories loaded for the previous target until pull-to-refresh was used.
+- Keeping this dependency at the provider boundary applies the refresh consistently without coupling the profile editor to the practice page.
+
+### The Tech Debt
+- The practice dashboard still relies on the backend profile as the authoritative target; the local target dependency is used only to invalidate stale frontend state.
+
+## 2026-07-23 - Backend-Wired Profile Performance
+
+### The Change
+- Added a typed, authenticated analytics data layer for `GET /analytics`, covering practice accuracy, total answers, average response time, category performance, weak subcategories, and battle results.
+- Replaced the profile's runtime-derived performance cards with server-backed accuracy, response time, PvP winrate, and answered-question metrics.
+- Added readable category progress and focused practice recommendations, including humanized backend identifiers.
+- Added calm loading, empty, retry, stale-data error, and pull-to-refresh behavior for the analytics section.
+- Added repository, controller, and profile widget coverage for the analytics contract and rendered performance summary.
+
+### The Reasoning
+- Performance claims should come from persisted learning and battle history rather than local runtime proxies that reset between sessions.
+- Category and weak-topic context makes the numbers actionable without exposing raw backend identifiers or presenting the profile like an operational console.
+- The existing analytics endpoint stores practice accuracy as a percentage and battle winrate as a `0..1` ratio, so each value is formatted according to its established contract.
+
+### The Tech Debt
+- Rank and streak trends are not shown because the current backend contract does not expose historical rank or streak data.
+- Weak-topic recommendations follow the backend threshold of at least five answered questions and accuracy below 60 percent; changing that behavior remains backend-owned.
+- Targeted Dart analysis reported no issues. The targeted Flutter test command timed out without producing a failure on the current Windows runner and still needs local confirmation.

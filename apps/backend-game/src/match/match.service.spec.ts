@@ -39,7 +39,9 @@ const mockMatchResultService = {
 
 const mockQuestionService = {
   getMatchQuestionPool: jest.fn().mockResolvedValue(STUB_CARDS),
-  getMatchQuestionPoolWithReserve: jest.fn().mockResolvedValue({ active: STUB_CARDS, reserve: [] }),
+  getMatchQuestionPoolWithReserve: jest
+    .fn()
+    .mockResolvedValue({ active: STUB_CARDS, reserve: [] }),
 };
 
 const mockBotBattleService = {
@@ -47,15 +49,24 @@ const mockBotBattleService = {
     // Return a fake bot room
     const engine = new GameEngine();
     const dealer = new QuestionDealer();
-    const room = engine.createRoom('room_bot_test', userId, 'bot', dealer.createSharedQueue(STUB_CARDS));
+    const room = engine.createRoom(
+      'room_bot_test',
+      userId,
+      'bot',
+      dealer.createSharedQueue(STUB_CARDS),
+    );
     room.players.playerA.socketId = socketId;
     room.players.playerB.socketId = null;
     room.players.playerB.connected = true;
     return room;
   }),
   cancelBotSchedule: jest.fn(),
-  isBotMatch: jest.fn().mockImplementation((room) => room?.players?.playerB?.userId === 'bot'),
+  isBotMatch: jest
+    .fn()
+    .mockImplementation((room) => room?.players?.playerB?.userId === 'bot'),
   setEmitCallback: jest.fn(),
+  setRoundBreakCallback: jest.fn(),
+  resumeBotSchedule: jest.fn(),
 };
 
 const mockSupabaseService = {
@@ -117,9 +128,13 @@ describe('MatchService', () => {
       );
     });
 
-    jest.spyOn(cardTimeoutService, 'scheduleTimeout').mockImplementation(() => {});
+    jest
+      .spyOn(cardTimeoutService, 'scheduleTimeout')
+      .mockImplementation(() => {});
     jest.spyOn(cardTimeoutService, 'clearTimeout').mockImplementation(() => {});
-    jest.spyOn(cardTimeoutService, 'cancelAllTimersForRoom').mockImplementation(() => {});
+    jest
+      .spyOn(cardTimeoutService, 'cancelAllTimersForRoom')
+      .mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -151,10 +166,18 @@ describe('MatchService', () => {
       service.registerSocket('socket-b', 'player-b');
 
       await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
-      const result = await service.handleJoinQueue('player-b', 'socket-b', { mode: 'casual' });
+      const result = await service.handleJoinQueue('player-b', 'socket-b', {
+        mode: 'casual',
+      });
 
-      expect(result.emits.some((emit) => emit.event === SERVER_MATCH_EVENTS.matchFound)).toBe(true);
-      const stateEmits = result.emits.filter((emit) => emit.event === SERVER_MATCH_EVENTS.gameStateUpdate);
+      expect(
+        result.emits.some(
+          (emit) => emit.event === SERVER_MATCH_EVENTS.matchFound,
+        ),
+      ).toBe(true);
+      const stateEmits = result.emits.filter(
+        (emit) => emit.event === SERVER_MATCH_EVENTS.gameStateUpdate,
+      );
       expect(stateEmits).toHaveLength(2);
       expect(stateEmits[0].payload).toHaveProperty('self');
       expect(stateEmits[0].payload).toHaveProperty('opponent');
@@ -166,7 +189,9 @@ describe('MatchService', () => {
       await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
       await service.handleJoinQueue('player-b', 'socket-b', { mode: 'casual' });
 
-      const result = await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
+      const result = await service.handleJoinQueue('player-a', 'socket-a', {
+        mode: 'casual',
+      });
 
       expect(result.emits[0].event).toBe(SERVER_MATCH_EVENTS.error);
     });
@@ -185,7 +210,9 @@ describe('MatchService', () => {
     it('bypasses the matchmaking queue and starts a match instantly', async () => {
       service.registerSocket('socket-a', 'player-a');
 
-      const result = await service.handleJoinQueue('player-a', 'socket-a', { mode: 'bot' });
+      const result = await service.handleJoinQueue('player-a', 'socket-a', {
+        mode: 'bot',
+      });
 
       expect(mockBotBattleService.createBotMatch).toHaveBeenCalledWith(
         profileFor('player-a'),
@@ -193,6 +220,19 @@ describe('MatchService', () => {
       );
       expect(result.emits.some((emit) => emit.event === SERVER_MATCH_EVENTS.matchFound)).toBe(true);
       expect(result.emits.some((emit) => emit.event === SERVER_MATCH_EVENTS.gameStateUpdate)).toBe(true);
+        'player-a',
+        'socket-a',
+      );
+      expect(
+        result.emits.some(
+          (emit) => emit.event === SERVER_MATCH_EVENTS.matchFound,
+        ),
+      ).toBe(true);
+      expect(
+        result.emits.some(
+          (emit) => emit.event === SERVER_MATCH_EVENTS.gameStateUpdate,
+        ),
+      ).toBe(true);
     });
 
     it('rejects bot mode join if player is already in an active room', async () => {
@@ -201,7 +241,9 @@ describe('MatchService', () => {
       await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
       await service.handleJoinQueue('player-b', 'socket-b', { mode: 'casual' });
 
-      const result = await service.handleJoinQueue('player-a', 'socket-a', { mode: 'bot' });
+      const result = await service.handleJoinQueue('player-a', 'socket-a', {
+        mode: 'bot',
+      });
       expect(result.emits[0].event).toBe(SERVER_MATCH_EVENTS.error);
     });
   });
@@ -213,15 +255,26 @@ describe('MatchService', () => {
       service.registerSocket('socket-a', 'player-a');
       service.registerSocket('socket-b', 'player-b');
       await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
-      const joinResult = await service.handleJoinQueue('player-b', 'socket-b', { mode: 'casual' });
-      const matchFoundEmit = joinResult.emits.find((e) => e.event === SERVER_MATCH_EVENTS.matchFound);
+      const joinResult = await service.handleJoinQueue('player-b', 'socket-b', {
+        mode: 'casual',
+      });
+      const matchFoundEmit = joinResult.emits.find(
+        (e) => e.event === SERVER_MATCH_EVENTS.matchFound,
+      );
       roomId = (matchFoundEmit?.payload as any).roomId;
     });
 
     it('handles open_card successfully and schedules turn timeout', () => {
-      const result = service.handleOpenCard('player-a', 'socket-a', { roomId, cardId: 'card_1' });
+      const result = service.handleOpenCard('player-a', 'socket-a', {
+        roomId,
+        cardId: 'card_1',
+      });
 
-      expect(result.emits.some((e) => e.event === SERVER_MATCH_EVENTS.openCardAccepted)).toBe(true);
+      expect(
+        result.emits.some(
+          (e) => e.event === SERVER_MATCH_EVENTS.openCardAccepted,
+        ),
+      ).toBe(true);
       expect(cardTimeoutService.scheduleTimeout).toHaveBeenCalledWith(
         roomId,
         'player-a',
@@ -232,12 +285,20 @@ describe('MatchService', () => {
     });
 
     it('rejects open_card if room is not found', () => {
-      const result = service.handleOpenCard('player-a', 'socket-a', { roomId: 'invalid-room', cardId: 'card_1' });
-      expect(result.emits[0].event).toBe(SERVER_MATCH_EVENTS.cardActionRejected);
+      const result = service.handleOpenCard('player-a', 'socket-a', {
+        roomId: 'invalid-room',
+        cardId: 'card_1',
+      });
+      expect(result.emits[0].event).toBe(
+        SERVER_MATCH_EVENTS.cardActionRejected,
+      );
     });
 
     it('handles play_card successfully and clears timeout', async () => {
-      service.handleOpenCard('player-a', 'socket-a', { roomId, cardId: 'card_1' });
+      service.handleOpenCard('player-a', 'socket-a', {
+        roomId,
+        cardId: 'card_1',
+      });
 
       const result = await service.handlePlayCard('player-a', 'socket-a', {
         roomId,
@@ -245,12 +306,22 @@ describe('MatchService', () => {
         selectedOptionIndex: 0,
       });
 
-      expect(cardTimeoutService.clearTimeout).toHaveBeenCalledWith(roomId, 'player-a');
-      expect(result.emits.some((e) => e.event === SERVER_MATCH_EVENTS.playCardResult)).toBe(true);
+      expect(cardTimeoutService.clearTimeout).toHaveBeenCalledWith(
+        roomId,
+        'player-a',
+      );
+      expect(
+        result.emits.some(
+          (e) => e.event === SERVER_MATCH_EVENTS.playCardResult,
+        ),
+      ).toBe(true);
     });
 
     it('handles play_card incorrect answer and updates state', async () => {
-      service.handleOpenCard('player-a', 'socket-a', { roomId, cardId: 'card_1' });
+      service.handleOpenCard('player-a', 'socket-a', {
+        roomId,
+        cardId: 'card_1',
+      });
 
       const result = await service.handlePlayCard('player-a', 'socket-a', {
         roomId,
@@ -258,12 +329,16 @@ describe('MatchService', () => {
         selectedOptionIndex: 1, // incorrect
       });
 
-      const playResultEmit = result.emits.find((e) => e.event === SERVER_MATCH_EVENTS.playCardResult);
+      const playResultEmit = result.emits.find(
+        (e) => e.event === SERVER_MATCH_EVENTS.playCardResult,
+      );
       expect((playResultEmit?.payload as any).correct).toBe(false);
     });
 
     it('handles surrender and cleans up room/timers', async () => {
-      const result = await service.handleSurrender('player-a', 'socket-a', { roomId });
+      const result = await service.handleSurrender('player-a', 'socket-a', {
+        roomId,
+      });
 
       expect(cardTimeoutService.cancelAllTimersForRoom).toHaveBeenCalledWith(roomId);
       expect(mockBotBattleService.cancelBotSchedule).toHaveBeenCalledWith(roomId);
@@ -277,7 +352,9 @@ describe('MatchService', () => {
     });
 
     it('rejects surrender if room not found', async () => {
-      const result = await service.handleSurrender('player-a', 'socket-a', { roomId: 'invalid-room' });
+      const result = await service.handleSurrender('player-a', 'socket-a', {
+        roomId: 'invalid-room',
+      });
       expect(result.emits[0].event).toBe(SERVER_MATCH_EVENTS.error);
     });
   });
@@ -289,11 +366,18 @@ describe('MatchService', () => {
       service.registerSocket('socket-a', 'player-a');
       service.registerSocket('socket-b', 'player-b');
       await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
-      const joinResult = await service.handleJoinQueue('player-b', 'socket-b', { mode: 'casual' });
-      const matchFoundEmit = joinResult.emits.find((e) => e.event === SERVER_MATCH_EVENTS.matchFound);
+      const joinResult = await service.handleJoinQueue('player-b', 'socket-b', {
+        mode: 'casual',
+      });
+      const matchFoundEmit = joinResult.emits.find(
+        (e) => e.event === SERVER_MATCH_EVENTS.matchFound,
+      );
       roomId = (matchFoundEmit?.payload as any).roomId;
 
-      service.handleOpenCard('player-a', 'socket-a', { roomId, cardId: 'card_1' });
+      service.handleOpenCard('player-a', 'socket-a', {
+        roomId,
+        cardId: 'card_1',
+      });
     });
 
     it('processes card timeout, fires playCardResult with correct=false, and notifies client', async () => {
@@ -304,7 +388,9 @@ describe('MatchService', () => {
 
       expect(emitServerSpy).toHaveBeenCalled();
       const emitted = emitServerSpy.mock.calls[0][0];
-      const resultEmit = emitted.emits.find((e: any) => e.event === SERVER_MATCH_EVENTS.playCardResult);
+      const resultEmit = emitted.emits.find(
+        (e: any) => e.event === SERVER_MATCH_EVENTS.playCardResult,
+      );
       expect(resultEmit).toBeDefined();
       expect(resultEmit.payload.correct).toBe(false);
     });
@@ -457,8 +543,12 @@ describe('MatchService', () => {
       service.registerSocket('socket-a', 'player-a');
       service.registerSocket('socket-b', 'player-b');
       await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
-      const joinResult = await service.handleJoinQueue('player-b', 'socket-b', { mode: 'casual' });
-      const matchFoundEmit = joinResult.emits.find((e) => e.event === SERVER_MATCH_EVENTS.matchFound);
+      const joinResult = await service.handleJoinQueue('player-b', 'socket-b', {
+        mode: 'casual',
+      });
+      const matchFoundEmit = joinResult.emits.find(
+        (e) => e.event === SERVER_MATCH_EVENTS.matchFound,
+      );
       const roomId = (matchFoundEmit?.payload as any).roomId;
 
       const result = service.handleDisconnect('socket-a');

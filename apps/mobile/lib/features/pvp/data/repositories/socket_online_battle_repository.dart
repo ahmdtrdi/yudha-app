@@ -223,6 +223,14 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
         opponentHp: _asInt(opponent['hp']),
         playerPoints: _asInt(self['points']),
         opponentPoints: _asInt(opponent['points']),
+        playerComboLevel: _asInt(self['comboLevel']).clamp(1, 3),
+        currentRound: _asInt(data['currentRound']).clamp(1, 3),
+        roundSecondsRemaining: _asInt(data['roundSecondsRemaining']),
+        playerRoundWins: _asInt(data['selfRoundWins']),
+        opponentRoundWins: _asInt(data['opponentRoundWins']),
+        lastRoundOutcome: _parseRoundOutcome(
+          data['lastRoundOutcome'] as String?,
+        ),
         availableQuestions: questions,
         answeredQuestionIds: _asStringList(self['answeredCardIds']),
       );
@@ -269,6 +277,7 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
           correct: data['correct'] as bool? ?? false,
           effect: _parseEffect(data['effect'] as String?),
           effectValue: _asInt(data['effectValue']),
+          projectileLevel: _asInt(data['projectileLevel']).clamp(1, 3),
         ),
       );
     });
@@ -368,6 +377,15 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
       'win' => BattleOutcome.win,
       'lose' || 'surrender' => BattleOutcome.lose,
       _ => BattleOutcome.draw,
+    };
+  }
+
+  BattleOutcome? _parseRoundOutcome(String? outcome) {
+    return switch (outcome) {
+      'win' => BattleOutcome.win,
+      'lose' => BattleOutcome.lose,
+      'draw' => BattleOutcome.draw,
+      _ => null,
     };
   }
 

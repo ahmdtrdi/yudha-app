@@ -1,5 +1,7 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yudha_mobile/features/practice/application/practice_controller.dart';
+import 'package:yudha_mobile/features/practice/application/practice_providers.dart';
 import 'package:yudha_mobile/features/practice/application/practice_state.dart';
 import 'package:yudha_mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_dashboard.dart';
@@ -8,11 +10,16 @@ import 'package:yudha_mobile/features/practice/domain/entities/practice_question
 import 'package:yudha_mobile/features/practice/domain/entities/practice_recent_activity.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_session.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_topic.dart';
+import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
+import 'package:yudha_mobile/features/profile/application/profile_settings_storage.dart';
+import 'package:yudha_mobile/features/profile/domain/entities/profile_settings.dart';
+import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
 class _FakePracticeRepository implements PracticeRepository {
   int? lastResponseTimeMs;
   bool? lastUsedHint;
   int submitCount = 0;
+  int dashboardFetchCount = 0;
 
   static const PracticeTopic topic = PracticeTopic(
     id: 'TIU::Numerik',
@@ -57,6 +64,7 @@ class _FakePracticeRepository implements PracticeRepository {
 
   @override
   Future<PracticeDashboard> fetchDashboard() async {
+    dashboardFetchCount += 1;
     return const PracticeDashboard(
       topics: <PracticeTopic>[topic],
       overallProgressPercent: 50,
@@ -119,6 +127,16 @@ class _FakePracticeRepository implements PracticeRepository {
   }
 }
 
+class _EmptyProfileSettingsStorage implements ProfileSettingsStorage {
+  const _EmptyProfileSettingsStorage();
+
+  @override
+  Future<ProfileSettings?> load() async => null;
+
+  @override
+  Future<void> save(ProfileSettings settings) async {}
+}
+
 void main() {
   test('loads dashboard without creating a practice session', () async {
     final _FakePracticeRepository repository = _FakePracticeRepository();
@@ -134,6 +152,43 @@ void main() {
     ]);
     expect(controller.state.questions, isEmpty);
     expect(controller.state.sessionId, isNull);
+  });
+
+  test('reloads dashboard when the profile target changes', () async {
+    final _FakePracticeRepository repository = _FakePracticeRepository();
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        practiceRepositoryProvider.overrideWithValue(repository),
+        profileSettingsStorageProvider.overrideWithValue(
+          const _EmptyProfileSettingsStorage(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final subscription = container.listen(
+      practiceControllerProvider,
+      (_, _) {},
+      fireImmediately: true,
+    );
+    addTearDown(subscription.close);
+    final PracticeController initialController = container.read(
+      practiceControllerProvider.notifier,
+    );
+    await initialController.reload();
+    final int initialFetchCount = repository.dashboardFetchCount;
+
+    container
+        .read(profileSettingsProvider.notifier)
+        .setTarget(ProfileTarget.cpns);
+    await Future<void>.delayed(Duration.zero);
+
+    final PracticeController refreshedController = container.read(
+      practiceControllerProvider.notifier,
+    );
+
+    expect(refreshedController, isNot(same(initialController)));
+    expect(repository.dashboardFetchCount, greaterThan(initialFetchCount));
   });
 
   test('starts locked session and submits response time to backend', () async {

@@ -75,7 +75,9 @@ class _PvpPageState extends ConsumerState<PvpPage> {
         GameEconomyCatalog.arenas.first;
 
     if (state.phase != BattlePhase.preBattle) {
-      final bool needsDark = state.phase == BattlePhase.inBattle;
+      final bool needsDark =
+          state.phase == BattlePhase.inBattle ||
+          state.phase == BattlePhase.roundBreak;
       final Widget content = _buildBattleContent(
         context: context,
         ref: ref,
@@ -249,11 +251,20 @@ class _PvpPageState extends ConsumerState<PvpPage> {
       playerTowerAsset: selectedTower.battleAssetPath ?? _enemyMiniTowerAsset,
       arenaTheme: ArenaVisualTheme.fromId(selectedArena.id),
       soundEnabled: soundEnabled,
-      onPause: () => _showPauseDialog(
-        context: context,
-        controller: controller,
-        mode: state.mode,
-      ),
+      onPause: () async {
+        controller.pauseRoundClock();
+        try {
+          await _showPauseDialog(
+            context: context,
+            controller: controller,
+            mode: state.mode,
+          );
+        } finally {
+          controller.resumeRoundClock();
+        }
+      },
+      onRoundReady: controller.beginRound,
+      onArenaDisposed: controller.stopRoundClock,
       onBotAnswer: controller.answerBotQuestion,
       onPickQuestion: (BattleQuestion question) async {
         final bool ready = await controller.prepareQuestion(question);

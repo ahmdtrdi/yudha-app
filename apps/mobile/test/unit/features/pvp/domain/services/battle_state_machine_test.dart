@@ -27,8 +27,8 @@ void main() {
         selectedOptionIndex: 0,
       );
 
-      expect(resolved.opponentHp, 80);
-      expect(resolved.playerPoints, 20);
+      expect(resolved.opponentHp, 95);
+      expect(resolved.playerPoints, 5);
       expect(resolved.phase, BattlePhase.inBattle);
       expect(resolved.outcome, BattleOutcome.inProgress);
     });
@@ -59,28 +59,11 @@ void main() {
       expect(resolved.playerPoints, greaterThan(0));
     });
 
-    test('weight impacts damage amount correctly', () {
-      const BattleQuestion lowWeight = BattleQuestion(
-        id: 'q-low',
-        prompt: 'Low',
-        options: <String>['A', 'B'],
-        correctOptionIndex: 0,
-        weight: 1,
-        effect: QuestionEffect.damage,
-      );
-      const BattleQuestion highWeight = BattleQuestion(
-        id: 'q-high',
-        prompt: 'High',
-        options: <String>['A', 'B'],
-        correctOptionIndex: 0,
-        weight: 3,
-        effect: QuestionEffect.damage,
-      );
-
-      expect(
-        BattleStateMachine.impactFromWeight(highWeight.weight),
-        greaterThan(BattleStateMachine.impactFromWeight(lowWeight.weight)),
-      );
+    test('combo levels deal exactly 5, 10, and 15 damage', () {
+      expect(BattleStateMachine.damageFromCombo(1), 5);
+      expect(BattleStateMachine.damageFromCombo(2), 10);
+      expect(BattleStateMachine.damageFromCombo(3), 15);
+      expect(BattleStateMachine.damageFromCombo(99), 15);
     });
 
     test('wrong answer replaces only the player card that was used', () {
