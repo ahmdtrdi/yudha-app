@@ -29,6 +29,7 @@ class _InBattleSection extends StatefulWidget {
     required this.playerCharacter,
     required this.opponentCharacter,
     required this.playerTowerAsset,
+    required this.opponentTowerAsset,
     required this.arenaTheme,
     required this.soundEnabled,
     required this.onPause,
@@ -43,6 +44,7 @@ class _InBattleSection extends StatefulWidget {
   final CharacterVisualAssets playerCharacter;
   final CharacterVisualAssets opponentCharacter;
   final String playerTowerAsset;
+  final String opponentTowerAsset;
   final ArenaVisualTheme arenaTheme;
   final bool soundEnabled;
   final Future<void> Function() onPause;
@@ -125,6 +127,7 @@ class _InBattleSectionState extends State<_InBattleSection>
       ...widget.opponentCharacter.all,
       _enemyMiniTowerAsset,
       widget.playerTowerAsset,
+      widget.opponentTowerAsset,
       _numerikCardAsset,
       _verbalCardAsset,
       _logikaCardAsset,
@@ -585,6 +588,7 @@ class _InBattleSectionState extends State<_InBattleSection>
                         playerCharacter: widget.playerCharacter,
                         opponentCharacter: widget.opponentCharacter,
                         playerTowerAsset: widget.playerTowerAsset,
+                        opponentTowerAsset: widget.opponentTowerAsset,
                         playerPose: _playerPose,
                         opponentPose: _opponentPose,
                         arenaTheme: widget.arenaTheme,
@@ -1079,6 +1083,7 @@ class _ArenaBoard extends StatelessWidget {
     required this.playerCharacter,
     required this.opponentCharacter,
     required this.playerTowerAsset,
+    required this.opponentTowerAsset,
     required this.playerPose,
     required this.opponentPose,
     required this.arenaTheme,
@@ -1099,6 +1104,7 @@ class _ArenaBoard extends StatelessWidget {
   final CharacterVisualAssets playerCharacter;
   final CharacterVisualAssets opponentCharacter;
   final String playerTowerAsset;
+  final String opponentTowerAsset;
   final _CharacterPose playerPose;
   final _CharacterPose opponentPose;
   final ArenaVisualTheme arenaTheme;
@@ -1174,7 +1180,7 @@ class _ArenaBoard extends StatelessWidget {
                   width: miniSize,
                   height: miniSize,
                   child: _TowerAsset(
-                    asset: _enemyMiniTowerAsset,
+                    asset: opponentTowerAsset,
                     destroyed: opponentHp <= 0,
                     ambientAnimation: ambientAnimation,
                   ),
@@ -1185,7 +1191,7 @@ class _ArenaBoard extends StatelessWidget {
                   width: miniSize,
                   height: miniSize,
                   child: _TowerAsset(
-                    asset: _enemyMiniTowerAsset,
+                    asset: opponentTowerAsset,
                     destroyed: opponentHp <= 0,
                     ambientAnimation: ambientAnimation,
                   ),

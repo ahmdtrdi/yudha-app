@@ -72,6 +72,8 @@ export class GameEngine {
           ...(playerAOrQueue as InternalCard[]),
           ...((playerBOrReserve as InternalCard[] | undefined) ?? []),
         ]);
+    const reserveQueue: InternalCard[] = [];
+    const startedAt = new Date();
     return {
       roomId,
       status: 'active',
@@ -89,7 +91,7 @@ export class GameEngine {
           GameEngine.ROUND_BREAK_MS +
           GameEngine.ROUND_DURATION_MS,
       ),
-      startedAt: new Date(),
+      startedAt,
       players: {
         playerA: this.createPlayer(playerA, 'playerA', sharedQueue),
         playerB: this.createPlayer(playerB, 'playerB', sharedQueue),
@@ -134,6 +136,7 @@ export class GameEngine {
     }
 
     player.openedCardId = cardId;
+    player.openedCardAt = new Date();
     return { ok: true, room };
   }
 
@@ -212,6 +215,7 @@ export class GameEngine {
     player.hand.splice(cardIndex, 1);
     player.answeredCardIds.add(cardId);
     player.openedCardId = undefined;
+    player.openedCardAt = undefined;
 
     const nextCard = this.drawNextCard(room, player);
     if (nextCard) {
@@ -273,6 +277,7 @@ export class GameEngine {
     player.hand.splice(cardIndex, 1);
     player.answeredCardIds.add(cardId);
     player.openedCardId = undefined;
+    player.openedCardAt = undefined;
 
     const nextCard = this.drawNextCard(room, player);
     if (nextCard) {
@@ -385,6 +390,7 @@ export class GameEngine {
       role,
       hp: GameEngine.STARTING_HP,
       points: 0,
+      comboLevel: 1,
       hand,
       answeredCardIds: new Set<string>(),
       nextDrawIndex: hand.length,
@@ -398,7 +404,34 @@ export class GameEngine {
     if (room.status !== 'active' || room.roundStatus !== 'active') {
       return room.result;
     }
-    return undefined;
+    return this.completeRound(room, 'round_timeout');
+  }
+
+  startNextRound(room: InternalRoomState): boolean {
+    if (
+      room.status !== 'active' ||
+      room.roundStatus !== 'break' ||
+      room.currentRound >= GameEngine.MAX_ROUNDS
+    ) {
+      return false;
+    }
+    room.currentRound += 1;
+    room.roundStatus = 'active';
+    room.nextRoundAt = undefined;
+    room.lastRoundWinnerUserId = undefined;
+    room.roundEndsAt = new Date(Date.now() + GameEngine.ROUND_DURATION_MS);
+    for (const player of Object.values(room.players)) {
+      player.hp = GameEngine.STARTING_HP;
+      player.points = 0;
+      player.comboLevel = 1;
+      player.comboExpiresAt = undefined;
+      player.openedCardId = undefined;
+      player.openedCardAt = undefined;
+      player.hand = this.dealer.createStartingHand(room.sharedQueue);
+      player.answeredCardIds.clear();
+      player.nextDrawIndex = QuestionDealer.HAND_SIZE;
+    }
+    return true;
   }
 
   private completeRound(
@@ -416,7 +449,9 @@ export class GameEngine {
     room.lastRoundWinnerUserId = roundWinnerUserId;
     room.roundEndsAt = undefined;
     playerA.openedCardId = undefined;
+    playerA.openedCardAt = undefined;
     playerB.openedCardId = undefined;
+    playerB.openedCardAt = undefined;
 
     const matchFinished =
       room.playerARoundWins >= GameEngine.WINS_TO_WIN ||
@@ -507,6 +542,8 @@ export class GameEngine {
           : `card_r${absoluteIndex + 1}`,
       options: [...source.options],
     };
+  }
+
   private roundSecondsRemaining(room: InternalRoomState): number {
     if (!room.roundEndsAt || room.roundStatus !== 'active') return 0;
     return Math.min(

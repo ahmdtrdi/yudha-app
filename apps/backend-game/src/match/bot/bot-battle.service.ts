@@ -22,6 +22,8 @@ export class BotBattleService {
   private readonly botTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private emitCallback: ((result: MatchServiceResult) => void) | null = null;
   private roundBreakCallback: ((room: InternalRoomState) => void) | null = null;
+  private matchFinishedCallback: ((room: InternalRoomState) => void) | null =
+    null;
 
   constructor(
     private readonly engine: GameEngine,
@@ -38,6 +40,10 @@ export class BotBattleService {
 
   setRoundBreakCallback(callback: (room: InternalRoomState) => void): void {
     this.roundBreakCallback = callback;
+  }
+
+  setMatchFinishedCallback(callback: (room: InternalRoomState) => void): void {
+    this.matchFinishedCallback = callback;
   }
 
   /**
@@ -169,6 +175,7 @@ export class BotBattleService {
     // Check if match ended
     if (playResult.matchResult) {
       this.cancelBotSchedule(roomId);
+      this.matchFinishedCallback?.(room);
       await this.persistBotMatch(room);
 
       if (humanSocketId) {

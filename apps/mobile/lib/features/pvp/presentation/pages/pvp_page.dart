@@ -73,6 +73,39 @@ class _PvpPageState extends ConsumerState<PvpPage> {
     final CosmeticItem selectedArena =
         GameEconomyCatalog.findArena(economy.equippedArenaId) ??
         GameEconomyCatalog.arenas.first;
+    final bool useServerSnapshot =
+        state.mode == BattleMode.online &&
+        (state.isMatchActive || state.isBattleFinished);
+    final CosmeticItem battlePlayerCharacter = useServerSnapshot
+        ? GameEconomyCatalog.findCharacter(
+                state.playerCharacterId ?? selectedCharacter.id,
+              ) ??
+              selectedCharacter
+        : selectedCharacter;
+    final CosmeticItem battlePlayerTower = useServerSnapshot
+        ? GameEconomyCatalog.findTower(
+                state.playerTowerId ?? selectedTower.id,
+              ) ??
+              selectedTower
+        : selectedTower;
+    final CosmeticItem battleOpponentCharacter = useServerSnapshot
+        ? GameEconomyCatalog.findCharacter(
+                state.opponentCharacterId ?? opponentCharacter.id,
+              ) ??
+              opponentCharacter
+        : opponentCharacter;
+    final CosmeticItem battleOpponentTower =
+        GameEconomyCatalog.findTower(
+          useServerSnapshot
+              ? state.opponentTowerId ?? 'tower-benteng-bara'
+              : 'tower-benteng-bara',
+        ) ??
+        GameEconomyCatalog.towers.last;
+    final CosmeticItem battleArena =
+        useServerSnapshot && state.battleTarget != null
+        ? GameEconomyCatalog.findArena('arena-${state.battleTarget!.name}') ??
+              selectedArena
+        : selectedArena;
 
     if (state.phase != BattlePhase.preBattle) {
       final bool needsDark =
@@ -85,10 +118,11 @@ class _PvpPageState extends ConsumerState<PvpPage> {
         controller: controller,
         playerDisplayName: playerDisplayName,
         economy: economy,
-        selectedCharacter: selectedCharacter,
-        selectedTower: selectedTower,
-        opponentCharacter: opponentCharacter,
-        selectedArena: selectedArena,
+        selectedCharacter: battlePlayerCharacter,
+        selectedTower: battlePlayerTower,
+        opponentCharacter: battleOpponentCharacter,
+        opponentTower: battleOpponentTower,
+        selectedArena: battleArena,
         soundEnabled: soundEnabled,
       );
       return Scaffold(
@@ -138,10 +172,11 @@ class _PvpPageState extends ConsumerState<PvpPage> {
                   controller: controller,
                   playerDisplayName: playerDisplayName,
                   economy: economy,
-                  selectedCharacter: selectedCharacter,
-                  selectedTower: selectedTower,
-                  opponentCharacter: opponentCharacter,
-                  selectedArena: selectedArena,
+                  selectedCharacter: battlePlayerCharacter,
+                  selectedTower: battlePlayerTower,
+                  opponentCharacter: battleOpponentCharacter,
+                  opponentTower: battleOpponentTower,
+                  selectedArena: battleArena,
                   soundEnabled: soundEnabled,
                 ),
               ),
@@ -162,6 +197,7 @@ class _PvpPageState extends ConsumerState<PvpPage> {
     required CosmeticItem selectedCharacter,
     required CosmeticItem selectedTower,
     required CosmeticItem opponentCharacter,
+    required CosmeticItem opponentTower,
     required CosmeticItem selectedArena,
     required bool soundEnabled,
   }) {
@@ -171,6 +207,9 @@ class _PvpPageState extends ConsumerState<PvpPage> {
         message: state.statusMessage,
         playerAvatarAsset: selectedCharacter.characterVisuals!.idle,
         opponentAvatarAsset: opponentCharacter.characterVisuals!.idle,
+        onCancel: state.mode == BattleMode.online
+            ? controller.cancelMatchmaking
+            : null,
       );
     }
 
@@ -218,8 +257,14 @@ class _PvpPageState extends ConsumerState<PvpPage> {
           controller.setMode(BattleMode.bot);
           controller.startBattle();
         },
-        onStartPlayer: () async {
+        onStartCasual: () async {
           controller.setMode(BattleMode.online);
+          controller.setOnlineMatchmakingMode(OnlineMatchmakingMode.casual);
+          await controller.startBattle();
+        },
+        onStartRanked: () async {
+          controller.setMode(BattleMode.online);
+          controller.setOnlineMatchmakingMode(OnlineMatchmakingMode.ranked);
           await controller.startBattle();
         },
       );
@@ -229,12 +274,16 @@ class _PvpPageState extends ConsumerState<PvpPage> {
       return _ResultSection(
         state: state,
         onClaimReward: () {
-          ref
-              .read(playerProgressProvider.notifier)
-              .applyBattleResult(
-                outcome: state.outcome,
-                ratingDelta: state.ratingDelta,
-              );
+          if (state.mode == BattleMode.online) {
+            if (state.progressionPersisted) {
+              ref
+                  .read(gameEconomyProvider.notifier)
+                  .applyBattleReward(state.coinsDelta);
+            }
+            unawaited(
+              ref.read(playerProgressProvider.notifier).hydrateFromRepository(),
+            );
+          }
           controller.markRewardClaimed();
         },
         onReplay: controller.startBattle,
@@ -249,6 +298,7 @@ class _PvpPageState extends ConsumerState<PvpPage> {
       playerCharacter: selectedCharacter.characterVisuals!,
       opponentCharacter: opponentCharacter.characterVisuals!,
       playerTowerAsset: selectedTower.battleAssetPath ?? _enemyMiniTowerAsset,
+      opponentTowerAsset: opponentTower.battleAssetPath ?? _enemyMiniTowerAsset,
       arenaTheme: ArenaVisualTheme.fromId(selectedArena.id),
       soundEnabled: soundEnabled,
       onPause: () async {
@@ -300,12 +350,19 @@ class _PvpPageState extends ConsumerState<PvpPage> {
       builder: (BuildContext sheetContext) {
         return Consumer(
           builder: (BuildContext context, WidgetRef ref, Widget? child) {
-            final BattlePhase phase = ref.watch(
-              battleControllerProvider.select(
-                (BattleState current) => current.phase,
-              ),
-            );
-            if (phase != BattlePhase.inBattle) {
+            final ({BattlePhase phase, bool cardAvailable}) modalState = ref
+                .watch(
+                  battleControllerProvider.select(
+                    (BattleState current) => (
+                      phase: current.phase,
+                      cardAvailable: current.availableQuestions.any(
+                        (item) => item.id == question.id,
+                      ),
+                    ),
+                  ),
+                );
+            if (modalState.phase != BattlePhase.inBattle ||
+                !modalState.cardAvailable) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 final ModalRoute<void>? route = ModalRoute.of(sheetContext);
                 if (route != null && route.isActive) {
@@ -456,6 +513,7 @@ class _ArenaLoadingView extends StatelessWidget {
     required this.mode,
     required this.playerAvatarAsset,
     required this.opponentAvatarAsset,
+    this.onCancel,
     this.message,
   });
 
@@ -463,6 +521,7 @@ class _ArenaLoadingView extends StatelessWidget {
   final String playerAvatarAsset;
   final String opponentAvatarAsset;
   final String? message;
+  final Future<void> Function()? onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -553,6 +612,18 @@ class _ArenaLoadingView extends StatelessWidget {
                   backgroundColor: Color(0xFFDDE8FA),
                 ),
               ),
+              if (onCancel != null) ...<Widget>[
+                const SizedBox(height: 20),
+                OutlinedButton.icon(
+                  key: const ValueKey<String>('cancel-matchmaking'),
+                  onPressed: onCancel,
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  label: Text(
+                    'Batalkan pencarian',
+                    style: GoogleFonts.dmSans(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

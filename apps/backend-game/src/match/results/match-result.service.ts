@@ -79,10 +79,26 @@ export class MatchResultService {
     try {
       const adminClient = this.supabaseService.getAdminClient();
       const rows = logEntries.map((entry) => ({
-        match_id: matchResultId,
-        user_id: entry.user_id,
-        action: entry.action,
-        payload: entry.payload,
+        match_result_id: matchResultId,
+        player_id: entry.user_id === 'bot' ? null : entry.user_id,
+        question_id: this.stringValue(entry.payload.questionId),
+        card_id: this.stringValue(entry.payload.cardId),
+        action_type: entry.action,
+        selected_option_index: this.numberValue(
+          entry.payload.selectedOptionIndex,
+        ),
+        player_answer: this.stringValue(entry.payload.playerAnswer),
+        is_correct: this.booleanValue(entry.payload.correct),
+        effect: this.effectValue(entry.payload.effect),
+        effect_value: this.numberValue(entry.payload.effectValue) ?? 0,
+        hp_before: this.numberValue(entry.payload.hpBefore),
+        hp_after: this.numberValue(entry.payload.hpAfter),
+        opponent_hp_before: this.numberValue(entry.payload.opponentHpBefore),
+        opponent_hp_after: this.numberValue(entry.payload.opponentHpAfter),
+        points_before: this.numberValue(entry.payload.pointsBefore),
+        points_after: this.numberValue(entry.payload.pointsAfter),
+        response_time_ms: this.numberValue(entry.payload.responseTimeMs),
+        action_timestamp: entry.created_at,
         created_at: entry.created_at,
       }));
 
@@ -190,5 +206,21 @@ export class MatchResultService {
 
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private stringValue(value: unknown): string | null {
+    return typeof value === 'string' ? value : null;
+  }
+
+  private numberValue(value: unknown): number | null {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  }
+
+  private booleanValue(value: unknown): boolean | null {
+    return typeof value === 'boolean' ? value : null;
+  }
+
+  private effectValue(value: unknown): 'damage' | 'heal' | 'none' {
+    return value === 'damage' || value === 'heal' ? value : 'none';
   }
 }

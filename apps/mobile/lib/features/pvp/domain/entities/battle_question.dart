@@ -9,6 +9,7 @@ class BattleQuestion {
     required this.effect,
     this.correctOptionIndex,
     this.category = 'numerik',
+    this.timeLimitSeconds = 10,
   });
 
   final String id;
@@ -18,4 +19,5 @@ class BattleQuestion {
   final int weight;
   final QuestionEffect effect;
   final String category;
+  final int timeLimitSeconds;
 }

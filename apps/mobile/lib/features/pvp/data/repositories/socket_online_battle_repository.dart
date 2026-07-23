@@ -28,47 +28,76 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
   static const String _matchResultEvent = 'match_result';
   static const String _presenceUpdateEvent = 'presence_update';
   static const String _errorEvent = 'error';
+  static const String _connectionSuccessEvent = 'connection_success';
 
   final String? _accessToken;
   final StreamController<OnlineBattleUpdate> _updatesController =
       StreamController<OnlineBattleUpdate>.broadcast();
 
   io.Socket? _socket;
+  Future<void>? _connectionFuture;
   Completer<BattleSessionSeed>? _sessionCompleter;
   Completer<void>? _openCardCompleter;
+  Completer<void>? _surrenderCompleter;
   String? _pendingOpenCardId;
   String? _roomId;
   String? _selfUserId;
   String? _opponentUserId;
   String _opponentName = 'Player Match';
+  OnlineMatchmakingMode _currentMatchmakingMode = OnlineMatchmakingMode.casual;
   bool _disposed = false;
 
   @override
   Stream<OnlineBattleUpdate> get updates => _updatesController.stream;
 
   @override
-  Future<BattleSessionSeed> createSession() async {
+  Future<void> reconnectIfActive() async {
+    if (_accessToken == null || _accessToken.trim().isEmpty || _disposed) {
+      return;
+    }
+    await _ensureConnected();
+  }
+
+  @override
+  Future<BattleSessionSeed> createSession({
+    OnlineMatchmakingMode matchmakingMode = OnlineMatchmakingMode.casual,
+  }) async {
     if (_accessToken == null || _accessToken.trim().isEmpty) {
       throw StateError(
         'Mode online membutuhkan sesi login Supabase. Silakan masuk ulang.',
       );
     }
 
-    await _ensureConnected();
-    _sessionCompleter = Completer<BattleSessionSeed>();
-    _roomId = null;
-    _selfUserId = null;
-    _opponentUserId = null;
-    _opponentName = 'Player Match';
+    if (_sessionCompleter != null && !_sessionCompleter!.isCompleted) {
+      throw StateError('Matchmaking masih berlangsung.');
+    }
 
-    _socket!.emit(_joinQueueEvent, <String, Object?>{'mode': 'casual'});
+    final Completer<BattleSessionSeed> sessionCompleter =
+        Completer<BattleSessionSeed>();
+    _sessionCompleter = sessionCompleter;
+    _currentMatchmakingMode = matchmakingMode;
+    if (_roomId == null) {
+      _selfUserId = null;
+      _opponentUserId = null;
+      _opponentName = 'Player Match';
+    }
 
-    return _sessionCompleter!.future.timeout(
-      const Duration(seconds: 30),
-      onTimeout: () {
-        throw TimeoutException('Matchmaking online sedang sibuk. Coba lagi.');
-      },
-    );
+    try {
+      await _ensureConnected();
+      if (_roomId == null && !sessionCompleter.isCompleted) {
+        _socket!.emit(_joinQueueEvent, <String, Object?>{
+          'mode': matchmakingMode.name,
+        });
+      }
+      return await sessionCompleter.future.timeout(const Duration(seconds: 30));
+    } on TimeoutException {
+      await _emitCancelQueue();
+      throw TimeoutException('Matchmaking online sedang sibuk. Coba lagi.');
+    } finally {
+      if (identical(_sessionCompleter, sessionCompleter)) {
+        _sessionCompleter = null;
+      }
+    }
   }
 
   @override
@@ -76,19 +105,24 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
     final String roomId = _requireRoomId();
     await _ensureConnected();
 
-    _openCardCompleter = Completer<void>();
+    final Completer<void> completer = Completer<void>();
+    _openCardCompleter = completer;
     _pendingOpenCardId = cardId;
     _socket!.emit(_openCardEvent, <String, Object?>{
       'roomId': roomId,
       'cardId': cardId,
     });
 
-    return _openCardCompleter!.future.timeout(
-      const Duration(seconds: 8),
-      onTimeout: () {
-        throw TimeoutException('Kartu arena tidak merespons. Coba lagi.');
-      },
-    );
+    try {
+      await completer.future.timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      throw TimeoutException('Kartu arena tidak merespons. Coba lagi.');
+    } finally {
+      if (identical(_openCardCompleter, completer)) {
+        _openCardCompleter = null;
+        _pendingOpenCardId = null;
+      }
+    }
   }
 
   @override
@@ -107,10 +141,11 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
 
   @override
   Future<void> cancelQueue() async {
-    if (_socket == null || !_socket!.connected) {
-      return;
+    final Completer<BattleSessionSeed>? completer = _sessionCompleter;
+    if (completer != null && !completer.isCompleted) {
+      completer.completeError(StateError('Matchmaking dibatalkan.'));
     }
-    _socket!.emit(_cancelQueueEvent);
+    await _emitCancelQueue();
   }
 
   @override
@@ -118,14 +153,33 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
     if (_socket == null || !_socket!.connected || _roomId == null) {
       return;
     }
+    final Completer<void> completer = Completer<void>();
+    _surrenderCompleter = completer;
     _socket!.emit(_surrenderEvent, <String, Object?>{'roomId': _roomId});
+    try {
+      await completer.future.timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      // The server may still finish the surrender after a transient reconnect.
+      // Let the UI leave the arena after the bounded acknowledgement window.
+    } finally {
+      if (identical(_surrenderCompleter, completer)) {
+        _surrenderCompleter = null;
+      }
+    }
   }
 
   @override
   void dispose() {
     _disposed = true;
-    _openCardCompleter?.completeError(StateError('Battle ditutup.'));
-    _sessionCompleter?.completeError(StateError('Battle ditutup.'));
+    if (_openCardCompleter != null && !_openCardCompleter!.isCompleted) {
+      _openCardCompleter!.completeError(StateError('Battle ditutup.'));
+    }
+    if (_sessionCompleter != null && !_sessionCompleter!.isCompleted) {
+      _sessionCompleter!.completeError(StateError('Battle ditutup.'));
+    }
+    if (_surrenderCompleter != null && !_surrenderCompleter!.isCompleted) {
+      _surrenderCompleter!.completeError(StateError('Battle ditutup.'));
+    }
     _socket?.dispose();
     _updatesController.close();
   }
@@ -134,7 +188,23 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
     if (_socket != null && _socket!.connected) {
       return;
     }
+    final Future<void>? connecting = _connectionFuture;
+    if (connecting != null) {
+      return connecting;
+    }
+    final Future<void> connection = _connectSocket();
+    _connectionFuture = connection;
+    try {
+      await connection;
+    } finally {
+      if (identical(_connectionFuture, connection)) {
+        _connectionFuture = null;
+      }
+    }
+  }
 
+  Future<void> _connectSocket() async {
+    _socket?.dispose();
     final Completer<void> completer = Completer<void>();
     final io.Socket socket = io.io(
       '${AppConfig.gameBaseUrl}/match',
@@ -146,7 +216,7 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
           .build(),
     );
 
-    socket.onConnect((_) {
+    socket.on(_connectionSuccessEvent, (_) {
       if (!completer.isCompleted) {
         completer.complete();
       }
@@ -180,6 +250,8 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
         QueueJoinedUpdate(
           position: _asInt(data['position']),
           queueDepth: _asInt(data['queueDepth']),
+          matchmakingMode: _parseMatchmakingMode(data['mode']),
+          target: _parseTarget(data['target']),
         ),
       );
     });
@@ -195,11 +267,21 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
       final Map<String, dynamic> data = _asMap(payload);
       _roomId = data['roomId'] as String?;
       _opponentUserId = data['opponentUserId'] as String?;
-      _opponentName = _labelForOpponent(_opponentUserId);
+      _opponentName = _displayName(
+        data['opponentDisplayName'],
+        fallbackUserId: _opponentUserId,
+      );
+      final Map<String, dynamic> loadout = _asMap(data['opponentLoadout']);
+      _currentMatchmakingMode = _parseMatchmakingMode(data['mode']);
       _updatesController.add(
         MatchFoundUpdate(
           roomId: _roomId ?? '',
           opponentUserId: _opponentUserId ?? '',
+          opponentDisplayName: _opponentName,
+          opponentCharacterId: loadout['characterId'] as String?,
+          opponentTowerId: loadout['towerId'] as String?,
+          matchmakingMode: _currentMatchmakingMode,
+          target: _parseTarget(data['target']),
         ),
       );
     });
@@ -211,7 +293,13 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
       _roomId = data['roomId'] as String? ?? _roomId;
       _selfUserId = self['userId'] as String? ?? _selfUserId;
       _opponentUserId = opponent['userId'] as String? ?? _opponentUserId;
-      _opponentName = _labelForOpponent(_opponentUserId);
+      _opponentName = _displayName(
+        opponent['displayName'],
+        fallbackUserId: _opponentUserId,
+      );
+      final Map<String, dynamic> selfLoadout = _asMap(self['loadout']);
+      final Map<String, dynamic> opponentLoadout = _asMap(opponent['loadout']);
+      _currentMatchmakingMode = _parseMatchmakingMode(data['mode']);
 
       final List<BattleQuestion> questions = (_asList(
         self['hand'],
@@ -233,6 +321,18 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
         ),
         availableQuestions: questions,
         answeredQuestionIds: _asStringList(self['answeredCardIds']),
+        playerDisplayName: _displayName(
+          self['displayName'],
+          fallbackUserId: _selfUserId,
+        ),
+        opponentDisplayName: _opponentName,
+        playerCharacterId: selfLoadout['characterId'] as String?,
+        playerTowerId: selfLoadout['towerId'] as String?,
+        opponentCharacterId: opponentLoadout['characterId'] as String?,
+        opponentTowerId: opponentLoadout['towerId'] as String?,
+        matchmakingMode: _currentMatchmakingMode,
+        target: _parseTarget(data['target']),
+        opponentConnected: opponent['connected'] as bool? ?? true,
       );
 
       if (_sessionCompleter != null && !_sessionCompleter!.isCompleted) {
@@ -278,6 +378,7 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
           effect: _parseEffect(data['effect'] as String?),
           effectValue: _asInt(data['effectValue']),
           projectileLevel: _asInt(data['projectileLevel']).clamp(1, 3),
+          isSelfAction: data['actorUserId'] == _selfUserId,
         ),
       );
     });
@@ -292,9 +393,26 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
         winnerUserId: winnerUserId,
         loserUserId: loserUserId,
       );
+      final Map<String, dynamic> finalState = _asMap(data['finalState']);
+      final Map<String, dynamic> playerA = _asMap(finalState['playerA']);
+      final Map<String, dynamic> playerB = _asMap(finalState['playerB']);
+      final Map<String, dynamic> selfResult = playerA['userId'] == _selfUserId
+          ? playerA
+          : playerB;
       _roomId = null;
+      if (_surrenderCompleter != null && !_surrenderCompleter!.isCompleted) {
+        _surrenderCompleter!.complete();
+      }
       _updatesController.add(
-        MatchResultUpdate(outcome: outcome, reason: reason),
+        MatchResultUpdate(
+          outcome: outcome,
+          reason: reason,
+          ratingDelta: _asInt(selfResult['ratingDelta']),
+          coinsDelta: _asInt(selfResult['coinsDelta']),
+          progressionPersisted: data['progressionPersisted'] as bool? ?? false,
+          matchmakingMode: _parseMatchmakingMode(data['mode']),
+          target: _parseTarget(data['target']),
+        ),
       );
     });
 
@@ -302,15 +420,22 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
       final Map<String, dynamic> data = _asMap(payload);
       final Map<String, dynamic> players = _asMap(data['players']);
       bool opponentConnected = true;
+      DateTime? reconnectDeadline;
       for (final MapEntry<String, dynamic> entry in players.entries) {
         if (entry.key == _selfUserId) {
           continue;
         }
-        opponentConnected =
-            _asMap(entry.value)['connected'] as bool? ?? opponentConnected;
+        final Map<String, dynamic> presence = _asMap(entry.value);
+        opponentConnected = presence['connected'] as bool? ?? opponentConnected;
+        reconnectDeadline = DateTime.tryParse(
+          presence['reconnectDeadline']?.toString() ?? '',
+        );
       }
       _updatesController.add(
-        PresenceUpdated(opponentConnected: opponentConnected),
+        PresenceUpdated(
+          opponentConnected: opponentConnected,
+          opponentReconnectDeadline: reconnectDeadline,
+        ),
       );
     });
 
@@ -324,6 +449,9 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
         _openCardCompleter!.completeError(StateError(message));
         _openCardCompleter = null;
         _pendingOpenCardId = null;
+      }
+      if (_surrenderCompleter != null && !_surrenderCompleter!.isCompleted) {
+        _surrenderCompleter!.completeError(StateError(message));
       }
       _emitError(message);
     });
@@ -358,7 +486,8 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
       options: _asStringList(data['options']),
       weight: _asInt(data['weight']),
       effect: effect,
-      category: effect == QuestionEffect.heal ? 'twk' : 'numerik',
+      category: data['category'] as String? ?? 'numerik',
+      timeLimitSeconds: _positiveInt(data['timeLimitSeconds'], fallback: 10),
     );
   }
 
@@ -395,6 +524,13 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
       'heal' => QuestionEffect.heal,
       _ => null,
     };
+  }
+
+  String _displayName(dynamic value, {required String? fallbackUserId}) {
+    if (value is String && value.trim().isNotEmpty) {
+      return value.trim();
+    }
+    return _labelForOpponent(fallbackUserId);
   }
 
   String _labelForOpponent(String? userId) {
@@ -454,5 +590,27 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
       return value.toInt();
     }
     return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  int _positiveInt(dynamic value, {required int fallback}) {
+    final int parsed = _asInt(value);
+    return parsed > 0 ? parsed : fallback;
+  }
+
+  OnlineMatchmakingMode _parseMatchmakingMode(dynamic value) {
+    return value == 'ranked'
+        ? OnlineMatchmakingMode.ranked
+        : OnlineMatchmakingMode.casual;
+  }
+
+  BattleTarget _parseTarget(dynamic value) {
+    return value == 'bumn' ? BattleTarget.bumn : BattleTarget.cpns;
+  }
+
+  Future<void> _emitCancelQueue() async {
+    if (_socket == null || !_socket!.connected) {
+      return;
+    }
+    _socket!.emit(_cancelQueueEvent);
   }
 }

@@ -23,7 +23,9 @@ class _FakeBattleRepository extends OnlineBattleRepository {
       const Stream<OnlineBattleUpdate>.empty();
 
   @override
-  Future<BattleSessionSeed> createSession() async {
+  Future<BattleSessionSeed> createSession({
+    OnlineMatchmakingMode matchmakingMode = OnlineMatchmakingMode.casual,
+  }) async {
     return seed;
   }
 

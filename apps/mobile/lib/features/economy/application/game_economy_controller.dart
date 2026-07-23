@@ -148,6 +148,15 @@ class GameEconomyController extends StateNotifier<GameEconomyState> {
     );
   }
 
+  void applyBattleReward(int coinsDelta) {
+    if (coinsDelta == 0) {
+      return;
+    }
+    _setState(
+      state.copyWith(yCoins: (state.yCoins + coinsDelta).clamp(0, 999999999)),
+    );
+  }
+
   EconomyActionResult activatePremiumPassForBeta() {
     if (state.premiumPassActive) {
       return const EconomyActionResult(

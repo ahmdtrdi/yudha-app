@@ -6,10 +6,17 @@ sealed class OnlineBattleUpdate {
 }
 
 class QueueJoinedUpdate extends OnlineBattleUpdate {
-  const QueueJoinedUpdate({required this.position, required this.queueDepth});
+  const QueueJoinedUpdate({
+    required this.position,
+    required this.queueDepth,
+    this.matchmakingMode = OnlineMatchmakingMode.casual,
+    this.target = BattleTarget.cpns,
+  });
 
   final int position;
   final int queueDepth;
+  final OnlineMatchmakingMode matchmakingMode;
+  final BattleTarget target;
 }
 
 class QueueCancelledUpdate extends OnlineBattleUpdate {
@@ -19,10 +26,23 @@ class QueueCancelledUpdate extends OnlineBattleUpdate {
 }
 
 class MatchFoundUpdate extends OnlineBattleUpdate {
-  const MatchFoundUpdate({required this.roomId, required this.opponentUserId});
+  const MatchFoundUpdate({
+    required this.roomId,
+    required this.opponentUserId,
+    required this.opponentDisplayName,
+    this.opponentCharacterId,
+    this.opponentTowerId,
+    this.matchmakingMode = OnlineMatchmakingMode.casual,
+    this.target = BattleTarget.cpns,
+  });
 
   final String roomId;
   final String opponentUserId;
+  final String opponentDisplayName;
+  final String? opponentCharacterId;
+  final String? opponentTowerId;
+  final OnlineMatchmakingMode matchmakingMode;
+  final BattleTarget target;
 }
 
 class GameStateUpdated extends OnlineBattleUpdate {
@@ -41,6 +61,15 @@ class GameStateUpdated extends OnlineBattleUpdate {
     required this.lastRoundOutcome,
     required this.availableQuestions,
     required this.answeredQuestionIds,
+    required this.playerDisplayName,
+    required this.opponentDisplayName,
+    this.playerCharacterId,
+    this.playerTowerId,
+    this.opponentCharacterId,
+    this.opponentTowerId,
+    this.matchmakingMode = OnlineMatchmakingMode.casual,
+    this.target = BattleTarget.cpns,
+    this.opponentConnected = true,
   });
 
   final String roomId;
@@ -57,6 +86,15 @@ class GameStateUpdated extends OnlineBattleUpdate {
   final BattleOutcome? lastRoundOutcome;
   final List<BattleQuestion> availableQuestions;
   final List<String> answeredQuestionIds;
+  final String playerDisplayName;
+  final String opponentDisplayName;
+  final String? playerCharacterId;
+  final String? playerTowerId;
+  final String? opponentCharacterId;
+  final String? opponentTowerId;
+  final OnlineMatchmakingMode matchmakingMode;
+  final BattleTarget target;
+  final bool opponentConnected;
 }
 
 class CardPlayedUpdate extends OnlineBattleUpdate {
@@ -66,6 +104,7 @@ class CardPlayedUpdate extends OnlineBattleUpdate {
     required this.effect,
     required this.effectValue,
     required this.projectileLevel,
+    required this.isSelfAction,
   });
 
   final String cardId;
@@ -73,19 +112,37 @@ class CardPlayedUpdate extends OnlineBattleUpdate {
   final QuestionEffect? effect;
   final int effectValue;
   final int projectileLevel;
+  final bool isSelfAction;
 }
 
 class MatchResultUpdate extends OnlineBattleUpdate {
-  const MatchResultUpdate({required this.outcome, required this.reason});
+  const MatchResultUpdate({
+    required this.outcome,
+    required this.reason,
+    required this.ratingDelta,
+    required this.coinsDelta,
+    required this.progressionPersisted,
+    this.matchmakingMode = OnlineMatchmakingMode.casual,
+    this.target = BattleTarget.cpns,
+  });
 
   final BattleOutcome outcome;
   final String reason;
+  final int ratingDelta;
+  final int coinsDelta;
+  final bool progressionPersisted;
+  final OnlineMatchmakingMode matchmakingMode;
+  final BattleTarget target;
 }
 
 class PresenceUpdated extends OnlineBattleUpdate {
-  const PresenceUpdated({required this.opponentConnected});
+  const PresenceUpdated({
+    required this.opponentConnected,
+    this.opponentReconnectDeadline,
+  });
 
   final bool opponentConnected;
+  final DateTime? opponentReconnectDeadline;
 }
 
 class BattleErrorUpdate extends OnlineBattleUpdate {

@@ -399,14 +399,16 @@ describe('MatchResultService', () => {
 
       expect(mockInsert).toHaveBeenCalledWith([
         expect.objectContaining({
-          match_id: 'result-123',
-          user_id: 'user-a',
-          action: 'open_card',
+          match_result_id: 'result-123',
+          player_id: 'user-a',
+          action_type: 'open_card',
+          card_id: 'c1',
         }),
         expect.objectContaining({
-          match_id: 'result-123',
-          user_id: 'user-a',
-          action: 'play_card',
+          match_result_id: 'result-123',
+          player_id: 'user-a',
+          action_type: 'play_card',
+          card_id: 'c1',
         }),
       ]);
     });
