@@ -10,6 +10,8 @@ import { LeaderboardModule } from './leaderboard/leaderboard.module';
 import { PracticeModule } from './practice/practice.module';
 import { MatchesModule } from './matches/matches.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { HiredPassModule } from './hired-pass/hired-pass.module';
+import { StoreModule } from './store/store.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { AnalyticsModule } from './analytics/analytics.module';
     InterviewModule,
     MatchesModule,
     AnalyticsModule,
+    StoreModule,
+    HiredPassModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -56,6 +56,7 @@ export class LeaderboardRepository {
           'winrate',
           'equipped_avatar_id',
           'equipped_arena_id',
+          'equipped_tower_id',
         ].join(', '),
       )
       .order('rank_points', { ascending: false })
@@ -77,6 +78,7 @@ export class LeaderboardRepository {
       winrate: profile.winrate,
       equippedAvatarId: profile.equipped_avatar_id,
       equippedArenaId: profile.equipped_arena_id,
+      equippedTowerId: profile.equipped_tower_id,
     };
   }
 }

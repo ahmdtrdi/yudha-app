@@ -310,3 +310,26 @@
 **The Tech Debt:**
 - Weak subcategory threshold parameters (60% accuracy, minimum sample size of 5) are hardcoded constants in `AnalyticsService` — could be moved to config or environment variables if dynamic tuning is needed.
 - `get_practice_analytics` SQL migration (`infra/supabase/migrations/20260721000000_get_practice_analytics.sql`) needs to be run on remote Supabase instance (`supabase db push` or SQL editor) for production environment deployment.
+
+## 2026-07-23 - Server-Authoritative Economy, Loadout, and Hired Pass
+
+**The Change:**
+- Added migration `20260723000000_server_authoritative_economy.sql` with the Store catalog, user inventory, purchase and coin ledgers, Hired Pass seasons/missions/rewards/progress/claims, starter-item backfills, and the missing profile tower/pass fields.
+- Added service-role-only transactional functions for purchases, loadout changes, beta credits, reward claims, and idempotent learning activity. Direct authenticated profile/economy writes are revoked.
+- Replaced `finalize_match_result` so duplicate calls return the original deltas, coin rewards are audited, and completed bot/player matches advance Hired Pass missions atomically.
+- Added database triggers that advance Hired Pass missions when practice or interview sessions first become completed.
+- Added authenticated Store and Hired Pass REST modules, an ownership-validating `PATCH /profile/loadout`, and a strict allowlist for editable `PATCH /profile` fields.
+- Added `progressionPersisted` to the match-result contract and populated it for both player and bot persistence paths.
+- Added equipped tower IDs to leaderboard responses, updated Supabase types/API documentation, and added backend unit coverage.
+
+**The Reasoning:**
+- Coins, rank, ownership, pass claims, and loadout must share one server-side source of truth. Database transactions and idempotency constraints prevent double charges or rewards under retries and concurrent taps.
+- RLS policy removal and privilege revocation are required because controller validation alone does not prevent an authenticated user from calling Supabase REST directly.
+- Practice/interview database triggers keep mission awards in the same transaction as completion, avoiding missed progress when an API response fails after the session update.
+- Cosmetic IDs remain presentation-only and do not affect battle mechanics.
+
+**The Tech Debt:**
+- The seeded MVP Hired Pass season ends at `2026-08-01T00:00:00Z`; a new explicitly seeded season or an administrative season-management workflow is required afterward.
+- Real-money payment and automatic premium entitlement are intentionally absent. `POST /store/beta-credits` is available only when `ENABLE_BETA_ECONOMY_CREDIT=true`.
+- The migration still needs to be applied to the target Supabase project before the new endpoints are used.
+- Mobile integration was deliberately excluded; existing clients will not consume the new authoritative responses until the frontend team wires them.

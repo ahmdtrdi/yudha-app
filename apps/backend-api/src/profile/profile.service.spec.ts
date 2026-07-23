@@ -14,6 +14,7 @@ describe('ProfileService', () => {
   const eq = jest.fn();
   const single = jest.fn();
   const update = jest.fn();
+  const rpc = jest.fn();
 
   beforeEach(async () => {
     from.mockReset();
@@ -21,6 +22,7 @@ describe('ProfileService', () => {
     eq.mockReset();
     single.mockReset();
     update.mockReset();
+    rpc.mockReset();
 
     from.mockReturnValue({ select, update });
     select.mockReturnValue({ eq, single });
@@ -33,7 +35,7 @@ describe('ProfileService', () => {
         {
           provide: SupabaseService,
           useValue: {
-            getClient: () => ({ from }),
+            getClient: () => ({ from, rpc }),
           },
         },
       ],
@@ -87,7 +89,6 @@ describe('ProfileService', () => {
         username: 'player-two',
         full_name: null,
         target: 'bumn',
-        ignoredUndefined: undefined,
       }),
     ).resolves.toEqual(updatedProfile);
 
@@ -100,6 +101,42 @@ describe('ProfileService', () => {
     expect(eq).toHaveBeenCalledWith('id', 'user-1');
     expect(select).toHaveBeenCalledWith('*');
     expect(single).toHaveBeenCalled();
+  });
+
+  it('rejects attempts to update protected progression fields', async () => {
+    await expect(
+      service.updateProfile('user-1', { coins: 999999, rank_points: 99999 }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it('updates loadout through the ownership-validating RPC', async () => {
+    rpc.mockResolvedValue({
+      data: {
+        characterId: 'character-basic-pip',
+        towerId: 'tower-garda-biru',
+        arenaId: 'arena-cpns',
+      },
+      error: null,
+    });
+
+    await expect(
+      service.updateLoadout('user-1', {
+        characterId: 'character-basic-pip',
+      }),
+    ).resolves.toEqual({
+      data: {
+        characterId: 'character-basic-pip',
+        towerId: 'tower-garda-biru',
+        arenaId: 'arena-cpns',
+      },
+    });
+    expect(rpc).toHaveBeenCalledWith('set_profile_loadout', {
+      p_user_id: 'user-1',
+      p_avatar_id: 'character-basic-pip',
+      p_tower_id: undefined,
+      p_arena_id: undefined,
+    });
   });
 
   it('rejects empty update payloads', async () => {

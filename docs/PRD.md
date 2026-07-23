@@ -284,8 +284,9 @@ POST   /auth/register          { email, password, target, username?, fullName? }
 POST   /auth/login             { email, password } → { user, session }
 
 # Profile
-GET    /profile                → { id, username, full_name, target, rank_points, wins, losses, winrate, coins, equipped_avatar_id, equipped_arena_id, equipped_tower_id, ... }
-PATCH  /profile                { username?, full_name?, equipped_avatar_id?, equipped_arena_id?, equipped_tower_id?, ... } → updated profile row
+GET    /profile                → { id, username, full_name, target, rank_points, wins, losses, winrate, coins, equipped_avatar_id, equipped_arena_id, equipped_tower_id, hired_pass_expires_at, ... }
+PATCH  /profile                { username?, full_name?, target? } → updated profile row
+PATCH  /profile/loadout        { characterId?, arenaId?, towerId? } → { characterId, arenaId, towerId }
 
 # Practice (stateful sessions)
 GET    /practice/dashboard     → { categories[], stats per category }
@@ -300,12 +301,13 @@ GET    /leaderboard            ?limit=&offset= → [ { userId, username, rank_po
 GET    /leaderboard/me         → { rank, userId, username, rank_points, winrate, ... }
 
 # Hired Pass
-GET    /hired-pass             → { season, passPoints, entitlement, adFree, missions[], rewardTracks[] }
-POST   /hired-pass/rewards/:rewardId/claim → { claimedReward, coins, inventory[] }
+GET    /hired-pass             → { season, passPoints, entitlement, adFree, missions[], rewards[], claimedRewardIds[] }
+POST   /hired-pass/rewards/:rewardId/claim → { claimed, rewardId, coins, itemId? }
 
 # Cosmetic Store
-GET    /store/items            ?type=character_skin|arena|tower → { items[], ownedItemIds[] }
-POST   /store/purchases        { itemId, idempotencyKey } → { purchase, coins, inventoryItem }
+GET    /store/items            ?type=character_skin|arena|tower → { coins, items[], ownedItemIds[], equipped }
+POST   /store/purchases        { itemId, idempotencyKey } → { purchased, replayed, purchaseId, itemId, coins }
+POST   /store/beta-credits     { idempotencyKey } → { credited, replayed, coins } (non-production flag only)
 
 # AI Mock Interview (session + turns)
 POST   /interview/sessions     { companyId, targetRole, mode, language?, responseStyle? } → { session, nextQuestion }
@@ -337,7 +339,7 @@ game_state_update   { roomId, status, self: { userId, role, hp, points, hand[], 
 open_card_accepted  { roomId, cardId }
 card_action_rejected { roomId?, action, reason, message, recoverable }
 play_card_result    { roomId, cardId, correct, effect, effectValue }
-match_result        { roomId, outcome, winnerUserId, loserUserId, reason, finalState }
+match_result        { roomId, outcome, winnerUserId, loserUserId, reason, progressionPersisted, finalState: { playerA/playerB ratingDelta?, coinsDelta? } }
 presence_update     { roomId, players }
 error               { message }
 ```

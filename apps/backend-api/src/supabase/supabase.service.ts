@@ -10,13 +10,15 @@ export class SupabaseService {
 
   constructor(private configService: ConfigService) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
-    const supabaseKey =
-      this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY') ??
-      this.configService.get<string>('SUPABASE_KEY');
+    const supabaseKey = this.configService.get<string>(
+      'SUPABASE_SERVICE_ROLE_KEY',
+    );
 
     if (!supabaseUrl || !supabaseKey) {
-      this.logger.error('Supabase URL or backend key is missing.');
-      throw new Error('Missing Supabase credentials');
+      this.logger.error(
+        'SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing.',
+      );
+      throw new Error('Missing Supabase backend credentials');
     }
 
     this.supabase = createClient<Database>(supabaseUrl, supabaseKey);

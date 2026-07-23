@@ -403,12 +403,18 @@ export class MatchService {
     try {
       const deltas = await this.matchResultService.finalizeMatch(room, rpcLogs);
       if (deltas && room.result) {
+        room.result.progressionPersisted = true;
         room.result.finalState.playerA.ratingDelta = deltas.ratingDeltaA;
         room.result.finalState.playerA.coinsDelta = deltas.coinsDeltaA;
         room.result.finalState.playerB.ratingDelta = deltas.ratingDeltaB;
         room.result.finalState.playerB.coinsDelta = deltas.coinsDeltaB;
+      } else if (room.result) {
+        room.result.progressionPersisted = false;
       }
     } catch (error) {
+      if (room.result) {
+        room.result.progressionPersisted = false;
+      }
       this.logger.error(
         `Failed to persist match ${room.roomId}: ${error instanceof Error ? error.message : String(error)}`,
       );

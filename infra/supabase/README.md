@@ -11,7 +11,8 @@ Use it when:
 
 ## Files
 
-- `bootstrap.sql`: runnable SQL for a fresh Supabase project.
+- `bootstrap.sql`: base schema for a fresh Supabase project.
+- `migrations/`: ordered schema changes that must be applied after the base schema.
 - `schema-reference.md`: human-readable explanation of the tables, views, policies, and intended implementation order.
 - `auth-and-match-smoke-test.md`: manual register/login/profile/match verification steps.
 
@@ -19,11 +20,12 @@ Use it when:
 
 1. Create or open a Supabase project.
 2. Open **SQL Editor**.
-3. Paste all of `infra/supabase/bootstrap.sql`.
-4. Run the script.
+3. Paste all of `infra/supabase/bootstrap.sql` and run it.
+4. Apply every SQL file in `infra/supabase/migrations/` in filename order.
 5. Copy the new project credentials into backend environment files:
    - `SUPABASE_URL`
    - `SUPABASE_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
 6. Create a test user through Supabase Auth.
 7. Confirm a row is automatically created in `public.profiles`.
 8. Follow `auth-and-match-smoke-test.md` to verify register, login, profile fetch, and match socket auth.

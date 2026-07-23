@@ -13,9 +13,25 @@ This document explains the schema in `bootstrap.sql` for teammates.
 - match counters
 - winrate
 - coins
-- equipped avatar/arena IDs
+- equipped avatar/arena/tower IDs
+- Hired Pass entitlement expiry
 
 The `on_auth_user_created` trigger creates a profile row whenever a new Supabase Auth user signs up.
+
+## Store And Hired Pass
+
+`public.store_items` is the authoritative cosmetic catalog. Ownership is stored
+in `public.user_inventory`; purchases and every balance change are recorded in
+`public.store_purchases` and `public.coin_transactions`.
+
+Hired Pass seasons, missions, and rewards are stored separately from per-user
+progress and claims. Database triggers award mission activity when a practice
+session or interview becomes completed. Match finalization records battle
+activity in the same transaction as rank and Y-Coin rewards.
+
+All purchase, reward, loadout, and activity mutations use service-role-only
+database functions so balance checks, ownership changes, and idempotency happen
+atomically.
 
 ## Questions
 
@@ -76,7 +92,8 @@ These logs are optional for the first persistence slice but useful later for ana
 ## RLS Summary
 
 - Profiles are readable by authenticated users.
-- Users can update only their own profile.
+- Profile and economy mutations are server-only; authenticated clients cannot
+  directly update rank, coins, loadout, inventory, or Hired Pass state.
 - Leaderboard profile reads are allowed for anonymous users.
 - Full `questions` has no direct authenticated read policy.
 - Practice rows are scoped to the owning user.
@@ -90,6 +107,13 @@ These logs are optional for the first persistence slice but useful later for ana
 | --- | --- |
 | Supabase user | `auth.users` |
 | Player profile | `profiles` |
+| Cosmetic catalog | `store_items` |
+| Player cosmetic ownership | `user_inventory` |
+| Store purchase | `store_purchases` |
+| Y-Coin audit entry | `coin_transactions` |
+| Hired Pass season | `hired_pass_seasons` |
+| Hired Pass mission | `hired_pass_missions` |
+| Hired Pass reward | `hired_pass_rewards` |
 | Question bank | `questions` |
 | Safe question view | `public_questions` |
 | Practice session | `practice_sessions` |
