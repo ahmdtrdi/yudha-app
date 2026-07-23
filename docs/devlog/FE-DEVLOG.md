@@ -1671,3 +1671,22 @@
 
 ### The Tech Debt
 - The practice dashboard still relies on the backend profile as the authoritative target; the local target dependency is used only to invalidate stale frontend state.
+
+## 2026-07-23 - Backend-Wired Profile Performance
+
+### The Change
+- Added a typed, authenticated analytics data layer for `GET /analytics`, covering practice accuracy, total answers, average response time, category performance, weak subcategories, and battle results.
+- Replaced the profile's runtime-derived performance cards with server-backed accuracy, response time, PvP winrate, and answered-question metrics.
+- Added readable category progress and focused practice recommendations, including humanized backend identifiers.
+- Added calm loading, empty, retry, stale-data error, and pull-to-refresh behavior for the analytics section.
+- Added repository, controller, and profile widget coverage for the analytics contract and rendered performance summary.
+
+### The Reasoning
+- Performance claims should come from persisted learning and battle history rather than local runtime proxies that reset between sessions.
+- Category and weak-topic context makes the numbers actionable without exposing raw backend identifiers or presenting the profile like an operational console.
+- The existing analytics endpoint stores practice accuracy as a percentage and battle winrate as a `0..1` ratio, so each value is formatted according to its established contract.
+
+### The Tech Debt
+- Rank and streak trends are not shown because the current backend contract does not expose historical rank or streak data.
+- Weak-topic recommendations follow the backend threshold of at least five answered questions and accuracy below 60 percent; changing that behavior remains backend-owned.
+- Targeted Dart analysis reported no issues. The targeted Flutter test command timed out without producing a failure on the current Windows runner and still needs local confirmation.

@@ -8,10 +8,13 @@ import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/gamification/domain/entities/player_progress.dart';
+import 'package:yudha_mobile/features/profile/application/performance_analytics_providers.dart';
+import 'package:yudha_mobile/features/profile/application/performance_analytics_state.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 import 'package:yudha_mobile/features/profile/application/user_profile_providers.dart';
 import 'package:yudha_mobile/features/profile/application/user_profile_state.dart';
 import 'package:yudha_mobile/features/profile/data/repositories/user_profile_repository.dart';
+import 'package:yudha_mobile/features/profile/domain/entities/performance_analytics.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/user_profile.dart';
 
@@ -21,6 +24,7 @@ class ProfilePage extends ConsumerWidget {
   Future<void> _refresh(WidgetRef ref) async {
     await Future.wait(<Future<void>>[
       ref.read(userProfileProvider.notifier).load(),
+      ref.read(performanceAnalyticsProvider.notifier).load(),
       ref.read(playerProgressProvider.notifier).hydrateFromRepository(),
     ]);
   }
@@ -52,11 +56,12 @@ class ProfilePage extends ConsumerWidget {
     final profileSettings = ref.watch(profileSettingsProvider);
     final settingsController = ref.read(profileSettingsProvider.notifier);
     final UserProfileState profileState = ref.watch(userProfileProvider);
+    final PerformanceAnalyticsState performanceState = ref.watch(
+      performanceAnalyticsProvider,
+    );
     final UserProfile? profile = profileState.profile;
     final String displayName = profile?.displayName ?? progress.displayName;
     final ProfileTarget? target = profile?.target ?? profileSettings.target;
-
-    final int winRatePercent = (progress.winRate * 100).round();
 
     return Scaffold(
       backgroundColor: AppColors.surfaceLight,
@@ -118,33 +123,10 @@ class ProfilePage extends ConsumerWidget {
               title: 'Analisis Performa',
             ),
             const SizedBox(height: 10),
-            _MetricGrid(
-              children: <Widget>[
-                _MetricCard(
-                  label: 'Winrate',
-                  value: '$winRatePercent%',
-                  icon: Icons.emoji_events_rounded,
-                  iconColor: AppColors.fireGold,
-                ),
-                _MetricCard(
-                  label: 'Tier',
-                  value: progress.tier.label,
-                  icon: Icons.shield_rounded,
-                  iconColor: AppColors.levelUpTeal,
-                ),
-                _MetricCard(
-                  label: 'Match',
-                  value: '${progress.matchesPlayed}',
-                  icon: Icons.sports_esports_rounded,
-                  iconColor: AppColors.warriorNavy,
-                ),
-                _MetricCard(
-                  label: 'Best Streak',
-                  value: '${progress.bestStreak}',
-                  icon: Icons.local_fire_department_rounded,
-                  iconColor: AppColors.fireGold,
-                ),
-              ],
+            _PerformanceSection(
+              state: performanceState,
+              onRetry: () =>
+                  ref.read(performanceAnalyticsProvider.notifier).load(),
             ),
             const SizedBox(height: 24),
             const _SectionTitle(
@@ -933,6 +915,436 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
+class _PerformanceSection extends StatelessWidget {
+  const _PerformanceSection({required this.state, required this.onRetry});
+
+  final PerformanceAnalyticsState state;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final PerformanceAnalytics? analytics = state.analytics;
+    if (analytics == null) {
+      return switch (state.status) {
+        PerformanceAnalyticsStatus.error => _PerformanceMessage(
+          icon: Icons.cloud_off_rounded,
+          title: 'Performa belum dapat dimuat',
+          message:
+              state.errorMessage ??
+              'Tarik layar atau coba lagi untuk memuat ringkasanmu.',
+          actionLabel: 'Coba lagi',
+          onAction: onRetry,
+        ),
+        _ => const _PerformanceMessage(
+          icon: Icons.insights_rounded,
+          title: 'Menyiapkan ringkasan performa',
+          message: 'Sebentar, kami sedang merangkum hasil latihanmu.',
+          isLoading: true,
+        ),
+      };
+    }
+
+    if (!analytics.hasAnyActivity) {
+      return _PerformanceMessage(
+        icon: Icons.track_changes_rounded,
+        title: 'Belum ada hasil untuk dirangkum',
+        message:
+            'Selesaikan latihan atau pertandingan pertamamu untuk melihat perkembangan di sini.',
+        actionLabel: state.status == PerformanceAnalyticsStatus.error
+            ? 'Coba lagi'
+            : null,
+        onAction: state.status == PerformanceAnalyticsStatus.error
+            ? onRetry
+            : null,
+      );
+    }
+
+    final PracticePerformance practice = analytics.practice;
+    final BattlePerformance battle = analytics.battle;
+    final bool hasPractice = practice.totalAnswered > 0;
+    final bool hasBattle = battle.totalMatches > 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        if (state.status == PerformanceAnalyticsStatus.loading) ...<Widget>[
+          const LinearProgressIndicator(
+            minHeight: 3,
+            color: AppColors.levelUpTeal,
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (state.status == PerformanceAnalyticsStatus.error &&
+            state.errorMessage != null) ...<Widget>[
+          _ProfileErrorBanner(message: state.errorMessage!, onRetry: onRetry),
+          const SizedBox(height: 10),
+        ],
+        _MetricGrid(
+          children: <Widget>[
+            _MetricCard(
+              label: 'Akurasi latihan',
+              value: hasPractice
+                  ? _formatPercent(practice.overallAccuracy)
+                  : '-',
+              detail: hasPractice
+                  ? '${practice.totalAnswered} soal dinilai'
+                  : 'Belum ada latihan',
+              icon: Icons.track_changes_rounded,
+              iconColor: AppColors.levelUpTeal,
+            ),
+            _MetricCard(
+              label: 'Waktu respons',
+              value: hasPractice
+                  ? _formatResponseTime(practice.averageResponseTimeMs)
+                  : '-',
+              detail: 'Rata-rata per jawaban',
+              icon: Icons.timer_outlined,
+              iconColor: AppColors.warriorNavy,
+            ),
+            _MetricCard(
+              label: 'Winrate PvP',
+              value: hasBattle ? _formatWinRate(battle.winRate) : '-',
+              detail: hasBattle
+                  ? '${battle.wins} menang, ${battle.losses} kalah'
+                  : 'Belum ada pertandingan',
+              icon: Icons.emoji_events_rounded,
+              iconColor: AppColors.fireGold,
+            ),
+            _MetricCard(
+              label: 'Soal dijawab',
+              value: '${practice.totalAnswered}',
+              detail: 'Dari seluruh latihan',
+              icon: Icons.fact_check_outlined,
+              iconColor: const Color(0xFF7A4DA3),
+            ),
+          ],
+        ),
+        if (practice.categoryBreakdown.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 12),
+          _CategoryPerformancePanel(items: practice.categoryBreakdown),
+        ],
+        if (hasPractice) ...<Widget>[
+          const SizedBox(height: 12),
+          _WeakTopicsPanel(items: practice.weakSubcategories),
+        ],
+      ],
+    );
+  }
+}
+
+class _PerformanceMessage extends StatelessWidget {
+  const _PerformanceMessage({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+    this.isLoading = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.warriorNavy.withValues(alpha: 0.08),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.levelUpTeal.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: isLoading
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.levelUpTeal,
+                    ),
+                  )
+                : Icon(icon, size: 20, color: AppColors.levelUpTeal),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.textStrong,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+                if (actionLabel != null && onAction != null) ...<Widget>[
+                  const SizedBox(height: 8),
+                  TextButton(onPressed: onAction, child: Text(actionLabel!)),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryPerformancePanel extends StatelessWidget {
+  const _CategoryPerformancePanel({required this.items});
+
+  final List<CategoryPerformance> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PerformancePanel(
+      title: 'Akurasi per kategori',
+      icon: Icons.stacked_bar_chart_rounded,
+      children: <Widget>[
+        for (int index = 0; index < items.length; index++) ...<Widget>[
+          _AccuracyRow(
+            label: _humanizeIdentifier(items[index].category),
+            accuracy: items[index].accuracy,
+            totalAnswered: items[index].totalAnswered,
+          ),
+          if (index < items.length - 1) const SizedBox(height: 14),
+        ],
+      ],
+    );
+  }
+}
+
+class _WeakTopicsPanel extends StatelessWidget {
+  const _WeakTopicsPanel({required this.items});
+
+  final List<SubcategoryPerformance> items;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const _PerformancePanel(
+        title: 'Fokus latihan',
+        icon: Icons.task_alt_rounded,
+        children: <Widget>[
+          Text(
+            'Belum ada topik yang perlu perhatian khusus. Pertahankan ritme latihanmu.',
+            style: TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return _PerformancePanel(
+      title: 'Fokus latihan berikutnya',
+      icon: Icons.center_focus_strong_rounded,
+      children: <Widget>[
+        for (int index = 0; index < items.length; index++) ...<Widget>[
+          _WeakTopicRow(item: items[index]),
+          if (index < items.length - 1)
+            const Divider(height: 20, color: Colors.black12),
+        ],
+      ],
+    );
+  }
+}
+
+class _PerformancePanel extends StatelessWidget {
+  const _PerformancePanel({
+    required this.title,
+    required this.icon,
+    required this.children,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.warriorNavy.withValues(alpha: 0.08),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(icon, size: 18, color: AppColors.warriorNavy),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: AppColors.textStrong,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _AccuracyRow extends StatelessWidget {
+  const _AccuracyRow({
+    required this.label,
+    required this.accuracy,
+    required this.totalAnswered,
+  });
+
+  final String label;
+  final double accuracy;
+  final int totalAnswered;
+
+  @override
+  Widget build(BuildContext context) {
+    final double progress = (accuracy / 100).clamp(0, 1);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.textStrong,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Text(
+              _formatPercent(accuracy),
+              style: const TextStyle(
+                color: AppColors.warriorNavy,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 6,
+            backgroundColor: AppColors.surfaceLight,
+            color: accuracy < 60 ? AppColors.fireGold : AppColors.levelUpTeal,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '$totalAnswered soal dijawab',
+          style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+        ),
+      ],
+    );
+  }
+}
+
+class _WeakTopicRow extends StatelessWidget {
+  const _WeakTopicRow({required this.item});
+
+  final SubcategoryPerformance item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Container(
+          width: 32,
+          height: 32,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.fireGold.withValues(alpha: 0.14),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.arrow_upward_rounded,
+            size: 17,
+            color: Color(0xFFB65D00),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                _humanizeIdentifier(item.subcategory),
+                style: const TextStyle(
+                  color: AppColors.textStrong,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${item.totalAnswered} soal menjadi dasar penilaian',
+                style: const TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          _formatPercent(item.accuracy),
+          style: const TextStyle(
+            color: Color(0xFFB65D00),
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _MetricGrid extends StatelessWidget {
   const _MetricGrid({required this.children});
 
@@ -946,7 +1358,7 @@ class _MetricGrid extends StatelessWidget {
       crossAxisCount: 2,
       mainAxisSpacing: 10,
       crossAxisSpacing: 10,
-      childAspectRatio: 2.2,
+      childAspectRatio: 1.75,
       children: children,
     );
   }
@@ -958,12 +1370,14 @@ class _MetricCard extends StatelessWidget {
     required this.value,
     required this.icon,
     required this.iconColor,
+    this.detail,
   });
 
   final String label;
   final String value;
   final IconData icon;
   final Color iconColor;
+  final String? detail;
 
   @override
   Widget build(BuildContext context) {
@@ -971,7 +1385,7 @@ class _MetricCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: AppColors.warriorNavy.withValues(alpha: 0.06),
         ),
@@ -1016,6 +1430,19 @@ class _MetricCard extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
+                if (detail != null) ...<Widget>[
+                  const SizedBox(height: 2),
+                  Text(
+                    detail!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 9,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1023,6 +1450,42 @@ class _MetricCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatPercent(double value) => '${value.round().clamp(0, 100)}%';
+
+String _formatWinRate(double value) =>
+    '${(value * 100).round().clamp(0, 100)}%';
+
+String _formatResponseTime(int milliseconds) {
+  if (milliseconds <= 0) {
+    return '-';
+  }
+  if (milliseconds < 1000) {
+    return '$milliseconds md';
+  }
+  final String seconds = (milliseconds / 1000)
+      .toStringAsFixed(milliseconds % 1000 == 0 ? 0 : 1)
+      .replaceAll('.', ',');
+  return '$seconds dtk';
+}
+
+String _humanizeIdentifier(String value) {
+  final List<String> words = value
+      .trim()
+      .replaceAll(RegExp(r'[_-]+'), ' ')
+      .split(RegExp(r'\s+'))
+      .where((String word) => word.isNotEmpty)
+      .toList(growable: false);
+  return words
+      .map((String word) {
+        final String upper = word.toUpperCase();
+        if (<String>{'TWK', 'TIU', 'TKP'}.contains(upper)) {
+          return upper;
+        }
+        return '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}';
+      })
+      .join(' ');
 }
 
 class _SettingsSwitchTile extends StatelessWidget {
