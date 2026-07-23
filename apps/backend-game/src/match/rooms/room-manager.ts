@@ -3,7 +3,13 @@ import { GameEngine } from '../engine/game-engine';
 import { QuestionDealer } from '../engine/question-dealer';
 import type { InternalRoomState } from '../engine/battle.types';
 import type { InternalCard } from '../questions/question.types';
-import type { DisconnectResult, MatchCreated, QueueEntry } from './room.types';
+import type { GamePlayerProfile } from '../profiles/game-player-profile.service';
+import type {
+  DisconnectResult,
+  MatchCreated,
+  QueueEntry,
+  SocketRegistrationResult,
+} from './room.types';
 
 @Injectable()
 export class RoomManager {
@@ -18,14 +24,20 @@ export class RoomManager {
     private readonly dealer: QuestionDealer,
   ) {}
 
-  registerSocket(socketId: string, userId: string): void {
+  registerSocket(socketId: string, userId: string): SocketRegistrationResult {
     this.socketToUser.set(socketId, userId);
     const room = this.getRoomForUser(userId);
     const player = room ? this.findPlayer(room, userId) : undefined;
     if (player) {
+      if (player.socketId && player.socketId !== socketId) {
+        this.socketToUser.delete(player.socketId);
+      }
       player.socketId = socketId;
       player.connected = true;
+      player.reconnectDeadline = undefined;
+      return { type: 'active_reconnect', room: room!, userId };
     }
+    return { type: 'registered', userId };
   }
 
   disconnectSocket(socketId: string): DisconnectResult {
@@ -39,6 +51,9 @@ export class RoomManager {
     const room = this.getRoomForUser(userId);
     const player = room ? this.findPlayer(room, userId) : undefined;
     if (room && player) {
+      if (player.socketId !== socketId) {
+        return { type: 'stale_socket', userId };
+      }
       player.connected = false;
       player.socketId = null;
       return { type: 'active_presence', room, userId };
@@ -48,17 +63,22 @@ export class RoomManager {
   }
 
   joinQueue(
-    userId: string,
+    profileOrUserId: GamePlayerProfile | string,
     socketId: string,
     mode: 'ranked' | 'casual',
     cards: InternalCard[],
-    reserveCards: InternalCard[] = [],
+    legacyReserve: InternalCard[] = [],
   ): { queued: QueueEntry; queueDepth: number; match?: MatchCreated; rejected?: string } {
+    const profile =
+      typeof profileOrUserId === 'string'
+        ? this.defaultProfile(profileOrUserId)
+        : profileOrUserId;
+    const { userId } = profile;
     const existingRoom = this.getRoomForUser(userId);
     if (existingRoom && existingRoom.status === 'active') {
       return {
-        queued: { userId, socketId, mode, joinedAt: new Date() },
-        queueDepth: this.queue.length,
+        queued: { ...profile, socketId, mode, joinedAt: new Date() },
+        queueDepth: this.queueDepthFor(profile.target, mode),
         rejected: 'already_in_active_room',
       };
     }
@@ -66,19 +86,39 @@ export class RoomManager {
     const existingEntry = this.queue.find((entry) => entry.userId === userId);
     if (existingEntry) {
       existingEntry.socketId = socketId;
-      return { queued: existingEntry, queueDepth: this.queue.length };
+      return {
+        queued: existingEntry,
+        queueDepth: this.queueDepthFor(existingEntry.target, existingEntry.mode),
+      };
     }
 
-    const queued = { userId, socketId, mode, joinedAt: new Date() };
-    const opponentIndex = this.queue.findIndex((entry) => entry.userId !== userId);
+    const queued: QueueEntry = {
+      ...profile,
+      socketId,
+      mode,
+      joinedAt: new Date(),
+    };
+    const opponentIndex = this.queue.findIndex(
+      (entry) =>
+        entry.userId !== userId &&
+        entry.target === profile.target &&
+        entry.mode === mode,
+    );
     if (opponentIndex === -1) {
       this.queue.push(queued);
-      return { queued, queueDepth: this.queue.length };
+      return {
+        queued,
+        queueDepth: this.queueDepthFor(profile.target, mode),
+      };
     }
 
     const [opponent] = this.queue.splice(opponentIndex, 1);
-    const room = this.createRoom(opponent, queued, cards, reserveCards);
-    return { queued, queueDepth: this.queue.length, match: { room, playerA: opponent, playerB: queued } };
+    const room = this.createRoom(opponent, queued, [...cards, ...legacyReserve]);
+    return {
+      queued,
+      queueDepth: this.queueDepthFor(profile.target, mode),
+      match: { room, playerA: opponent, playerB: queued },
+    };
   }
 
   cancelQueue(userId: string): boolean {
@@ -98,8 +138,11 @@ export class RoomManager {
     return this.socketToUser.get(socketId);
   }
 
-  getSocketIdForUser(userId: string): string | undefined {
-    const room = this.getRoomForUser(userId);
+  getSocketIdForUser(
+    userId: string,
+    sourceRoom?: InternalRoomState,
+  ): string | undefined {
+    const room = sourceRoom ?? this.getRoomForUser(userId);
     const player = room ? this.findPlayer(room, userId) : undefined;
     return player?.socketId ?? this.queue.find((entry) => entry.userId === userId)?.socketId;
   }
@@ -130,12 +173,17 @@ export class RoomManager {
     playerA: QueueEntry,
     playerB: QueueEntry,
     cards: InternalCard[],
-    reserveCards: InternalCard[] = [],
   ): InternalRoomState {
     const roomId = `room_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const sharedQueue = this.dealer.createSharedQueue(cards);
-    const reserveQueue = this.dealer.createSharedQueue(reserveCards);
-    const room = this.engine.createRoom(roomId, playerA.userId, playerB.userId, sharedQueue, reserveQueue);
+    const room = this.engine.createRoom(
+      roomId,
+      playerA.mode,
+      playerA.target,
+      playerA,
+      playerB,
+      sharedQueue,
+    );
     room.players.playerA.socketId = playerA.socketId;
     room.players.playerB.socketId = playerB.socketId;
     this.rooms.set(roomId, room);
@@ -145,22 +193,91 @@ export class RoomManager {
   }
 
   createBotRoom(
-    userId: string,
+    player: GamePlayerProfile,
+    bot: GamePlayerProfile,
     socketId: string,
     cards: InternalCard[],
-    reserveCards: InternalCard[] = [],
+  ): InternalRoomState;
+  createBotRoom(
+    playerUserId: string,
+    socketId: string,
+    cards: InternalCard[],
+    legacyReserve?: InternalCard[],
+  ): InternalRoomState;
+  createBotRoom(
+    playerOrUserId: GamePlayerProfile | string,
+    botOrSocketId: GamePlayerProfile | string,
+    socketIdOrCards: string | InternalCard[],
+    cardsOrReserve: InternalCard[] = [],
   ): InternalRoomState {
+    const legacy = typeof playerOrUserId === 'string';
+    const player = legacy
+      ? this.defaultProfile(playerOrUserId)
+      : playerOrUserId;
+    const bot = legacy
+      ? {
+          ...this.defaultProfile('bot'),
+          displayName: 'BOT YUDHA',
+        }
+      : (botOrSocketId as GamePlayerProfile);
+    const socketId = legacy
+      ? (botOrSocketId as string)
+      : (socketIdOrCards as string);
+    const cards = legacy
+      ? [
+          ...(socketIdOrCards as InternalCard[]),
+          ...cardsOrReserve,
+        ]
+      : cardsOrReserve;
     const roomId = `room_bot_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const sharedQueue = this.dealer.createSharedQueue(cards);
-    const reserveQueue = this.dealer.createSharedQueue(reserveCards);
-    const room = this.engine.createRoom(roomId, userId, 'bot', sharedQueue, reserveQueue);
+    const room = this.engine.createRoom(
+      roomId,
+      'bot',
+      player.target,
+      player,
+      bot,
+      sharedQueue,
+    );
     room.players.playerA.socketId = socketId;
     room.players.playerB.socketId = null;
     room.players.playerB.connected = true;
     this.rooms.set(roomId, room);
-    this.userToRoom.set(userId, roomId);
-    this.userToRoom.set('bot', roomId);
+    this.userToRoom.set(player.userId, roomId);
     return room;
+  }
+
+  private defaultProfile(userId: string): GamePlayerProfile {
+    return {
+      userId,
+      displayName: userId,
+      target: 'cpns',
+      loadout: {
+        characterId: 'character-basic-squire',
+        towerId: 'tower-garda-biru',
+      },
+    };
+  }
+
+  queuePositionFor(
+    userId: string,
+    target: QueueEntry['target'],
+    mode: QueueEntry['mode'],
+  ): number {
+    const compatible = this.queue.filter(
+      (entry) => entry.target === target && entry.mode === mode,
+    );
+    const index = compatible.findIndex((entry) => entry.userId === userId);
+    return index === -1 ? 0 : index + 1;
+  }
+
+  private queueDepthFor(
+    target: QueueEntry['target'],
+    mode: QueueEntry['mode'],
+  ): number {
+    return this.queue.filter(
+      (entry) => entry.target === target && entry.mode === mode,
+    ).length;
   }
 
   private removeFromQueue(userId: string): boolean {

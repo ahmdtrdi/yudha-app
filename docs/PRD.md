@@ -79,7 +79,7 @@ Splash Screen
 
 **Loop:** Battle → Analytics captures weak points → Analytics recommends next practice/interview → back into Practice/Battle. This closed loop is the product's core mechanic — don't break it when scoping tickets.
 
-Before choosing Bot or Player mode, the PvP entry screen now acts as a **loadout step**. Players choose one owned character and one owned arena; that selection persists across sessions and is rendered in the live battle. Character cards use three cosmetic tiers—**Basic**, **Rare**, and **Legend**—and expose every character with a complete pose/projectile set: Basic Squire and Pip, Rare Ignis and Brock, plus Legend Drakor and Luna. Locked cosmetics route back to the Store or Hired Pass. Loadout remains presentation-only and may not alter battle rules.
+Before choosing Bot, Casual, or Ranked mode, the PvP entry screen acts as a **loadout step**. The authenticated profile's `target` selects the shared CPNS/BUMN battle background and question pool. Each player keeps an independently equipped, server-owned character and tower; arena remains stored for compatibility but is not a live battle cosmetic. Character cards use three cosmetic tiers—**Basic**, **Rare**, and **Legend**—and expose every character with a complete pose/projectile set: Basic Squire and Pip, Rare Ignis and Brock, plus Legend Drakor and Luna. Loadout remains presentation-only and may not alter battle rules.
 
 PvP attacks use a visual combo chain. The next successful answer uses projectile level 1, 2, or 3 according to the current combo. A correct answer advances the next projectile and starts a seven-second window; another correct answer inside that window advances the chain up to `x3`. A wrong answer or incoming hit lowers the combo by one level, while an expired window resets it to `x1`. Combo level changes presentation only and does not multiply damage, healing, score, or rating.
 
@@ -95,7 +95,7 @@ Free-tier players may see mandatory ads only at safe breaks outside active quest
 
 The **Store** sells cosmetic-only items using coins earned in the app. Its initial categories are character skins, arena skins, and tower skins. Purchases are permanent, duplicate purchases are rejected, and owned items can be equipped or changed from the Store/Profile. Cosmetic rarity and visual quality may differ, but no item may change battle or learning outcomes.
 
-The player-facing name for `profiles.coins` is **Y-Coin**. During the mobile beta, the client exposes simulated top-up packages plus an unlimited `+100 Y-Coin` beta-credit action so the catalog can be tested without real payment. These simulated credits, purchases, loadouts, Hired Pass activation, points, and reward claims are persisted locally on-device until the server-authoritative Store/Hired Pass endpoints are wired. The UI must label simulated payment clearly; production balance mutation remains server-owned.
+The player-facing name for `profiles.coins` is **Y-Coin**. The App Backend is authoritative for catalog items, inventory, coins, purchases, beta credits, and equipped character/tower loadout through `/store/*` and `/profile/loadout`. Beta credits remain gated by `ENABLE_BETA_ECONOMY_CREDIT=true`; real-money payment is not implemented. Authenticated clients must refresh server state after mutations and surface ownership/loadout failures instead of retaining divergent local state.
 
 ---
 
@@ -214,7 +214,9 @@ The player-facing name for `profiles.coins` is **Y-Coin**. During the mobile bet
 | player_b_id | uuid, nullable | null = bot opponent |
 | winner_id | uuid, nullable | null = draw |
 | loser_id | uuid, nullable | |
-| reason | text | `hp_zero`, `surrender`, `question_exhaustion`, `draw` |
+| mode | text | `ranked`, `casual`, `bot` |
+| target | text | `cpns`, `bumn` |
+| reason | text | `hp_zero`, `surrender`, `disconnect`, `draw` |
 | final_state | jsonb | HP, points for both players |
 | completed_at | timestamp | |
 
@@ -325,22 +327,22 @@ GET    /interview/sessions/:id/speech/questions/:turnId/audio   → binary audio
 
 ```
 # Client → Server
-join_queue          { mode?: 'ranked' | 'casual' }
+join_queue          { mode: 'ranked' | 'casual' | 'bot' } # omitted mode defaults to casual
 cancel_queue        (no payload)
 open_card           { roomId, cardId }
 play_card           { roomId, cardId, selectedOptionIndex }
 surrender           { roomId }
 
 # Server → Client
-queue_joined        { position, queueDepth }
+queue_joined        { position, queueDepth, mode, target }
 queue_cancelled     { reason }
-match_found         { roomId, opponentUserId, role }
-game_state_update   { roomId, status, self: { userId, role, hp, points, hand[], openedCardId?, answeredCardIds[], connected }, opponent: { userId, role, hp, points, connected }, phase, outcome? }
+match_found         { roomId, opponentUserId, opponentDisplayName, opponentLoadout: { characterId, towerId }, role, mode, target }
+game_state_update   { roomId, status, mode, target, self: { userId, displayName, loadout: { characterId, towerId }, role, hp, points, hand[], openedCardId?, answeredCardIds[], connected }, opponent: { userId, displayName, loadout: { characterId, towerId }, role, hp, points, connected }, phase, outcome? }
 open_card_accepted  { roomId, cardId }
 card_action_rejected { roomId?, action, reason, message, recoverable }
-play_card_result    { roomId, cardId, correct, effect, effectValue }
-match_result        { roomId, outcome, winnerUserId, loserUserId, reason, progressionPersisted, finalState: { playerA/playerB ratingDelta?, coinsDelta? } }
-presence_update     { roomId, players }
+play_card_result    { roomId, cardId, actorUserId, correct, effect, effectValue }
+match_result        { roomId, mode, target, outcome, winnerUserId, loserUserId, reason, progressionPersisted, finalState: { playerA/playerB ratingDelta?, coinsDelta? } }
+presence_update     { roomId, players: { [userId]: { connected, reconnectDeadline? } } }
 error               { message }
 ```
 
@@ -391,15 +393,19 @@ Weight 1 → 14, Weight 2 → 20, Weight 3 → 26, Weight 4 → 32.
 - Player HP reaches 0 → **Lose**
 - Both HP reach 0 simultaneously → **Draw**
 - Player surrenders → opponent **Wins**
+- A disconnected human has a 30-second reconnect grace period while the opponent, card timers, and Bot turns continue. Reconnecting with a newer socket restores current state and cancels only that player's grace timer.
+- If the grace period expires, the connected opponent wins with reason `disconnect`. If both human players are offline, the match is persisted as an abandoned draw with zero progression.
 
-**Rating deltas:** Win = `+20`, Lose = `-12`, Draw = `0`.
+Only normal Ranked results mutate rating, Y-Coin, win/loss statistics, and Hired Pass activity. Casual, Bot, and abandoned disconnect draws persist history/logs with zero authoritative deltas.
 
 ### 3.2 Bot Opponent Logic
 
-- Bot mode uses `BotBattleRepository` and schedules automated turns every 3.3–5.9 seconds.
+- Bot mode runs through the authenticated Socket.IO Game Backend and schedules server-authoritative turns every 3.3–5.9 seconds.
 - Bot prefers damage cards when available; falls back to first available card.
 - Bot always answers correctly (damage is full impact, heal is full impact).
-- Bot actions resolve independently from the player's visible four-card hand so real-time incoming damage cannot replace a card the player has not played.
+- Bot uses a fixed server-owned character/tower loadout and the human player's target.
+- Bot and PvP rooms fetch active target-specific questions from Supabase's `questions` table. The room recycles that shared pool deterministically for the entire match; every recycled draw receives a fresh public card-instance ID while retaining its source Supabase question ID internally.
+- Question exhaustion is not a normal match-end condition.
 
 ---
 

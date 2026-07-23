@@ -10,6 +10,7 @@ import { RoomManager } from './rooms/room-manager';
 import { MatchLogBuffer } from './logs/match-log-buffer';
 import { BotBattleService } from './bot/bot-battle.service';
 import { CardTimeoutService } from './timeout/card-timeout.service';
+import { GamePlayerProfileService } from './profiles/game-player-profile.service';
 
 @Module({
   imports: [SupabaseModule],
@@ -24,6 +25,7 @@ import { CardTimeoutService } from './timeout/card-timeout.service';
     MatchLogBuffer,
     BotBattleService,
     CardTimeoutService,
+    GamePlayerProfileService,
   ],
 })
 export class MatchModule {}

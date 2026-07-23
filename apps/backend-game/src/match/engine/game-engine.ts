@@ -4,6 +4,7 @@ import type { MatchResultPayload } from '../../../../../contracts/match.payloads
 import { QuestionDealer } from './question-dealer';
 import type {
   BattleActionResult,
+  BattlePlayerSeed,
   BattleRole,
   FinishReason,
   InternalPlayerState,
@@ -21,17 +22,71 @@ export class GameEngine {
   static readonly MAX_HP = 100;
   private readonly dealer = new QuestionDealer();
 
-  createRoom(roomId: string, playerAUserId: string, playerBUserId: string, sharedQueue: ReturnType<QuestionDealer['createSharedQueue']>, reserveQueue: InternalCard[] = []): InternalRoomState {
+  createRoom(
+    roomId: string,
+    mode: InternalRoomState['mode'],
+    target: InternalRoomState['target'],
+    playerA: BattlePlayerSeed,
+    playerB: BattlePlayerSeed,
+    sharedQueue: ReturnType<QuestionDealer['createSharedQueue']>,
+  ): InternalRoomState;
+  createRoom(
+    roomId: string,
+    playerAUserId: string,
+    playerBUserId: string,
+    sharedQueue: ReturnType<QuestionDealer['createSharedQueue']>,
+    legacyReserve?: InternalCard[],
+  ): InternalRoomState;
+  createRoom(
+    roomId: string,
+    modeOrPlayerA: InternalRoomState['mode'] | string,
+    targetOrPlayerB: InternalRoomState['target'] | string,
+    playerAOrQueue:
+      | BattlePlayerSeed
+      | ReturnType<QuestionDealer['createSharedQueue']>,
+    playerBOrReserve?: BattlePlayerSeed | InternalCard[],
+    modernQueue?: ReturnType<QuestionDealer['createSharedQueue']>,
+  ): InternalRoomState {
+    const modern = modernQueue !== undefined;
+    const mode: InternalRoomState['mode'] = modern
+      ? (modeOrPlayerA as InternalRoomState['mode'])
+      : 'casual';
+    const target: InternalRoomState['target'] = modern
+      ? (targetOrPlayerB as InternalRoomState['target'])
+      : 'cpns';
+    const playerA: BattlePlayerSeed = modern
+      ? (playerAOrQueue as BattlePlayerSeed)
+      : this.legacyPlayer(modeOrPlayerA, 'Player A');
+    const playerB: BattlePlayerSeed = modern
+      ? (playerBOrReserve as BattlePlayerSeed)
+      : this.legacyPlayer(targetOrPlayerB, 'Player B');
+    const sharedQueue = modern
+      ? modernQueue
+      : this.dealer.createSharedQueue([
+          ...(playerAOrQueue as InternalCard[]),
+          ...((playerBOrReserve as InternalCard[] | undefined) ?? []),
+        ]);
     return {
       roomId,
       status: 'active',
+      mode,
+      target,
       sharedQueue,
-      reserveQueue,
-      nextRecycleId: sharedQueue.length + reserveQueue.length + 1,
       startedAt: new Date(),
       players: {
-        playerA: this.createPlayer(playerAUserId, 'playerA', sharedQueue),
-        playerB: this.createPlayer(playerBUserId, 'playerB', sharedQueue),
+        playerA: this.createPlayer(playerA, 'playerA', sharedQueue),
+        playerB: this.createPlayer(playerB, 'playerB', sharedQueue),
+      },
+    };
+  }
+
+  private legacyPlayer(userId: string, displayName: string): BattlePlayerSeed {
+    return {
+      userId,
+      displayName,
+      loadout: {
+        characterId: 'character-basic-squire',
+        towerId: 'tower-garda-biru',
       },
     };
   }
@@ -103,22 +158,15 @@ export class GameEngine {
     player.answeredCardIds.add(cardId);
     player.openedCardId = undefined;
 
-    // Try drawing from main shared queue first
-    let nextCard = this.dealer.drawAt(room.sharedQueue, player.nextDrawIndex);
+    const nextCard = this.drawNextCard(room, player);
     if (nextCard) {
       player.hand.push(nextCard);
-      player.nextDrawIndex += 1;
-    } else {
-      // Main queue exhausted — try recycling from reserve buffer with a fresh card ID
-      nextCard = this.drawFromReserve(room);
-      if (nextCard) {
-        player.hand.push(nextCard);
-      }
     }
 
     const matchResult = this.resolveMatchEnd(room, opponent.hp <= 0 ? 'hp_zero' : undefined);
     const playResult = {
       roomId: room.roomId,
+      actorUserId: userId,
       cardId,
       correct,
       effect,
@@ -156,22 +204,15 @@ export class GameEngine {
     player.answeredCardIds.add(cardId);
     player.openedCardId = undefined;
 
-    // Try drawing from main shared queue first
-    let nextCard = this.dealer.drawAt(room.sharedQueue, player.nextDrawIndex);
+    const nextCard = this.drawNextCard(room, player);
     if (nextCard) {
       player.hand.push(nextCard);
-      player.nextDrawIndex += 1;
-    } else {
-      // Main queue exhausted — try recycling from reserve buffer
-      nextCard = this.drawFromReserve(room);
-      if (nextCard) {
-        player.hand.push(nextCard);
-      }
     }
 
     const matchResult = this.resolveMatchEnd(room, opponent.hp <= 0 ? 'hp_zero' : undefined);
     const playResult = {
       roomId: room.roomId,
+      actorUserId: userId,
       cardId,
       correct,
       effect,
@@ -189,6 +230,18 @@ export class GameEngine {
     return { ok: true, room, matchResult: result };
   }
 
+  finishDisconnected(room: InternalRoomState, userId: string): MatchResultPayload {
+    const disconnected = this.getPlayer(room, userId);
+    const opponent = this.getOpponent(room, userId);
+    if (!disconnected || !opponent) {
+      throw new Error('Cannot finish disconnect for a non-member.');
+    }
+    if (!opponent.connected) {
+      return this.finish(room, 'disconnect', null, null);
+    }
+    return this.finish(room, 'disconnect', opponent.userId, disconnected.userId);
+  }
+
   buildPublicState(room: InternalRoomState, userId: string): PublicBattleState {
     const self = this.getPlayer(room, userId);
     const opponent = this.getOpponent(room, userId);
@@ -199,8 +252,12 @@ export class GameEngine {
     return {
       roomId: room.roomId,
       status: room.status,
+      mode: room.mode,
+      target: room.target,
       self: {
         userId: self.userId,
+        displayName: self.displayName,
+        loadout: self.loadout,
         role: self.role,
         hp: self.hp,
         points: self.points,
@@ -211,6 +268,8 @@ export class GameEngine {
       },
       opponent: {
         userId: opponent.userId,
+        displayName: opponent.displayName,
+        loadout: opponent.loadout,
         role: opponent.role,
         hp: opponent.hp,
         points: opponent.points,
@@ -222,19 +281,22 @@ export class GameEngine {
   }
 
   private createPlayer(
-    userId: string,
+    seed: BattlePlayerSeed,
     role: BattleRole,
     sharedQueue: InternalRoomState['sharedQueue'],
   ): InternalPlayerState {
+    const hand = this.dealer.createStartingHand(sharedQueue);
     return {
-      userId,
+      userId: seed.userId,
+      displayName: seed.displayName,
+      loadout: seed.loadout,
       socketId: null,
       role,
       hp: GameEngine.STARTING_HP,
       points: 0,
-      hand: this.dealer.createStartingHand(sharedQueue),
+      hand,
       answeredCardIds: new Set<string>(),
-      nextDrawIndex: QuestionDealer.HAND_SIZE,
+      nextDrawIndex: hand.length,
       connected: true,
     };
   }
@@ -246,9 +308,6 @@ export class GameEngine {
     if (room.result) return room.result;
     if (preferredReason === 'hp_zero') {
       return this.finishByComparison(room, 'hp_zero');
-    }
-    if (this.isQuestionExhausted(room)) {
-      return this.finishByComparison(room, 'question_exhaustion');
     }
     return undefined;
   }
@@ -273,6 +332,8 @@ export class GameEngine {
     room.endedAt = new Date();
     room.result = {
       roomId: room.roomId,
+      mode: room.mode,
+      target: room.target,
       outcome: reason === 'surrender' ? 'surrender' : winnerUserId ? 'win' : 'draw',
       winnerUserId,
       loserUserId,
@@ -306,28 +367,22 @@ export class GameEngine {
     return 'active';
   }
 
-  private isQuestionExhausted(room: InternalRoomState): boolean {
-    const mainQueueExhausted =
-      room.players.playerA.nextDrawIndex >= room.sharedQueue.length &&
-      room.players.playerB.nextDrawIndex >= room.sharedQueue.length;
-    const reserveExhausted = room.reserveQueue.length === 0;
-    const noPlayableCards =
-      room.players.playerA.hand.length === 0 && room.players.playerB.hand.length === 0;
-    const noOpenedCards =
-      !room.players.playerA.openedCardId && !room.players.playerB.openedCardId;
-    return mainQueueExhausted && reserveExhausted && noPlayableCards && noOpenedCards;
-  }
-
-  /**
-   * Draw a card from the reserve buffer with a fresh card-instance ID.
-   * Returns undefined if reserve is also exhausted.
-   */
-  private drawFromReserve(room: InternalRoomState): InternalCard | undefined {
-    if (room.reserveQueue.length === 0) return undefined;
-    const card = room.reserveQueue.shift()!;
-    const freshId = `card_r${room.nextRecycleId}`;
-    room.nextRecycleId += 1;
-    return { ...card, id: freshId, options: [...card.options] };
+  private drawNextCard(
+    room: InternalRoomState,
+    player: InternalPlayerState,
+  ): InternalCard | undefined {
+    if (room.sharedQueue.length === 0) return undefined;
+    const absoluteIndex = player.nextDrawIndex;
+    const source = room.sharedQueue[absoluteIndex % room.sharedQueue.length];
+    player.nextDrawIndex += 1;
+    return {
+      ...source,
+      id:
+        absoluteIndex < room.sharedQueue.length
+          ? source.id
+          : `card_r${absoluteIndex + 1}`,
+      options: [...source.options],
+    };
   }
 
   getPlayer(room: InternalRoomState, userId: string): InternalPlayerState | undefined {

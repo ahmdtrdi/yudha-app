@@ -7,6 +7,10 @@ import type { InternalRoomState } from '../engine/battle.types';
 import type { InternalCard } from '../questions/question.types';
 import type { MatchEmit, MatchServiceResult } from '../match.service';
 import { SERVER_MATCH_EVENTS } from '../../../../../contracts/match.events';
+import {
+  GamePlayerProfileService,
+  type GamePlayerProfile,
+} from '../profiles/game-player-profile.service';
 
 const BOT_MIN_DELAY_MS = 3300;
 const BOT_MAX_DELAY_MS = 5900;
@@ -23,6 +27,7 @@ export class BotBattleService {
     private readonly rooms: RoomManager,
     private readonly questions: QuestionService,
     private readonly matchResultService: MatchResultService,
+    private readonly profiles: GamePlayerProfileService,
   ) {}
 
   /** Called by the gateway once the Server instance is available. */
@@ -35,10 +40,24 @@ export class BotBattleService {
    * Returns the created room so the caller can emit match_found + initial state.
    * Uses the same Supabase-backed question pool as PvP matches.
    */
-  async createBotMatch(userId: string, socketId: string): Promise<InternalRoomState> {
-    const { active, reserve } = await this.questions.getMatchQuestionPoolWithReserve('cpns');
-    const room = this.rooms.createBotRoom(userId, socketId, active, reserve);
-    this.logger.log(`Bot match created: room=${room.roomId} player=${userId}`);
+  async createBotMatch(
+    playerOrUserId: GamePlayerProfile | string,
+    socketId: string,
+  ): Promise<InternalRoomState> {
+    const player =
+      typeof playerOrUserId === 'string'
+        ? await this.profiles.getProfile(playerOrUserId)
+        : playerOrUserId;
+    const cards = await this.questions.getMatchQuestionPool(player.target);
+    const room = this.rooms.createBotRoom(
+      player,
+      this.profiles.botProfile(player.target),
+      socketId,
+      cards,
+    );
+    this.logger.log(
+      `Bot match created: room=${room.roomId} player=${player.userId} target=${player.target}`,
+    );
     this.scheduleNextBotTurn(room.roomId);
     return room;
   }
@@ -157,7 +176,7 @@ export class BotBattleService {
     try {
       const deltas = await this.matchResultService.finalizeMatch(room);
       if (deltas && room.result) {
-        room.result.progressionPersisted = true;
+        room.result.progressionPersisted = deltas.progressionApplied;
         room.result.finalState.playerA.ratingDelta = deltas.ratingDeltaA;
         room.result.finalState.playerA.coinsDelta = deltas.coinsDeltaA;
         room.result.finalState.playerB.ratingDelta = deltas.ratingDeltaB;

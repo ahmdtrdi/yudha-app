@@ -6,6 +6,7 @@ import type { InternalCard } from '../questions/question.types';
 const makeCards = (count: number, overrides: Partial<InternalCard> = {}): InternalCard[] =>
   Array.from({ length: count }, (_, i) => ({
     id: `card_${i + 1}`,
+    sourceQuestionId: `question_${i + 1}`,
     prompt: `Question ${i + 1}`,
     options: ['A', 'B', 'C', 'D'],
     correctOptionIndex: 1,
@@ -71,19 +72,18 @@ describe('GameEngine', () => {
       expect(room.players.playerB.answeredCardIds.size).toBe(0);
     });
 
-    it('initializes reserve queue and recycle ID', () => {
+    it('includes all supplied Supabase cards in the recyclable pool', () => {
       const active = makeCards(8);
       const reserve = makeCards(4).map((c, i) => ({ ...c, id: `reserve_${i}` }));
       const room = engine.createRoom('room_1', 'a', 'b', active, reserve);
 
-      expect(room.reserveQueue).toHaveLength(4);
-      expect(room.nextRecycleId).toBe(active.length + reserve.length + 1);
+      expect(room.sharedQueue).toHaveLength(12);
     });
 
-    it('defaults reserve queue to empty array', () => {
+    it('uses the supplied pool when no additional cards are provided', () => {
       const room = engine.createRoom('room_1', 'a', 'b', makeCards(8));
 
-      expect(room.reserveQueue).toEqual([]);
+      expect(room.sharedQueue).toHaveLength(8);
     });
   });
 
@@ -179,6 +179,7 @@ describe('GameEngine', () => {
     it('heals on correct answer with heal card (capped at MAX_HP)', () => {
       const healCards: InternalCard[] = Array.from({ length: 8 }, (_, i) => ({
         id: `card_${i + 1}`,
+        sourceQuestionId: `question_${i + 1}`,
         prompt: `Q${i}`,
         options: ['A', 'B', 'C', 'D'],
         correctOptionIndex: 0,
@@ -240,10 +241,11 @@ describe('GameEngine', () => {
       expect(room.players.playerA.hand.length).toBe(handSizeBefore);
     });
 
-    it('draws from reserve queue when main queue is exhausted', () => {
+    it('recycles the Supabase pool with a fresh card-instance ID', () => {
       const active = makeCards(4); // Exactly HAND_SIZE, so no draws from main queue
       const reserve: InternalCard[] = [{
         id: 'reserve_1',
+        sourceQuestionId: 'question_reserve_1',
         prompt: 'Reserve Q',
         options: ['A', 'B', 'C', 'D'],
         correctOptionIndex: 1,
@@ -257,11 +259,40 @@ describe('GameEngine', () => {
 
       engine.openCard(room, 'a', 'card_1');
       engine.playCard(room, 'a', 'card_1', 1);
+      engine.openCard(room, 'a', 'card_2');
+      engine.playCard(room, 'a', 'card_2', 1);
 
-      // Should have drawn from reserve with a fresh ID
+      // Equivalent draw positions recycle the shared pool with a fresh ID.
       const drawnCard = room.players.playerA.hand.find((c) => c.id.startsWith('card_r'));
       expect(drawnCard).toBeDefined();
-      expect(room.reserveQueue).toHaveLength(0);
+    });
+
+    it('continues through multiple full pool cycles with unique instance IDs', () => {
+      const room = engine.createRoom(
+        'room_recycling',
+        'player-a',
+        'player-b',
+        makeCards(QuestionDealer.HAND_SIZE),
+      );
+      const instanceIds: string[] = [];
+      const sourceIds: string[] = [];
+
+      for (let draw = 0; draw < QuestionDealer.HAND_SIZE * 3; draw += 1) {
+        const card = room.players.playerA.hand[0];
+        instanceIds.push(card.id);
+        sourceIds.push(card.sourceQuestionId);
+        engine.openCard(room, 'player-a', card.id);
+        engine.playCard(room, 'player-a', card.id, 0);
+      }
+
+      expect(room.status).toBe('active');
+      expect(new Set(instanceIds).size).toBe(instanceIds.length);
+      expect(new Set(sourceIds).size).toBe(QuestionDealer.HAND_SIZE);
+      expect(
+        instanceIds.slice(QuestionDealer.HAND_SIZE).every(
+          (id) => id.startsWith('card_r'),
+        ),
+      ).toBe(true);
     });
 
     it('rejects invalid selectedOptionIndex', () => {
@@ -473,8 +504,7 @@ describe('GameEngine', () => {
   // ─── Match end tie-breaking ───
 
   describe('match end tie-breaking', () => {
-    it('higher HP wins on question exhaustion', () => {
-      // Use exactly HAND_SIZE cards so exhaustion triggers after all are played
+    it('keeps the match active after complete question-pool cycles', () => {
       const cards = makeCards(QuestionDealer.HAND_SIZE);
       const room = engine.createRoom('room_1', 'a', 'b', cards);
 
@@ -490,11 +520,11 @@ describe('GameEngine', () => {
         engine.playCard(room, 'b', card.id, 0);
       }
 
-      // At this point, playerB has lower HP, so should be decided
-      expect(room.status).toBe('finished');
-      if (room.result) {
-        expect(room.result.winnerUserId).toBe('a');
-      }
+      expect(room.status).toBe('active');
+      expect(room.result).toBeUndefined();
+      expect(
+        room.players.playerA.hand.every((card) => card.id.startsWith('card_r')),
+      ).toBe(true);
     });
   });
 

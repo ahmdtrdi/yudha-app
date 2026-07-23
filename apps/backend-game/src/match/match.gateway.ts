@@ -53,7 +53,7 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
 
       if (error || !user) throw new Error('Invalid token');
 
-      this.matchService.registerSocket(client.id, user.id);
+      this.emitAll(this.matchService.registerSocket(client.id, user.id));
       client.emit('connection_success', { message: 'Welcome to the Arena!' });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Connection rejected';

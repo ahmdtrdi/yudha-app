@@ -8,10 +8,12 @@ import { QuestionDealer } from '../engine/question-dealer';
 import type { InternalCard } from '../questions/question.types';
 import type { InternalRoomState } from '../engine/battle.types';
 import type { MatchServiceResult } from '../match.service';
+import { GamePlayerProfileService } from '../profiles/game-player-profile.service';
 
 const makeCards = (count: number): InternalCard[] =>
   Array.from({ length: count }, (_, i) => ({
     id: `card_${i + 1}`,
+    sourceQuestionId: `question_${i + 1}`,
     prompt: `Question ${i + 1}`,
     options: ['A', 'B', 'C', 'D'],
     correctOptionIndex: 0,
@@ -23,6 +25,15 @@ const makeCards = (count: number): InternalCard[] =>
   }));
 
 const STUB_CARDS = makeCards(12);
+const PLAYER_PROFILE = {
+  userId: 'user-a',
+  displayName: 'User A',
+  target: 'cpns' as const,
+  loadout: {
+    characterId: 'character-basic-squire',
+    towerId: 'tower-garda-biru',
+  },
+};
 
 describe('BotBattleService', () => {
   let service: BotBattleService;
@@ -44,10 +55,7 @@ describe('BotBattleService', () => {
     };
 
     mockQuestionService = {
-      getMatchQuestionPoolWithReserve: jest.fn().mockResolvedValue({
-        active: STUB_CARDS,
-        reserve: [],
-      }),
+      getMatchQuestionPool: jest.fn().mockResolvedValue(STUB_CARDS),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -58,6 +66,17 @@ describe('BotBattleService', () => {
         RoomManager,
         { provide: QuestionService, useValue: mockQuestionService },
         { provide: MatchResultService, useValue: mockMatchResultService },
+        {
+          provide: GamePlayerProfileService,
+          useValue: {
+            getProfile: jest.fn().mockResolvedValue(PLAYER_PROFILE),
+            botProfile: jest.fn().mockReturnValue({
+              ...PLAYER_PROFILE,
+              userId: 'bot',
+              displayName: 'BOT YUDHA',
+            }),
+          },
+        },
       ],
     }).compile();
 
@@ -84,7 +103,7 @@ describe('BotBattleService', () => {
     it('fetches question pool from QuestionService', async () => {
       await service.createBotMatch('user-a', 'socket-a');
 
-      expect(mockQuestionService.getMatchQuestionPoolWithReserve).toHaveBeenCalledWith('cpns');
+      expect(mockQuestionService.getMatchQuestionPool).toHaveBeenCalledWith('cpns');
     });
   });
 
@@ -152,10 +171,7 @@ describe('BotBattleService', () => {
         { ...STUB_CARDS[1], id: 'card_2', effect: 'damage', damageValue: 20, healValue: 0 },
         ...STUB_CARDS.slice(2),
       ];
-      mockQuestionService.getMatchQuestionPoolWithReserve.mockResolvedValue({
-        active: customCards,
-        reserve: [],
-      });
+      mockQuestionService.getMatchQuestionPool.mockResolvedValue(customCards);
 
       const emitCallback = jest.fn();
       service.setEmitCallback(emitCallback);

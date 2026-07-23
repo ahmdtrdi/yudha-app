@@ -50,7 +50,10 @@ export class MatchesService {
     const winnerId = row.winner_user_id as string | null;
     const mode = row.mode as string;
 
-    const isBotMatch = mode === 'bot' || playerBId === null;
+    const normalizedMode =
+      mode === 'casual' || mode === 'bot' ? mode : 'ranked';
+    const target = row.target === 'bumn' ? 'bumn' : 'cpns';
+    const isBotMatch = normalizedMode === 'bot' || playerBId === null;
     const isSelfPlayerA = playerAId === requestingUserId;
 
     // Derive self-relative outcome
@@ -82,6 +85,8 @@ export class MatchesService {
       opponentId,
       opponentUsername: isBotMatch ? 'Bot' : null,
       isBotMatch,
+      mode: normalizedMode,
+      target,
       outcome,
       reason: row.reason as string,
       finalState: {
