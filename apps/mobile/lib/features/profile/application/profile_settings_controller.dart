@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_storage.dart';
-import 'package:yudha_mobile/features/profile/domain/entities/profile_language.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_settings.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
@@ -28,6 +27,13 @@ class ProfileSettingsController extends StateNotifier<ProfileSettings> {
     _setState(state.copyWith(displayName: trimmed));
   }
 
+  void syncProfile({
+    required String displayName,
+    required ProfileTarget target,
+  }) {
+    _setState(state.copyWith(displayName: displayName.trim(), target: target));
+  }
+
   void setTarget(ProfileTarget target) {
     _setState(state.copyWith(target: target));
   }
@@ -37,10 +43,6 @@ class ProfileSettingsController extends StateNotifier<ProfileSettings> {
     required ProfileTarget target,
   }) {
     _setState(state.copyWith(displayName: displayName.trim(), target: target));
-  }
-
-  void setLanguage(ProfileLanguage language) {
-    _setState(state.copyWith(language: language));
   }
 
   void toggleNotifications(bool value) {

@@ -1,19 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_controller.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_storage.dart';
-import 'package:yudha_mobile/features/profile/domain/entities/profile_language.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_settings.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
 void main() {
-  test('setLanguage updates selected language', () {
-    final ProfileSettingsController controller = ProfileSettingsController();
-
-    controller.setLanguage(ProfileLanguage.en);
-
-    expect(controller.state.language, ProfileLanguage.en);
-  });
-
   test('toggle flags update settings state', () {
     final ProfileSettingsController controller = ProfileSettingsController();
 
@@ -34,6 +25,18 @@ void main() {
     expect(controller.state.displayName, 'Raka');
     expect(controller.state.target, ProfileTarget.cpns);
     expect(controller.state.isProfileComplete, isTrue);
+  });
+
+  test('syncProfile aligns local projection with backend identity', () {
+    final ProfileSettingsController controller = ProfileSettingsController();
+
+    controller.syncProfile(
+      displayName: 'Raka Saputra',
+      target: ProfileTarget.bumn,
+    );
+
+    expect(controller.state.displayName, 'Raka Saputra');
+    expect(controller.state.target, ProfileTarget.bumn);
   });
 
   test('loads saved settings from storage', () async {

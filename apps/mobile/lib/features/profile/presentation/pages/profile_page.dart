@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,19 +8,60 @@ import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/gamification/domain/entities/player_progress.dart';
+import 'package:yudha_mobile/features/profile/application/performance_analytics_providers.dart';
+import 'package:yudha_mobile/features/profile/application/performance_analytics_state.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
+import 'package:yudha_mobile/features/profile/application/user_profile_providers.dart';
+import 'package:yudha_mobile/features/profile/application/user_profile_state.dart';
+import 'package:yudha_mobile/features/profile/data/repositories/user_profile_repository.dart';
+import 'package:yudha_mobile/features/profile/domain/entities/performance_analytics.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
+import 'package:yudha_mobile/features/profile/domain/entities/user_profile.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
+
+  Future<void> _refresh(WidgetRef ref) async {
+    await Future.wait(<Future<void>>[
+      ref.read(userProfileProvider.notifier).load(),
+      ref.read(performanceAnalyticsProvider.notifier).load(),
+      ref.read(playerProgressProvider.notifier).hydrateFromRepository(),
+    ]);
+  }
+
+  Future<void> _openEditor(
+    BuildContext context,
+    WidgetRef ref,
+    UserProfile profile,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) => _EditProfileSheet(
+        profile: profile,
+        onSaved: (UserProfile updated) {
+          ref
+              .read(playerProgressProvider.notifier)
+              .setDisplayName(updated.displayName);
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final PlayerProgress progress = ref.watch(playerProgressProvider);
     final profileSettings = ref.watch(profileSettingsProvider);
     final settingsController = ref.read(profileSettingsProvider.notifier);
-
-    final int winRatePercent = (progress.winRate * 100).round();
+    final UserProfileState profileState = ref.watch(userProfileProvider);
+    final PerformanceAnalyticsState performanceState = ref.watch(
+      performanceAnalyticsProvider,
+    );
+    final UserProfile? profile = profileState.profile;
+    final String displayName = profile?.displayName ?? progress.displayName;
+    final ProfileTarget? target = profile?.target ?? profileSettings.target;
 
     return Scaffold(
       backgroundColor: AppColors.surfaceLight,
@@ -34,248 +77,492 @@ class ProfilePage extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
+        actions: <Widget>[
+          IconButton(
+            key: const Key('edit-profile-button'),
+            tooltip: 'Edit profil',
+            onPressed: profile == null
+                ? null
+                : () => _openEditor(context, ref, profile),
+            icon: const Icon(Icons.edit_outlined, color: AppColors.warriorNavy),
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      body: RefreshIndicator(
+        onRefresh: () => _refresh(ref),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: <Widget>[
+            _ProfileHeaderCard(
+              progress: progress,
+              displayName: displayName,
+              targetLabel: target?.label,
+              onEdit: profile == null
+                  ? null
+                  : () => _openEditor(context, ref, profile),
+            ),
+            if (profileState.status == UserProfileStatus.loading) ...<Widget>[
+              const SizedBox(height: 10),
+              const LinearProgressIndicator(
+                minHeight: 3,
+                color: AppColors.levelUpTeal,
+              ),
+            ],
+            if (profileState.errorMessage != null) ...<Widget>[
+              const SizedBox(height: 10),
+              _ProfileErrorBanner(
+                message: profileState.errorMessage!,
+                onRetry: () => ref.read(userProfileProvider.notifier).load(),
+              ),
+            ],
+            const SizedBox(height: 20),
+            const _SectionTitle(
+              icon: Icons.bar_chart_rounded,
+              title: 'Analisis Performa',
+            ),
+            const SizedBox(height: 10),
+            _PerformanceSection(
+              state: performanceState,
+              onRetry: () =>
+                  ref.read(performanceAnalyticsProvider.notifier).load(),
+            ),
+            const SizedBox(height: 24),
+            const _SectionTitle(
+              icon: Icons.tune_rounded,
+              title: 'Pengaturan Profil',
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: AppColors.warriorNavy.withValues(alpha: 0.06),
+                ),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: AppColors.warriorNavy.withValues(alpha: 0.02),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: <Widget>[
+                  _SettingsSwitchTile(
+                    icon: Icons.notifications_active_rounded,
+                    iconColor: AppColors.levelUpTeal,
+                    title: 'Notifikasi Harian',
+                    subtitle: 'Ingat belajar setiap hari',
+                    value: profileSettings.notificationsEnabled,
+                    onChanged: settingsController.toggleNotifications,
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Divider(height: 1, color: Colors.black12),
+                  ),
+                  _SettingsSwitchTile(
+                    icon: Icons.volume_up_rounded,
+                    iconColor: AppColors.fireGold,
+                    title: 'Suara Efek',
+                    subtitle: 'Efek suara dalam game kuis',
+                    value: profileSettings.soundEnabled,
+                    onChanged: settingsController.toggleSound,
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Divider(height: 1, color: Colors.black12),
+                  ),
+                  _SettingsSwitchTile(
+                    icon: Icons.vibration_rounded,
+                    iconColor: AppColors.warriorNavy,
+                    title: 'Haptic Feedback',
+                    subtitle: 'Sentuhan getaran responsif',
+                    value: profileSettings.hapticsEnabled,
+                    onChanged: settingsController.toggleHaptics,
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Divider(height: 1, color: Colors.black12),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final bool shouldLogout =
+                              await _showLogoutDialog(context) ?? false;
+                          if (!shouldLogout) {
+                            return;
+                          }
+                          await ref.read(authProvider.notifier).logout();
+                          if (!context.mounted) {
+                            return;
+                          }
+                          context.go(AppRoutes.login);
+                        },
+                        icon: const Icon(Icons.logout_rounded, size: 18),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFB42318),
+                          side: const BorderSide(color: Color(0xFFD92D20)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        label: const Text(
+                          'Keluar',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileErrorBanner extends StatelessWidget {
+  const _ProfileErrorBanner({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3F1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF3B5AD)),
+      ),
+      child: Row(
         children: <Widget>[
-          _ProfileHeaderCard(
-            progress: progress,
-            targetLabel: profileSettings.target?.label,
+          const Icon(
+            Icons.info_outline_rounded,
+            color: Color(0xFFB42318),
+            size: 18,
           ),
-          const SizedBox(height: 20),
-          const _SectionTitle(
-            icon: Icons.bar_chart_rounded,
-            title: 'Analisis Performa',
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: AppColors.textStrong,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
-          const SizedBox(height: 10),
-          _MetricGrid(
-            children: <Widget>[
-              _MetricCard(
-                label: 'Winrate',
-                value: '$winRatePercent%',
-                icon: Icons.emoji_events_rounded,
-                iconColor: AppColors.fireGold,
+          TextButton(onPressed: onRetry, child: const Text('Coba lagi')),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditProfileSheet extends ConsumerStatefulWidget {
+  const _EditProfileSheet({required this.profile, required this.onSaved});
+
+  final UserProfile profile;
+  final ValueChanged<UserProfile> onSaved;
+
+  @override
+  ConsumerState<_EditProfileSheet> createState() => _EditProfileSheetState();
+}
+
+class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
+  late final TextEditingController _usernameController;
+  late final TextEditingController _fullNameController;
+  late ProfileTarget _target;
+  String? _validationError;
+  bool _allowPop = false;
+
+  bool get _isDirty =>
+      _usernameController.text.trim() != widget.profile.username ||
+      _fullNameController.text.trim() != widget.profile.fullName ||
+      _target != widget.profile.target;
+
+  @override
+  void initState() {
+    super.initState();
+    _usernameController = TextEditingController(text: widget.profile.username)
+      ..addListener(_onFieldChanged);
+    _fullNameController = TextEditingController(text: widget.profile.fullName)
+      ..addListener(_onFieldChanged);
+    _target = widget.profile.target;
+  }
+
+  void _onFieldChanged() {
+    if (mounted) {
+      setState(() => _validationError = null);
+    }
+  }
+
+  @override
+  void dispose() {
+    _usernameController
+      ..removeListener(_onFieldChanged)
+      ..dispose();
+    _fullNameController
+      ..removeListener(_onFieldChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  Future<void> _requestClose() async {
+    final UserProfileState state = ref.read(userProfileProvider);
+    if (state.status == UserProfileStatus.saving) {
+      return;
+    }
+    if (!_isDirty) {
+      setState(() => _allowPop = true);
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+      return;
+    }
+
+    final bool discard =
+        await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) => AlertDialog(
+            title: const Text('Buang perubahan?'),
+            content: const Text(
+              'Perubahan profil yang belum disimpan akan hilang.',
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Lanjut edit'),
               ),
-              _MetricCard(
-                label: 'Tier',
-                value: progress.tier.label,
-                icon: Icons.shield_rounded,
-                iconColor: AppColors.levelUpTeal,
-              ),
-              _MetricCard(
-                label: 'Match',
-                value: '${progress.matchesPlayed}',
-                icon: Icons.sports_esports_rounded,
-                iconColor: AppColors.warriorNavy,
-              ),
-              _MetricCard(
-                label: 'Best Streak',
-                value: '${progress.bestStreak}',
-                icon: Icons.local_fire_department_rounded,
-                iconColor: AppColors.fireGold,
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Buang'),
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          const _SectionTitle(
-            icon: Icons.tune_rounded,
-            title: 'Pengaturan Profil',
+        ) ??
+        false;
+    if (!discard || !mounted) {
+      return;
+    }
+    setState(() => _allowPop = true);
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _save() async {
+    final String username = _usernameController.text.trim();
+    if (username.length < 3) {
+      setState(() {
+        _validationError = 'Username minimal terdiri dari 3 karakter.';
+      });
+      return;
+    }
+
+    final UserProfile? updated = await ref
+        .read(userProfileProvider.notifier)
+        .save(
+          UserProfileUpdate(
+            username: username,
+            fullName: _fullNameController.text,
+            target: _target,
           ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: AppColors.warriorNavy.withValues(alpha: 0.06),
-              ),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: AppColors.warriorNavy.withValues(alpha: 0.02),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+        );
+    if (updated == null || !mounted) {
+      return;
+    }
+    widget.onSaved(updated);
+    setState(() => _allowPop = true);
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final UserProfileState state = ref.watch(userProfileProvider);
+    final bool isSaving = state.status == UserProfileStatus.saving;
+    final String? errorMessage = _validationError ?? state.errorMessage;
+
+    return PopScope(
+      canPop: _allowPop || !_isDirty,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (!didPop) {
+          unawaited(_requestClose());
+        }
+      },
+      child: AnimatedPadding(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620),
+            child: FractionallySizedBox(
+              heightFactor: 0.82,
+              widthFactor: 1,
+              child: Material(
+                color: Colors.white,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(22),
                 ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const Row(
+                clipBehavior: Clip.antiAlias,
+                child: Column(
                   children: <Widget>[
-                    Icon(
-                      Icons.school_rounded,
-                      color: AppColors.levelUpTeal,
-                      size: 18,
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 8, 8),
+                      child: Row(
+                        children: <Widget>[
+                          const Expanded(
+                            child: Text(
+                              'Edit Profil',
+                              style: TextStyle(
+                                color: AppColors.warriorNavy,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Tutup',
+                            onPressed: isSaving ? null : _requestClose,
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                      ),
                     ),
-                    SizedBox(width: 8),
-                    Text(
-                      'Target Belajar',
-                      style: TextStyle(
-                        color: AppColors.textStrong,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
+                    Divider(
+                      height: 1,
+                      color: AppColors.warriorNavy.withAlpha(20),
+                    ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            TextField(
+                              key: const Key('profile-full-name-field'),
+                              controller: _fullNameController,
+                              enabled: !isSaving,
+                              textCapitalization: TextCapitalization.words,
+                              textInputAction: TextInputAction.next,
+                              decoration: const InputDecoration(
+                                labelText: 'Nama lengkap',
+                                hintText: 'Nama yang tampil di profil',
+                                prefixIcon: Icon(Icons.badge_outlined),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextField(
+                              key: const Key('profile-username-field'),
+                              controller: _usernameController,
+                              enabled: !isSaving,
+                              textInputAction: TextInputAction.done,
+                              decoration: const InputDecoration(
+                                labelText: 'Username',
+                                hintText: 'Minimal 3 karakter',
+                                prefixIcon: Icon(Icons.alternate_email_rounded),
+                              ),
+                            ),
+                            const SizedBox(height: 22),
+                            const Text(
+                              'Target belajar',
+                              style: TextStyle(
+                                color: AppColors.textStrong,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: double.infinity,
+                              child: SegmentedButton<ProfileTarget>(
+                                showSelectedIcon: false,
+                                segments: const <ButtonSegment<ProfileTarget>>[
+                                  ButtonSegment<ProfileTarget>(
+                                    value: ProfileTarget.cpns,
+                                    label: Text('CPNS'),
+                                  ),
+                                  ButtonSegment<ProfileTarget>(
+                                    value: ProfileTarget.bumn,
+                                    label: Text('BUMN'),
+                                  ),
+                                ],
+                                selected: <ProfileTarget>{_target},
+                                onSelectionChanged: isSaving
+                                    ? null
+                                    : (Set<ProfileTarget> selected) {
+                                        setState(() {
+                                          _target = selected.first;
+                                          _validationError = null;
+                                        });
+                                      },
+                              ),
+                            ),
+                            if (errorMessage != null) ...<Widget>[
+                              const SizedBox(height: 16),
+                              Text(
+                                errorMessage,
+                                style: const TextStyle(
+                                  color: Color(0xFFB42318),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            key: const Key('save-profile-button'),
+                            onPressed: !_isDirty || isSaving ? null : _save,
+                            icon: isSaving
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.save_outlined),
+                            label: Text(
+                              isSaving ? 'Menyimpan...' : 'Simpan Perubahan',
+                            ),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.warriorNavy,
+                              padding: const EdgeInsets.symmetric(vertical: 15),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: SegmentedButton<ProfileTarget>(
-                    emptySelectionAllowed: true,
-                    showSelectedIcon: false,
-                    style: SegmentedButton.styleFrom(
-                      selectedBackgroundColor: AppColors.warriorNavy,
-                      selectedForegroundColor: Colors.white,
-                      backgroundColor: Colors.grey.shade50,
-                      foregroundColor: AppColors.textMuted,
-                      side: BorderSide(
-                        color: AppColors.warriorNavy.withValues(alpha: 0.08),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    segments: const <ButtonSegment<ProfileTarget>>[
-                      ButtonSegment<ProfileTarget>(
-                        value: ProfileTarget.cpns,
-                        label: Text(
-                          'CPNS',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                      ButtonSegment<ProfileTarget>(
-                        value: ProfileTarget.bumn,
-                        label: Text(
-                          'BUMN',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ],
-                    selected: profileSettings.target == null
-                        ? const <ProfileTarget>{}
-                        : <ProfileTarget>{profileSettings.target!},
-                    onSelectionChanged: (Set<ProfileTarget> selected) {
-                      if (selected.isEmpty) {
-                        return;
-                      }
-                      settingsController.setTarget(selected.first);
-                    },
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Target aktif: ${profileSettings.target?.label ?? '-'}',
-                  key: const Key('active-target-label'),
-                  style: TextStyle(
-                    color: AppColors.textMuted.withValues(alpha: 0.8),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: AppColors.warriorNavy.withValues(alpha: 0.06),
               ),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: AppColors.warriorNavy.withValues(alpha: 0.02),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              children: <Widget>[
-                _SettingsSwitchTile(
-                  icon: Icons.notifications_active_rounded,
-                  iconColor: AppColors.levelUpTeal,
-                  title: 'Notifikasi Harian',
-                  subtitle: 'Ingat belajar setiap hari',
-                  value: profileSettings.notificationsEnabled,
-                  onChanged: settingsController.toggleNotifications,
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Divider(height: 1, color: Colors.black12),
-                ),
-                _SettingsSwitchTile(
-                  icon: Icons.volume_up_rounded,
-                  iconColor: AppColors.fireGold,
-                  title: 'Suara Efek',
-                  subtitle: 'Efek suara dalam game kuis',
-                  value: profileSettings.soundEnabled,
-                  onChanged: settingsController.toggleSound,
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Divider(height: 1, color: Colors.black12),
-                ),
-                _SettingsSwitchTile(
-                  icon: Icons.vibration_rounded,
-                  iconColor: AppColors.warriorNavy,
-                  title: 'Haptic Feedback',
-                  subtitle: 'Sentuhan getaran responsif',
-                  value: profileSettings.hapticsEnabled,
-                  onChanged: settingsController.toggleHaptics,
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Divider(height: 1, color: Colors.black12),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final bool shouldLogout =
-                            await _showLogoutDialog(context) ?? false;
-                        if (!shouldLogout) {
-                          return;
-                        }
-                        await ref.read(authProvider.notifier).logout();
-                        if (!context.mounted) {
-                          return;
-                        }
-                        context.go(AppRoutes.login);
-                      },
-                      icon: const Icon(Icons.logout_rounded, size: 18),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFB42318),
-                        side: const BorderSide(color: Color(0xFFD92D20)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      label: const Text(
-                        'Keluar',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -396,16 +683,23 @@ Future<bool?> _showLogoutDialog(BuildContext context) {
 }
 
 class _ProfileHeaderCard extends StatelessWidget {
-  const _ProfileHeaderCard({required this.progress, required this.targetLabel});
+  const _ProfileHeaderCard({
+    required this.progress,
+    required this.displayName,
+    required this.targetLabel,
+    required this.onEdit,
+  });
 
   final PlayerProgress progress;
+  final String displayName;
   final String? targetLabel;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
-    final String avatarInitial = progress.displayName.isEmpty
+    final String avatarInitial = displayName.isEmpty
         ? '?'
-        : progress.displayName.substring(0, 1).toUpperCase();
+        : displayName.substring(0, 1).toUpperCase();
 
     final String progressText = progress.nextTier == null
         ? 'Tier Maksimal'
@@ -461,24 +755,19 @@ class _ProfileHeaderCard extends StatelessWidget {
                   Positioned(
                     bottom: 0,
                     right: 0,
-                    child: GestureDetector(
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Avatar customization coming soon'),
+                    child: Material(
+                      color: AppColors.fireGold,
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        onTap: onEdit,
+                        customBorder: const CircleBorder(),
+                        child: const Padding(
+                          padding: EdgeInsets.all(5),
+                          child: Icon(
+                            Icons.edit_outlined,
+                            size: 14,
+                            color: AppColors.warriorNavy,
                           ),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: const BoxDecoration(
-                          color: AppColors.fireGold,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.edit_outlined,
-                          size: 14,
-                          color: AppColors.warriorNavy,
                         ),
                       ),
                     ),
@@ -491,7 +780,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      progress.displayName,
+                      displayName,
                       style: const TextStyle(
                         color: AppColors.scholarCream,
                         fontSize: 22,
@@ -626,6 +915,436 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
+class _PerformanceSection extends StatelessWidget {
+  const _PerformanceSection({required this.state, required this.onRetry});
+
+  final PerformanceAnalyticsState state;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final PerformanceAnalytics? analytics = state.analytics;
+    if (analytics == null) {
+      return switch (state.status) {
+        PerformanceAnalyticsStatus.error => _PerformanceMessage(
+          icon: Icons.cloud_off_rounded,
+          title: 'Performa belum dapat dimuat',
+          message:
+              state.errorMessage ??
+              'Tarik layar atau coba lagi untuk memuat ringkasanmu.',
+          actionLabel: 'Coba lagi',
+          onAction: onRetry,
+        ),
+        _ => const _PerformanceMessage(
+          icon: Icons.insights_rounded,
+          title: 'Menyiapkan ringkasan performa',
+          message: 'Sebentar, kami sedang merangkum hasil latihanmu.',
+          isLoading: true,
+        ),
+      };
+    }
+
+    if (!analytics.hasAnyActivity) {
+      return _PerformanceMessage(
+        icon: Icons.track_changes_rounded,
+        title: 'Belum ada hasil untuk dirangkum',
+        message:
+            'Selesaikan latihan atau pertandingan pertamamu untuk melihat perkembangan di sini.',
+        actionLabel: state.status == PerformanceAnalyticsStatus.error
+            ? 'Coba lagi'
+            : null,
+        onAction: state.status == PerformanceAnalyticsStatus.error
+            ? onRetry
+            : null,
+      );
+    }
+
+    final PracticePerformance practice = analytics.practice;
+    final BattlePerformance battle = analytics.battle;
+    final bool hasPractice = practice.totalAnswered > 0;
+    final bool hasBattle = battle.totalMatches > 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        if (state.status == PerformanceAnalyticsStatus.loading) ...<Widget>[
+          const LinearProgressIndicator(
+            minHeight: 3,
+            color: AppColors.levelUpTeal,
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (state.status == PerformanceAnalyticsStatus.error &&
+            state.errorMessage != null) ...<Widget>[
+          _ProfileErrorBanner(message: state.errorMessage!, onRetry: onRetry),
+          const SizedBox(height: 10),
+        ],
+        _MetricGrid(
+          children: <Widget>[
+            _MetricCard(
+              label: 'Akurasi latihan',
+              value: hasPractice
+                  ? _formatPercent(practice.overallAccuracy)
+                  : '-',
+              detail: hasPractice
+                  ? '${practice.totalAnswered} soal dinilai'
+                  : 'Belum ada latihan',
+              icon: Icons.track_changes_rounded,
+              iconColor: AppColors.levelUpTeal,
+            ),
+            _MetricCard(
+              label: 'Waktu respons',
+              value: hasPractice
+                  ? _formatResponseTime(practice.averageResponseTimeMs)
+                  : '-',
+              detail: 'Rata-rata per jawaban',
+              icon: Icons.timer_outlined,
+              iconColor: AppColors.warriorNavy,
+            ),
+            _MetricCard(
+              label: 'Winrate PvP',
+              value: hasBattle ? _formatWinRate(battle.winRate) : '-',
+              detail: hasBattle
+                  ? '${battle.wins} menang, ${battle.losses} kalah'
+                  : 'Belum ada pertandingan',
+              icon: Icons.emoji_events_rounded,
+              iconColor: AppColors.fireGold,
+            ),
+            _MetricCard(
+              label: 'Soal dijawab',
+              value: '${practice.totalAnswered}',
+              detail: 'Dari seluruh latihan',
+              icon: Icons.fact_check_outlined,
+              iconColor: const Color(0xFF7A4DA3),
+            ),
+          ],
+        ),
+        if (practice.categoryBreakdown.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 12),
+          _CategoryPerformancePanel(items: practice.categoryBreakdown),
+        ],
+        if (hasPractice) ...<Widget>[
+          const SizedBox(height: 12),
+          _WeakTopicsPanel(items: practice.weakSubcategories),
+        ],
+      ],
+    );
+  }
+}
+
+class _PerformanceMessage extends StatelessWidget {
+  const _PerformanceMessage({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+    this.isLoading = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.warriorNavy.withValues(alpha: 0.08),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.levelUpTeal.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: isLoading
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.levelUpTeal,
+                    ),
+                  )
+                : Icon(icon, size: 20, color: AppColors.levelUpTeal),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.textStrong,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+                if (actionLabel != null && onAction != null) ...<Widget>[
+                  const SizedBox(height: 8),
+                  TextButton(onPressed: onAction, child: Text(actionLabel!)),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryPerformancePanel extends StatelessWidget {
+  const _CategoryPerformancePanel({required this.items});
+
+  final List<CategoryPerformance> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return _PerformancePanel(
+      title: 'Akurasi per kategori',
+      icon: Icons.stacked_bar_chart_rounded,
+      children: <Widget>[
+        for (int index = 0; index < items.length; index++) ...<Widget>[
+          _AccuracyRow(
+            label: _humanizeIdentifier(items[index].category),
+            accuracy: items[index].accuracy,
+            totalAnswered: items[index].totalAnswered,
+          ),
+          if (index < items.length - 1) const SizedBox(height: 14),
+        ],
+      ],
+    );
+  }
+}
+
+class _WeakTopicsPanel extends StatelessWidget {
+  const _WeakTopicsPanel({required this.items});
+
+  final List<SubcategoryPerformance> items;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const _PerformancePanel(
+        title: 'Fokus latihan',
+        icon: Icons.task_alt_rounded,
+        children: <Widget>[
+          Text(
+            'Belum ada topik yang perlu perhatian khusus. Pertahankan ritme latihanmu.',
+            style: TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return _PerformancePanel(
+      title: 'Fokus latihan berikutnya',
+      icon: Icons.center_focus_strong_rounded,
+      children: <Widget>[
+        for (int index = 0; index < items.length; index++) ...<Widget>[
+          _WeakTopicRow(item: items[index]),
+          if (index < items.length - 1)
+            const Divider(height: 20, color: Colors.black12),
+        ],
+      ],
+    );
+  }
+}
+
+class _PerformancePanel extends StatelessWidget {
+  const _PerformancePanel({
+    required this.title,
+    required this.icon,
+    required this.children,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.warriorNavy.withValues(alpha: 0.08),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(icon, size: 18, color: AppColors.warriorNavy),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: AppColors.textStrong,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _AccuracyRow extends StatelessWidget {
+  const _AccuracyRow({
+    required this.label,
+    required this.accuracy,
+    required this.totalAnswered,
+  });
+
+  final String label;
+  final double accuracy;
+  final int totalAnswered;
+
+  @override
+  Widget build(BuildContext context) {
+    final double progress = (accuracy / 100).clamp(0, 1);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.textStrong,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Text(
+              _formatPercent(accuracy),
+              style: const TextStyle(
+                color: AppColors.warriorNavy,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 6,
+            backgroundColor: AppColors.surfaceLight,
+            color: accuracy < 60 ? AppColors.fireGold : AppColors.levelUpTeal,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '$totalAnswered soal dijawab',
+          style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+        ),
+      ],
+    );
+  }
+}
+
+class _WeakTopicRow extends StatelessWidget {
+  const _WeakTopicRow({required this.item});
+
+  final SubcategoryPerformance item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Container(
+          width: 32,
+          height: 32,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.fireGold.withValues(alpha: 0.14),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.arrow_upward_rounded,
+            size: 17,
+            color: Color(0xFFB65D00),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                _humanizeIdentifier(item.subcategory),
+                style: const TextStyle(
+                  color: AppColors.textStrong,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${item.totalAnswered} soal menjadi dasar penilaian',
+                style: const TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          _formatPercent(item.accuracy),
+          style: const TextStyle(
+            color: Color(0xFFB65D00),
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _MetricGrid extends StatelessWidget {
   const _MetricGrid({required this.children});
 
@@ -639,7 +1358,7 @@ class _MetricGrid extends StatelessWidget {
       crossAxisCount: 2,
       mainAxisSpacing: 10,
       crossAxisSpacing: 10,
-      childAspectRatio: 2.2,
+      childAspectRatio: 1.75,
       children: children,
     );
   }
@@ -651,12 +1370,14 @@ class _MetricCard extends StatelessWidget {
     required this.value,
     required this.icon,
     required this.iconColor,
+    this.detail,
   });
 
   final String label;
   final String value;
   final IconData icon;
   final Color iconColor;
+  final String? detail;
 
   @override
   Widget build(BuildContext context) {
@@ -664,7 +1385,7 @@ class _MetricCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: AppColors.warriorNavy.withValues(alpha: 0.06),
         ),
@@ -709,6 +1430,19 @@ class _MetricCard extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
+                if (detail != null) ...<Widget>[
+                  const SizedBox(height: 2),
+                  Text(
+                    detail!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 9,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -716,6 +1450,42 @@ class _MetricCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatPercent(double value) => '${value.round().clamp(0, 100)}%';
+
+String _formatWinRate(double value) =>
+    '${(value * 100).round().clamp(0, 100)}%';
+
+String _formatResponseTime(int milliseconds) {
+  if (milliseconds <= 0) {
+    return '-';
+  }
+  if (milliseconds < 1000) {
+    return '$milliseconds md';
+  }
+  final String seconds = (milliseconds / 1000)
+      .toStringAsFixed(milliseconds % 1000 == 0 ? 0 : 1)
+      .replaceAll('.', ',');
+  return '$seconds dtk';
+}
+
+String _humanizeIdentifier(String value) {
+  final List<String> words = value
+      .trim()
+      .replaceAll(RegExp(r'[_-]+'), ' ')
+      .split(RegExp(r'\s+'))
+      .where((String word) => word.isNotEmpty)
+      .toList(growable: false);
+  return words
+      .map((String word) {
+        final String upper = word.toUpperCase();
+        if (<String>{'TWK', 'TIU', 'TKP'}.contains(upper)) {
+          return upper;
+        }
+        return '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}';
+      })
+      .join(' ');
 }
 
 class _SettingsSwitchTile extends StatelessWidget {

@@ -1,5 +1,4 @@
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:yudha_mobile/features/profile/domain/entities/profile_language.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_settings.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
@@ -13,7 +12,6 @@ class SharedPreferencesProfileSettingsStorage
     implements ProfileSettingsStorage {
   static const String _displayNameKey = 'profile.displayName';
   static const String _targetKey = 'profile.target';
-  static const String _languageKey = 'profile.language';
   static const String _notificationsEnabledKey = 'profile.notificationsEnabled';
   static const String _soundEnabledKey = 'profile.soundEnabled';
   static const String _hapticsEnabledKey = 'profile.hapticsEnabled';
@@ -25,7 +23,6 @@ class SharedPreferencesProfileSettingsStorage
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     final String? displayName = preferences.getString(_displayNameKey);
     final String? targetCode = preferences.getString(_targetKey);
-    final String? languageCode = preferences.getString(_languageKey);
     final bool? notificationsEnabled = preferences.getBool(
       _notificationsEnabledKey,
     );
@@ -34,7 +31,6 @@ class SharedPreferencesProfileSettingsStorage
 
     if (displayName == null &&
         targetCode == null &&
-        languageCode == null &&
         notificationsEnabled == null &&
         soundEnabled == null &&
         hapticsEnabled == null) {
@@ -45,7 +41,6 @@ class SharedPreferencesProfileSettingsStorage
     return ProfileSettings(
       displayName: displayName ?? fallback.displayName,
       target: _targetFromName(targetCode),
-      language: _languageFromCode(languageCode) ?? fallback.language,
       notificationsEnabled:
           notificationsEnabled ?? fallback.notificationsEnabled,
       soundEnabled: soundEnabled ?? fallback.soundEnabled,
@@ -57,7 +52,6 @@ class SharedPreferencesProfileSettingsStorage
   Future<void> save(ProfileSettings settings) async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     await preferences.setString(_displayNameKey, settings.displayName);
-    await preferences.setString(_languageKey, settings.language.code);
     await preferences.setBool(
       _notificationsEnabledKey,
       settings.notificationsEnabled,
@@ -80,18 +74,6 @@ class SharedPreferencesProfileSettingsStorage
     for (final ProfileTarget target in ProfileTarget.values) {
       if (target.name == name) {
         return target;
-      }
-    }
-    return null;
-  }
-
-  ProfileLanguage? _languageFromCode(String? code) {
-    if (code == null) {
-      return null;
-    }
-    for (final ProfileLanguage language in ProfileLanguage.values) {
-      if (language.code == code) {
-        return language;
       }
     }
     return null;
