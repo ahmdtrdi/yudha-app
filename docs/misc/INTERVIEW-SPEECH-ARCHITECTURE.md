@@ -35,13 +35,15 @@ Prinsip utamanya:
 
 ## Current Provider Split
 
-### TTS
+### TTS (Primary Free Tier: Groq Orpheus | Modular Alternative: ElevenLabs)
 
-- Provider: ElevenLabs
-- Default model: `eleven_flash_v2_5`
+- Primary Provider: Groq Orpheus
+- Default model: `canopylabs/orpheus-v1-english`
 - Reason:
-  - latency rendah untuk interviewer voice
-  - suara lebih natural untuk pengalaman simulasi interview
+  - Free tier friendly, zero cost execution for voice generation
+  - Built-in expressive vocal directions (`[cheerful]`, `[whisper]`, etc.)
+  - Accessible via OpenAI-compatible `/audio/speech` endpoint on Groq
+- Modular Alternative: ElevenLabs (`eleven_flash_v2_5`) selectable via `INTERVIEW_TTS_PROVIDER=elevenlabs`
 
 ### STT
 
@@ -66,8 +68,10 @@ Kedua token ini membuat provider speech bisa diganti tanpa menyentuh controller 
 - `GroqSttService`
   - upload audio ke endpoint transcription
   - mengembalikan teks transcript dan metadata dasar
+- `GroqTtsService`
+  - sintesis suara interviewer menggunakan Groq Orpheus (`canopylabs/orpheus-v1-english`) untuk Free Tier
 - `ElevenLabsTtsService`
-  - mengubah teks pertanyaan interviewer menjadi audio
+  - sintesis suara interviewer menggunakan ElevenLabs API (modular fallback)
 - `InterviewSpeechService`
   - cek ownership session
   - validasi audio upload
