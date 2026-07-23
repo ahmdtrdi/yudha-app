@@ -242,6 +242,26 @@
 - `FallbackLlmService` currently supports exactly 2 providers. If a third provider is added, consider a chain-of-responsibility pattern.
 - Add health check endpoint that validates LLM provider connectivity on startup.
 
+## 2026-07-23 - Groq Orpheus TTS Free Tier Integration & Modular Architecture
+
+### The Change
+
+- Updated [`docs/PRD-AI-INTERVIEW.md`](file:///Users/tri/Documents/code/yudha-app/docs/PRD-AI-INTERVIEW.md) to establish **Groq Orpheus TTS** (`canopylabs/orpheus-v1-english`) as the primary free-tier Text-to-Speech engine, while preserving the pluggable ElevenLabs architecture for optional high-fidelity production switching.
+- Updated [`docs/misc/INTERVIEW-SPEECH-ARCHITECTURE.md`](file:///Users/tri/Documents/code/yudha-app/docs/misc/INTERVIEW-SPEECH-ARCHITECTURE.md) to document Groq Orpheus as default free tier provider and describe the provider switcher token (`INTERVIEW_SPEECH_SYNTHESIS_CLIENT`).
+- Updated [`GroqTtsService`](file:///Users/tri/Documents/code/yudha-app/apps/backend-api/src/interview/services/groq-tts.service.ts): changed default TTS model fallback to `canopylabs/orpheus-v1-english` and default voice to `autumn`.
+- Updated [`apps/backend-api/.env`](file:///Users/tri/Documents/code/yudha-app/apps/backend-api/.env) and [`apps/backend-api/.env.example`](file:///Users/tri/Documents/code/yudha-app/apps/backend-api/.env.example) to include explicit Groq Orpheus settings (`INTERVIEW_GROQ_TTS_MODEL=canopylabs/orpheus-v1-english`, `INTERVIEW_GROQ_TTS_VOICE=autumn`).
+- Added standalone E2E Speech Pipeline harness [`apps/backend-api/src/interview/harness/test-speech-pipeline.ts`](file:///Users/tri/Documents/code/yudha-app/apps/backend-api/src/interview/harness/test-speech-pipeline.ts) and npm command `"interview:speech-test"` to easily execute end-to-end testing (Whisper STT -> Gemini LLM -> Orpheus TTS).
+
+### The Reasoning
+
+- Orpheus TTS hosted on Groq Cloud (`https://api.groq.com/openai/v1/audio/speech`) provides zero-cost voice generation under Groq's free tier, eliminating payment bottlenecks during development and free-tier user testing.
+- Preserving `ElevenLabsTtsService` behind NestJS dependency injection (`INTERVIEW_SPEECH_SYNTHESIS_CLIENT`) allows seamless toggling between Groq Orpheus and ElevenLabs via `INTERVIEW_TTS_PROVIDER` without code changes.
+
+### The Tech Debt
+
+- Orpheus TTS currently synthesizes whole turn sentences. Add chunked audio streaming for long interviewer responses if sentence-level latency becomes noticeable on slow mobile networks.
+
+
 
 
 

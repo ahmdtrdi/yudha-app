@@ -54,10 +54,21 @@ export class GroqSttService implements InterviewSpeechTranscriptionClient {
         input.audio.byteOffset + input.audio.byteLength,
       ) as ArrayBuffer;
       const formData = new FormData();
+      const resolvedMime =
+        !input.mimeType || input.mimeType === 'application/octet-stream'
+          ? input.fileName?.endsWith('.m4a')
+            ? 'audio/m4a'
+            : input.fileName?.endsWith('.mp3')
+              ? 'audio/mp3'
+              : input.fileName?.endsWith('.wav')
+                ? 'audio/wav'
+                : 'audio/m4a'
+          : input.mimeType;
+
       formData.append(
         'file',
-        new File([audioBytes], input.fileName || 'recording.webm', {
-          type: input.mimeType,
+        new File([audioBytes], input.fileName || 'recording.m4a', {
+          type: resolvedMime,
         }),
       );
       formData.append('model', this.model);

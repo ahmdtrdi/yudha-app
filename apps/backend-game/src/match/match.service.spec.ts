@@ -294,15 +294,15 @@ describe('MatchService', () => {
         roomId,
       });
 
-      expect(cardTimeoutService.cancelAllTimersForRoom).toHaveBeenCalledWith(
-        roomId,
+      expect(cardTimeoutService.cancelAllTimersForRoom).toHaveBeenCalledWith(roomId);
+      expect(mockBotBattleService.cancelBotSchedule).toHaveBeenCalledWith(roomId);
+      const resultEmit = result.emits.find(
+        (emit) => emit.event === SERVER_MATCH_EVENTS.matchResult,
       );
-      expect(mockBotBattleService.cancelBotSchedule).toHaveBeenCalledWith(
-        roomId,
+      expect(resultEmit).toBeDefined();
+      expect((resultEmit?.payload as { progressionPersisted?: boolean }).progressionPersisted).toBe(
+        true,
       );
-      expect(
-        result.emits.some((e) => e.event === SERVER_MATCH_EVENTS.matchResult),
-      ).toBe(true);
     });
 
     it('rejects surrender if room not found', async () => {

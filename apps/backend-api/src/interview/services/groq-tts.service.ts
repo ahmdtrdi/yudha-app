@@ -31,11 +31,11 @@ export class GroqTtsService implements InterviewSpeechSynthesisClient {
     );
     this.modelId = configService.get<string>(
       'INTERVIEW_GROQ_TTS_MODEL',
-      'tts-1',
+      'canopylabs/orpheus-v1-english',
     );
     this.voiceId = configService.get<string>(
       'INTERVIEW_GROQ_TTS_VOICE',
-      'alloy',
+      'autumn',
     );
     this.timeoutMs = this.getPositiveInteger(
       configService,
@@ -65,6 +65,7 @@ export class GroqTtsService implements InterviewSpeechSynthesisClient {
           model: this.modelId,
           input: input.text,
           voice: this.voiceId,
+          response_format: 'wav',
         }),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
@@ -74,6 +75,14 @@ export class GroqTtsService implements InterviewSpeechSynthesisClient {
         this.logger.error(
           `Groq TTS request failed with status ${response.status}: ${errorBody}`,
         );
+
+        if (errorBody.includes('model_terms_required') && this.modelId !== 'tts-1') {
+          this.logger.warn(
+            `⚠️ [Groq TTS] Terms acceptance required for model ${this.modelId}. Please accept terms at https://console.groq.com/playground?model=${encodeURIComponent(this.modelId)}. Retrying with fallback model 'tts-1'...`,
+          );
+          return this.synthesizeWithModel(input, 'tts-1', 'alloy');
+        }
+
         throw new ServiceUnavailableException(
           'Groq speech synthesis is temporarily unavailable.',
         );
@@ -86,8 +95,8 @@ export class GroqTtsService implements InterviewSpeechSynthesisClient {
 
       return {
         audio: Buffer.from(await response.arrayBuffer()),
-        contentType: response.headers.get('content-type') ?? 'audio/mpeg',
-        fileExtension: 'mp3',
+        contentType: response.headers.get('content-type') ?? 'audio/wav',
+        fileExtension: 'wav',
         provider: 'groq',
       };
     } catch (error) {
@@ -112,6 +121,44 @@ export class GroqTtsService implements InterviewSpeechSynthesisClient {
     } catch {
       return 'Unable to read Groq TTS error response.';
     }
+  }
+
+  private async synthesizeWithModel(
+    input: InterviewSpeechSynthesisInput,
+    modelId: string,
+    voiceId: string,
+  ): Promise<InterviewSpeechSynthesisResult> {
+    const startedAt = Date.now();
+    const response = await fetch(`${this.baseUrl}/audio/speech`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: modelId,
+        input: input.text,
+        voice: voiceId,
+        response_format: 'wav',
+      }),
+      signal: AbortSignal.timeout(this.timeoutMs),
+    });
+
+    if (!response.ok) {
+      throw new ServiceUnavailableException('Groq fallback speech synthesis failed.');
+    }
+
+    const latencyMs = Date.now() - startedAt;
+    this.logger.log(
+      `🔊 [TTS METRICS] Provider: Groq (${modelId}) | Latency: ${latencyMs}ms | Characters: ${input.text.length}`,
+    );
+
+    return {
+      audio: Buffer.from(await response.arrayBuffer()),
+      contentType: response.headers.get('content-type') ?? 'audio/wav',
+      fileExtension: 'wav',
+      provider: 'groq',
+    };
   }
 
   private getPositiveInteger(

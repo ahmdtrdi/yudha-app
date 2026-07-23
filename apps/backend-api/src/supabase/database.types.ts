@@ -35,6 +35,8 @@ export type Database = {
           coins: number;
           equipped_avatar_id: Nullable<string>;
           equipped_arena_id: Nullable<string>;
+          equipped_tower_id: Nullable<string>;
+          hired_pass_expires_at: Nullable<string>;
           created_at: string;
           updated_at: string;
         };
@@ -51,10 +53,252 @@ export type Database = {
           coins?: number;
           equipped_avatar_id?: Nullable<string>;
           equipped_arena_id?: Nullable<string>;
+          equipped_tower_id?: Nullable<string>;
+          hired_pass_expires_at?: Nullable<string>;
           created_at?: string;
           updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>;
+        Relationships: [];
+      };
+      store_items: {
+        Row: TimestampedRow & {
+          id: string;
+          type: string;
+          name: string;
+          description: string;
+          rarity: string;
+          coin_price: number;
+          is_active: boolean;
+          is_pass_exclusive: boolean;
+        };
+        Insert: TimestampedInsert & {
+          id: string;
+          type: string;
+          name: string;
+          description?: string;
+          rarity: string;
+          coin_price?: number;
+          is_active?: boolean;
+          is_pass_exclusive?: boolean;
+        };
+        Update: Partial<
+          Database['public']['Tables']['store_items']['Insert']
+        >;
+        Relationships: [];
+      };
+      user_inventory: {
+        Row: {
+          user_id: string;
+          item_id: string;
+          source: string;
+          source_ref: Nullable<string>;
+          acquired_at: string;
+        };
+        Insert: {
+          user_id: string;
+          item_id: string;
+          source: string;
+          source_ref?: Nullable<string>;
+          acquired_at?: string;
+        };
+        Update: Partial<
+          Database['public']['Tables']['user_inventory']['Insert']
+        >;
+        Relationships: [];
+      };
+      store_purchases: {
+        Row: {
+          id: string;
+          user_id: string;
+          item_id: string;
+          idempotency_key: string;
+          price_paid: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          item_id: string;
+          idempotency_key: string;
+          price_paid: number;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database['public']['Tables']['store_purchases']['Insert']
+        >;
+        Relationships: [];
+      };
+      coin_transactions: {
+        Row: {
+          id: string;
+          user_id: string;
+          delta: number;
+          reason: string;
+          reference_id: Nullable<string>;
+          idempotency_key: string;
+          balance_after: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          delta: number;
+          reason: string;
+          reference_id?: Nullable<string>;
+          idempotency_key: string;
+          balance_after: number;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database['public']['Tables']['coin_transactions']['Insert']
+        >;
+        Relationships: [];
+      };
+      hired_pass_seasons: {
+        Row: {
+          id: string;
+          name: string;
+          starts_at: string;
+          ends_at: string;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          name: string;
+          starts_at: string;
+          ends_at: string;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<
+          Database['public']['Tables']['hired_pass_seasons']['Insert']
+        >;
+        Relationships: [];
+      };
+      hired_pass_missions: {
+        Row: {
+          id: string;
+          season_id: string;
+          title: string;
+          description: string;
+          event_type: string;
+          cadence: string;
+          target_count: number;
+          points_reward: number;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          season_id: string;
+          title: string;
+          description: string;
+          event_type: string;
+          cadence: string;
+          target_count: number;
+          points_reward: number;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database['public']['Tables']['hired_pass_missions']['Insert']
+        >;
+        Relationships: [];
+      };
+      hired_pass_rewards: {
+        Row: {
+          id: string;
+          season_id: string;
+          track: string;
+          points_required: number;
+          label: string;
+          coins_reward: number;
+          item_id: Nullable<string>;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id: string;
+          season_id: string;
+          track: string;
+          points_required: number;
+          label: string;
+          coins_reward?: number;
+          item_id?: Nullable<string>;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database['public']['Tables']['hired_pass_rewards']['Insert']
+        >;
+        Relationships: [];
+      };
+      user_hired_pass_progress: {
+        Row: {
+          user_id: string;
+          season_id: string;
+          pass_points: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          season_id: string;
+          pass_points?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<
+          Database['public']['Tables']['user_hired_pass_progress']['Insert']
+        >;
+        Relationships: [];
+      };
+      user_hired_pass_mission_progress: {
+        Row: {
+          user_id: string;
+          mission_id: string;
+          period_start: string;
+          progress_count: number;
+          completed_at: Nullable<string>;
+          points_awarded_at: Nullable<string>;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          mission_id: string;
+          period_start: string;
+          progress_count?: number;
+          completed_at?: Nullable<string>;
+          points_awarded_at?: Nullable<string>;
+          updated_at?: string;
+        };
+        Update: Partial<
+          Database['public']['Tables']['user_hired_pass_mission_progress']['Insert']
+        >;
+        Relationships: [];
+      };
+      user_hired_pass_reward_claims: {
+        Row: {
+          user_id: string;
+          reward_id: string;
+          coins_awarded: number;
+          item_id: Nullable<string>;
+          claimed_at: string;
+        };
+        Insert: {
+          user_id: string;
+          reward_id: string;
+          coins_awarded?: number;
+          item_id?: Nullable<string>;
+          claimed_at?: string;
+        };
+        Update: Partial<
+          Database['public']['Tables']['user_hired_pass_reward_claims']['Insert']
+        >;
         Relationships: [];
       };
       questions: {
@@ -308,7 +552,48 @@ export type Database = {
         Relationships: [];
       };
     };
-    Functions: Record<string, never>;
+    Functions: {
+      purchase_store_item: {
+        Args: {
+          p_user_id: string;
+          p_item_id: string;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };
+      set_profile_loadout: {
+        Args: {
+          p_user_id: string;
+          p_avatar_id?: Nullable<string>;
+          p_tower_id?: Nullable<string>;
+          p_arena_id?: Nullable<string>;
+        };
+        Returns: Json;
+      };
+      grant_beta_credit: {
+        Args: {
+          p_user_id: string;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };
+      claim_hired_pass_reward: {
+        Args: {
+          p_user_id: string;
+          p_reward_id: string;
+        };
+        Returns: Json;
+      };
+      record_hired_pass_activity: {
+        Args: {
+          p_user_id: string;
+          p_event_type: string;
+          p_source_id: string;
+          p_occurred_at?: string;
+        };
+        Returns: Json;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

@@ -203,6 +203,29 @@ describe('MatchResultService', () => {
       });
     });
 
+    it('returns the original authoritative deltas for a duplicate result', async () => {
+      mockRpc.mockResolvedValue({
+        data: {
+          persisted: false,
+          reason: 'duplicate',
+          matchResultId: 'result-123',
+          ratingDeltaA: 20,
+          ratingDeltaB: -12,
+          coinsDeltaA: 10,
+          coinsDeltaB: 3,
+        },
+        error: null,
+      });
+
+      await expect(service.finalizeMatch(createFinishedRoom())).resolves.toEqual({
+        ratingDeltaA: 20,
+        ratingDeltaB: -12,
+        coinsDeltaA: 10,
+        coinsDeltaB: 3,
+      });
+      expect(mockRpc).toHaveBeenCalledTimes(1);
+    });
+
     it('returns null if both RPC attempts fail', async () => {
       mockRpc.mockResolvedValue({
         data: null,

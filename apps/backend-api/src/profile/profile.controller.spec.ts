@@ -7,10 +7,12 @@ describe('ProfileController', () => {
   let controller: ProfileController;
   const getProfile = jest.fn();
   const updateProfile = jest.fn();
+  const updateLoadout = jest.fn();
 
   beforeEach(async () => {
     getProfile.mockReset();
     updateProfile.mockReset();
+    updateLoadout.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ProfileController],
@@ -20,6 +22,7 @@ describe('ProfileController', () => {
           useValue: {
             getProfile,
             updateProfile,
+            updateLoadout,
           },
         },
       ],
@@ -47,12 +50,22 @@ describe('ProfileController', () => {
 
   it('updates the authenticated user profile', async () => {
     const profile = { id: 'user-1', username: 'player-two' };
-    const payload = { username: 'player-two', coins: 10 };
+    const payload = { username: 'player-two' };
     updateProfile.mockResolvedValue(profile);
 
     await expect(
       controller.updateMyProfile({ id: 'user-1' } as never, payload),
     ).resolves.toEqual(profile);
     expect(updateProfile).toHaveBeenCalledWith('user-1', payload);
+  });
+
+  it('updates the authenticated user loadout', async () => {
+    const payload = { towerId: 'tower-benteng-bara' };
+    updateLoadout.mockResolvedValue({ data: payload });
+
+    await expect(
+      controller.updateMyLoadout({ id: 'user-1' } as never, payload),
+    ).resolves.toEqual({ data: payload });
+    expect(updateLoadout).toHaveBeenCalledWith('user-1', payload);
   });
 });

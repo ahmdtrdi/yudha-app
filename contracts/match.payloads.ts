@@ -70,6 +70,7 @@ export type MatchResultPayload = {
   winnerUserId: string | null;
   loserUserId: string | null;
   reason: MatchResultReason;
+  progressionPersisted?: boolean;
   finalState: {
     playerA: {
       userId: string;

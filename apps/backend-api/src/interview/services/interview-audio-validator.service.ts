@@ -12,6 +12,18 @@ const supportedAudioMimeTypes = new Set([
   'audio/x-wav',
   'audio/webm',
   'audio/ogg',
+  'audio/aac',
+  'application/octet-stream',
+]);
+
+const supportedAudioExtensions = new Set([
+  '.mp3',
+  '.m4a',
+  '.wav',
+  '.mp4',
+  '.webm',
+  '.ogg',
+  '.aac',
 ]);
 
 @Injectable()
@@ -39,7 +51,11 @@ export class InterviewAudioValidator {
       );
     }
 
-    if (!supportedAudioMimeTypes.has(file.mimetype)) {
+    const fileExtension = (file.originalname || '').toLowerCase().slice((file.originalname || '').lastIndexOf('.'));
+    const isSupportedMime = supportedAudioMimeTypes.has(file.mimetype);
+    const isSupportedExtension = supportedAudioExtensions.has(fileExtension);
+
+    if (!isSupportedMime && !isSupportedExtension) {
       throw new BadRequestException(
         `audio mime type ${file.mimetype} is not supported.`,
       );
