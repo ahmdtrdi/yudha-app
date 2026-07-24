@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -77,7 +78,9 @@ class AppTabShell extends ConsumerWidget {
                 ],
               ),
               child: SafeArea(
-                minimum: const EdgeInsets.only(bottom: 4),
+                // Installed iOS PWAs need a little extra breathing room above
+                // the home indicator beyond the reported safe inset.
+                minimum: EdgeInsets.only(bottom: kIsWeb ? 10 : 4),
                 child: Padding(
                   padding: const EdgeInsets.only(
                     left: 12,

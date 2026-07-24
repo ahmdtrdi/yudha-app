@@ -10,8 +10,10 @@ class _ArenaEntrySection extends StatelessWidget {
     required this.selectedCharacter,
     required this.selectedTower,
     required this.selectedArena,
+    required this.profileTarget,
     required this.onSelectCosmetic,
     required this.onSelectArena,
+    required this.onLockedArenaTap,
     required this.onOpenStore,
     required this.onTopUp,
     required this.onBack,
@@ -24,8 +26,10 @@ class _ArenaEntrySection extends StatelessWidget {
   final CosmeticItem selectedCharacter;
   final CosmeticItem selectedTower;
   final CosmeticItem selectedArena;
+  final ProfileTarget? profileTarget;
   final ValueChanged<CosmeticItem> onSelectCosmetic;
   final ValueChanged<CosmeticItem> onSelectArena;
+  final ValueChanged<CosmeticItem> onLockedArenaTap;
   final VoidCallback onOpenStore;
   final VoidCallback onTopUp;
   final VoidCallback onBack;
@@ -63,8 +67,10 @@ class _ArenaEntrySection extends StatelessWidget {
                     ? _ArenaPickerView(
                         key: const ValueKey<String>('arena-step'),
                         selectedArena: selectedArena,
+                        profileTarget: profileTarget,
                         compact: compact,
                         onSelect: onSelectArena,
+                        onLockedTap: onLockedArenaTap,
                       )
                     : _LoadoutPickerView(
                         key: const ValueKey<String>('loadout-step'),
@@ -253,14 +259,18 @@ class _SetupHeader extends StatelessWidget {
 class _ArenaPickerView extends StatelessWidget {
   const _ArenaPickerView({
     required this.selectedArena,
+    required this.profileTarget,
     required this.compact,
     required this.onSelect,
+    required this.onLockedTap,
     super.key,
   });
 
   final CosmeticItem selectedArena;
+  final ProfileTarget? profileTarget;
   final bool compact;
   final ValueChanged<CosmeticItem> onSelect;
+  final ValueChanged<CosmeticItem> onLockedTap;
 
   @override
   Widget build(BuildContext context) {
@@ -290,7 +300,10 @@ class _ArenaPickerView extends StatelessWidget {
           ),
           const SizedBox(height: 7),
           Text(
-            'Setiap arena memiliki kelompok soal yang berbeda. Arena bebas dipilih dan tidak perlu dibeli.',
+            profileTarget == null
+                ? 'Setiap arena memiliki kelompok soal yang berbeda.'
+                : 'Tujuan ${profileTarget!.label} aktif. Arena lain terkunci '
+                      'agar materi dan lawan tetap sesuai tujuan belajarmu.',
             style: GoogleFonts.dmSans(
               color: const Color(0xFF667085),
               fontSize: 12.5,
@@ -315,12 +328,17 @@ class _ArenaPickerView extends StatelessWidget {
                   separatorBuilder: (_, _) => const SizedBox(width: 13),
                   itemBuilder: (BuildContext context, int index) {
                     final CosmeticItem arena = GameEconomyCatalog.arenas[index];
+                    final bool locked =
+                        profileTarget != null &&
+                        !profileTarget!.allowsArena(arena.id);
                     return _ArenaChoiceCard(
                       arena: arena,
                       selected: arena.id == selectedArena.id,
+                      locked: locked,
                       width: cardWidth,
                       compact: compact,
-                      onTap: () => onSelect(arena),
+                      onTap: () =>
+                          locked ? onLockedTap(arena) : onSelect(arena),
                     );
                   },
                 );
@@ -337,6 +355,7 @@ class _ArenaChoiceCard extends StatelessWidget {
   const _ArenaChoiceCard({
     required this.arena,
     required this.selected,
+    required this.locked,
     required this.width,
     required this.compact,
     required this.onTap,
@@ -344,95 +363,175 @@ class _ArenaChoiceCard extends StatelessWidget {
 
   final CosmeticItem arena;
   final bool selected;
+  final bool locked;
   final double width;
   final bool compact;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(22),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        key: ValueKey<String>('arena-choice-${arena.id}'),
-        onTap: onTap,
-        child: Ink(
-          width: width,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: selected
-                  ? const Color(0xFF2878F0)
-                  : const Color(0xFFE0D9CC),
-              width: selected ? 2.5 : 1,
+    final Widget arenaImage = Image.asset(
+      arena.assetPath!,
+      fit: BoxFit.cover,
+      alignment: Alignment.center,
+      cacheWidth: 1024,
+      filterQuality: FilterQuality.low,
+    );
+
+    return Semantics(
+      button: true,
+      enabled: !locked,
+      label: locked ? '${arena.name}, terkunci' : arena.name,
+      child: Material(
+        color: locked ? const Color(0xFFE5E7EB) : Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: ValueKey<String>('arena-choice-${arena.id}'),
+          onTap: onTap,
+          child: Ink(
+            width: width,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: selected
+                    ? const Color(0xFF2878F0)
+                    : locked
+                    ? const Color(0xFF9CA3AF)
+                    : const Color(0xFFE0D9CC),
+                width: selected ? 2.5 : 1,
+              ),
             ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Expanded(
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: <Widget>[
-                    Image.asset(
-                      arena.assetPath!,
-                      fit: BoxFit.cover,
-                      alignment: Alignment.center,
-                      filterQuality: FilterQuality.medium,
-                    ),
-                    if (selected)
-                      const Positioned(
-                        top: 13,
-                        right: 13,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Color(0xFF2878F0),
-                            shape: BoxShape.circle,
-                          ),
-                          child: SizedBox(
-                            width: 30,
-                            height: 30,
-                            child: Icon(
-                              Icons.check_rounded,
-                              color: Colors.white,
-                              size: 19,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Expanded(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: <Widget>[
+                      if (locked)
+                        ColorFiltered(
+                          colorFilter: const ColorFilter.matrix(<double>[
+                            0.2126,
+                            0.7152,
+                            0.0722,
+                            0,
+                            0,
+                            0.2126,
+                            0.7152,
+                            0.0722,
+                            0,
+                            0,
+                            0.2126,
+                            0.7152,
+                            0.0722,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0.62,
+                            0,
+                          ]),
+                          child: arenaImage,
+                        )
+                      else
+                        arenaImage,
+                      if (selected)
+                        const Positioned(
+                          top: 13,
+                          right: 13,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Color(0xFF2878F0),
+                              shape: BoxShape.circle,
+                            ),
+                            child: SizedBox(
+                              width: 30,
+                              height: 30,
+                              child: Icon(
+                                Icons.check_rounded,
+                                color: Colors.white,
+                                size: 19,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                      if (locked)
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 9,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xDD374151),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Icon(
+                                  Icons.lock_rounded,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  'TERKUNCI',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(15, compact ? 11 : 14, 15, 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      arena.name,
-                      style: GoogleFonts.fredoka(
-                        color: const Color(0xFF17233F),
-                        fontSize: compact ? 20 : 22,
-                        fontWeight: FontWeight.w700,
+                Padding(
+                  padding: EdgeInsets.fromLTRB(15, compact ? 11 : 14, 15, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        arena.name,
+                        style: GoogleFonts.fredoka(
+                          color: locked
+                              ? const Color(0xFF6B7280)
+                              : const Color(0xFF17233F),
+                          fontSize: compact ? 20 : 22,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      arena.description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.dmSans(
-                        color: const Color(0xFF667085),
-                        fontSize: 11.5,
-                        height: 1.3,
-                        fontWeight: FontWeight.w500,
+                      const SizedBox(height: 4),
+                      Text(
+                        locked
+                            ? 'Pindah tujuan Anda di Pengaturan jika ingin '
+                                  'bermain di ${arena.name}.'
+                            : arena.description,
+                        maxLines: locked ? 3 : 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          color: locked
+                              ? const Color(0xFF6B7280)
+                              : const Color(0xFF667085),
+                          fontSize: locked ? 10.5 : 11.5,
+                          height: 1.3,
+                          fontWeight: locked
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -563,17 +662,15 @@ class _LoadoutDiorama extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: <Widget>[
-          ImageFiltered(
+          Transform.scale(
             key: const ValueKey<String>('loadout-arena-blur'),
-            imageFilter: ui.ImageFilter.blur(sigmaX: 7, sigmaY: 7),
-            child: Transform.scale(
-              scale: 1.08,
-              child: Image.asset(
-                selectedArena.assetPath!,
-                fit: BoxFit.cover,
-                alignment: Alignment.center,
-                filterQuality: FilterQuality.medium,
-              ),
+            scale: 1.04,
+            child: Image.asset(
+              selectedArena.assetPath!,
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+              cacheWidth: 1024,
+              filterQuality: FilterQuality.low,
             ),
           ),
           const DecoratedBox(
@@ -703,7 +800,8 @@ class _LoadoutPreviewSlot extends StatelessWidget {
             assetPath,
             fit: BoxFit.contain,
             alignment: Alignment.center,
-            filterQuality: FilterQuality.medium,
+            cacheWidth: 480,
+            filterQuality: FilterQuality.low,
           ),
         ),
       ),
@@ -851,7 +949,8 @@ class _LoadoutChoiceCard extends StatelessWidget {
                               item.assetPath!,
                               fit: BoxFit.contain,
                               alignment: Alignment.center,
-                              filterQuality: FilterQuality.medium,
+                              cacheWidth: character ? 320 : 240,
+                              filterQuality: FilterQuality.low,
                             ),
                           ),
                         ),

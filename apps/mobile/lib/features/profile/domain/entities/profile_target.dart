@@ -6,4 +6,8 @@ enum ProfileTarget {
     ProfileTarget.cpns => 'CPNS',
     ProfileTarget.bumn => 'BUMN',
   };
+
+  String get arenaId => 'arena-$name';
+
+  bool allowsArena(String arenaId) => arenaId == this.arenaId;
 }

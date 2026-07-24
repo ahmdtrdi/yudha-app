@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -8,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:record/record.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
@@ -17,6 +15,7 @@ import 'package:yudha_mobile/features/interview/application/interview_state.dart
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_message.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_session_record.dart';
+import 'package:yudha_mobile/features/interview/presentation/audio/interview_audio_capture.dart';
 
 class InterviewPage extends ConsumerStatefulWidget {
   const InterviewPage({required this.config, super.key});
@@ -1677,14 +1676,14 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
   static const int _maxRecordingSeconds = 90;
   static const int _maxRecordingBytes = 10 * 1024 * 1024;
 
-  final AudioRecorder _audioRecorder = AudioRecorder();
+  final InterviewAudioCapture _audioCapture = createInterviewAudioCapture();
   bool _isRecording = false;
   bool _isTranscribing = false;
   bool _isStopping = false;
   int _recordSeconds = 0;
   Timer? _recordTimer;
-  String? _recordingPath;
   List<int>? _pendingAudioBytes;
+  String _pendingAudioFilename = 'recording.m4a';
   String? _voiceMessage;
 
   @override
@@ -1697,11 +1696,7 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _recordTimer?.cancel();
-    final String? path = _recordingPath;
-    if (path != null) {
-      unawaited(_deleteRecording(path));
-    }
-    _audioRecorder.dispose();
+    unawaited(_audioCapture.dispose());
     super.dispose();
   }
 
@@ -1712,32 +1707,17 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
     }
   }
 
-  Future<void> _deleteRecording(String path) async {
-    final File file = File(path);
-    if (await file.exists()) {
-      await file.delete();
-    }
-  }
-
   Future<void> _startRecording() async {
     if (_isRecording || _isStopping || _isTranscribing) {
       return;
     }
     try {
-      if (await _audioRecorder.hasPermission()) {
-        final String tempDir = Directory.systemTemp.path;
-        final String path =
-            '$tempDir/interview_rec_${DateTime.now().millisecondsSinceEpoch}.m4a';
-
-        await _audioRecorder.start(
-          const RecordConfig(encoder: AudioEncoder.aacLc),
-          path: path,
-        );
+      if (await _audioCapture.hasPermission()) {
+        await _audioCapture.start();
 
         setState(() {
           _isRecording = true;
           _recordSeconds = 0;
-          _recordingPath = path;
           _pendingAudioBytes = null;
           _voiceMessage = null;
         });
@@ -1780,36 +1760,30 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
     _recordTimer?.cancel();
     setState(() => _isStopping = true);
     try {
-      final String? path = await _audioRecorder.stop();
+      final CapturedInterviewAudio? recording = await _audioCapture.stop(
+        cancel: cancel,
+      );
       if (mounted) {
         setState(() {
           _isRecording = false;
-          _recordingPath = null;
         });
       }
       ref
           .read(interviewControllerProvider(widget.config).notifier)
           .setRecording(false);
 
-      if (path != null && path.isNotEmpty) {
-        try {
-          final File file = File(path);
-          if (!cancel && await file.exists()) {
-            final List<int> bytes = await file.readAsBytes();
-            if (bytes.length > _maxRecordingBytes) {
-              if (mounted) {
-                setState(() {
-                  _pendingAudioBytes = null;
-                  _voiceMessage =
-                      'Rekaman terlalu besar. Coba jawaban yang lebih singkat.';
-                });
-              }
-            } else {
-              _pendingAudioBytes = bytes;
-            }
+      if (!cancel && recording != null) {
+        if (recording.bytes.length > _maxRecordingBytes) {
+          if (mounted) {
+            setState(() {
+              _pendingAudioBytes = null;
+              _voiceMessage =
+                  'Rekaman terlalu besar. Coba jawaban yang lebih singkat.';
+            });
           }
-        } finally {
-          await _deleteRecording(path);
+        } else {
+          _pendingAudioBytes = recording.bytes;
+          _pendingAudioFilename = recording.filename;
         }
       }
       if (!cancel && _pendingAudioBytes != null) {
@@ -1850,7 +1824,7 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
     });
     final String? transcript = await ref
         .read(interviewControllerProvider(widget.config).notifier)
-        .transcribeAudio(bytes, 'recording.m4a');
+        .transcribeAudio(bytes, _pendingAudioFilename);
     if (!mounted) {
       return;
     }

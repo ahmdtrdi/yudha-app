@@ -71,7 +71,7 @@ void main() {
     expect(transcript, isNull);
     expect(controller.state.status, InterviewViewStatus.active);
     expect(
-      controller.state.errorMessage,
+      controller.state.transcriptionErrorMessage,
       contains('transcription unavailable'),
     );
     expect(controller.state.isTranscribing, isFalse);

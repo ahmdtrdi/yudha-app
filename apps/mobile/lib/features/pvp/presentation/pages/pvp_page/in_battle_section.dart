@@ -123,17 +123,56 @@ class _InBattleSectionState extends State<_InBattleSection>
     }
     _imagesPrecached = true;
     for (final String asset in <String>[
-      ...widget.playerCharacter.all,
-      ...widget.opponentCharacter.all,
-      _enemyMiniTowerAsset,
+      widget.playerCharacter.idle,
+      widget.playerCharacter.ready,
+      widget.playerCharacter.attack,
+      widget.playerCharacter.hit,
+      widget.opponentCharacter.idle,
+      widget.opponentCharacter.ready,
+      widget.opponentCharacter.attack,
+      widget.opponentCharacter.hit,
+    ]) {
+      unawaited(
+        precacheImage(
+          ResizeImage.resizeIfNeeded(360, null, AssetImage(asset)),
+          context,
+        ),
+      );
+    }
+    for (final String asset in <String>[
+      ...widget.playerCharacter.projectiles,
+      ...widget.opponentCharacter.projectiles,
+    ]) {
+      unawaited(
+        precacheImage(
+          ResizeImage.resizeIfNeeded(240, null, AssetImage(asset)),
+          context,
+        ),
+      );
+    }
+    for (final String asset in <String>[
       widget.playerTowerAsset,
       widget.opponentTowerAsset,
+    ]) {
+      unawaited(
+        precacheImage(
+          ResizeImage.resizeIfNeeded(320, null, AssetImage(asset)),
+          context,
+        ),
+      );
+    }
+    for (final String asset in <String>[
       _numerikCardAsset,
       _verbalCardAsset,
       _logikaCardAsset,
       _twkCardAsset,
     ]) {
-      unawaited(precacheImage(AssetImage(asset), context));
+      unawaited(
+        precacheImage(
+          ResizeImage.resizeIfNeeded(144, null, AssetImage(asset)),
+          context,
+        ),
+      );
     }
   }
 
@@ -952,7 +991,7 @@ class _BattleAvatar extends StatelessWidget {
           fit: BoxFit.cover,
           alignment: Alignment.topCenter,
           cacheWidth: 160,
-          filterQuality: FilterQuality.medium,
+          filterQuality: FilterQuality.low,
         ),
       ),
     );
@@ -1294,7 +1333,7 @@ class _ArenaHeroAsset extends StatelessWidget {
           fit: BoxFit.contain,
           alignment: Alignment.bottomCenter,
           cacheWidth: 360,
-          filterQuality: FilterQuality.medium,
+          filterQuality: FilterQuality.low,
           semanticLabel: 'Karakter di arena dalam pose ${pose.name}',
         ),
       ),
@@ -1543,7 +1582,7 @@ class _TowerAsset extends StatelessWidget {
         asset,
         fit: BoxFit.contain,
         cacheWidth: 320,
-        filterQuality: FilterQuality.medium,
+        filterQuality: FilterQuality.low,
       ),
     );
   }
@@ -1847,7 +1886,7 @@ class _CharacterProjectile extends StatelessWidget {
         asset,
         fit: BoxFit.contain,
         cacheWidth: 240,
-        filterQuality: FilterQuality.medium,
+          filterQuality: FilterQuality.low,
         semanticLabel: 'Projectile combo level $level',
       ),
     );
@@ -2052,7 +2091,7 @@ class _ArenaQuestionCard extends StatelessWidget {
                       asset,
                       fit: BoxFit.contain,
                       cacheWidth: 144,
-                      filterQuality: FilterQuality.medium,
+                      filterQuality: FilterQuality.low,
                     ),
                   ),
                   Container(

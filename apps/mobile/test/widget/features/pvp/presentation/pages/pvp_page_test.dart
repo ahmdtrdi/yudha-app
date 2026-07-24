@@ -7,6 +7,10 @@ import 'package:yudha_mobile/features/economy/application/game_economy_providers
 import 'package:yudha_mobile/features/economy/application/game_economy_storage.dart';
 import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
+import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
+import 'package:yudha_mobile/features/profile/application/profile_settings_storage.dart';
+import 'package:yudha_mobile/features/profile/domain/entities/profile_settings.dart';
+import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 import 'package:yudha_mobile/features/pvp/application/battle_providers.dart';
 import 'package:yudha_mobile/features/pvp/data/repositories/online_battle_repository.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
@@ -99,6 +103,80 @@ String? _assetName(ImageProvider<Object> provider) {
 }
 
 void main() {
+  testWidgets('locks arenas that do not match the profile target', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(411, 914));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        gameEconomyStorageProvider.overrideWithValue(_MemoryEconomyStorage()),
+        profileSettingsStorageProvider.overrideWithValue(
+          _MemoryProfileSettingsStorage(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    container
+        .read(profileSettingsProvider.notifier)
+        .setTarget(ProfileTarget.cpns);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: PvpPage()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Tujuan CPNS aktif. Arena lain terkunci agar materi dan '
+        'lawan tetap sesuai tujuan belajarmu.'), findsOneWidget);
+    expect(find.text('TERKUNCI'), findsOneWidget);
+    expect(
+      find.text(
+        'Pindah tujuan Anda di Pengaturan jika ingin bermain di Arena BUMN.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.drag(find.byType(ListView), const Offset(-280, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('arena-choice-arena-bumn')),
+    );
+    await tester.pump();
+
+    expect(
+      container.read(gameEconomyProvider).equippedArenaId,
+      GameEconomyCatalog.defaultArenaId,
+    );
+    expect(
+      find.text(
+        'Arena ini terkunci untuk tujuan CPNS. Pindah tujuan Anda di '
+        'Pengaturan jika ingin bermain di Arena BUMN.',
+      ),
+      findsOneWidget,
+    );
+
+    container
+        .read(profileSettingsProvider.notifier)
+        .setTarget(ProfileTarget.bumn);
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      container.read(gameEconomyProvider).equippedArenaId,
+      'arena-bumn',
+    );
+    expect(
+      find.text(
+        'Pindah tujuan Anda di Pengaturan jika ingin bermain di Arena CPNS.',
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('follows arena, loadout, and mode setup flow', (
     WidgetTester tester,
   ) async {
@@ -442,7 +520,7 @@ void main() {
       find.byWidgetPredicate(
         (Widget widget) =>
             widget is Image &&
-            _assetName(widget.image) == 'assets/game/rare_ignis_idle.png',
+            _assetName(widget.image) == 'assets/game/rare_ignis_idle.webp',
       ),
       findsWidgets,
     );
@@ -450,7 +528,7 @@ void main() {
       find.byWidgetPredicate(
         (Widget widget) =>
             widget is Image &&
-            _assetName(widget.image) == 'assets/game/arena_turret_coral.png',
+            _assetName(widget.image) == 'assets/game/arena_turret_coral.webp',
       ),
       findsWidgets,
     );
@@ -458,7 +536,7 @@ void main() {
       find.byWidgetPredicate(
         (Widget widget) =>
             widget is Image &&
-            _assetName(widget.image) == 'assets/game/card_twk.png',
+            _assetName(widget.image) == 'assets/game/card_twk.webp',
       ),
       findsOneWidget,
     );
@@ -543,7 +621,7 @@ void main() {
 
     expect(find.text('Pertanyaan yang sedang dijawab'), findsOneWidget);
     expect(
-      find.byKey(const ValueKey<String>('assets/game/basic_squire_ready.png')),
+      find.byKey(const ValueKey<String>('assets/game/basic_squire_ready.webp')),
       findsOneWidget,
     );
     await tester.pump(const Duration(milliseconds: 6300));
@@ -559,4 +637,12 @@ class _MemoryEconomyStorage implements GameEconomyStorage {
 
   @override
   Future<void> save(GameEconomyState state) async {}
+}
+
+class _MemoryProfileSettingsStorage implements ProfileSettingsStorage {
+  @override
+  Future<ProfileSettings?> load() async => null;
+
+  @override
+  Future<void> save(ProfileSettings settings) async {}
 }

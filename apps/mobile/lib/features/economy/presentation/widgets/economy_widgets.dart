@@ -134,7 +134,8 @@ class CosmeticPreview extends StatelessWidget {
         item.assetPath!,
         fit: BoxFit.contain,
         alignment: heroAlignment,
-        filterQuality: FilterQuality.medium,
+        cacheWidth: 480,
+        filterQuality: FilterQuality.low,
       );
     }
 
@@ -145,7 +146,8 @@ class CosmeticPreview extends StatelessWidget {
           item.assetPath!,
           fit: item.type == CosmeticType.arena ? BoxFit.cover : BoxFit.contain,
           alignment: Alignment.center,
-          filterQuality: FilterQuality.medium,
+          cacheWidth: item.type == CosmeticType.arena ? 640 : 320,
+          filterQuality: FilterQuality.low,
         ),
       );
     }
