@@ -35,6 +35,10 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
       if (!mounted) {
         return;
       }
+      if (ref.read(authProvider).isAuthenticated) {
+        context.go(AppRoutes.lobby);
+        return;
+      }
       ref.read(authProvider.notifier).clearError();
     });
   }

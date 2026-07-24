@@ -7,7 +7,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
-import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
+
+String splashDestination({required bool isAuthenticated}) {
+  return isAuthenticated ? AppRoutes.lobby : AppRoutes.login;
+}
 
 class SplashPage extends ConsumerStatefulWidget {
   const SplashPage({super.key});
@@ -28,15 +31,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
       }
       final bool isAuthenticated = ref.read(isAuthenticatedProvider);
 
-      if (!isAuthenticated) {
-        context.go(AppRoutes.login);
-        return;
-      }
-
-      final bool isProfileComplete = ref
-          .read(profileSettingsProvider)
-          .isProfileComplete;
-      context.go(isProfileComplete ? AppRoutes.lobby : AppRoutes.profileSetup);
+      context.go(splashDestination(isAuthenticated: isAuthenticated));
     });
   }
 
