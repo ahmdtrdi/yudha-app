@@ -176,7 +176,9 @@ class BattleController extends StateNotifier<BattleState> {
       state = state.copyWith(
         phase: BattlePhase.inBattle,
         outcome: BattleOutcome.inProgress,
-        opponentName: session.opponentName,
+        opponentName: state.mode == BattleMode.online
+            ? _firstName(session.opponentName, fallback: 'Player Match')
+            : session.opponentName,
         availableQuestions: session.questions,
         answeredQuestionIds: const <String>[],
         playerHp: 100,
@@ -370,19 +372,12 @@ class BattleController extends StateNotifier<BattleState> {
     _preparedQuestionId = null;
     _resetBattleTimers();
     if (state.mode == BattleMode.online) {
+      _acceptOnlineUpdates = false;
+      resetBattle();
       await _onlineRepository.surrender();
       return;
     }
-
-    state = state.copyWith(
-      phase: BattlePhase.finished,
-      outcome: BattleOutcome.lose,
-      playerHp: 0,
-      ratingDelta: 0,
-      statusMessage: 'Kamu menyerah.',
-      clearErrorMessage: true,
-      clearBattleEvent: true,
-    );
+    resetBattle();
   }
 
   void resetBattle() {
@@ -595,7 +590,10 @@ class BattleController extends StateNotifier<BattleState> {
         break;
       case MatchFoundUpdate():
         state = state.copyWith(
-          opponentName: update.opponentDisplayName,
+          opponentName: _firstName(
+            update.opponentDisplayName,
+            fallback: 'Player Match',
+          ),
           opponentCharacterId: update.opponentCharacterId,
           opponentTowerId: update.opponentTowerId,
           onlineMatchmakingMode: update.matchmakingMode,
@@ -621,7 +619,10 @@ class BattleController extends StateNotifier<BattleState> {
         }
         state = state.copyWith(
           phase: onlinePhase,
-          opponentName: update.opponentDisplayName,
+          opponentName: _firstName(
+            update.opponentDisplayName,
+            fallback: 'Player Match',
+          ),
           playerHp: update.playerHp,
           opponentHp: update.opponentHp,
           playerPoints: update.playerPoints,
@@ -743,6 +744,14 @@ class BattleController extends StateNotifier<BattleState> {
 
   String _modeLabel(BattleMode mode) {
     return mode == BattleMode.bot ? 'Bot' : 'Online';
+  }
+
+  String _firstName(String value, {required String fallback}) {
+    final String normalized = value.trim();
+    if (normalized.isEmpty) {
+      return fallback;
+    }
+    return normalized.split(RegExp(r'\s+')).first;
   }
 
   String _statusForOnlinePhase(String phase) {

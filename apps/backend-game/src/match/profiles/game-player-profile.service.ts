@@ -1,8 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  BattleLoadout,
-  BattleTarget,
-} from '../../contracts/battle-state';
+import type { BattleLoadout, BattleTarget } from '../../contracts/battle-state';
 import { SupabaseService } from '../../supabase/supabase.service';
 
 const DEFAULT_CHARACTER_ID = 'character-basic-squire';
@@ -65,8 +62,9 @@ export class GamePlayerProfileService {
       throw new Error('Game profile target must be cpns or bumn.');
     }
 
-    const displayName =
-      row.username?.trim() || row.full_name?.trim() || 'Player';
+    const fullName = row.full_name?.trim();
+    const preferredName = fullName || row.username?.trim() || 'Player';
+    const displayName = preferredName.split(/\s+/u)[0];
 
     return {
       userId: row.id,

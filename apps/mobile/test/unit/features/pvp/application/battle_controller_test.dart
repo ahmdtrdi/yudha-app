@@ -55,6 +55,7 @@ class _ControllableOnlineRepository extends OnlineBattleRepository {
       StreamController<OnlineBattleUpdate>.broadcast(sync: true);
 
   OnlineMatchmakingMode? requestedMode;
+  int surrenderCount = 0;
 
   @override
   Stream<OnlineBattleUpdate> get updates => _updates.stream;
@@ -98,7 +99,9 @@ class _ControllableOnlineRepository extends OnlineBattleRepository {
   }) async {}
 
   @override
-  Future<void> surrender() async {}
+  Future<void> surrender() async {
+    surrenderCount += 1;
+  }
 }
 
 void main() {
@@ -448,7 +451,7 @@ void main() {
           availableQuestions: <BattleQuestion>[selectedQuestion],
           answeredQuestionIds: <String>[],
           playerDisplayName: 'Yudha',
-          opponentDisplayName: 'Bima',
+          opponentDisplayName: 'Bima Pratama',
           matchmakingMode: OnlineMatchmakingMode.ranked,
           target: BattleTarget.cpns,
         ),
@@ -543,5 +546,43 @@ void main() {
       expect(controller.state.coinsDelta, 3);
       expect(controller.state.progressionPersisted, isTrue);
     });
+
+    test(
+      'surrender returns directly to mode selection and ignores result UI',
+      () async {
+        final _ControllableOnlineRepository online =
+            _ControllableOnlineRepository();
+        final BattleController controller = BattleController(
+          botRepository: const _FakeBotRepository(
+            BattleSessionSeed(
+              opponentName: 'BOT TEST',
+              questions: <BattleQuestion>[selectedQuestion],
+            ),
+          ),
+          onlineRepository: online,
+        );
+        addTearDown(controller.dispose);
+
+        controller.enterArena();
+        controller.setMode(BattleMode.online);
+        await controller.startBattle();
+        expect(controller.state.phase, BattlePhase.inBattle);
+
+        await controller.surrenderBattle();
+        expect(online.surrenderCount, 1);
+        expect(controller.state.phase, BattlePhase.arenaMenu);
+
+        online.emit(
+          const MatchResultUpdate(
+            outcome: BattleOutcome.lose,
+            reason: 'surrender',
+            ratingDelta: 0,
+            coinsDelta: 0,
+            progressionPersisted: true,
+          ),
+        );
+        expect(controller.state.phase, BattlePhase.arenaMenu);
+      },
+    );
   });
 }

@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
+import 'package:yudha_mobile/features/economy/application/game_economy_controller.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_providers.dart';
 import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/arena_visual_theme.dart';
@@ -36,6 +37,14 @@ const String _verbalCardAsset = 'assets/game/card_verbal.png';
 const String _logikaCardAsset = 'assets/game/card_logika.png';
 const String _twkCardAsset = 'assets/game/card_twk.png';
 
+String _firstName(String value, {required String fallback}) {
+  final String normalized = value.trim();
+  if (normalized.isEmpty) {
+    return fallback;
+  }
+  return normalized.split(RegExp(r'\s+')).first;
+}
+
 class PvpPage extends ConsumerStatefulWidget {
   const PvpPage({super.key});
 
@@ -54,6 +63,10 @@ class _PvpPageState extends ConsumerState<PvpPage> {
     );
     final String playerDisplayName = ref.watch(
       playerProgressProvider.select((progress) => progress.displayName),
+    );
+    final String playerFirstName = _firstName(
+      playerDisplayName,
+      fallback: 'Kamu',
     );
     final GameEconomyState economy = ref.watch(gameEconomyProvider);
     final bool soundEnabled = ref.watch(
@@ -116,7 +129,7 @@ class _PvpPageState extends ConsumerState<PvpPage> {
         ref: ref,
         state: state,
         controller: controller,
-        playerDisplayName: playerDisplayName,
+        playerDisplayName: playerFirstName,
         economy: economy,
         selectedCharacter: battlePlayerCharacter,
         selectedTower: battlePlayerTower,
@@ -170,7 +183,7 @@ class _PvpPageState extends ConsumerState<PvpPage> {
                   ref: ref,
                   state: state,
                   controller: controller,
-                  playerDisplayName: playerDisplayName,
+                  playerDisplayName: playerFirstName,
                   economy: economy,
                   selectedCharacter: battlePlayerCharacter,
                   selectedTower: battlePlayerTower,
@@ -222,10 +235,16 @@ class _PvpPageState extends ConsumerState<PvpPage> {
         selectedTower: selectedTower,
         selectedArena: selectedArena,
         onSelectCosmetic: (CosmeticItem item) {
-          ref.read(gameEconomyProvider.notifier).equip(item);
+          unawaited(
+            ref.read(gameEconomyProvider.notifier).equipAuthoritative(item),
+          );
         },
         onSelectArena: (CosmeticItem arena) {
-          ref.read(gameEconomyProvider.notifier).selectArena(arena);
+          unawaited(
+            ref
+                .read(gameEconomyProvider.notifier)
+                .selectArenaAuthoritative(arena),
+          );
         },
         onOpenStore: () => context.push(AppRoutes.store),
         onTopUp: () => showYCoinTopUpSheet(context),
@@ -258,14 +277,20 @@ class _PvpPageState extends ConsumerState<PvpPage> {
           controller.startBattle();
         },
         onStartCasual: () async {
-          controller.setMode(BattleMode.online);
-          controller.setOnlineMatchmakingMode(OnlineMatchmakingMode.casual);
-          await controller.startBattle();
+          await _startOnlineBattle(
+            context: context,
+            ref: ref,
+            controller: controller,
+            matchmakingMode: OnlineMatchmakingMode.casual,
+          );
         },
         onStartRanked: () async {
-          controller.setMode(BattleMode.online);
-          controller.setOnlineMatchmakingMode(OnlineMatchmakingMode.ranked);
-          await controller.startBattle();
+          await _startOnlineBattle(
+            context: context,
+            ref: ref,
+            controller: controller,
+            matchmakingMode: OnlineMatchmakingMode.ranked,
+          );
         },
       );
     }
@@ -385,6 +410,33 @@ class _PvpPageState extends ConsumerState<PvpPage> {
         );
       },
     );
+  }
+
+  Future<void> _startOnlineBattle({
+    required BuildContext context,
+    required WidgetRef ref,
+    required BattleController controller,
+    required OnlineMatchmakingMode matchmakingMode,
+  }) async {
+    final EconomyActionResult syncResult = await ref
+        .read(gameEconomyProvider.notifier)
+        .syncAuthoritativeLoadout();
+    if (!syncResult.success) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(syncResult.message),
+              backgroundColor: const Color(0xFFB64040),
+            ),
+          );
+      }
+      return;
+    }
+    controller.setMode(BattleMode.online);
+    controller.setOnlineMatchmakingMode(matchmakingMode);
+    await controller.startBattle();
   }
 
   Future<void> _showPauseDialog({

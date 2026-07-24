@@ -329,10 +329,13 @@ class _YCoinTopUpSheet extends ConsumerWidget {
                           padding: const EdgeInsets.only(bottom: 8),
                           child: _TopUpPackageTile(
                             package: package,
-                            onTap: () {
-                              final EconomyActionResult result = ref
+                            onTap: () async {
+                              final EconomyActionResult result = await ref
                                   .read(gameEconomyProvider.notifier)
-                                  .topUp(package);
+                                  .topUpAuthoritative(package);
+                              if (!context.mounted) {
+                                return;
+                              }
                               ScaffoldMessenger.of(context)
                                 ..hideCurrentSnackBar()
                                 ..showSnackBar(
