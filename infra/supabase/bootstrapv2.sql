@@ -25,7 +25,7 @@ create table if not exists public.profiles (
   username text not null,
   full_name text,
   target text not null default 'cpns',
-  rank_points integer not null default 1000,
+  rank_points integer not null default 0,
   total_matches integer not null default 0,
   wins integer not null default 0,
   losses integer not null default 0,
