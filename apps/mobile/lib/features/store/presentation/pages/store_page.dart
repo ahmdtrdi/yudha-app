@@ -32,7 +32,7 @@ class _StorePageState extends ConsumerState<StorePage> {
       child: PopScope(
         canPop: !_isTransactionPending,
         child: Scaffold(
-          backgroundColor: AppColors.surfaceLight,
+          backgroundColor: AppColors.scholarCream,
           appBar: AppBar(
             leading: IconButton(
               onPressed: _isTransactionPending ? null : () => context.pop(),

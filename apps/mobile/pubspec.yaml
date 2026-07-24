@@ -106,16 +106,19 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: assets/branding/app-icon.png
-  adaptive_icon_background: '#FFF6E9'
-  adaptive_icon_foreground: assets/branding/app-icon.png
+  image_path: assets/branding/app-icon-new.png
+  adaptive_icon_background: '#1C405D'
+  adaptive_icon_foreground: assets/branding/app-icon-new.png
   min_sdk_android: 21
 
 flutter_native_splash:
-  color: '#FFF6E9'
-  image: assets/branding/logo-color.png
+  color: '#1C405D'
+  image: assets/branding/app-icon-new.png
   android: true
   ios: true
   web: false
   android_gravity: center
   ios_content_mode: center
+  android_12:
+    color: '#1C405D'
+    image: assets/branding/app-icon-new.png

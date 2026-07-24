@@ -299,11 +299,11 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
             children: <Widget>[
               Text(
                 'INTERVIEW AI',
-                style: GoogleFonts.orbitron(
+                style: GoogleFonts.fredoka(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
                   fontSize: 16,
-                  letterSpacing: 2,
+                  letterSpacing: 0,
                 ),
               ),
               const SizedBox(height: 2),
@@ -315,7 +315,7 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
                   color: Colors.white.withAlpha(200),
                   fontWeight: FontWeight.w600,
                   fontSize: 10,
-                  letterSpacing: 1.2,
+                  letterSpacing: 0,
                 ),
               ),
             ],
@@ -570,11 +570,11 @@ class _InterviewHeader extends StatelessWidget {
               children: <Widget>[
                 Text(
                   completed ? 'RINGKASAN SESI' : 'PERTANYAAN SAAT INI',
-                  style: GoogleFonts.orbitron(
+                  style: GoogleFonts.dmSans(
                     color: Colors.white.withAlpha(160),
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
+                    letterSpacing: 0,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -752,11 +752,11 @@ class _VoiceRoomPanel extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: GoogleFonts.orbitron(
+            style: GoogleFonts.fredoka(
               color: Colors.white,
               fontWeight: FontWeight.w800,
               fontSize: 17,
-              letterSpacing: 1,
+              letterSpacing: 0,
             ),
           ),
           const SizedBox(height: 22),
@@ -1328,7 +1328,7 @@ class _DotsBubble extends StatelessWidget {
           color: AppColors.textMuted,
           fontSize: 24,
           height: 0.6,
-          letterSpacing: 2,
+          letterSpacing: 0,
         ),
       ),
     );
@@ -2094,7 +2094,7 @@ class _InterviewResultView extends StatelessWidget {
                 const SizedBox(height: 10),
                 Text(
                   'INTERVIEW SELESAI',
-                  style: GoogleFonts.orbitron(
+                  style: GoogleFonts.fredoka(
                     color: Colors.white,
                     fontSize: 15,
                     fontWeight: FontWeight.w800,

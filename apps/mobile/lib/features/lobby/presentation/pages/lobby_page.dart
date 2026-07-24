@@ -16,9 +16,12 @@ class LobbyPage extends ConsumerWidget {
     final progress = ref.watch(playerProgressProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceLight,
+      backgroundColor: AppColors.scholarCream,
       appBar: AppBar(
-        title: Text('YUDHA', style: GoogleFonts.orbitron()),
+        title: Text(
+          'YUDHA',
+          style: GoogleFonts.fredoka(fontWeight: FontWeight.w700),
+        ),
         actions: <Widget>[
           Center(
             child: YCoinBalanceChip(
@@ -91,11 +94,11 @@ class LobbyPage extends ConsumerWidget {
                       ),
                       child: Text(
                         'START BATTLE',
-                        style: GoogleFonts.orbitron(
+                        style: GoogleFonts.fredoka(
                           fontSize: compact ? 15 : 17,
                           fontWeight: FontWeight.w800,
                           color: AppColors.warriorNavy,
-                          letterSpacing: 1.4,
+                          letterSpacing: 0,
                         ),
                       ),
                     ),
@@ -210,11 +213,11 @@ class _LobbyHeroCard extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       '${tierLabel.toUpperCase()} TIER',
-                      style: GoogleFonts.orbitron(
+                      style: GoogleFonts.dmSans(
                         color: AppColors.fireGold,
                         fontSize: compact ? 12 : 13,
                         fontWeight: FontWeight.w700,
-                        letterSpacing: 1.4,
+                        letterSpacing: 0,
                       ),
                     ),
                   ],
@@ -297,11 +300,11 @@ class _HeroPill extends StatelessWidget {
         children: <Widget>[
           Text(
             value,
-            style: GoogleFonts.orbitron(
+            style: GoogleFonts.jetBrainsMono(
               color: AppColors.fireGold,
               fontSize: 12,
               fontWeight: FontWeight.w800,
-              letterSpacing: 0.6,
+              letterSpacing: 0,
             ),
           ),
           const SizedBox(height: 2),
@@ -311,7 +314,7 @@ class _HeroPill extends StatelessWidget {
               color: AppColors.scholarCream,
               fontSize: 10.5,
               fontWeight: FontWeight.w600,
-              letterSpacing: 0.4,
+              letterSpacing: 0,
             ),
           ),
         ],
@@ -351,11 +354,11 @@ class _TodayQuestsSection extends StatelessWidget {
             children: <Widget>[
               Text(
                 "TODAY'S QUESTS",
-                style: GoogleFonts.orbitron(
+                style: GoogleFonts.fredoka(
                   color: AppColors.warriorNavy,
                   fontSize: compact ? 12 : 13,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 1.0,
+                  letterSpacing: 0,
                 ),
               ),
               const Spacer(),

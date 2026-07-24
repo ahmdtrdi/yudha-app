@@ -50,7 +50,7 @@ class PracticeQuizPage extends ConsumerWidget {
                       color: Colors.white,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
+                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -154,7 +154,7 @@ class PracticeQuizPage extends ConsumerWidget {
                                 const SizedBox(width: 8),
                                 Text(
                                   'PETUNJUK',
-                                  style: GoogleFonts.orbitron(
+                                  style: GoogleFonts.dmSans(
                                     color: AppColors.fireGold,
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
@@ -299,7 +299,7 @@ class PracticeQuizPage extends ConsumerWidget {
                                   ),
                                   child: Text(
                                     letter,
-                                    style: GoogleFonts.orbitron(
+                                    style: GoogleFonts.jetBrainsMono(
                                       color: letterColor,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 13,
@@ -394,10 +394,10 @@ class PracticeQuizPage extends ConsumerWidget {
                           !isSubmitted
                               ? 'KONFIRMASI'
                               : (isCompleted ? 'SELESAI' : 'LANJUT'),
-                          style: GoogleFonts.orbitron(
+                          style: GoogleFonts.dmSans(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
-                            letterSpacing: 1.5,
+                            letterSpacing: 0,
                           ),
                         ),
                 ),
@@ -427,7 +427,7 @@ class _SessionSummaryCard extends StatelessWidget {
         children: <Widget>[
           Text(
             'SESI SELESAI',
-            style: GoogleFonts.orbitron(
+            style: GoogleFonts.fredoka(
               color: Colors.white,
               fontSize: 14,
               fontWeight: FontWeight.w800,

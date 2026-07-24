@@ -64,7 +64,7 @@ class _EmailConfirmationPendingPageState
     final String? normalizedEmail = _normalizedEmail;
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceLight,
+      backgroundColor: AppColors.scholarCream,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -99,7 +99,7 @@ class _EmailConfirmationPendingPageState
                     ),
                     Text(
                       'Verifikasi Email Diperlukan',
-                      style: GoogleFonts.orbitron(
+                      style: GoogleFonts.fredoka(
                         color: AppColors.warriorNavy,
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
@@ -211,10 +211,10 @@ class _EmailConfirmationPendingPageState
                         ),
                         child: Text(
                           'Kembali ke Halaman Masuk',
-                          style: GoogleFonts.orbitron(
+                          style: GoogleFonts.dmSans(
                             fontSize: 15,
                             fontWeight: FontWeight.w800,
-                            letterSpacing: 1.0,
+                            letterSpacing: 0,
                           ),
                         ),
                       ),

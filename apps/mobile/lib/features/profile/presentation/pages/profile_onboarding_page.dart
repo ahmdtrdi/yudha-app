@@ -110,7 +110,7 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
     final AppAuthState authState = ref.watch(authProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceLight,
+      backgroundColor: AppColors.scholarCream,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -131,7 +131,7 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
                   children: <Widget>[
                     Text(
                       'Daftar Akun Baru',
-                      style: GoogleFonts.orbitron(
+                      style: GoogleFonts.fredoka(
                         color: AppColors.warriorNavy,
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
@@ -267,10 +267,10 @@ class _ProfileOnboardingPageState extends ConsumerState<ProfileOnboardingPage> {
                               )
                             : Text(
                                 'Daftar & Lanjut',
-                                style: GoogleFonts.orbitron(
+                                style: GoogleFonts.dmSans(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.2,
+                                  letterSpacing: 0,
                                 ),
                               ),
                       ),
