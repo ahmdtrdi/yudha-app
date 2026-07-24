@@ -2464,6 +2464,7 @@ Color _arenaCategoryColor(String category, QuestionEffect effect) {
   return switch (category.trim().toLowerCase()) {
     'verbal' => const Color(0xFF8B6FE8),
     'logika' => const Color(0xFFFF9F43),
+    'twk' => const Color(0xFF47CFA0),
     _ => const Color(0xFF2878F0),
   };
 }
@@ -2485,6 +2486,7 @@ String _arenaCardAsset(String category, QuestionEffect effect) {
   return switch (category.trim().toLowerCase()) {
     'verbal' => _verbalCardAsset,
     'logika' => _logikaCardAsset,
+    'twk' => _twkCardAsset,
     _ => _numerikCardAsset,
   };
 }

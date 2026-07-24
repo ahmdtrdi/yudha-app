@@ -528,7 +528,7 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
 
   String _displayName(dynamic value, {required String? fallbackUserId}) {
     if (value is String && value.trim().isNotEmpty) {
-      return value.trim();
+      return value.trim().split(RegExp(r'\s+')).first;
     }
     return _labelForOpponent(fallbackUserId);
   }

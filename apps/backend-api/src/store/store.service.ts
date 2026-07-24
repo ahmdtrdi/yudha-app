@@ -12,6 +12,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 import type {
   GrantBetaCreditPayload,
   PurchaseStoreItemPayload,
+  SetStoreLoadoutPayload,
   StoreItemsQuery,
 } from './store.types';
 
@@ -110,10 +111,33 @@ export class StoreService {
     return { data: this.requireObject(data, 'purchase_store_item') };
   }
 
-  async grantBetaCredit(
-    userId: string,
-    payload: GrantBetaCreditPayload,
-  ) {
+  async setLoadout(userId: string, payload: SetStoreLoadoutPayload) {
+    const characterId = this.optionalText(payload.characterId, 'characterId');
+    const towerId = this.optionalText(payload.towerId, 'towerId');
+    const arenaId = this.optionalText(payload.arenaId, 'arenaId');
+    if (!characterId && !towerId && !arenaId) {
+      throw new BadRequestException(
+        'At least one of characterId, towerId, or arenaId is required.',
+      );
+    }
+
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .rpc('set_profile_loadout', {
+        p_user_id: userId,
+        p_avatar_id: characterId ?? null,
+        p_tower_id: towerId ?? null,
+        p_arena_id: arenaId ?? null,
+      });
+
+    if (error) {
+      this.throwEconomyError(error.message);
+    }
+
+    return { data: this.requireObject(data, 'set_profile_loadout') };
+  }
+
+  async grantBetaCredit(userId: string, payload: GrantBetaCreditPayload) {
     if (
       this.configService
         .get<string>('ENABLE_BETA_ECONOMY_CREDIT', 'false')
@@ -167,6 +191,13 @@ export class StoreService {
     return normalized;
   }
 
+  private optionalText(value: unknown, field: string) {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+    return this.requiredText(value, field, 120);
+  }
+
   private requireObject(value: Json, operation: string) {
     if (!value || Array.isArray(value) || typeof value !== 'object') {
       throw new InternalServerErrorException(
@@ -189,7 +220,8 @@ export class StoreService {
     }
     if (
       normalized.includes('insufficient') ||
-      normalized.includes('only available')
+      normalized.includes('only available') ||
+      normalized.includes('not owned')
     ) {
       throw new BadRequestException(message);
     }

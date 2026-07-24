@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_storage.dart';
 import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
+import 'package:yudha_mobile/features/economy/data/repositories/game_economy_repository.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
 
@@ -14,21 +15,169 @@ class EconomyActionResult {
 }
 
 class GameEconomyController extends StateNotifier<GameEconomyState> {
-  GameEconomyController({GameEconomyStorage? storage})
-    : _storage = storage,
-      super(GameEconomyState.initial()) {
-    unawaited(_loadSavedState());
+  GameEconomyController({
+    GameEconomyStorage? storage,
+    GameEconomyRepository? repository,
+  }) : _storage = storage,
+       _repository = repository,
+       super(GameEconomyState.initial()) {
+    unawaited(_loadInitialState());
   }
 
   final GameEconomyStorage? _storage;
+  final GameEconomyRepository? _repository;
   bool _hasLocalMutation = false;
 
-  Future<void> _loadSavedState() async {
+  Future<void> _loadInitialState() async {
     final GameEconomyState? saved = await _storage?.load();
-    if (saved == null || _hasLocalMutation) {
+    if (saved != null && !_hasLocalMutation) {
+      state = saved;
+    }
+    final GameEconomyRepository? repository = _repository;
+    if (repository == null) {
       return;
     }
-    state = saved;
+    try {
+      final AuthoritativeEconomySnapshot snapshot = await repository.fetch();
+      if (!_hasLocalMutation) {
+        _applyAuthoritativeSnapshot(snapshot);
+      }
+    } catch (_) {
+      // Keep the last local projection while the API is temporarily offline.
+    }
+  }
+
+  Future<EconomyActionResult> purchaseAuthoritative(CosmeticItem item) async {
+    final GameEconomyRepository? repository = _repository;
+    if (repository == null) {
+      return purchase(item);
+    }
+    if (item.type == CosmeticType.arena) {
+      return const EconomyActionResult(
+        success: false,
+        message: 'Arena tidak dijual. Pilih arena langsung dari menu PvP.',
+      );
+    }
+    if (state.owns(item.id)) {
+      return equipAuthoritative(item);
+    }
+    if (item.passExclusive) {
+      return const EconomyActionResult(
+        success: false,
+        message: 'Item ini hanya tersedia dari Hired Pass.',
+      );
+    }
+    try {
+      final AuthoritativeEconomySnapshot snapshot = await repository
+          .purchaseAndEquip(item);
+      _applyAuthoritativeSnapshot(snapshot);
+      return EconomyActionResult(
+        success: true,
+        message: '${item.name} dibeli dan langsung dipakai.',
+      );
+    } catch (error) {
+      return EconomyActionResult(success: false, message: _economyError(error));
+    }
+  }
+
+  Future<EconomyActionResult> equipAuthoritative(CosmeticItem item) async {
+    if (item.type == CosmeticType.arena) {
+      return selectArenaAuthoritative(item);
+    }
+    final GameEconomyRepository? repository = _repository;
+    if (repository == null) {
+      return equip(item);
+    }
+    if (!state.owns(item.id)) {
+      return const EconomyActionResult(
+        success: false,
+        message: 'Beli atau klaim item ini terlebih dahulu.',
+      );
+    }
+    try {
+      final AuthoritativeEconomySnapshot snapshot = await repository.setLoadout(
+        characterId: item.type == CosmeticType.character ? item.id : null,
+        towerId: item.type == CosmeticType.tower ? item.id : null,
+      );
+      _applyAuthoritativeSnapshot(snapshot);
+      return EconomyActionResult(
+        success: true,
+        message: '${item.name} siap dipakai di PvP.',
+      );
+    } catch (error) {
+      return EconomyActionResult(success: false, message: _economyError(error));
+    }
+  }
+
+  Future<EconomyActionResult> selectArenaAuthoritative(
+    CosmeticItem arena,
+  ) async {
+    final GameEconomyRepository? repository = _repository;
+    if (repository == null) {
+      return selectArena(arena);
+    }
+    try {
+      final AuthoritativeEconomySnapshot snapshot = await repository.setLoadout(
+        arenaId: arena.id,
+      );
+      _applyAuthoritativeSnapshot(snapshot);
+      return EconomyActionResult(
+        success: true,
+        message: '${arena.name} dipilih.',
+      );
+    } catch (error) {
+      return EconomyActionResult(success: false, message: _economyError(error));
+    }
+  }
+
+  Future<EconomyActionResult> syncAuthoritativeLoadout() async {
+    final GameEconomyRepository? repository = _repository;
+    if (repository == null) {
+      return const EconomyActionResult(
+        success: true,
+        message: 'Loadout lokal siap.',
+      );
+    }
+    try {
+      final AuthoritativeEconomySnapshot snapshot = await repository.setLoadout(
+        characterId: state.equippedCharacterId,
+        towerId: state.equippedTowerId,
+        arenaId: state.equippedArenaId,
+      );
+      _applyAuthoritativeSnapshot(snapshot);
+      return const EconomyActionResult(
+        success: true,
+        message: 'Loadout tersinkron.',
+      );
+    } catch (error) {
+      return EconomyActionResult(success: false, message: _economyError(error));
+    }
+  }
+
+  Future<EconomyActionResult> topUpAuthoritative(
+    YCoinTopUpPackage package,
+  ) async {
+    final GameEconomyRepository? repository = _repository;
+    if (repository == null) {
+      return topUp(package);
+    }
+    if (!package.isBetaCredit) {
+      return const EconomyActionResult(
+        success: false,
+        message: 'Pembayaran paket Y-Coin belum tersedia di versi beta.',
+      );
+    }
+    try {
+      final AuthoritativeEconomySnapshot snapshot = await repository
+          .grantBetaCredit();
+      _applyAuthoritativeSnapshot(snapshot);
+      return EconomyActionResult(
+        success: true,
+        message: 'Beta credit +${package.totalCoins} Y-Coin berhasil.',
+      );
+    } catch (error) {
+      return EconomyActionResult(success: false, message: _economyError(error));
+    }
   }
 
   EconomyActionResult purchase(CosmeticItem item) {
@@ -226,5 +375,24 @@ class GameEconomyController extends StateNotifier<GameEconomyState> {
     if (storage != null) {
       unawaited(storage.save(nextState));
     }
+  }
+
+  void _applyAuthoritativeSnapshot(AuthoritativeEconomySnapshot snapshot) {
+    _setState(
+      state.copyWith(
+        yCoins: snapshot.coins,
+        ownedItemIds: snapshot.ownedItemIds,
+        equippedCharacterId: snapshot.characterId,
+        equippedTowerId: snapshot.towerId,
+        equippedArenaId: snapshot.arenaId,
+      ),
+    );
+  }
+
+  String _economyError(Object error) {
+    final String message = error.toString().replaceFirst('Exception: ', '');
+    return message.trim().isEmpty
+        ? 'Gagal menyinkronkan loadout. Coba lagi.'
+        : message;
   }
 }

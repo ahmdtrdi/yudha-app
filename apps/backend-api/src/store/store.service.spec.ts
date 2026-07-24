@@ -78,6 +78,43 @@ describe('StoreService', () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it('persists an owned profile loadout through the authoritative RPC', async () => {
+    rpc.mockResolvedValue({
+      data: {
+        characterId: 'character-basic-pip',
+        towerId: 'tower-benteng-bara',
+        arenaId: 'arena-cpns',
+      },
+      error: null,
+    });
+
+    await expect(
+      service.setLoadout('user-1', {
+        characterId: 'character-basic-pip',
+        towerId: 'tower-benteng-bara',
+      }),
+    ).resolves.toEqual({
+      data: {
+        characterId: 'character-basic-pip',
+        towerId: 'tower-benteng-bara',
+        arenaId: 'arena-cpns',
+      },
+    });
+    expect(rpc).toHaveBeenCalledWith('set_profile_loadout', {
+      p_user_id: 'user-1',
+      p_avatar_id: 'character-basic-pip',
+      p_tower_id: 'tower-benteng-bara',
+      p_arena_id: null,
+    });
+  });
+
+  it('requires at least one loadout field', async () => {
+    await expect(service.setLoadout('user-1', {})).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it('keeps beta credits disabled unless explicitly enabled', async () => {
     get.mockReturnValue('false');
 
@@ -89,4 +126,3 @@ describe('StoreService', () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 });
-

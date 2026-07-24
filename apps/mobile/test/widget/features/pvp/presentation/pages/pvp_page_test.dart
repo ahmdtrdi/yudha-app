@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -46,6 +48,54 @@ class _FakeBattleRepository extends OnlineBattleRepository {
 
   @override
   Future<void> surrender() async {}
+}
+
+class _LiveOnlineBattleRepository extends OnlineBattleRepository {
+  final StreamController<OnlineBattleUpdate> _updates =
+      StreamController<OnlineBattleUpdate>.broadcast(sync: true);
+
+  @override
+  Stream<OnlineBattleUpdate> get updates => _updates.stream;
+
+  void emit(OnlineBattleUpdate update) => _updates.add(update);
+
+  @override
+  Future<BattleSessionSeed> createSession({
+    OnlineMatchmakingMode matchmakingMode = OnlineMatchmakingMode.casual,
+  }) async {
+    return const BattleSessionSeed(
+      opponentName: 'Bima Saputra',
+      questions: <BattleQuestion>[],
+    );
+  }
+
+  @override
+  Future<void> cancelQueue() async {}
+
+  @override
+  void dispose() {
+    _updates.close();
+  }
+
+  @override
+  Future<void> openCard({required String cardId}) async {}
+
+  @override
+  Future<void> submitAnswer({
+    required String cardId,
+    required int selectedOptionIndex,
+  }) async {}
+
+  @override
+  Future<void> surrender() async {}
+}
+
+String? _assetName(ImageProvider<Object> provider) {
+  ImageProvider<Object> current = provider;
+  while (current is ResizeImage) {
+    current = current.imageProvider;
+  }
+  return current is AssetImage ? current.assetName : null;
 }
 
 void main() {
@@ -324,6 +374,94 @@ void main() {
     expect(battleController.state.currentRound, 2);
     expect(battleController.state.phase, BattlePhase.finished);
     expect(find.text('VICTORY!'), findsOneWidget);
+  });
+
+  testWidgets('renders authoritative multiplayer loadout and TWK card asset', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(411, 914));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final _LiveOnlineBattleRepository online = _LiveOnlineBattleRepository();
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        onlineBattleRepositoryProvider.overrideWithValue(online),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final controller = container.read(battleControllerProvider.notifier);
+    controller.enterArena();
+    controller.setMode(BattleMode.online);
+    await controller.startBattle();
+    online.emit(
+      const GameStateUpdated(
+        roomId: 'room-assets',
+        phase: 'active',
+        playerHp: 100,
+        opponentHp: 100,
+        playerPoints: 0,
+        opponentPoints: 0,
+        playerComboLevel: 1,
+        currentRound: 1,
+        roundSecondsRemaining: 180,
+        playerRoundWins: 0,
+        opponentRoundWins: 0,
+        lastRoundOutcome: null,
+        availableQuestions: <BattleQuestion>[
+          BattleQuestion(
+            id: 'twk-card',
+            prompt: 'Dasar negara Indonesia?',
+            options: <String>['Pancasila', 'Konstitusi'],
+            weight: 1,
+            effect: QuestionEffect.damage,
+            category: 'twk',
+          ),
+        ],
+        answeredQuestionIds: <String>[],
+        playerDisplayName: 'Raka Pratama',
+        opponentDisplayName: 'Bima Saputra',
+        playerCharacterId: 'character-rare-ignis',
+        playerTowerId: 'tower-benteng-bara',
+        opponentCharacterId: 'character-basic-pip',
+        opponentTowerId: 'tower-garda-biru',
+      ),
+    );
+    expect(controller.state.playerCharacterId, 'character-rare-ignis');
+    expect(controller.state.playerTowerId, 'tower-benteng-bara');
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: PvpPage()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Bima'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (Widget widget) =>
+            widget is Image &&
+            _assetName(widget.image) == 'assets/game/rare_ignis_idle.png',
+      ),
+      findsWidgets,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (Widget widget) =>
+            widget is Image &&
+            _assetName(widget.image) == 'assets/game/arena_turret_coral.png',
+      ),
+      findsWidgets,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (Widget widget) =>
+            widget is Image &&
+            _assetName(widget.image) == 'assets/game/card_twk.png',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('bot keeps attacking while a question sheet is open', (

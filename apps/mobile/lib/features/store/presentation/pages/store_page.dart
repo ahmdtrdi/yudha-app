@@ -97,7 +97,12 @@ class StorePage extends ConsumerWidget {
       gameEconomyProvider.notifier,
     );
     if (economy.owns(item.id)) {
-      _showResult(context, controller.equip(item));
+      final EconomyActionResult result = await controller.equipAuthoritative(
+        item,
+      );
+      if (context.mounted) {
+        _showResult(context, result);
+      }
       return;
     }
 
@@ -135,7 +140,12 @@ class StorePage extends ConsumerWidget {
     if (!confirmed || !context.mounted) {
       return;
     }
-    _showResult(context, controller.purchase(item));
+    final EconomyActionResult result = await controller.purchaseAuthoritative(
+      item,
+    );
+    if (context.mounted) {
+      _showResult(context, result);
+    }
   }
 
   void _showResult(BuildContext context, EconomyActionResult result) {

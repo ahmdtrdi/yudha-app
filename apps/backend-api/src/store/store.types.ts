@@ -11,3 +11,8 @@ export interface GrantBetaCreditPayload {
   idempotencyKey?: unknown;
 }
 
+export interface SetStoreLoadoutPayload {
+  characterId?: unknown;
+  towerId?: unknown;
+  arenaId?: unknown;
+}
