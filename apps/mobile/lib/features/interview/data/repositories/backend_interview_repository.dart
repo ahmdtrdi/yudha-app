@@ -272,7 +272,7 @@ class BackendInterviewRepository implements InterviewRepository {
   void _ensureAuthenticated() {
     if (!_config.hasAccessToken) {
       throw const InterviewApiException(
-        'Interview AI membutuhkan sesi login Supabase. Silakan masuk ulang.',
+        'Sesi login sudah berakhir. Silakan masuk ulang.',
       );
     }
   }

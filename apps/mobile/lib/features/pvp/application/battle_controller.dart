@@ -666,9 +666,9 @@ class BattleController extends StateNotifier<BattleState> {
               : effect == QuestionEffect.heal
               ? BattleVisualEffect.heal
               : BattleStateMachine.visualEffectForCategory(
-                  question?.category ?? 'numerik',
+                  update.category ?? question?.category ?? 'numerik',
                 ),
-          lastEventCategory: question?.category ?? 'numerik',
+          lastEventCategory: update.category ?? question?.category ?? 'numerik',
           statusMessage: _statusForPlayResult(
             isSelfAction: update.isSelfAction,
             isCorrect: isCorrect,

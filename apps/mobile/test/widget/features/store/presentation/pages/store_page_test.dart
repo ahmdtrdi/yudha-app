@@ -1,8 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_providers.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_storage.dart';
+import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
+import 'package:yudha_mobile/features/economy/data/repositories/game_economy_repository.dart';
+import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
 import 'package:yudha_mobile/features/store/presentation/pages/store_page.dart';
 
@@ -38,6 +43,55 @@ void main() {
     expect(container.read(gameEconomyProvider).yCoins, 400);
     expect(find.text('400'), findsNWidgets(2));
   });
+
+  testWidgets('shows a blocking progress overlay while purchase is pending', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(411, 914));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final _DelayedEconomyRepository repository = _DelayedEconomyRepository();
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        gameEconomyStorageProvider.overrideWithValue(_MemoryEconomyStorage()),
+        gameEconomyRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: StorePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('store-item-character-basic-pip')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Beli & pakai'));
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('store-transaction-loading')),
+      findsOneWidget,
+    );
+    expect(find.text('Memproses pembelian Pip...'), findsOneWidget);
+
+    repository.completePurchase();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('store-transaction-loading')),
+      findsNothing,
+    );
+    expect(
+      container.read(gameEconomyProvider).owns('character-basic-pip'),
+      isTrue,
+    );
+  });
 }
 
 class _MemoryEconomyStorage implements GameEconomyStorage {
@@ -49,5 +103,58 @@ class _MemoryEconomyStorage implements GameEconomyStorage {
   @override
   Future<void> save(GameEconomyState state) async {
     saved = state;
+  }
+}
+
+class _DelayedEconomyRepository extends GameEconomyRepository {
+  final Completer<AuthoritativeEconomySnapshot> _purchaseCompleter =
+      Completer<AuthoritativeEconomySnapshot>();
+
+  AuthoritativeEconomySnapshot get _initial =>
+      const AuthoritativeEconomySnapshot(
+        coins: 3000,
+        ownedItemIds: <String>{
+          GameEconomyCatalog.defaultCharacterId,
+          GameEconomyCatalog.defaultTowerId,
+        },
+        characterId: GameEconomyCatalog.defaultCharacterId,
+        towerId: GameEconomyCatalog.defaultTowerId,
+        arenaId: GameEconomyCatalog.defaultArenaId,
+      );
+
+  @override
+  Future<AuthoritativeEconomySnapshot> fetch() async => _initial;
+
+  @override
+  Future<AuthoritativeEconomySnapshot> grantBetaCredit() async => _initial;
+
+  @override
+  Future<AuthoritativeEconomySnapshot> purchaseAndEquip(CosmeticItem item) {
+    return _purchaseCompleter.future;
+  }
+
+  @override
+  Future<AuthoritativeEconomySnapshot> setLoadout({
+    String? characterId,
+    String? towerId,
+    String? arenaId,
+  }) async {
+    return _initial;
+  }
+
+  void completePurchase() {
+    _purchaseCompleter.complete(
+      const AuthoritativeEconomySnapshot(
+        coins: 2500,
+        ownedItemIds: <String>{
+          GameEconomyCatalog.defaultCharacterId,
+          GameEconomyCatalog.defaultTowerId,
+          'character-basic-pip',
+        },
+        characterId: 'character-basic-pip',
+        towerId: GameEconomyCatalog.defaultTowerId,
+        arenaId: GameEconomyCatalog.defaultArenaId,
+      ),
+    );
   }
 }

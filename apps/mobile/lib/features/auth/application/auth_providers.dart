@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'dart:developer';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yudha_mobile/app/config/app_config.dart';
+import 'package:yudha_mobile/core/errors/user_facing_error.dart';
+import 'package:yudha_mobile/features/auth/data/app_auth_storage.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
 class AppAuthState {
@@ -65,13 +68,17 @@ class AuthNotifier extends Notifier<AppAuthState> {
     final AppAuthState initialState = AppAuthState.initial();
     final SupabaseClient? client = _client;
     if (client != null) {
-      client.auth.onAuthStateChange.listen((AuthState event) {
+      final subscription = client.auth.onAuthStateChange.listen((
+        AuthState event,
+      ) {
         state = state.copyWith(
+          isLoading: false,
           session: event.session,
           clearSession: event.session == null,
           clearError: true,
         );
       });
+      ref.onDispose(subscription.cancel);
     }
     return initialState;
   }
@@ -80,8 +87,7 @@ class AuthNotifier extends Notifier<AppAuthState> {
     final SupabaseClient? client = _client;
     if (client == null) {
       state = state.copyWith(
-        errorMessage:
-            'Supabase belum dikonfigurasi. Tambahkan SUPABASE_URL dan SUPABASE_PUBLISHABLE_KEY.',
+        errorMessage: 'Layanan akun belum dikonfigurasi pada aplikasi ini.',
       );
       return false;
     }
@@ -92,12 +98,16 @@ class AuthNotifier extends Notifier<AppAuthState> {
         email: email,
         password: password,
       );
+      final Session? session = response.session;
+      if (session != null) {
+        await _persistSession(session);
+      }
       state = state.copyWith(
         isLoading: false,
-        session: response.session,
+        session: session,
         clearError: true,
       );
-      return response.session != null;
+      return session != null;
     } on AuthException catch (error) {
       state = state.copyWith(
         isLoading: false,
@@ -129,8 +139,7 @@ class AuthNotifier extends Notifier<AppAuthState> {
     final SupabaseClient? client = _client;
     if (client == null) {
       state = state.copyWith(
-        errorMessage:
-            'Supabase belum dikonfigurasi. Tambahkan SUPABASE_URL dan SUPABASE_PUBLISHABLE_KEY.',
+        errorMessage: 'Layanan akun belum dikonfigurasi pada aplikasi ini.',
       );
       return false;
     }
@@ -155,12 +164,16 @@ class AuthNotifier extends Notifier<AppAuthState> {
         return false;
       }
 
+      final Session? session = response.session;
+      if (session != null) {
+        await _persistSession(session);
+      }
       state = state.copyWith(
         isLoading: false,
-        session: response.session,
+        session: session,
         clearError: true,
       );
-      return response.session != null;
+      return session != null;
     } on AuthException catch (error) {
       state = state.copyWith(
         isLoading: false,
@@ -187,6 +200,7 @@ class AuthNotifier extends Notifier<AppAuthState> {
     final SupabaseClient? client = _client;
     if (client != null) {
       await client.auth.signOut();
+      await _clearPersistedSession();
     }
     state = state.copyWith(clearSession: true, clearError: true);
   }
@@ -194,7 +208,7 @@ class AuthNotifier extends Notifier<AppAuthState> {
   Future<String?> resendConfirmationEmail(String email) async {
     final SupabaseClient? client = _client;
     if (client == null) {
-      return 'Supabase belum dikonfigurasi. Tambahkan SUPABASE_URL dan SUPABASE_PUBLISHABLE_KEY.';
+      return 'Layanan akun belum dikonfigurasi pada aplikasi ini.';
     }
 
     try {
@@ -223,23 +237,39 @@ class AuthNotifier extends Notifier<AppAuthState> {
     state = state.copyWith(clearError: true);
   }
 
+  Future<void> _persistSession(Session session) async {
+    try {
+      await AppAuthStorage.instance.persistSession(
+        jsonEncode(session.toJson()),
+      );
+    } catch (error, stackTrace) {
+      log(
+        'Could not persist auth session',
+        name: 'AuthNotifier',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> _clearPersistedSession() async {
+    try {
+      await AppAuthStorage.instance.removePersistedSession();
+    } catch (error, stackTrace) {
+      log(
+        'Could not clear persisted auth session',
+        name: 'AuthNotifier',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   String _describeUnexpectedError(Object error, {required String action}) {
-    final String raw = error.toString().trim();
-    final String normalized = raw.startsWith('Exception: ')
-        ? raw.substring('Exception: '.length)
-        : raw;
-
-    if (normalized.contains('Failed host lookup') ||
-        normalized.contains('SocketException') ||
-        normalized.contains('ClientException')) {
-      return 'Tidak bisa terhubung ke layanan auth. Periksa koneksi internet dan konfigurasi Supabase.';
-    }
-
-    if (normalized.isEmpty) {
-      return 'Gagal $action. Coba lagi beberapa saat.';
-    }
-
-    return normalized;
+    return UserFacingError.describe(
+      error,
+      fallback: 'Gagal $action. Coba lagi beberapa saat.',
+    );
   }
 
   String _describeAuthException(AuthException error, {required String action}) {
@@ -259,7 +289,7 @@ class AuthNotifier extends Notifier<AppAuthState> {
 
     if (code == 'over_email_send_rate_limit' ||
         normalized.contains('email rate limit')) {
-      return 'Batas pengiriman email verifikasi Supabase sudah tercapai. Tunggu hingga kuota email tersedia lagi, lalu coba kirim ulang.';
+      return 'Batas pengiriman email verifikasi sudah tercapai. Tunggu beberapa saat, lalu coba kirim ulang.';
     }
 
     if (code == 'over_request_rate_limit' ||
@@ -276,7 +306,7 @@ class AuthNotifier extends Notifier<AppAuthState> {
 
     if (code == 'email_provider_disabled' ||
         normalized.contains('email provider is disabled')) {
-      return 'Pendaftaran dengan email sedang dinonaktifkan di Supabase.';
+      return 'Pendaftaran dengan email sedang dinonaktifkan.';
     }
 
     return _describeUnexpectedError(error, action: action);

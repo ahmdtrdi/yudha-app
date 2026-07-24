@@ -52,6 +52,7 @@ export type PlayCardResultPayload = {
   roomId: string;
   actorUserId: string;
   cardId: string;
+  category?: string;
   correct: boolean;
   effect: CardEffect | 'none';
   effectValue: number;
@@ -107,10 +108,7 @@ export type MatchResultPayload = {
 
 export type PresenceUpdatePayload = {
   roomId: string;
-  players: Record<
-    string,
-    { connected: boolean; reconnectDeadline?: string }
-  >;
+  players: Record<string, { connected: boolean; reconnectDeadline?: string }>;
 };
 
 export type MatchGatewayEvents = {

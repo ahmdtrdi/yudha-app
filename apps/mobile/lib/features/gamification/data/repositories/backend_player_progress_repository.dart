@@ -31,7 +31,7 @@ class BackendPlayerProgressRepository implements PlayerProgressRepository {
   Future<PlayerProgressSnapshot> fetchCurrentProgress() async {
     if (!_config.hasAccessToken) {
       throw const PlayerProgressApiException(
-        'Profil membutuhkan sesi login Supabase. Silakan masuk ulang.',
+        'Sesi login sudah berakhir. Silakan masuk ulang.',
       );
     }
 

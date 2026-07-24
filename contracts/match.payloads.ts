@@ -4,8 +4,8 @@ import type {
   BattleTarget,
   MatchmakingMode,
   PublicBattleState,
-} from './battle-state';
-import type { CardEffect } from './question-card';
+} from "./battle-state";
+import type { CardEffect } from "./question-card";
 
 export type JoinQueuePayload = {
   mode?: MatchmakingMode;
@@ -19,7 +19,7 @@ export type QueueJoinedPayload = {
 };
 
 export type QueueCancelledPayload = {
-  reason: 'cancelled' | 'disconnected';
+  reason: "cancelled" | "disconnected";
 };
 
 export type MatchFoundPayload = {
@@ -52,15 +52,16 @@ export type PlayCardResultPayload = {
   roomId: string;
   actorUserId: string;
   cardId: string;
+  category?: string;
   correct: boolean;
-  effect: CardEffect | 'none';
+  effect: CardEffect | "none";
   effectValue: number;
   projectileLevel: number;
 };
 
 export type CardActionRejectedPayload = {
   roomId?: string;
-  action: 'open_card' | 'play_card';
+  action: "open_card" | "play_card";
   reason: string;
   message: string;
   recoverable: boolean;
@@ -71,18 +72,18 @@ export type SurrenderPayload = {
 };
 
 export type MatchResultReason =
-  | 'hp_zero'
-  | 'round_timeout'
-  | 'surrender'
-  | 'question_exhaustion'
-  | 'disconnect'
-  | 'draw';
+  | "hp_zero"
+  | "round_timeout"
+  | "surrender"
+  | "question_exhaustion"
+  | "disconnect"
+  | "draw";
 
 export type MatchResultPayload = {
   roomId: string;
   mode: MatchmakingMode;
   target: BattleTarget;
-  outcome: 'win' | 'lose' | 'draw' | 'surrender';
+  outcome: "win" | "lose" | "draw" | "surrender";
   winnerUserId: string | null;
   loserUserId: string | null;
   reason: MatchResultReason;
@@ -107,10 +108,7 @@ export type MatchResultPayload = {
 
 export type PresenceUpdatePayload = {
   roomId: string;
-  players: Record<
-    string,
-    { connected: boolean; reconnectDeadline?: string }
-  >;
+  players: Record<string, { connected: boolean; reconnectDeadline?: string }>;
 };
 
 export type MatchGatewayEvents = {

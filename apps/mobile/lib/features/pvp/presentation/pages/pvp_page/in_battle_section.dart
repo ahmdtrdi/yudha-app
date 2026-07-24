@@ -278,11 +278,10 @@ class _InBattleSectionState extends State<_InBattleSection>
     final bool playerChanged = playerDelta != 0;
     final int delta = playerChanged ? playerDelta : opponentDelta;
     final bool isHeal = delta > 0;
-    final BattleActor actor =
-        widget.state.lastActor ??
-        (isHeal
-            ? (playerChanged ? BattleActor.player : BattleActor.opponent)
-            : (playerChanged ? BattleActor.opponent : BattleActor.player));
+    final BattleActor actor = resolveBattleEffectActor(
+      playerDelta: playerDelta,
+      opponentDelta: opponentDelta,
+    );
     final BattleVisualEffect kind = isHeal
         ? BattleVisualEffect.heal
         : widget.state.lastVisualEffect ?? BattleVisualEffect.cannon;

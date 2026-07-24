@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yudha_mobile/app/config/app_config.dart';
 import 'package:yudha_mobile/core/services/app_provider_observer.dart';
+import 'package:yudha_mobile/features/auth/data/app_auth_storage.dart';
 
 typedef AppBuilder = Widget Function();
 
@@ -27,6 +28,10 @@ abstract final class AppBootstrap {
           await Supabase.initialize(
             url: AppConfig.supabaseUrl,
             publishableKey: AppConfig.supabasePublishableKey,
+            authOptions: FlutterAuthClientOptions(
+              autoRefreshToken: true,
+              localStorage: AppAuthStorage.instance,
+            ),
           );
         } else {
           log(

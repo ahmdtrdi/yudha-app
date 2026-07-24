@@ -11,83 +11,164 @@ import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart
 import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
 import 'package:yudha_mobile/features/economy/presentation/widgets/economy_widgets.dart';
 
-class StorePage extends ConsumerWidget {
+class StorePage extends ConsumerStatefulWidget {
   const StorePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StorePage> createState() => _StorePageState();
+}
+
+class _StorePageState extends ConsumerState<StorePage> {
+  String? _pendingMessage;
+
+  bool get _isTransactionPending => _pendingMessage != null;
+
+  @override
+  Widget build(BuildContext context) {
     final GameEconomyState economy = ref.watch(gameEconomyProvider);
 
     return DefaultTabController(
       length: 2,
-      child: Scaffold(
-        backgroundColor: AppColors.surfaceLight,
-        appBar: AppBar(
-          leading: IconButton(
-            onPressed: () => context.pop(),
-            icon: const Icon(Icons.arrow_back_rounded),
-          ),
-          title: const Text('STORE'),
-          actions: <Widget>[
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: Center(
-                child: YCoinBalanceChip(
-                  balance: economy.yCoins,
-                  onTap: () => showYCoinTopUpSheet(context),
-                  dark: true,
+      child: PopScope(
+        canPop: !_isTransactionPending,
+        child: Scaffold(
+          backgroundColor: AppColors.surfaceLight,
+          appBar: AppBar(
+            leading: IconButton(
+              onPressed: _isTransactionPending ? null : () => context.pop(),
+              icon: const Icon(Icons.arrow_back_rounded),
+            ),
+            title: const Text('STORE'),
+            actions: <Widget>[
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Center(
+                  child: YCoinBalanceChip(
+                    balance: economy.yCoins,
+                    onTap: _isTransactionPending
+                        ? null
+                        : () => showYCoinTopUpSheet(context),
+                    dark: true,
+                  ),
                 ),
               ),
+            ],
+            bottom: TabBar(
+              indicatorColor: AppColors.fireGold,
+              indicatorWeight: 3,
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white.withAlpha(170),
+              labelStyle: GoogleFonts.dmSans(fontWeight: FontWeight.w800),
+              tabs: const <Widget>[
+                Tab(text: 'Karakter'),
+                Tab(text: 'Tower'),
+              ],
             ),
-          ],
-          bottom: TabBar(
-            indicatorColor: AppColors.fireGold,
-            indicatorWeight: 3,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white.withAlpha(170),
-            labelStyle: GoogleFonts.dmSans(fontWeight: FontWeight.w800),
-            tabs: const <Widget>[
-              Tab(text: 'Karakter'),
-              Tab(text: 'Tower'),
+          ),
+          body: Stack(
+            children: <Widget>[
+              AbsorbPointer(
+                absorbing: _isTransactionPending,
+                child: Column(
+                  children: <Widget>[
+                    _StoreIntro(
+                      onPassTap: () => context.push(AppRoutes.hiredPass),
+                      onTopUpTap: () => showYCoinTopUpSheet(context),
+                    ),
+                    Expanded(
+                      child: TabBarView(
+                        children: <Widget>[
+                          _CosmeticGrid(
+                            items: GameEconomyCatalog.characters,
+                            economy: economy,
+                            onItemTap: (CosmeticItem item) =>
+                                _handleItemTap(item, economy),
+                          ),
+                          _CosmeticGrid(
+                            items: GameEconomyCatalog.towers,
+                            economy: economy,
+                            onItemTap: (CosmeticItem item) =>
+                                _handleItemTap(item, economy),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_pendingMessage case final String message)
+                Positioned.fill(
+                  child: ColoredBox(
+                    key: const ValueKey<String>('store-transaction-loading'),
+                    color: AppColors.warriorNavy.withAlpha(70),
+                    child: Center(
+                      child: Container(
+                        margin: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 20,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: const <BoxShadow>[
+                            BoxShadow(
+                              color: Color(0x33000000),
+                              blurRadius: 20,
+                              offset: Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            const SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                                color: AppColors.levelUpTeal,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              message,
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.dmSans(
+                                color: AppColors.textStrong,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Jangan tutup halaman ini.',
+                              style: GoogleFonts.dmSans(
+                                color: AppColors.textMuted,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
-        ),
-        body: Column(
-          children: <Widget>[
-            _StoreIntro(
-              onPassTap: () => context.push(AppRoutes.hiredPass),
-              onTopUpTap: () => showYCoinTopUpSheet(context),
-            ),
-            Expanded(
-              child: TabBarView(
-                children: <Widget>[
-                  _CosmeticGrid(
-                    items: GameEconomyCatalog.characters,
-                    economy: economy,
-                    onItemTap: (CosmeticItem item) =>
-                        _handleItemTap(context, ref, item, economy),
-                  ),
-                  _CosmeticGrid(
-                    items: GameEconomyCatalog.towers,
-                    economy: economy,
-                    onItemTap: (CosmeticItem item) =>
-                        _handleItemTap(context, ref, item, economy),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );
   }
 
   Future<void> _handleItemTap(
-    BuildContext context,
-    WidgetRef ref,
     CosmeticItem item,
     GameEconomyState economy,
   ) async {
+    if (_isTransactionPending) {
+      return;
+    }
     if (item.passExclusive && !economy.owns(item.id)) {
       context.push(AppRoutes.hiredPass);
       return;
@@ -97,11 +178,22 @@ class StorePage extends ConsumerWidget {
       gameEconomyProvider.notifier,
     );
     if (economy.owns(item.id)) {
-      final EconomyActionResult result = await controller.equipAuthoritative(
-        item,
-      );
-      if (context.mounted) {
-        _showResult(context, result);
+      setState(() {
+        _pendingMessage = 'Memasang ${item.name}...';
+      });
+      try {
+        final EconomyActionResult result = await controller.equipAuthoritative(
+          item,
+        );
+        if (mounted) {
+          _showResult(context, result);
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _pendingMessage = null;
+          });
+        }
       }
       return;
     }
@@ -137,18 +229,36 @@ class StorePage extends ConsumerWidget {
           ),
         ) ??
         false;
-    if (!confirmed || !context.mounted) {
+    if (!confirmed || !mounted) {
       return;
     }
-    final EconomyActionResult result = await controller.purchaseAuthoritative(
-      item,
-    );
-    if (context.mounted) {
-      _showResult(context, result);
+
+    setState(() {
+      _pendingMessage = 'Memproses pembelian ${item.name}...';
+    });
+    try {
+      final EconomyActionResult result = await controller.purchaseAuthoritative(
+        item,
+      );
+      if (mounted) {
+        _showResult(context, result);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _pendingMessage = null;
+        });
+      }
     }
   }
 
   void _showResult(BuildContext context, EconomyActionResult result) {
+    final String normalizedMessage = result.message.toLowerCase();
+    final bool shouldOfferTopUp =
+        !result.success &&
+        normalizedMessage.contains('y-coin') &&
+        (normalizedMessage.contains('cukup') ||
+            normalizedMessage.contains('saldo'));
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -157,7 +267,7 @@ class StorePage extends ConsumerWidget {
           backgroundColor: result.success
               ? AppColors.levelUpTeal
               : const Color(0xFFB64040),
-          action: result.success
+          action: !shouldOfferTopUp
               ? null
               : SnackBarAction(
                   label: 'TOP UP',

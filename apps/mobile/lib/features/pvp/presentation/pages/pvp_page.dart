@@ -24,6 +24,7 @@ import 'package:yudha_mobile/features/pvp/domain/entities/battle_question.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_state.dart';
 import 'package:yudha_mobile/features/pvp/domain/services/battle_state_machine.dart';
 import 'package:yudha_mobile/features/pvp/presentation/audio/arena_audio_controller.dart';
+import 'package:yudha_mobile/features/pvp/presentation/pages/pvp_page/battle_effect_resolver.dart';
 
 part 'pvp_page/question_battle_sheet.dart';
 part 'pvp_page/arena_entry_section.dart';
