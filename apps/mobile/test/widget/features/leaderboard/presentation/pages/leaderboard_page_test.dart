@@ -18,11 +18,12 @@ class _SuccessLeaderboardRepository extends LeaderboardRepository {
     return const LeaderboardPagePayload(
       entries: <LeaderboardEntry>[
         LeaderboardEntry(
+          rank: 1,
           playerId: 'alpha',
           playerName: 'Alpha',
           points: 1000,
           winRate: 0.8,
-          streak: 4,
+          totalMatches: 14,
           isCurrentUser: false,
         ),
       ],
@@ -97,6 +98,7 @@ void main() {
     expect(find.text('Alpha'), findsWidgets);
     expect(find.text('LEADERBOARD'), findsOneWidget);
     expect(find.text('Kamu'), findsWidgets);
+    expect(find.textContaining('14 pertandingan'), findsOneWidget);
   });
 
   testWidgets('renders empty state for leaderboard', (
@@ -134,7 +136,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Failed to load leaderboard'), findsOneWidget);
-    expect(find.text('Retry'), findsOneWidget);
+    expect(find.text('Leaderboard belum dapat dimuat.'), findsOneWidget);
+    expect(find.text('Coba lagi'), findsOneWidget);
   });
 }

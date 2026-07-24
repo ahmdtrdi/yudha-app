@@ -17,32 +17,32 @@ class LeaderboardPage extends ConsumerWidget {
       leaderboardControllerProvider.notifier,
     );
     final progress = ref.watch(playerProgressProvider);
+    final int? userRank = leaderboardState.currentUserEntry?.rank ??
+        leaderboardState.currentUserRank;
     final LeaderboardEntry currentUserEntry =
         leaderboardState.currentUserEntry ??
         LeaderboardEntry(
+          rank: userRank ?? 0,
           playerId: progress.playerId,
           playerName: progress.displayName.isEmpty
               ? 'Kamu'
               : progress.displayName,
           points: progress.totalPoints,
           winRate: progress.winRate,
-          streak: progress.streak,
+          totalMatches: progress.matchesPlayed,
           isCurrentUser: true,
         );
 
-    int? userRank = leaderboardState.currentUserRank;
-    bool isUserInLoadedList = false;
-    if (leaderboardState.status == LeaderboardViewStatus.success) {
-      final idx = leaderboardState.entries.indexWhere((e) => e.isCurrentUser);
-      if (idx != -1) {
-        userRank ??= idx + 1;
-        isUserInLoadedList = true;
-      }
-    }
-
-    // Split top 3 vs others
-    final topThree = leaderboardState.entries.take(3).toList();
-    final otherRanks = leaderboardState.entries.skip(3).toList();
+    final bool isUserInLoadedList = leaderboardState.entries.any(
+      (LeaderboardEntry entry) =>
+          entry.isCurrentUser || entry.playerId == currentUserEntry.playerId,
+    );
+    final List<LeaderboardEntry> topThree = leaderboardState.entries
+        .where((LeaderboardEntry entry) => entry.rank <= 3)
+        .toList(growable: false);
+    final List<LeaderboardEntry> otherRanks = leaderboardState.entries
+        .where((LeaderboardEntry entry) => entry.rank > 3)
+        .toList(growable: false);
 
     return Scaffold(
       backgroundColor: AppColors.scholarCream,
@@ -82,7 +82,7 @@ class LeaderboardPage extends ConsumerWidget {
                     name: currentUserEntry.playerName,
                     tierLabel: progress.tier.label.toUpperCase(),
                     totalPoints: currentUserEntry.points,
-                    streak: currentUserEntry.streak,
+                    totalMatches: currentUserEntry.totalMatches,
                     winRate: currentUserEntry.winRate,
                     currentXp:
                         progress.totalPoints - progress.currentTierBasePoints,
@@ -125,7 +125,7 @@ class LeaderboardPage extends ConsumerWidget {
                     final entry = otherRanks[index];
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8.0),
-                      child: _LeaderboardTile(rank: index + 4, entry: entry),
+                      child: _LeaderboardTile(entry: entry),
                     );
                   }, childCount: otherRanks.length),
                 ),
@@ -145,10 +145,7 @@ class LeaderboardPage extends ConsumerWidget {
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: _LeaderboardTile(
-                          rank: userRank,
-                          entry: currentUserEntry,
-                        ),
+                        child: _LeaderboardTile(entry: currentUserEntry),
                       ),
                     ],
                   ),
@@ -194,7 +191,7 @@ class _HeroRankCard extends StatelessWidget {
     required this.name,
     required this.tierLabel,
     required this.totalPoints,
-    required this.streak,
+    required this.totalMatches,
     required this.winRate,
     required this.currentXp,
     required this.targetXp,
@@ -204,7 +201,7 @@ class _HeroRankCard extends StatelessWidget {
   final String name;
   final String tierLabel;
   final int totalPoints;
-  final int streak;
+  final int totalMatches;
   final double winRate;
   final int currentXp;
   final int targetXp;
@@ -296,7 +293,7 @@ class _HeroRankCard extends StatelessWidget {
                       value: '${(winRate * 100).toStringAsFixed(0)}%',
                     ),
                     const SizedBox(width: 24),
-                    _StatColumn(label: 'STREAK', value: '$streak'),
+                    _StatColumn(label: 'LAGA', value: '$totalMatches'),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -432,14 +429,14 @@ class _TopThreePodium extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (hasTwo) Expanded(child: _PodiumCard(rank: 2, entry: entries[1])),
+          if (hasTwo) Expanded(child: _PodiumCard(entry: entries[1])),
           if (hasTwo) const SizedBox(width: 10),
           Expanded(
-            child: _PodiumCard(rank: 1, entry: entries[0], isFirst: true),
+            child: _PodiumCard(entry: entries[0], isFirst: true),
           ),
           if (hasThree) const SizedBox(width: 10),
           if (hasThree)
-            Expanded(child: _PodiumCard(rank: 3, entry: entries[2])),
+            Expanded(child: _PodiumCard(entry: entries[2])),
           if (!hasThree && hasTwo) const Expanded(child: SizedBox()),
         ],
       ),
@@ -449,17 +446,16 @@ class _TopThreePodium extends StatelessWidget {
 
 class _PodiumCard extends StatelessWidget {
   const _PodiumCard({
-    required this.rank,
     required this.entry,
     this.isFirst = false,
   });
 
-  final int rank;
   final LeaderboardEntry entry;
   final bool isFirst;
 
   @override
   Widget build(BuildContext context) {
+    final int rank = entry.rank;
     Color bgColor;
     Color circleBorder;
     Color circleBg;
@@ -558,9 +554,8 @@ class _PodiumCard extends StatelessWidget {
 }
 
 class _LeaderboardTile extends StatelessWidget {
-  const _LeaderboardTile({required this.rank, required this.entry});
+  const _LeaderboardTile({required this.entry});
 
-  final int rank;
   final LeaderboardEntry entry;
 
   @override
@@ -592,7 +587,7 @@ class _LeaderboardTile extends StatelessWidget {
             ),
             child: Center(
               child: Text(
-                '$rank',
+                '${entry.rank}',
                 style: GoogleFonts.dmSans(
                   color: isKamu
                       ? AppColors.levelUpTeal
@@ -645,7 +640,7 @@ class _LeaderboardTile extends StatelessWidget {
                   ],
                 ),
                 Text(
-                  'WR ${(entry.winRate * 100).toStringAsFixed(0)}%  |  Streak ${entry.streak}',
+                  'WR ${(entry.winRate * 100).toStringAsFixed(0)}%  |  ${entry.totalMatches} pertandingan',
                   style: GoogleFonts.dmSans(
                     color: AppColors.textMuted,
                     fontSize: 12,
@@ -685,9 +680,12 @@ class _ErrorState extends StatelessWidget {
             color: AppColors.fireGold,
           ),
           const SizedBox(height: 8),
-          const Text('Failed to load leaderboard'),
+          const Text(
+            'Leaderboard belum dapat dimuat.',
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 8),
-          FilledButton(onPressed: onRetry, child: const Text('Retry')),
+          FilledButton(onPressed: onRetry, child: const Text('Coba lagi')),
         ],
       ),
     );

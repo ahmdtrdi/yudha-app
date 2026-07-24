@@ -5,7 +5,6 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:yudha_mobile/features/leaderboard/data/repositories/backend_leaderboard_repository.dart';
 import 'package:yudha_mobile/features/leaderboard/domain/entities/leaderboard_query.dart';
-import 'package:yudha_mobile/features/leaderboard/domain/entities/leaderboard_scope.dart';
 
 void main() {
   test(
@@ -26,8 +25,8 @@ void main() {
                       'userId': 'user-4',
                       'username': 'Kamu',
                       'rankPoints': 990,
+                      'totalMatches': 12,
                       'winrate': 0.78,
-                      'streak': 3,
                     },
                   }),
                   200,
@@ -42,18 +41,20 @@ void main() {
                 jsonEncode(<String, Object?>{
                   'data': <Map<String, Object?>>[
                     <String, Object?>{
+                      'rank': 1,
                       'userId': 'user-1',
                       'username': 'Raka',
                       'rankPoints': 1420,
+                      'totalMatches': 18,
                       'winrate': 0.82,
-                      'streak': 7,
                     },
                     <String, Object?>{
+                      'rank': 4,
                       'userId': 'user-4',
                       'username': 'Kamu',
                       'rankPoints': 990,
+                      'totalMatches': 12,
                       'winrate': 0.78,
-                      'streak': 3,
                     },
                   ],
                   'meta': <String, Object?>{
@@ -68,19 +69,38 @@ void main() {
           );
 
       final payload = await repository.fetchPage(
-        const LeaderboardQuery(
-          scope: LeaderboardScope.global,
-          page: 1,
-          pageSize: 8,
-        ),
+        const LeaderboardQuery(page: 1, pageSize: 8),
       );
 
       expect(payload.entries, hasLength(2));
+      expect(payload.entries.first.rank, 1);
       expect(payload.entries.last.isCurrentUser, isTrue);
       expect(payload.currentUserRank, 4);
       expect(payload.currentUserEntry?.playerId, 'user-4');
+      expect(payload.currentUserEntry?.totalMatches, 12);
       expect(payload.currentUserEntry?.isCurrentUser, isTrue);
       expect(payload.hasMore, isFalse);
     },
   );
+
+  test('surfaces backend errors instead of returning mock players', () async {
+    final BackendLeaderboardRepository repository =
+        BackendLeaderboardRepository(
+          config: const LeaderboardApiConfig(
+            baseUrl: 'https://api.example.com',
+            accessToken: 'token-123',
+          ),
+          client: MockClient(
+            (_) async => http.Response(
+              jsonEncode(<String, Object?>{'message': 'Service unavailable'}),
+              503,
+            ),
+          ),
+        );
+
+    await expectLater(
+      repository.fetchPage(const LeaderboardQuery(page: 1, pageSize: 8)),
+      throwsA(isA<LeaderboardApiException>()),
+    );
+  });
 }
