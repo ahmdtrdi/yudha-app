@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:yudha_mobile/core/errors/user_facing_error.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_storage.dart';
 import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
 import 'package:yudha_mobile/features/economy/data/repositories/game_economy_repository.dart';
@@ -390,9 +391,10 @@ class GameEconomyController extends StateNotifier<GameEconomyState> {
   }
 
   String _economyError(Object error) {
-    final String message = error.toString().replaceFirst('Exception: ', '');
-    return message.trim().isEmpty
-        ? 'Gagal menyinkronkan loadout. Coba lagi.'
-        : message;
+    return UserFacingError.describe(
+      error,
+      fallback: 'Gagal menyinkronkan loadout. Coba lagi.',
+      preserveDetails: true,
+    );
   }
 }

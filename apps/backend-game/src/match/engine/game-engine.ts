@@ -228,6 +228,7 @@ export class GameEngine {
       roomId: room.roomId,
       actorUserId: userId,
       cardId,
+      category: card.category,
       correct,
       effect,
       effectValue,
@@ -264,6 +265,7 @@ export class GameEngine {
     if (player.answeredCardIds.has(cardId)) {
       return this.reject('card_already_answered', 'Card was already answered.');
     }
+    const card = player.hand[cardIndex];
 
     // Timeout is a wrong answer: 0 damage, 0 heal
     const correct = false;
@@ -288,6 +290,7 @@ export class GameEngine {
       roomId: room.roomId,
       actorUserId: userId,
       cardId,
+      category: card.category,
       correct,
       effect,
       effectValue,
@@ -315,7 +318,10 @@ export class GameEngine {
     return { ok: true, room, matchResult: result };
   }
 
-  finishDisconnected(room: InternalRoomState, userId: string): MatchResultPayload {
+  finishDisconnected(
+    room: InternalRoomState,
+    userId: string,
+  ): MatchResultPayload {
     const disconnected = this.getPlayer(room, userId);
     const opponent = this.getOpponent(room, userId);
     if (!disconnected || !opponent) {
@@ -324,7 +330,12 @@ export class GameEngine {
     if (!opponent.connected) {
       return this.finish(room, 'disconnect', null, null);
     }
-    return this.finish(room, 'disconnect', opponent.userId, disconnected.userId);
+    return this.finish(
+      room,
+      'disconnect',
+      opponent.userId,
+      disconnected.userId,
+    );
   }
 
   buildPublicState(room: InternalRoomState, userId: string): PublicBattleState {
@@ -485,7 +496,8 @@ export class GameEngine {
       roomId: room.roomId,
       mode: room.mode,
       target: room.target,
-      outcome: reason === 'surrender' ? 'surrender' : winnerUserId ? 'win' : 'draw',
+      outcome:
+        reason === 'surrender' ? 'surrender' : winnerUserId ? 'win' : 'draw',
       winnerUserId,
       loserUserId,
       reason,

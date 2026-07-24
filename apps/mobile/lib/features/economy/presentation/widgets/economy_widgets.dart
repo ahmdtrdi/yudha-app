@@ -232,11 +232,44 @@ Future<void> showYCoinTopUpSheet(BuildContext context) {
   );
 }
 
-class _YCoinTopUpSheet extends ConsumerWidget {
+class _YCoinTopUpSheet extends ConsumerStatefulWidget {
   const _YCoinTopUpSheet();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_YCoinTopUpSheet> createState() => _YCoinTopUpSheetState();
+}
+
+class _YCoinTopUpSheetState extends ConsumerState<_YCoinTopUpSheet> {
+  String? _pendingPackageId;
+
+  Future<void> _topUp(YCoinTopUpPackage package) async {
+    if (_pendingPackageId != null) {
+      return;
+    }
+    setState(() {
+      _pendingPackageId = package.id;
+    });
+    try {
+      final EconomyActionResult result = await ref
+          .read(gameEconomyProvider.notifier)
+          .topUpAuthoritative(package);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(result.message)));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _pendingPackageId = null;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final int balance = ref.watch(
       gameEconomyProvider.select((state) => state.yCoins),
     );
@@ -329,19 +362,10 @@ class _YCoinTopUpSheet extends ConsumerWidget {
                           padding: const EdgeInsets.only(bottom: 8),
                           child: _TopUpPackageTile(
                             package: package,
-                            onTap: () async {
-                              final EconomyActionResult result = await ref
-                                  .read(gameEconomyProvider.notifier)
-                                  .topUpAuthoritative(package);
-                              if (!context.mounted) {
-                                return;
-                              }
-                              ScaffoldMessenger.of(context)
-                                ..hideCurrentSnackBar()
-                                ..showSnackBar(
-                                  SnackBar(content: Text(result.message)),
-                                );
-                            },
+                            isLoading: _pendingPackageId == package.id,
+                            onTap: _pendingPackageId == null
+                                ? () => _topUp(package)
+                                : null,
                           ),
                         ),
                       )
@@ -357,10 +381,15 @@ class _YCoinTopUpSheet extends ConsumerWidget {
 }
 
 class _TopUpPackageTile extends StatelessWidget {
-  const _TopUpPackageTile({required this.package, required this.onTap});
+  const _TopUpPackageTile({
+    required this.package,
+    required this.isLoading,
+    required this.onTap,
+  });
 
   final YCoinTopUpPackage package;
-  final VoidCallback onTap;
+  final bool isLoading;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -419,23 +448,39 @@ class _TopUpPackageTile extends StatelessWidget {
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 11,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: beta ? AppColors.levelUpTeal : AppColors.warriorNavy,
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Text(
-                  package.priceLabel,
-                  style: GoogleFonts.dmSans(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: isLoading
+                    ? const SizedBox(
+                        key: ValueKey<String>('top-up-loading'),
+                        width: 30,
+                        height: 30,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.6,
+                          color: AppColors.levelUpTeal,
+                        ),
+                      )
+                    : Container(
+                        key: const ValueKey<String>('top-up-price'),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 11,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: beta
+                              ? AppColors.levelUpTeal
+                              : AppColors.warriorNavy,
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Text(
+                          package.priceLabel,
+                          style: GoogleFonts.dmSans(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
               ),
             ],
           ),

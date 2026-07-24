@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/app/router/app_tab_shell.dart';
+import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
 import 'package:yudha_mobile/features/auth/presentation/pages/email_confirmation_pending_page.dart';
 import 'package:yudha_mobile/features/auth/presentation/pages/login_page.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
@@ -18,9 +20,27 @@ import 'package:yudha_mobile/features/profile/presentation/pages/profile_page.da
 import 'package:yudha_mobile/features/pvp/presentation/pages/pvp_page.dart';
 import 'package:yudha_mobile/features/store/presentation/pages/store_page.dart';
 
-final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
-  (Ref ref) => GoRouter(
+final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
+  final ValueNotifier<AppAuthState> authRefresh = ValueNotifier<AppAuthState>(
+    ref.read(authProvider),
+  );
+  ref.listen<AppAuthState>(authProvider, (_, AppAuthState next) {
+    authRefresh.value = next;
+  });
+  ref.onDispose(authRefresh.dispose);
+
+  return GoRouter(
     initialLocation: AppRoutes.splash,
+    refreshListenable: authRefresh,
+    redirect: (context, state) {
+      final String location = state.uri.path;
+      final bool isAuthEntry =
+          location == AppRoutes.login || location == AppRoutes.confirmEmail;
+      if (authRefresh.value.isAuthenticated && isAuthEntry) {
+        return AppRoutes.lobby;
+      }
+      return null;
+    },
     routes: <RouteBase>[
       GoRoute(
         path: AppRoutes.splash,
@@ -95,5 +115,5 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>(
         builder: (context, state) => const HiredPassPage(),
       ),
     ],
-  ),
-);
+  );
+});

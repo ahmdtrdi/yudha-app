@@ -105,6 +105,7 @@ class CardPlayedUpdate extends OnlineBattleUpdate {
     required this.effectValue,
     required this.projectileLevel,
     required this.isSelfAction,
+    this.category,
   });
 
   final String cardId;
@@ -113,6 +114,7 @@ class CardPlayedUpdate extends OnlineBattleUpdate {
   final int effectValue;
   final int projectileLevel;
   final bool isSelfAction;
+  final String? category;
 }
 
 class MatchResultUpdate extends OnlineBattleUpdate {

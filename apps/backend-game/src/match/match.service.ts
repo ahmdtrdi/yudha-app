@@ -6,6 +6,7 @@ import type {
   MatchFoundPayload,
   OpenCardPayload,
   PlayCardPayload,
+  PlayCardResultPayload,
   SurrenderPayload,
 } from '../contracts/match.payloads';
 import type { MatchmakingMode } from '../contracts/battle-state';
@@ -174,11 +175,7 @@ export class MatchService {
         socketId,
         event: SERVER_MATCH_EVENTS.queueJoined,
         payload: {
-          position: this.rooms.queuePositionFor(
-            userId,
-            profile.target,
-            mode,
-          ),
+          position: this.rooms.queuePositionFor(userId, profile.target, mode),
           queueDepth: queueResult.queueDepth,
           mode,
           target: profile.target,
@@ -445,11 +442,7 @@ export class MatchService {
     });
 
     const emits: MatchEmit[] = [
-      {
-        socketId,
-        event: SERVER_MATCH_EVENTS.playCardResult,
-        payload: result.playResult,
-      },
+      ...this.playResultEmits(room, result.playResult),
       ...this.stateEmits(room),
     ];
 
@@ -505,16 +498,10 @@ export class MatchService {
       responseTimeMs: snapshotBefore.responseTimeMs,
     });
 
-    const emits: MatchEmit[] = [...this.stateEmits(room)];
-
-    const socketId = this.rooms.getSocketIdForUser(userId);
-    if (socketId) {
-      emits.unshift({
-        socketId,
-        event: SERVER_MATCH_EVENTS.playCardResult,
-        payload: result.playResult,
-      });
-    }
+    const emits: MatchEmit[] = [
+      ...this.playResultEmits(room, result.playResult),
+      ...this.stateEmits(room),
+    ];
 
     if (result.matchResult) {
       this.clearRoundTimers(room.roomId);
@@ -711,6 +698,24 @@ export class MatchService {
       .filter((emit): emit is MatchEmit => Boolean(emit));
   }
 
+  private playResultEmits(
+    room: InternalRoomState,
+    payload: PlayCardResultPayload,
+  ): MatchEmit[] {
+    return this.rooms
+      .listRoomUsers(room)
+      .map((userId): MatchEmit | undefined => {
+        const socketId = this.rooms.getSocketIdForUser(userId, room);
+        if (!socketId) return undefined;
+        return {
+          socketId,
+          event: SERVER_MATCH_EVENTS.playCardResult,
+          payload,
+        };
+      })
+      .filter((emit): emit is MatchEmit => Boolean(emit));
+  }
+
   private matchResultEmits(room: InternalRoomState): MatchEmit[] {
     if (!room.result) return [];
     return this.rooms
@@ -728,20 +733,18 @@ export class MatchService {
     const payload = {
       roomId: room.roomId,
       players: Object.fromEntries(
-        this.rooms
-          .listRoomUsers(room)
-          .map((userId) => {
-            const player = this.engine.getPlayer(room, userId)!;
-            return [
-              userId,
-              {
-                connected: player.connected,
-                ...(player.reconnectDeadline
-                  ? { reconnectDeadline: player.reconnectDeadline.toISOString() }
-                  : {}),
-              },
-            ];
-          }),
+        this.rooms.listRoomUsers(room).map((userId) => {
+          const player = this.engine.getPlayer(room, userId)!;
+          return [
+            userId,
+            {
+              connected: player.connected,
+              ...(player.reconnectDeadline
+                ? { reconnectDeadline: player.reconnectDeadline.toISOString() }
+                : {}),
+            },
+          ];
+        }),
       ),
     };
     return {
@@ -878,5 +881,4 @@ export class MatchService {
       ],
     };
   }
-
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:yudha_mobile/app/config/app_config.dart';
+import 'package:yudha_mobile/core/errors/user_facing_error.dart';
 import 'package:yudha_mobile/features/pvp/data/repositories/online_battle_repository.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_question.dart';
@@ -63,9 +64,7 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
     OnlineMatchmakingMode matchmakingMode = OnlineMatchmakingMode.casual,
   }) async {
     if (_accessToken == null || _accessToken.trim().isEmpty) {
-      throw StateError(
-        'Mode online membutuhkan sesi login Supabase. Silakan masuk ulang.',
-      );
+      throw StateError('Sesi login sudah berakhir. Silakan masuk ulang.');
     }
 
     if (_sessionCompleter != null && !_sessionCompleter!.isCompleted) {
@@ -221,15 +220,18 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
         completer.complete();
       }
     });
-    socket.onConnectError((dynamic error) {
+    socket.onConnectError((_) {
+      const String message = UserFacingError.offlineMessage;
       if (!completer.isCompleted) {
-        completer.completeError(
-          StateError('Koneksi arena gagal dibuat. ${error ?? ''}'.trim()),
-        );
+        completer.completeError(StateError(message));
       }
-      _emitError('Arena online belum bisa dihubungkan.');
+      _emitError(message);
     });
     socket.onError((dynamic error) {
+      if (error != null && UserFacingError.isNetworkFailure(error)) {
+        _emitError(UserFacingError.offlineMessage);
+        return;
+      }
       _emitError(_extractMessage(error) ?? 'Arena online mengalami gangguan.');
     });
     socket.onDisconnect((_) {
@@ -374,6 +376,7 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
       _updatesController.add(
         CardPlayedUpdate(
           cardId: data['cardId'] as String? ?? '',
+          category: data['category'] as String?,
           correct: data['correct'] as bool? ?? false,
           effect: _parseEffect(data['effect'] as String?),
           effectValue: _asInt(data['effectValue']),

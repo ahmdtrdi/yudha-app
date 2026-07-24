@@ -15,13 +15,14 @@ import { GamePlayerProfileService } from './profiles/game-player-profile.service
 
 /** Stub cards for testing — mimics DB-sourced values */
 const STUB_CARDS: InternalCard[] = Array.from({ length: 12 }, (_, i) => ({
-      id: `card_${i + 1}`,
-      sourceQuestionId: `question_${i + 1}`,
+  id: `card_${i + 1}`,
+  sourceQuestionId: `question_${i + 1}`,
   prompt: `Question ${i + 1}`,
   options: ['A', 'B', 'C', 'D'],
   correctOptionIndex: 0,
   weight: 1,
   effect: i % 3 === 0 ? ('heal' as const) : ('damage' as const),
+  category: i % 2 === 0 ? 'twk' : 'numerik',
   damageValue: i % 3 === 0 ? 0 : 14,
   healValue: i % 3 === 0 ? 14 : 0,
   timeLimitSeconds: 30,
@@ -86,8 +87,9 @@ const profileFor = (userId: string) => ({
 });
 
 const mockProfileService = {
-  getProfile: jest.fn().mockImplementation(async (userId: string) =>
-    profileFor(userId)),
+  getProfile: jest
+    .fn()
+    .mockImplementation(async (userId: string) => profileFor(userId)),
   botProfile: jest.fn().mockImplementation(() => ({
     ...profileFor('bot'),
     displayName: 'BOT YUDHA',
@@ -120,14 +122,16 @@ describe('MatchService', () => {
     roomManager = module.get<RoomManager>(RoomManager);
     cardTimeoutService = module.get<CardTimeoutService>(CardTimeoutService);
 
-    mockBotBattleService.createBotMatch.mockImplementation(async (profile, socketId) => {
-      return roomManager.createBotRoom(
-        profile,
-        mockProfileService.botProfile(),
-        socketId,
-        STUB_CARDS,
-      );
-    });
+    mockBotBattleService.createBotMatch.mockImplementation(
+      async (profile, socketId) => {
+        return roomManager.createBotRoom(
+          profile,
+          mockProfileService.botProfile(),
+          socketId,
+          STUB_CARDS,
+        );
+      },
+    );
 
     jest
       .spyOn(cardTimeoutService, 'scheduleTimeout')
@@ -148,16 +152,12 @@ describe('MatchService', () => {
 
   describe('Matchmaking Queue', () => {
     it('rejects unsupported matchmaking modes before loading a profile', async () => {
-      const result = await service.handleJoinQueue(
-        'player-a',
-        'socket-a',
-        { mode: 'tournament' as never },
-      );
+      const result = await service.handleJoinQueue('player-a', 'socket-a', {
+        mode: 'tournament' as never,
+      });
 
       expect(
-        result.emits.some(
-          (emit) => emit.event === SERVER_MATCH_EVENTS.error,
-        ),
+        result.emits.some((emit) => emit.event === SERVER_MATCH_EVENTS.error),
       ).toBe(true);
       expect(mockProfileService.getProfile).not.toHaveBeenCalled();
     });
@@ -219,8 +219,16 @@ describe('MatchService', () => {
         profileFor('player-a'),
         'socket-a',
       );
-      expect(result.emits.some((emit) => emit.event === SERVER_MATCH_EVENTS.matchFound)).toBe(true);
-      expect(result.emits.some((emit) => emit.event === SERVER_MATCH_EVENTS.gameStateUpdate)).toBe(true);
+      expect(
+        result.emits.some(
+          (emit) => emit.event === SERVER_MATCH_EVENTS.matchFound,
+        ),
+      ).toBe(true);
+      expect(
+        result.emits.some(
+          (emit) => emit.event === SERVER_MATCH_EVENTS.gameStateUpdate,
+        ),
+      ).toBe(true);
     });
 
     it('rejects bot mode join if player is already in an active room', async () => {
@@ -303,6 +311,19 @@ describe('MatchService', () => {
           (e) => e.event === SERVER_MATCH_EVENTS.playCardResult,
         ),
       ).toBe(true);
+      const playResultEmits = result.emits.filter(
+        (e) => e.event === SERVER_MATCH_EVENTS.playCardResult,
+      );
+      expect(playResultEmits).toHaveLength(2);
+      expect(playResultEmits.map((emit) => emit.socketId).sort()).toEqual([
+        'socket-a',
+        'socket-b',
+      ]);
+      expect(
+        playResultEmits.every(
+          (emit) => (emit.payload as { category?: string }).category === 'twk',
+        ),
+      ).toBe(true);
     });
 
     it('handles play_card incorrect answer and updates state', async () => {
@@ -328,15 +349,20 @@ describe('MatchService', () => {
         roomId,
       });
 
-      expect(cardTimeoutService.cancelAllTimersForRoom).toHaveBeenCalledWith(roomId);
-      expect(mockBotBattleService.cancelBotSchedule).toHaveBeenCalledWith(roomId);
+      expect(cardTimeoutService.cancelAllTimersForRoom).toHaveBeenCalledWith(
+        roomId,
+      );
+      expect(mockBotBattleService.cancelBotSchedule).toHaveBeenCalledWith(
+        roomId,
+      );
       const resultEmit = result.emits.find(
         (emit) => emit.event === SERVER_MATCH_EVENTS.matchResult,
       );
       expect(resultEmit).toBeDefined();
-      expect((resultEmit?.payload as { progressionPersisted?: boolean }).progressionPersisted).toBe(
-        true,
-      );
+      expect(
+        (resultEmit?.payload as { progressionPersisted?: boolean })
+          .progressionPersisted,
+      ).toBe(true);
     });
 
     it('rejects surrender if room not found', async () => {
@@ -391,11 +417,9 @@ describe('MatchService', () => {
       await service.handleJoinQueue('player-a', 'socket-a', {
         mode: 'casual',
       });
-      const joinResult = await service.handleJoinQueue(
-        'player-b',
-        'socket-b',
-        { mode: 'casual' },
-      );
+      const joinResult = await service.handleJoinQueue('player-b', 'socket-b', {
+        mode: 'casual',
+      });
       const matchFound = joinResult.emits.find(
         (emit) => emit.event === SERVER_MATCH_EVENTS.matchFound,
       );
@@ -421,9 +445,7 @@ describe('MatchService', () => {
         expect(presence.players['player-a'].reconnectDeadline).toBeDefined();
 
         const reconnect = service.registerSocket('socket-a-new', 'player-a');
-        await jest.advanceTimersByTimeAsync(
-          MatchService.DISCONNECT_GRACE_MS,
-        );
+        await jest.advanceTimersByTimeAsync(MatchService.DISCONNECT_GRACE_MS);
 
         expect(room.status).toBe('active');
         expect(room.players.playerA.connected).toBe(true);
@@ -448,9 +470,7 @@ describe('MatchService', () => {
         const { room } = await createCasualMatch();
 
         service.handleDisconnect('socket-a');
-        await jest.advanceTimersByTimeAsync(
-          MatchService.DISCONNECT_GRACE_MS,
-        );
+        await jest.advanceTimersByTimeAsync(MatchService.DISCONNECT_GRACE_MS);
 
         expect(room.status).toBe('finished');
         expect(room.result?.reason).toBe('disconnect');
@@ -482,9 +502,7 @@ describe('MatchService', () => {
 
         service.handleDisconnect('socket-a');
         service.handleDisconnect('socket-b');
-        await jest.advanceTimersByTimeAsync(
-          MatchService.DISCONNECT_GRACE_MS,
-        );
+        await jest.advanceTimersByTimeAsync(MatchService.DISCONNECT_GRACE_MS);
 
         expect(room.status).toBe('finished');
         expect(room.result?.reason).toBe('disconnect');
@@ -517,9 +535,7 @@ describe('MatchService', () => {
           cardId: 'card_2',
           selectedOptionIndex: 0,
         });
-        await jest.advanceTimersByTimeAsync(
-          MatchService.DISCONNECT_GRACE_MS,
-        );
+        await jest.advanceTimersByTimeAsync(MatchService.DISCONNECT_GRACE_MS);
 
         expect(room.result?.reason).toBe('hp_zero');
         expect(mockMatchResultService.finalizeMatch).toHaveBeenCalledTimes(1);
@@ -543,8 +559,14 @@ describe('MatchService', () => {
 
       const result = service.handleDisconnect('socket-a');
 
-      expect(cardTimeoutService.cancelAllTimersForRoom).not.toHaveBeenCalledWith(roomId);
-      expect(result.emits.some((e) => e.event === SERVER_MATCH_EVENTS.presenceUpdate)).toBe(true);
+      expect(
+        cardTimeoutService.cancelAllTimersForRoom,
+      ).not.toHaveBeenCalledWith(roomId);
+      expect(
+        result.emits.some(
+          (e) => e.event === SERVER_MATCH_EVENTS.presenceUpdate,
+        ),
+      ).toBe(true);
     });
 
     it('returns empty emits if disconnecting user is only queue-removed', async () => {

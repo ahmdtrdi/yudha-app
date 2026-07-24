@@ -525,9 +525,12 @@ void main() {
           effectValue: 10,
           projectileLevel: 2,
           isSelfAction: false,
+          category: 'verbal',
         ),
       );
       expect(controller.state.lastActor, BattleActor.opponent);
+      expect(controller.state.lastEventCategory, 'verbal');
+      expect(controller.state.lastVisualEffect, BattleVisualEffect.wizard);
 
       online.emit(
         const MatchResultUpdate(
