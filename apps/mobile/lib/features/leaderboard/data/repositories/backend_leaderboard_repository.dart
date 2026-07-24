@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:yudha_mobile/app/config/app_config.dart';
 import 'package:yudha_mobile/features/leaderboard/data/repositories/leaderboard_repository.dart';
-import 'package:yudha_mobile/features/leaderboard/data/repositories/mock_leaderboard_repository.dart';
 import 'package:yudha_mobile/features/leaderboard/domain/entities/leaderboard_entry.dart';
 import 'package:yudha_mobile/features/leaderboard/domain/entities/leaderboard_page_payload.dart';
 import 'package:yudha_mobile/features/leaderboard/domain/entities/leaderboard_query.dart';
@@ -22,34 +21,23 @@ class BackendLeaderboardRepository extends LeaderboardRepository {
   BackendLeaderboardRepository({
     required LeaderboardApiConfig config,
     http.Client? client,
-    LeaderboardRepository? fallbackRepository,
   }) : _config = config,
-       _client = client ?? http.Client(),
-       _fallbackRepository =
-           fallbackRepository ?? const MockLeaderboardRepository();
+       _client = client ?? http.Client();
 
   final LeaderboardApiConfig _config;
   final http.Client _client;
-  final LeaderboardRepository _fallbackRepository;
 
   @override
   Future<LeaderboardPagePayload> fetchPage(LeaderboardQuery query) async {
-    try {
-      final int limit = query.pageSize;
-      final int offset = (query.page - 1) * query.pageSize;
-      final Map<String, dynamic> leaderboardBody = await _get(
-        '/leaderboard?limit=$limit&offset=$offset',
-      );
-      final LeaderboardPagePayload pagePayload = _payloadFromJson(
-        leaderboardBody,
-      );
-      final LeaderboardPagePayload withCurrentUser = await _attachCurrentUser(
-        pagePayload,
-      );
-      return withCurrentUser;
-    } catch (_) {
-      return _fallbackRepository.fetchPage(query);
-    }
+    final int limit = query.pageSize;
+    final int offset = (query.page - 1) * query.pageSize;
+    final Map<String, dynamic> leaderboardBody = await _get(
+      '/leaderboard?limit=$limit&offset=$offset',
+    );
+    final LeaderboardPagePayload pagePayload = _payloadFromJson(
+      leaderboardBody,
+    );
+    return _attachCurrentUser(pagePayload);
   }
 
   LeaderboardPagePayload _payloadFromJson(Map<String, dynamic> json) {
@@ -63,14 +51,27 @@ class BackendLeaderboardRepository extends LeaderboardRepository {
   }
 
   LeaderboardEntry _entryFromJson(Map<String, dynamic> json) {
+    final String playerId =
+        json['userId']?.toString() ?? json['playerId']?.toString() ?? '';
+    if (playerId.trim().isEmpty) {
+      throw const LeaderboardApiException(
+        'Leaderboard API returned an entry without a user ID.',
+      );
+    }
+
+    final String playerName =
+        json['username']?.toString().trim() ??
+        json['playerName']?.toString().trim() ??
+        '';
+
     return LeaderboardEntry(
-      playerId:
-          json['userId']?.toString() ?? json['playerId']?.toString() ?? '',
-      playerName:
-          json['username']?.toString() ?? json['playerName']?.toString() ?? '',
+      rank: _readRequiredInt(json['rank'], field: 'rank'),
+      playerId: playerId,
+      playerName: playerName.isEmpty ? 'Pengguna YUDHA' : playerName,
       points: _readNullableInt(json['rankPoints'] ?? json['points']) ?? 0,
       winRate: _readDouble(json['winrate'] ?? json['winRate']),
-      streak: _readNullableInt(json['streak']) ?? 0,
+      totalMatches:
+          _readNullableInt(json['totalMatches'] ?? json['total_matches']) ?? 0,
       isCurrentUser: json['isCurrentUser'] == true,
     );
   }
@@ -110,37 +111,34 @@ class BackendLeaderboardRepository extends LeaderboardRepository {
       return payload;
     }
 
-    try {
-      final Map<String, dynamic> body = await _get('/leaderboard/me');
-      final Map<String, dynamic>? data = body['data'] is Map<String, dynamic>
-          ? body['data'] as Map<String, dynamic>
-          : null;
-      if (data == null) {
-        return payload;
-      }
-
-      final LeaderboardEntry currentUserEntry = _entryFromJson(
-        data,
-      ).copyWith(isCurrentUser: true);
-      final int? currentUserRank = _readNullableInt(data['rank']);
-      final List<LeaderboardEntry> entries = payload.entries
-          .map(
-            (LeaderboardEntry entry) =>
-                entry.playerId == currentUserEntry.playerId
-                ? currentUserEntry
-                : entry.copyWith(isCurrentUser: false),
-          )
-          .toList(growable: false);
-
-      return LeaderboardPagePayload(
-        entries: entries,
-        hasMore: payload.hasMore,
-        currentUserRank: currentUserRank,
-        currentUserEntry: currentUserEntry,
+    final Map<String, dynamic> body = await _get('/leaderboard/me');
+    final Map<String, dynamic>? data = body['data'] is Map<String, dynamic>
+        ? body['data'] as Map<String, dynamic>
+        : null;
+    if (data == null) {
+      throw const LeaderboardApiException(
+        'Leaderboard API returned no current-user rank.',
       );
-    } catch (_) {
-      return payload;
     }
+
+    final LeaderboardEntry currentUserEntry = _entryFromJson(
+      data,
+    ).copyWith(isCurrentUser: true);
+    final List<LeaderboardEntry> entries = payload.entries
+        .map(
+          (LeaderboardEntry entry) =>
+              entry.playerId == currentUserEntry.playerId
+              ? currentUserEntry
+              : entry.copyWith(isCurrentUser: false),
+        )
+        .toList(growable: false);
+
+    return LeaderboardPagePayload(
+      entries: entries,
+      hasMore: payload.hasMore,
+      currentUserRank: currentUserEntry.rank,
+      currentUserEntry: currentUserEntry,
+    );
   }
 
   bool _readHasMore(Map<String, dynamic> json) {
@@ -174,6 +172,16 @@ class BackendLeaderboardRepository extends LeaderboardRepository {
       return int.tryParse(value);
     }
     return null;
+  }
+
+  int _readRequiredInt(Object? value, {required String field}) {
+    final int? parsed = _readNullableInt(value);
+    if (parsed == null || parsed <= 0) {
+      throw LeaderboardApiException(
+        'Leaderboard API returned an invalid $field.',
+      );
+    }
+    return parsed;
   }
 
   double _readDouble(Object? value) {

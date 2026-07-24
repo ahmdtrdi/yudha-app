@@ -1,24 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:yudha_mobile/features/gamification/domain/entities/player_progress.dart';
 import 'package:yudha_mobile/features/leaderboard/application/leaderboard_state.dart';
 import 'package:yudha_mobile/features/leaderboard/data/repositories/leaderboard_repository.dart';
 import 'package:yudha_mobile/features/leaderboard/domain/entities/leaderboard_entry.dart';
-import 'package:yudha_mobile/features/leaderboard/domain/entities/leaderboard_page_payload.dart';
 import 'package:yudha_mobile/features/leaderboard/domain/entities/leaderboard_query.dart';
-import 'package:yudha_mobile/features/leaderboard/domain/entities/leaderboard_scope.dart';
 
 class LeaderboardController extends StateNotifier<LeaderboardState> {
-  LeaderboardController({
-    required LeaderboardRepository repository,
-    required PlayerProgress currentProgress,
-  }) : _repository = repository,
-       _currentProgress = currentProgress,
-       super(LeaderboardState.initial()) {
+  LeaderboardController({required LeaderboardRepository repository})
+    : _repository = repository,
+      super(LeaderboardState.initial()) {
     loadInitial();
   }
 
   final LeaderboardRepository _repository;
-  final PlayerProgress _currentProgress;
 
   static const int pageSize = 8;
 
@@ -39,23 +32,6 @@ class LeaderboardController extends StateNotifier<LeaderboardState> {
     await _fetchPage(page: 1, append: false);
   }
 
-  Future<void> setScope(LeaderboardScope scope) async {
-    if (scope == state.scope) {
-      return;
-    }
-
-    state = state.copyWith(
-      scope: scope,
-      status: LeaderboardViewStatus.loading,
-      entries: const <LeaderboardEntry>[],
-      page: 1,
-      hasMore: false,
-      clearCurrentUser: true,
-      clearError: true,
-    );
-    await _fetchPage(page: 1, append: false);
-  }
-
   Future<void> loadMore() async {
     if (!state.hasMore || state.isLoadingMore) {
       return;
@@ -68,21 +44,17 @@ class LeaderboardController extends StateNotifier<LeaderboardState> {
   Future<void> _fetchPage({required int page, required bool append}) async {
     try {
       final payload = await _repository.fetchPage(
-        LeaderboardQuery(scope: state.scope, page: page, pageSize: pageSize),
+        LeaderboardQuery(page: page, pageSize: pageSize),
       );
 
-      final List<LeaderboardEntry> baseEntries = append
+      final List<LeaderboardEntry> entries = append
           ? <LeaderboardEntry>[...state.entries, ...payload.entries]
           : payload.entries;
-      final List<LeaderboardEntry> normalizedEntries = _normalizeEntries(
-        baseEntries,
-        payload: payload,
-      );
 
-      final bool isEmpty = normalizedEntries.isEmpty;
+      final bool isEmpty = entries.isEmpty;
 
       state = state.copyWith(
-        entries: normalizedEntries,
+        entries: entries,
         page: page,
         hasMore: payload.hasMore,
         isLoadingMore: false,
@@ -104,45 +76,5 @@ class LeaderboardController extends StateNotifier<LeaderboardState> {
         errorMessage: 'Gagal memuat leaderboard. Coba lagi.',
       );
     }
-  }
-
-  List<LeaderboardEntry> _normalizeEntries(
-    List<LeaderboardEntry> entries, {
-    required LeaderboardPagePayload payload,
-  }) {
-    final List<LeaderboardEntry> mutable = entries
-        .where(
-          (LeaderboardEntry entry) =>
-              entry.playerId != _currentProgress.playerId,
-        )
-        .toList(growable: true);
-
-    if (payload.currentUserRank == null &&
-        payload.currentUserEntry == null &&
-        state.scope == LeaderboardScope.global) {
-      final int insertIndex = mutable.indexWhere(
-        (e) => _currentProgress.totalPoints >= e.points,
-      );
-
-      if (insertIndex != -1) {
-        mutable.insert(
-          insertIndex,
-          LeaderboardEntry(
-            playerId: _currentProgress.playerId,
-            playerName: _currentProgress.displayName,
-            points: _currentProgress.totalPoints,
-            winRate: _currentProgress.winRate,
-            streak: _currentProgress.streak,
-            isCurrentUser: true,
-          ),
-        );
-      }
-    }
-
-    mutable.sort((LeaderboardEntry a, LeaderboardEntry b) {
-      return b.points.compareTo(a.points);
-    });
-
-    return mutable;
   }
 }

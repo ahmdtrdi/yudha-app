@@ -1,11 +1,9 @@
 import 'package:yudha_mobile/features/leaderboard/domain/entities/leaderboard_entry.dart';
-import 'package:yudha_mobile/features/leaderboard/domain/entities/leaderboard_scope.dart';
 
 enum LeaderboardViewStatus { loading, success, empty, error }
 
 class LeaderboardState {
   const LeaderboardState({
-    required this.scope,
     required this.entries,
     required this.status,
     required this.page,
@@ -18,7 +16,6 @@ class LeaderboardState {
 
   factory LeaderboardState.initial() {
     return const LeaderboardState(
-      scope: LeaderboardScope.global,
       entries: <LeaderboardEntry>[],
       status: LeaderboardViewStatus.loading,
       page: 1,
@@ -30,7 +27,6 @@ class LeaderboardState {
     );
   }
 
-  final LeaderboardScope scope;
   final List<LeaderboardEntry> entries;
   final LeaderboardViewStatus status;
   final int page;
@@ -41,7 +37,6 @@ class LeaderboardState {
   final String? errorMessage;
 
   LeaderboardState copyWith({
-    LeaderboardScope? scope,
     List<LeaderboardEntry>? entries,
     LeaderboardViewStatus? status,
     int? page,
@@ -54,7 +49,6 @@ class LeaderboardState {
     bool clearError = false,
   }) {
     return LeaderboardState(
-      scope: scope ?? this.scope,
       entries: entries ?? this.entries,
       status: status ?? this.status,
       page: page ?? this.page,
