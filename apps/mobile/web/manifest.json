@@ -1,0 +1,40 @@
+{
+    "id": "/",
+    "name": "YUDHA — Your Ultimate Digital Hiring Arena",
+    "short_name": "YUDHA",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#1C405D",
+    "theme_color": "#1C405D",
+    "description": "Platform belajar persiapan CPNS dan BUMN berbasis game.",
+    "lang": "id-ID",
+    "dir": "ltr",
+    "categories": ["education", "games"],
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

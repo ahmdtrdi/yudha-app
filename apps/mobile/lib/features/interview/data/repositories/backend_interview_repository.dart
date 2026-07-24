@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:yudha_mobile/app/config/app_config.dart';
@@ -184,10 +183,6 @@ class BackendInterviewRepository implements InterviewRepository {
       throw const InterviewApiException(
         'Rekaman belum dapat dikirim. Periksa koneksi lalu coba lagi.',
       );
-    } on SocketException {
-      throw const InterviewApiException(
-        'Rekaman belum dapat dikirim. Periksa koneksi lalu coba lagi.',
-      );
     }
     final http.Response response = await http.Response.fromStream(
       streamedResponse,
@@ -234,10 +229,6 @@ class BackendInterviewRepository implements InterviewRepository {
       throw const InterviewApiException(
         'Pewawancara AI belum dapat dihubungi. Periksa koneksi lalu coba lagi.',
       );
-    } on SocketException {
-      throw const InterviewApiException(
-        'Pewawancara AI belum dapat dihubungi. Periksa koneksi lalu coba lagi.',
-      );
     }
 
     return _decodeResponse(response);
@@ -257,10 +248,6 @@ class BackendInterviewRepository implements InterviewRepository {
         'Sesi interview belum berhasil dimuat. Coba lagi.',
       );
     } on http.ClientException {
-      throw const InterviewApiException(
-        'Sesi interview belum dapat dihubungi. Periksa koneksi lalu coba lagi.',
-      );
-    } on SocketException {
       throw const InterviewApiException(
         'Sesi interview belum dapat dihubungi. Periksa koneksi lalu coba lagi.',
       );

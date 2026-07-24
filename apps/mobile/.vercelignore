@@ -1,0 +1,7 @@
+.dart_tool/
+.flutter-sdk/
+android/
+build/
+test/
+.env*
+*.iml

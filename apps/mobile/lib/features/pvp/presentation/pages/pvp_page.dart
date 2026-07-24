@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -17,6 +17,8 @@ import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state
 import 'package:yudha_mobile/features/economy/presentation/widgets/economy_widgets.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
+import 'package:yudha_mobile/features/profile/application/user_profile_providers.dart';
+import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 import 'package:yudha_mobile/features/pvp/application/battle_controller.dart';
 import 'package:yudha_mobile/features/pvp/application/battle_providers.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
@@ -32,11 +34,11 @@ part 'pvp_page/arena_menu_section.dart';
 part 'pvp_page/in_battle_section.dart';
 part 'pvp_page/result_status_section.dart';
 
-const String _enemyMiniTowerAsset = 'assets/game/arena_turret_coral.png';
-const String _numerikCardAsset = 'assets/game/card_numerik.png';
-const String _verbalCardAsset = 'assets/game/card_verbal.png';
-const String _logikaCardAsset = 'assets/game/card_logika.png';
-const String _twkCardAsset = 'assets/game/card_twk.png';
+const String _enemyMiniTowerAsset = 'assets/game/arena_turret_coral.webp';
+const String _numerikCardAsset = 'assets/game/card_numerik.webp';
+const String _verbalCardAsset = 'assets/game/card_verbal.webp';
+const String _logikaCardAsset = 'assets/game/card_logika.webp';
+const String _twkCardAsset = 'assets/game/card_twk.webp';
 
 String _firstName(String value, {required String fallback}) {
   final String normalized = value.trim();
@@ -55,6 +57,19 @@ class PvpPage extends ConsumerStatefulWidget {
 
 class _PvpPageState extends ConsumerState<PvpPage> {
   _ArenaSetupStep _setupStep = _ArenaSetupStep.arena;
+  String? _scheduledArenaSyncId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(
+          ref.read(battleControllerProvider.notifier).reconnectIfActive(),
+        );
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +88,13 @@ class _PvpPageState extends ConsumerState<PvpPage> {
     final bool soundEnabled = ref.watch(
       profileSettingsProvider.select((settings) => settings.soundEnabled),
     );
+    final ProfileTarget? localTarget = ref.watch(
+      profileSettingsProvider.select((settings) => settings.target),
+    );
+    final ProfileTarget? remoteTarget = ref.watch(
+      userProfileProvider.select((state) => state.profile?.target),
+    );
+    final ProfileTarget? profileTarget = remoteTarget ?? localTarget;
     final CosmeticItem selectedCharacter =
         GameEconomyCatalog.findCharacter(economy.equippedCharacterId) ??
         GameEconomyCatalog.characters.first;
@@ -84,9 +106,13 @@ class _PvpPageState extends ConsumerState<PvpPage> {
           (CosmeticItem item) => item.id != selectedCharacter.id,
           orElse: () => GameEconomyCatalog.characters.first,
         );
-    final CosmeticItem selectedArena =
+    final CosmeticItem savedArena =
         GameEconomyCatalog.findArena(economy.equippedArenaId) ??
         GameEconomyCatalog.arenas.first;
+    final CosmeticItem selectedArena =
+        GameEconomyCatalog.findArena(profileTarget?.arenaId ?? '') ??
+        savedArena;
+    _ensureArenaMatchesTarget(profileTarget, economy);
     final bool useServerSnapshot =
         state.mode == BattleMode.online &&
         (state.isMatchActive || state.isBattleFinished);
@@ -137,64 +163,72 @@ class _PvpPageState extends ConsumerState<PvpPage> {
         opponentCharacter: battleOpponentCharacter,
         opponentTower: battleOpponentTower,
         selectedArena: battleArena,
+        profileTarget: profileTarget,
         soundEnabled: soundEnabled,
       );
-      return Scaffold(
-        backgroundColor: needsDark
-            ? const Color(0xFF0D2A52)
-            : const Color(0xFFFFF8EC),
-        body: SafeArea(
-          child: Stack(
-            children: <Widget>[
-              Positioned.fill(child: content),
-              if (!state.isLoading &&
-                  state.phase == BattlePhase.arenaMenu &&
-                  state.errorMessage != null)
-                Positioned(
-                  top: 10,
-                  left: 16,
-                  right: 16,
-                  child: _StatusBanner(
-                    text: state.errorMessage!,
-                    isError: true,
+      return _SystemBarStyle(
+        darkBackground: needsDark,
+        child: Scaffold(
+          backgroundColor: needsDark
+              ? const Color(0xFF0D2A52)
+              : const Color(0xFFFFF8EC),
+          body: SafeArea(
+            child: Stack(
+              children: <Widget>[
+                Positioned.fill(child: content),
+                if (!state.isLoading &&
+                    state.phase == BattlePhase.arenaMenu &&
+                    state.errorMessage != null)
+                  Positioned(
+                    top: 10,
+                    left: 16,
+                    right: 16,
+                    child: _StatusBanner(
+                      text: state.errorMessage!,
+                      isError: true,
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       );
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFF8EC),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
-          child: Column(
-            children: <Widget>[
-              if (state.statusMessage != null)
-                _StatusBanner(text: state.statusMessage!),
-              if (state.errorMessage != null)
-                _StatusBanner(text: state.errorMessage!, isError: true),
-              if (state.statusMessage != null || state.errorMessage != null)
-                const SizedBox(height: 6),
-              Expanded(
-                child: _buildBattleContent(
-                  context: context,
-                  ref: ref,
-                  state: state,
-                  controller: controller,
-                  playerDisplayName: playerFirstName,
-                  economy: economy,
-                  selectedCharacter: battlePlayerCharacter,
-                  selectedTower: battlePlayerTower,
-                  opponentCharacter: battleOpponentCharacter,
-                  opponentTower: battleOpponentTower,
-                  selectedArena: battleArena,
-                  soundEnabled: soundEnabled,
+    return _SystemBarStyle(
+      darkBackground: false,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFFFF8EC),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+            child: Column(
+              children: <Widget>[
+                if (state.statusMessage != null)
+                  _StatusBanner(text: state.statusMessage!),
+                if (state.errorMessage != null)
+                  _StatusBanner(text: state.errorMessage!, isError: true),
+                if (state.statusMessage != null || state.errorMessage != null)
+                  const SizedBox(height: 6),
+                Expanded(
+                  child: _buildBattleContent(
+                    context: context,
+                    ref: ref,
+                    state: state,
+                    controller: controller,
+                    playerDisplayName: playerFirstName,
+                    economy: economy,
+                    selectedCharacter: battlePlayerCharacter,
+                    selectedTower: battlePlayerTower,
+                    opponentCharacter: battleOpponentCharacter,
+                    opponentTower: battleOpponentTower,
+                    selectedArena: battleArena,
+                    profileTarget: profileTarget,
+                    soundEnabled: soundEnabled,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -213,6 +247,7 @@ class _PvpPageState extends ConsumerState<PvpPage> {
     required CosmeticItem opponentCharacter,
     required CosmeticItem opponentTower,
     required CosmeticItem selectedArena,
+    required ProfileTarget? profileTarget,
     required bool soundEnabled,
   }) {
     if (state.isLoading) {
@@ -235,17 +270,32 @@ class _PvpPageState extends ConsumerState<PvpPage> {
         selectedCharacter: selectedCharacter,
         selectedTower: selectedTower,
         selectedArena: selectedArena,
+        profileTarget: profileTarget,
         onSelectCosmetic: (CosmeticItem item) {
           unawaited(
             ref.read(gameEconomyProvider.notifier).equipAuthoritative(item),
           );
         },
         onSelectArena: (CosmeticItem arena) {
-          unawaited(
-            ref
-                .read(gameEconomyProvider.notifier)
-                .selectArenaAuthoritative(arena),
+          final GameEconomyController economyController = ref.read(
+            gameEconomyProvider.notifier,
           );
+          economyController.selectArena(arena);
+          unawaited(economyController.selectArenaAuthoritative(arena));
+        },
+        onLockedArenaTap: (CosmeticItem arena) {
+          final String targetLabel = profileTarget?.label ?? '';
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Arena ini terkunci untuk tujuan $targetLabel. '
+                  'Pindah tujuan Anda di Pengaturan jika ingin bermain '
+                  'di ${arena.name}.',
+                ),
+              ),
+            );
         },
         onOpenStore: () => context.push(AppRoutes.store),
         onTopUp: () => showYCoinTopUpSheet(context),
@@ -359,6 +409,48 @@ class _PvpPageState extends ConsumerState<PvpPage> {
         }
       },
     );
+  }
+
+  void _ensureArenaMatchesTarget(
+    ProfileTarget? target,
+    GameEconomyState economy,
+  ) {
+    final String? targetArenaId = target?.arenaId;
+    if (targetArenaId == null ||
+        economy.equippedArenaId == targetArenaId ||
+        _scheduledArenaSyncId == targetArenaId) {
+      return;
+    }
+
+    final CosmeticItem? arena = GameEconomyCatalog.findArena(targetArenaId);
+    if (arena == null) {
+      return;
+    }
+    _scheduledArenaSyncId = targetArenaId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      final ProfileTarget? latestTarget = ref
+          .read(profileSettingsProvider)
+          .target;
+      if (latestTarget?.arenaId != targetArenaId) {
+        _scheduledArenaSyncId = null;
+        return;
+      }
+
+      final GameEconomyController controller = ref.read(
+        gameEconomyProvider.notifier,
+      );
+      controller.selectArena(arena);
+      unawaited(
+        controller.selectArenaAuthoritative(arena).whenComplete(() {
+          if (_scheduledArenaSyncId == targetArenaId) {
+            _scheduledArenaSyncId = null;
+          }
+        }),
+      );
+    });
   }
 
   Future<void> _showQuestionSheet({
@@ -558,6 +650,32 @@ class _PvpPageState extends ConsumerState<PvpPage> {
         controller.resetBattle();
       }
     }
+  }
+}
+
+class _SystemBarStyle extends StatelessWidget {
+  const _SystemBarStyle({
+    required this.darkBackground,
+    required this.child,
+  });
+
+  final bool darkBackground;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final SystemUiOverlayStyle base = darkBackground
+        ? SystemUiOverlayStyle.light
+        : SystemUiOverlayStyle.dark;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: base.copyWith(
+        statusBarColor: Colors.transparent,
+        systemStatusBarContrastEnforced: false,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarContrastEnforced: false,
+      ),
+      child: child,
+    );
   }
 }
 

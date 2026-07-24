@@ -45,6 +45,7 @@ dependencies:
   shared_preferences: ^2.3.3
   socket_io_client: ^3.1.2
   supabase_flutter: ^2.10.3
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
@@ -72,6 +73,7 @@ flutter:
 
   assets:
     - assets/audio/
+    - assets/fonts/
     - assets/game/
     - assets/icons/
     - assets/icons/navigation/
@@ -106,6 +108,11 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: false
+  web:
+    generate: true
+    image_path: assets/branding/app-icon-new.png
+    background_color: '#1C405D'
+    theme_color: '#1C405D'
   image_path: assets/branding/app-icon-new.png
   adaptive_icon_background: '#1C405D'
   adaptive_icon_foreground: assets/branding/app-icon-new.png

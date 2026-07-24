@@ -2,10 +2,11 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yudha_mobile/app/config/app_config.dart';
-import 'package:yudha_mobile/core/services/app_provider_observer.dart';
 import 'package:yudha_mobile/features/auth/data/app_auth_storage.dart';
 
 typedef AppBuilder = Widget Function();
@@ -15,6 +16,7 @@ abstract final class AppBootstrap {
     runZonedGuarded<Future<void>>(
       () async {
         WidgetsFlutterBinding.ensureInitialized();
+        _configureRendering();
 
         FlutterError.onError = (FlutterErrorDetails details) {
           FlutterError.presentError(details);
@@ -40,12 +42,7 @@ abstract final class AppBootstrap {
           );
         }
 
-        runApp(
-          ProviderScope(
-            observers: <ProviderObserver>[AppProviderObserver()],
-            child: builder(),
-          ),
-        );
+        runApp(ProviderScope(child: builder()));
       },
       (Object error, StackTrace stackTrace) {
         log(
@@ -55,6 +52,32 @@ abstract final class AppBootstrap {
           stackTrace: stackTrace,
         );
       },
+    );
+  }
+
+  static void _configureRendering() {
+    // Avoid layout shifts and network-dependent text rendering. All fonts used
+    // by the app are bundled under assets/fonts.
+    GoogleFonts.config.allowRuntimeFetching = false;
+
+    // Keep decoded gameplay images bounded on memory-constrained phones.
+    final ImageCache imageCache = PaintingBinding.instance.imageCache;
+    imageCache
+      ..maximumSize = 160
+      ..maximumSizeBytes = 64 << 20;
+
+    // Let each screen's own background continue beneath the status bar/cutout.
+    unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+        systemStatusBarContrastEnforced: false,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarContrastEnforced: false,
+      ),
     );
   }
 }

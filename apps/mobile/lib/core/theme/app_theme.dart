@@ -3,16 +3,20 @@ import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/core/theme/app_typography.dart';
 
 abstract final class AppTheme {
-  static ThemeData get lightTheme {
-    final ColorScheme colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.warriorNavy,
-      brightness: Brightness.light,
-    ).copyWith(
-      tertiary: AppColors.growthLime,
-      onTertiary: AppColors.textStrong,
-      tertiaryContainer: const Color(0xFFE8FFC9),
-      onTertiaryContainer: AppColors.textStrong,
-    );
+  static final ThemeData lightTheme = _buildLightTheme();
+  static final ThemeData darkTheme = _buildDarkTheme();
+
+  static ThemeData _buildLightTheme() {
+    final ColorScheme colorScheme =
+        ColorScheme.fromSeed(
+          seedColor: AppColors.warriorNavy,
+          brightness: Brightness.light,
+        ).copyWith(
+          tertiary: AppColors.growthLime,
+          onTertiary: AppColors.textStrong,
+          tertiaryContainer: const Color(0xFFE8FFC9),
+          onTertiaryContainer: AppColors.textStrong,
+        );
 
     final TextTheme textTheme = AppTypography.textTheme(Brightness.light);
 
@@ -128,9 +132,7 @@ abstract final class AppTheme {
         selectedColor: AppColors.growthLime.withAlpha(72),
         checkmarkColor: AppColors.warriorNavy,
         side: BorderSide(color: AppColors.warriorNavy.withAlpha(28)),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       textSelectionTheme: TextSelectionThemeData(
         cursorColor: AppColors.levelUpTeal,
@@ -140,9 +142,7 @@ abstract final class AppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         titleTextStyle: AppTypography.heading(
           color: AppColors.textStrong,
           fontSize: 20,
@@ -165,9 +165,7 @@ abstract final class AppTheme {
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppColors.textStrong,
         contentTextStyle: AppTypography.body(color: Colors.white),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       dividerTheme: DividerThemeData(
         color: AppColors.warriorNavy.withAlpha(24),
@@ -177,16 +175,17 @@ abstract final class AppTheme {
     );
   }
 
-  static ThemeData get darkTheme {
-    final ColorScheme colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.warriorNavy,
-      brightness: Brightness.dark,
-    ).copyWith(
-      tertiary: AppColors.growthLime,
-      onTertiary: AppColors.textStrong,
-      tertiaryContainer: const Color(0xFF31502B),
-      onTertiaryContainer: Colors.white,
-    );
+  static ThemeData _buildDarkTheme() {
+    final ColorScheme colorScheme =
+        ColorScheme.fromSeed(
+          seedColor: AppColors.warriorNavy,
+          brightness: Brightness.dark,
+        ).copyWith(
+          tertiary: AppColors.growthLime,
+          onTertiary: AppColors.textStrong,
+          tertiaryContainer: const Color(0xFF31502B),
+          onTertiaryContainer: Colors.white,
+        );
 
     return ThemeData(
       useMaterial3: true,
@@ -205,9 +204,7 @@ abstract final class AppTheme {
       ),
       cardTheme: CardThemeData(
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: AppColors.growthLime,

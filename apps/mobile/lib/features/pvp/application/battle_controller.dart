@@ -26,7 +26,6 @@ class BattleController extends StateNotifier<BattleState> {
     _onlineUpdatesSubscription = _onlineRepository.updates.listen(
       _handleOnlineUpdate,
     );
-    unawaited(_onlineRepository.reconnectIfActive().catchError((_) {}));
   }
 
   final BattleRepository _botRepository;
@@ -45,6 +44,15 @@ class BattleController extends StateNotifier<BattleState> {
   bool _acceptOnlineUpdates = false;
   bool _matchmakingCancelled = false;
   String? _preparedQuestionId;
+
+  Future<void> reconnectIfActive() async {
+    try {
+      await _onlineRepository.reconnectIfActive();
+    } catch (_) {
+      // Opening the offline bot arena must stay available when online
+      // reconnection is unavailable.
+    }
+  }
 
   void setMode(BattleMode mode) {
     if (state.isMatchActive) {

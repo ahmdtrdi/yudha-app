@@ -1,17 +1,50 @@
-# yudha_mobile
+# YUDHA Mobile and PWA
 
-A new Flutter project.
+Flutter client for Android and the installable YUDHA web app.
 
-## Getting Started
+## Local development
 
-This project is a starting point for a Flutter application.
+Create `.env` with the production or local values:
 
-A few resources to get you started if this is your first Flutter project:
+```dotenv
+SUPABASE_URL=
+SUPABASE_PUBLISHABLE_KEY=
+YUDHA_API_BASE_URL=
+YUDHA_GAME_BASE_URL=
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Run the web client with the same compile-time environment:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```powershell
+flutter run -d chrome --dart-define-from-file=.env
+```
+
+Create a production bundle:
+
+```powershell
+flutter build web --release --no-wasm-dry-run --dart-define-from-file=.env
+```
+
+The static bundle is generated in `build/web`.
+
+## Vercel
+
+Create a Vercel project with `apps/mobile` as its Root Directory. The checked-in
+`vercel.json` installs the pinned Flutter SDK, builds the app, publishes
+`build/web`, configures SPA rewrites, and serves the PWA service worker without
+HTTP caching.
+
+Configure these variables for Production and Preview in Vercel:
+
+- `SUPABASE_URL`
+- `SUPABASE_PUBLISHABLE_KEY`
+- `YUDHA_API_BASE_URL`
+- `YUDHA_GAME_BASE_URL`
+
+Both backend URLs must use HTTPS. The Vercel build compiles the browser client
+against `/api-proxy`, which is rewritten to `YUDHA_API_BASE_URL` at the edge.
+This keeps browser API calls same-origin. `CORS_ALLOWED_ORIGINS` remains
+available on the API service for deployments that call Railway directly.
+
+On iOS, open the production URL in Safari, select Share, choose **Add to Home
+Screen**, enable **Open as Web App**, and select Add.

@@ -201,7 +201,8 @@ class _ModeLoadoutSummary extends StatelessWidget {
               child: Image.asset(
                 arena.assetPath!,
                 fit: BoxFit.cover,
-                filterQuality: FilterQuality.medium,
+                cacheWidth: 480,
+                filterQuality: FilterQuality.low,
               ),
             ),
           ),
@@ -240,7 +241,8 @@ class _ModeLoadoutSummary extends StatelessWidget {
             child: Image.asset(
               tower.assetPath!,
               fit: BoxFit.contain,
-              filterQuality: FilterQuality.medium,
+              cacheWidth: 240,
+              filterQuality: FilterQuality.low,
             ),
           ),
         ],
@@ -419,7 +421,8 @@ class _ModeAvatar extends StatelessWidget {
           assetPath,
           fit: BoxFit.contain,
           alignment: Alignment.bottomCenter,
-          filterQuality: FilterQuality.medium,
+          cacheWidth: 320,
+          filterQuality: FilterQuality.low,
         ),
       ),
     );
