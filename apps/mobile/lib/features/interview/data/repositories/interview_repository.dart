@@ -29,6 +29,15 @@ abstract class InterviewRepository {
   });
 }
 
+class InterviewAnswerRetryRequiredException implements Exception {
+  const InterviewAnswerRetryRequiredException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class InterviewStartResult {
   const InterviewStartResult({
     required this.sessionId,

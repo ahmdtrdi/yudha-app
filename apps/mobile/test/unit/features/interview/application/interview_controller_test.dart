@@ -8,8 +8,9 @@ import 'package:yudha_mobile/features/interview/domain/entities/interview_sessio
 
 void main() {
   test('starts session and submits answer', () async {
+    final _FakeInterviewRepository repository = _FakeInterviewRepository();
     final InterviewController controller = InterviewController(
-      repository: _FakeInterviewRepository(),
+      repository: repository,
       config: InterviewLaunchConfig.bumnDefault(),
     );
 
@@ -28,6 +29,17 @@ void main() {
       'Mengapa memilih perusahaan ini?',
     );
     expect(controller.state.latestEvaluation?.overallScore, 82);
+    expect(
+      controller.state.messages
+          .firstWhere(
+            (InterviewMessage message) =>
+                message.author == InterviewMessageAuthor.candidate,
+          )
+          .evaluation
+          ?.overallScore,
+      82,
+    );
+    expect(controller.state.pendingAnswer, isNull);
   });
 
   test('retry resumes session when sessionId is available', () async {
@@ -58,18 +70,109 @@ void main() {
 
     expect(transcript, isNull);
     expect(controller.state.status, InterviewViewStatus.active);
-    expect(controller.state.errorMessage, isNull);
+    expect(
+      controller.state.errorMessage,
+      contains('transcription unavailable'),
+    );
     expect(controller.state.isTranscribing, isFalse);
   });
+
+  test('starts by resuming the requested active session', () async {
+    final InterviewController controller = InterviewController(
+      repository: _FakeInterviewRepository(
+        resumedDetail: const InterviewSessionDetailRecord(
+          sessionId: 'session-resume',
+          status: 'active',
+          companyId: 'bank-mandiri',
+          targetRole: 'Officer Development Program',
+          mode: 'realistic',
+          responseStyle: 'voice',
+          messages: <InterviewMessage>[],
+        ),
+      ),
+      config: const InterviewLaunchConfig(
+        companyId: 'bank-mandiri',
+        companyName: 'PT Bank Mandiri',
+        targetRole: 'Officer Development Program',
+        responseStyle: 'voice',
+        resumeSessionId: 'session-resume',
+      ),
+    );
+
+    await controller.start();
+
+    expect(controller.state.sessionId, 'session-resume');
+    expect(controller.state.status, InterviewViewStatus.active);
+  });
+
+  test(
+    'keeps a failed answer and retries with the same idempotency key',
+    () async {
+      final _FakeInterviewRepository repository = _FakeInterviewRepository(
+        submissionFailures: <Object>[Exception('connection lost')],
+      );
+      final InterviewController controller = InterviewController(
+        repository: repository,
+        config: InterviewLaunchConfig.bumnDefault(),
+      );
+      await controller.start();
+
+      await controller.submitAnswer('Jawaban yang harus dipertahankan.');
+      final String firstKey = controller.state.pendingAnswer!.idempotencyKey;
+
+      expect(controller.state.canSubmit, isFalse);
+      expect(controller.state.errorMessage, contains('connection lost'));
+
+      await controller.retryPendingAnswer();
+
+      expect(repository.submittedKeys, <String>[firstKey, firstKey]);
+      expect(controller.state.pendingAnswer, isNull);
+      expect(controller.state.status, InterviewViewStatus.active);
+    },
+  );
+
+  test(
+    'uses a fresh key after backend marks the previous claim failed',
+    () async {
+      final _FakeInterviewRepository repository = _FakeInterviewRepository(
+        submissionFailures: <Object>[
+          const InterviewAnswerRetryRequiredException('Kirim ulang jawabanmu.'),
+        ],
+      );
+      final InterviewController controller = InterviewController(
+        repository: repository,
+        config: InterviewLaunchConfig.bumnDefault(),
+      );
+      await controller.start();
+
+      await controller.submitAnswer('Jawaban untuk diproses ulang.');
+      final String failedKey = controller.state.pendingAnswer!.idempotencyKey;
+      await controller.retryPendingAnswer();
+
+      expect(repository.submittedKeys, hasLength(2));
+      expect(repository.submittedKeys.last, isNot(failedKey));
+      expect(controller.state.pendingAnswer, isNull);
+    },
+  );
 }
 
 class _FakeInterviewRepository implements InterviewRepository {
-  _FakeInterviewRepository({this.shouldFailTranscription = false});
+  _FakeInterviewRepository({
+    this.shouldFailTranscription = false,
+    this.resumedDetail,
+    List<Object>? submissionFailures,
+  }) : submissionFailures = submissionFailures ?? <Object>[];
 
   final bool shouldFailTranscription;
+  final InterviewSessionDetailRecord? resumedDetail;
+  final List<Object> submissionFailures;
+  final List<String> submittedKeys = <String>[];
 
   @override
   Future<InterviewSessionDetailRecord> getSession(String sessionId) async {
+    if (resumedDetail != null) {
+      return resumedDetail!;
+    }
     return const InterviewSessionDetailRecord(
       sessionId: 'session-1',
       status: 'completed',
@@ -128,6 +231,10 @@ class _FakeInterviewRepository implements InterviewRepository {
     required String answer,
     required String idempotencyKey,
   }) async {
+    submittedKeys.add(idempotencyKey);
+    if (submissionFailures.isNotEmpty) {
+      throw submissionFailures.removeAt(0);
+    }
     return InterviewTurnResult(
       sessionId: sessionId,
       status: 'active',

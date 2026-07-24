@@ -4,9 +4,170 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:yudha_mobile/features/interview/data/repositories/backend_interview_repository.dart';
+import 'package:yudha_mobile/features/interview/data/repositories/interview_repository.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 
 void main() {
   group('BackendInterviewRepository', () {
+    test('maps the complete text interview lifecycle contract', () async {
+      final List<String> requestedPaths = <String>[];
+      final BackendInterviewRepository repository = BackendInterviewRepository(
+        config: const InterviewApiConfig(
+          baseUrl: 'https://api.example.com',
+          accessToken: 'token-123',
+        ),
+        client: MockClient((http.Request request) async {
+          requestedPaths.add(request.url.path);
+          expect(request.headers['authorization'], 'Bearer token-123');
+          if (request.url.path == '/interview/sessions') {
+            expect(jsonDecode(request.body), <String, Object?>{
+              'mode': 'coaching',
+              'targetRole': 'Officer Development Program',
+              'companyId': 'bank-mandiri',
+              'language': 'id',
+              'responseStyle': 'text',
+            });
+            return http.Response(
+              jsonEncode(<String, Object?>{
+                'sessionId': 'sess-1',
+                'status': 'active',
+                'openingQuestion': <String, Object?>{
+                  'turnId': 'question-1',
+                  'text': 'Perkenalkan diri Anda.',
+                  'audioAvailable': false,
+                },
+              }),
+              201,
+            );
+          }
+          if (request.url.path == '/interview/sessions/sess-1/turns') {
+            expect(
+              (jsonDecode(request.body)
+                  as Map<String, dynamic>)['idempotencyKey'],
+              'answer-key-1',
+            );
+            return http.Response(
+              jsonEncode(<String, Object?>{
+                'sessionId': 'sess-1',
+                'status': 'active',
+                'evaluation': <String, Object?>{
+                  'overallScore': 80,
+                  'strengths': <String>['Jelas'],
+                  'improvements': <String>['Tambah contoh'],
+                },
+                'nextQuestion': <String, Object?>{
+                  'turnId': 'question-2',
+                  'text': 'Mengapa memilih Bank Mandiri?',
+                  'audioAvailable': false,
+                },
+              }),
+              201,
+            );
+          }
+          if (request.url.path == '/interview/sessions/sess-1/complete') {
+            return http.Response(
+              jsonEncode(<String, Object?>{
+                'sessionId': 'sess-1',
+                'status': 'completed',
+                'finalSummary': <String, Object?>{
+                  'overallScore': 80,
+                  'strengths': <String>['Jelas'],
+                  'improvements': <String>['Tambah contoh'],
+                  'answerCount': 1,
+                },
+              }),
+              201,
+            );
+          }
+          return http.Response('Not found', 404);
+        }),
+      );
+
+      final start = await repository.startSession(
+        InterviewLaunchConfig.bumnDefault(),
+      );
+      final turn = await repository.submitAnswer(
+        sessionId: start.sessionId,
+        answer: 'Saya ingin berkontribusi.',
+        idempotencyKey: 'answer-key-1',
+      );
+      final summary = await repository.completeSession(start.sessionId);
+
+      expect(start.openingQuestion.text, 'Perkenalkan diri Anda.');
+      expect(turn.evaluation?.overallScore, 80);
+      expect(turn.nextQuestion?.id, 'question-2');
+      expect(summary.answerCount, 1);
+      expect(requestedPaths, <String>[
+        '/interview/sessions',
+        '/interview/sessions/sess-1/turns',
+        '/interview/sessions/sess-1/complete',
+      ]);
+    });
+
+    test('uploads recorded audio and maps its transcript', () async {
+      final BackendInterviewRepository repository = BackendInterviewRepository(
+        config: const InterviewApiConfig(
+          baseUrl: 'https://api.example.com',
+          accessToken: 'token-123',
+        ),
+        client: MockClient((http.Request request) async {
+          expect(request.method, 'POST');
+          expect(
+            request.url.path,
+            '/interview/sessions/sess-1/speech/transcriptions',
+          );
+          expect(request.headers['authorization'], 'Bearer token-123');
+          expect(
+            request.headers['content-type'],
+            startsWith('multipart/form-data'),
+          );
+          return http.Response(
+            jsonEncode(<String, Object?>{
+              'transcript': <String, Object?>{
+                'text': 'Hasil transkripsi suara.',
+              },
+            }),
+            201,
+          );
+        }),
+      );
+
+      final String transcript = await repository.transcribeAnswerAudio(
+        sessionId: 'sess-1',
+        audioBytes: <int>[1, 2, 3, 4],
+        filename: 'recording.m4a',
+      );
+
+      expect(transcript, 'Hasil transkripsi suara.');
+    });
+
+    test('marks failed answer claims as requiring a fresh key', () async {
+      final BackendInterviewRepository repository = BackendInterviewRepository(
+        config: const InterviewApiConfig(
+          baseUrl: 'https://api.example.com',
+          accessToken: 'token-123',
+        ),
+        client: MockClient((http.Request request) async {
+          return http.Response(
+            jsonEncode(<String, Object?>{
+              'message':
+                  'The previous interview answer processing failed. Submit a new request.',
+            }),
+            503,
+          );
+        }),
+      );
+
+      expect(
+        () => repository.submitAnswer(
+          sessionId: 'sess-1',
+          answer: 'Jawaban',
+          idempotencyKey: 'failed-key',
+        ),
+        throwsA(isA<InterviewAnswerRetryRequiredException>()),
+      );
+    });
+
     test(
       'maps interview session summaries from backend list endpoint',
       () async {

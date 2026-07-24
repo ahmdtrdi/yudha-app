@@ -9,10 +9,13 @@ class InterviewController extends StateNotifier<InterviewState> {
   InterviewController({
     required InterviewRepository repository,
     required InterviewLaunchConfig config,
+    void Function(String sessionId)? onSessionChanged,
   }) : _repository = repository,
+       _onSessionChanged = onSessionChanged,
        super(InterviewState.initial(config));
 
   final InterviewRepository _repository;
+  final void Function(String sessionId)? _onSessionChanged;
 
   Future<void> start() async {
     if (state.status == InterviewViewStatus.starting ||
@@ -20,10 +23,18 @@ class InterviewController extends StateNotifier<InterviewState> {
       return;
     }
 
-    state = state.copyWith(
+    final String? resumeSessionId = state.config.resumeSessionId;
+    if (resumeSessionId != null && resumeSessionId.trim().isNotEmpty) {
+      await resume(resumeSessionId);
+      return;
+    }
+
+    state = InterviewState.initial(state.config).copyWith(
       status: InterviewViewStatus.starting,
       clearError: true,
       clearLatestEvaluation: true,
+      clearFinalSummary: true,
+      clearPendingAnswer: true,
     );
 
     try {
@@ -35,6 +46,36 @@ class InterviewController extends StateNotifier<InterviewState> {
         sessionId: result.sessionId,
         messages: <InterviewMessage>[result.openingQuestion],
       );
+      _onSessionChanged?.call(result.sessionId);
+    } catch (error) {
+      state = state.copyWith(
+        status: InterviewViewStatus.error,
+        errorMessage: error.toString(),
+      );
+    }
+  }
+
+  Future<void> resume(String sessionId) async {
+    if (sessionId.trim().isEmpty ||
+        state.status == InterviewViewStatus.starting ||
+        state.status == InterviewViewStatus.submitting) {
+      return;
+    }
+
+    state = InterviewState.initial(state.config).copyWith(
+      status: InterviewViewStatus.starting,
+      sessionId: sessionId,
+      clearError: true,
+      clearLatestEvaluation: true,
+      clearFinalSummary: true,
+      clearPendingAnswer: true,
+    );
+    try {
+      final InterviewSessionDetailRecord detail = await _repository.getSession(
+        sessionId,
+      );
+      _applySessionDetail(detail);
+      _onSessionChanged?.call(sessionId);
     } catch (error) {
       state = state.copyWith(
         status: InterviewViewStatus.error,
@@ -53,16 +94,16 @@ class InterviewController extends StateNotifier<InterviewState> {
       try {
         final InterviewSessionDetailRecord detail = await _repository
             .getSession(sessionId);
-        state = state.copyWith(
-          status: detail.status == 'completed'
-              ? InterviewViewStatus.completed
-              : InterviewViewStatus.active,
-          messages: detail.messages,
-          finalSummary: detail.finalSummary,
-        );
+        final PendingInterviewAnswer? pending = state.pendingAnswer;
+        if (pending != null && !_isPendingResolved(detail, pending)) {
+          state = state.copyWith(status: InterviewViewStatus.active);
+          await retryPendingAnswer();
+          return;
+        }
+        _applySessionDetail(detail, clearPendingAnswer: true);
       } catch (error) {
         state = state.copyWith(
-          status: InterviewViewStatus.error,
+          status: InterviewViewStatus.active,
           errorMessage: error.toString(),
         );
       }
@@ -79,28 +120,78 @@ class InterviewController extends StateNotifier<InterviewState> {
     }
 
     final InterviewMessage candidateMessage = InterviewMessage(
-      id: 'local-${DateTime.now().microsecondsSinceEpoch}',
+      id: _newIdempotencyKey(),
       author: InterviewMessageAuthor.candidate,
       text: trimmed,
       createdAt: DateTime.now(),
     );
+    final PendingInterviewAnswer pending = PendingInterviewAnswer(
+      text: trimmed,
+      idempotencyKey: candidateMessage.id,
+      localMessageId: candidateMessage.id,
+    );
     state = state.copyWith(
       status: InterviewViewStatus.submitting,
       messages: <InterviewMessage>[...state.messages, candidateMessage],
+      pendingAnswer: pending,
       clearError: true,
       clearLatestEvaluation: true,
+    );
+
+    await _submitPendingAnswer(pending);
+  }
+
+  Future<void> retryPendingAnswer() async {
+    final PendingInterviewAnswer? current = state.pendingAnswer;
+    if (current == null ||
+        state.sessionId == null ||
+        state.status == InterviewViewStatus.submitting) {
+      return;
+    }
+    final PendingInterviewAnswer pending = current.requiresNewKey
+        ? current.copyWith(
+            idempotencyKey: _newIdempotencyKey(),
+            requiresNewKey: false,
+          )
+        : current;
+    state = state.copyWith(pendingAnswer: pending);
+    await _submitPendingAnswer(pending, allowFreshKeyFallback: true);
+  }
+
+  Future<void> _submitPendingAnswer(
+    PendingInterviewAnswer pending, {
+    bool allowFreshKeyFallback = false,
+  }) async {
+    final String? sessionId = state.sessionId;
+    if (sessionId == null) {
+      return;
+    }
+    state = state.copyWith(
+      status: InterviewViewStatus.submitting,
+      clearError: true,
     );
 
     try {
       final InterviewTurnResult result = await _repository.submitAnswer(
         sessionId: sessionId,
-        answer: trimmed,
-        idempotencyKey: candidateMessage.id,
+        answer: pending.text,
+        idempotencyKey: pending.idempotencyKey,
       );
-      final List<InterviewMessage> nextMessages = <InterviewMessage>[
-        ...state.messages,
-        if (result.nextQuestion != null) result.nextQuestion!,
-      ];
+      final List<InterviewMessage> nextMessages = state.messages
+          .map(
+            (InterviewMessage message) =>
+                message.id == pending.localMessageId &&
+                    result.evaluation != null
+                ? message.copyWith(evaluation: result.evaluation)
+                : message,
+          )
+          .toList(growable: true);
+      if (result.nextQuestion != null &&
+          !nextMessages.any(
+            (InterviewMessage message) => message.id == result.nextQuestion!.id,
+          )) {
+        nextMessages.add(result.nextQuestion!);
+      }
       state = state.copyWith(
         status: result.status == 'completed'
             ? InterviewViewStatus.completed
@@ -108,6 +199,26 @@ class InterviewController extends StateNotifier<InterviewState> {
         messages: nextMessages,
         latestEvaluation: result.evaluation,
         finalSummary: result.finalSummary,
+        clearPendingAnswer: true,
+      );
+      _onSessionChanged?.call(sessionId);
+    } on InterviewAnswerRetryRequiredException catch (error) {
+      if (allowFreshKeyFallback) {
+        final PendingInterviewAnswer freshPending = pending.copyWith(
+          idempotencyKey: _newIdempotencyKey(),
+          requiresNewKey: false,
+        );
+        state = state.copyWith(
+          status: InterviewViewStatus.active,
+          pendingAnswer: freshPending,
+        );
+        await _submitPendingAnswer(freshPending);
+        return;
+      }
+      state = state.copyWith(
+        status: InterviewViewStatus.active,
+        pendingAnswer: pending.copyWith(requiresNewKey: true),
+        errorMessage: error.toString(),
       );
     } catch (error) {
       state = state.copyWith(
@@ -132,6 +243,7 @@ class InterviewController extends StateNotifier<InterviewState> {
         status: InterviewViewStatus.completed,
         finalSummary: summary,
       );
+      _onSessionChanged?.call(sessionId);
     } catch (error) {
       state = state.copyWith(
         status: InterviewViewStatus.active,
@@ -150,7 +262,11 @@ class InterviewController extends StateNotifier<InterviewState> {
       return null;
     }
 
-    state = state.copyWith(isTranscribing: true, clearError: true);
+    state = state.copyWith(
+      isTranscribing: true,
+      clearError: true,
+      clearTranscriptionError: true,
+    );
 
     try {
       final String transcript = await _repository.transcribeAnswerAudio(
@@ -161,12 +277,14 @@ class InterviewController extends StateNotifier<InterviewState> {
       state = state.copyWith(
         isTranscribing: false,
         transcriptionText: transcript,
+        clearTranscriptionError: true,
       );
       return transcript;
-    } catch (_) {
+    } catch (error) {
       state = state.copyWith(
         isTranscribing: false,
         clearTranscriptionText: true,
+        transcriptionErrorMessage: error.toString(),
       );
       return null;
     }
@@ -181,5 +299,60 @@ class InterviewController extends StateNotifier<InterviewState> {
       sessionId: sessionId,
       turnId: turnId,
     );
+  }
+
+  void _applySessionDetail(
+    InterviewSessionDetailRecord detail, {
+    bool clearPendingAnswer = false,
+  }) {
+    InterviewEvaluation? latestEvaluation;
+    for (final InterviewMessage message in detail.messages.reversed) {
+      if (message.evaluation != null) {
+        latestEvaluation = message.evaluation;
+        break;
+      }
+    }
+    state = state.copyWith(
+      status: detail.status == 'completed'
+          ? InterviewViewStatus.completed
+          : InterviewViewStatus.active,
+      sessionId: detail.sessionId,
+      messages: detail.messages,
+      latestEvaluation: latestEvaluation,
+      finalSummary: detail.finalSummary,
+      clearError: true,
+      clearPendingAnswer: clearPendingAnswer,
+    );
+  }
+
+  bool _isPendingResolved(
+    InterviewSessionDetailRecord detail,
+    PendingInterviewAnswer pending,
+  ) {
+    if (detail.status == 'completed') {
+      return true;
+    }
+    final int answerIndex = detail.messages.lastIndexWhere(
+      (InterviewMessage message) =>
+          message.author == InterviewMessageAuthor.candidate &&
+          message.text.trim() == pending.text,
+    );
+    if (answerIndex < 0) {
+      return false;
+    }
+    final InterviewMessage answer = detail.messages[answerIndex];
+    if (answer.evaluation != null) {
+      return true;
+    }
+    return detail.messages
+        .skip(answerIndex + 1)
+        .any(
+          (InterviewMessage message) =>
+              message.author == InterviewMessageAuthor.interviewer,
+        );
+  }
+
+  String _newIdempotencyKey() {
+    return 'answer-${DateTime.now().microsecondsSinceEpoch}';
   }
 }

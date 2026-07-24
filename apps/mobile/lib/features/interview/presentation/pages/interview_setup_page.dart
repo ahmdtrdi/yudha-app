@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
+import 'package:yudha_mobile/features/interview/application/interview_providers.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_session_record.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
@@ -120,13 +122,67 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
     context.push(AppRoutes.interview, extra: config);
   }
 
+  void _resumeInterview(InterviewSessionSummaryRecord session) {
+    InterviewCompanyOption? company;
+    for (final InterviewCompanyOption item in kInterviewCompanies) {
+      if (item.id == session.companyId) {
+        company = item;
+        break;
+      }
+    }
+    context.push(
+      AppRoutes.interview,
+      extra: InterviewLaunchConfig(
+        companyId: session.companyId,
+        companyName: company?.name ?? _humanizeCompanyId(session.companyId),
+        targetRole: session.targetRole,
+        mode: session.mode,
+        language: session.language,
+        responseStyle: session.responseStyle,
+        resumeSessionId: session.sessionId,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen<ProfileTarget?>(
+      profileSettingsProvider.select((settings) => settings.target),
+      (ProfileTarget? previous, ProfileTarget? next) {
+        if (next == null || next == previous) {
+          return;
+        }
+        final List<InterviewCompanyOption> matching = kInterviewCompanies
+            .where(
+              (InterviewCompanyOption company) => company.targetGroup == next,
+            )
+            .toList(growable: false);
+        if (matching.isEmpty || matching.contains(_selectedCompany)) {
+          return;
+        }
+        setState(() {
+          _selectedCompany = matching.first;
+          _roleController.text = matching.first.defaultRole;
+        });
+      },
+    );
     final ProfileTarget userTarget =
         ref.watch(profileSettingsProvider).target ?? ProfileTarget.bumn;
     final List<InterviewCompanyOption> availableCompanies = kInterviewCompanies
         .where((c) => c.targetGroup == userTarget)
         .toList();
+    final List<InterviewSessionSummaryRecord> activeSessions =
+        ref
+            .watch(interviewSessionsProvider)
+            .asData
+            ?.value
+            .where(
+              (InterviewSessionSummaryRecord session) =>
+                  session.status == 'active',
+            )
+            .take(3)
+            .toList(growable: false) ??
+        const <InterviewSessionSummaryRecord>[];
 
     return Scaffold(
       backgroundColor: AppColors.scholarCream,
@@ -154,6 +210,71 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
+              if (activeSessions.isNotEmpty) ...<Widget>[
+                const _SectionTitle(title: 'SESI BELUM SELESAI'),
+                const SizedBox(height: 10),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppColors.levelUpTeal.withAlpha(55),
+                    ),
+                  ),
+                  child: Column(
+                    children: <Widget>[
+                      for (
+                        int index = 0;
+                        index < activeSessions.length;
+                        index++
+                      )
+                        Column(
+                          children: <Widget>[
+                            ListTile(
+                              onTap: () =>
+                                  _resumeInterview(activeSessions[index]),
+                              leading: const CircleAvatar(
+                                backgroundColor: AppColors.scholarCream,
+                                child: Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: AppColors.levelUpTeal,
+                                ),
+                              ),
+                              title: Text(
+                                _companyNameFor(
+                                  activeSessions[index].companyId,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppColors.textStrong,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              subtitle: Text(
+                                '${activeSessions[index].targetRole} - ${_humanizeMode(activeSessions[index].mode)}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              trailing: const Icon(
+                                Icons.chevron_right_rounded,
+                                color: AppColors.warriorNavy,
+                              ),
+                            ),
+                            if (index < activeSessions.length - 1)
+                              const Divider(height: 1),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
               // Section 1: Company & Role
               const _SectionTitle(title: 'TARGET INSTANSI & POSISI'),
               const SizedBox(height: 10),
@@ -349,6 +470,31 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
       ),
     );
   }
+}
+
+String _companyNameFor(String companyId) {
+  for (final InterviewCompanyOption company in kInterviewCompanies) {
+    if (company.id == companyId) {
+      return company.name;
+    }
+  }
+  return _humanizeCompanyId(companyId);
+}
+
+String _humanizeCompanyId(String companyId) {
+  return companyId
+      .trim()
+      .split(RegExp(r'[-_]'))
+      .where((String part) => part.isNotEmpty)
+      .map(
+        (String part) =>
+            '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+      )
+      .join(' ');
+}
+
+String _humanizeMode(String mode) {
+  return mode.toLowerCase() == 'realistic' ? 'Realistik' : 'Coaching';
 }
 
 class _SectionTitle extends StatelessWidget {

@@ -10,6 +10,32 @@ enum InterviewViewStatus {
   error,
 }
 
+class PendingInterviewAnswer {
+  const PendingInterviewAnswer({
+    required this.text,
+    required this.idempotencyKey,
+    required this.localMessageId,
+    this.requiresNewKey = false,
+  });
+
+  final String text;
+  final String idempotencyKey;
+  final String localMessageId;
+  final bool requiresNewKey;
+
+  PendingInterviewAnswer copyWith({
+    String? idempotencyKey,
+    bool? requiresNewKey,
+  }) {
+    return PendingInterviewAnswer(
+      text: text,
+      idempotencyKey: idempotencyKey ?? this.idempotencyKey,
+      localMessageId: localMessageId,
+      requiresNewKey: requiresNewKey ?? this.requiresNewKey,
+    );
+  }
+}
+
 class InterviewState {
   const InterviewState({
     required this.status,
@@ -22,6 +48,8 @@ class InterviewState {
     this.isRecording = false,
     this.isTranscribing = false,
     this.transcriptionText,
+    this.transcriptionErrorMessage,
+    this.pendingAnswer,
   });
 
   factory InterviewState.initial(InterviewLaunchConfig config) {
@@ -42,9 +70,14 @@ class InterviewState {
   final bool isRecording;
   final bool isTranscribing;
   final String? transcriptionText;
+  final String? transcriptionErrorMessage;
+  final PendingInterviewAnswer? pendingAnswer;
 
   bool get canSubmit =>
-      status == InterviewViewStatus.active && sessionId != null && !isTranscribing;
+      status == InterviewViewStatus.active &&
+      sessionId != null &&
+      !isTranscribing &&
+      pendingAnswer == null;
 
   InterviewMessage? get currentQuestion {
     for (final InterviewMessage message in messages.reversed) {
@@ -66,9 +99,14 @@ class InterviewState {
     bool? isRecording,
     bool? isTranscribing,
     String? transcriptionText,
+    String? transcriptionErrorMessage,
     bool clearError = false,
     bool clearLatestEvaluation = false,
     bool clearTranscriptionText = false,
+    bool clearTranscriptionError = false,
+    PendingInterviewAnswer? pendingAnswer,
+    bool clearPendingAnswer = false,
+    bool clearFinalSummary = false,
   }) {
     return InterviewState(
       status: status ?? this.status,
@@ -79,12 +117,20 @@ class InterviewState {
       latestEvaluation: clearLatestEvaluation
           ? null
           : latestEvaluation ?? this.latestEvaluation,
-      finalSummary: finalSummary ?? this.finalSummary,
+      finalSummary: clearFinalSummary
+          ? null
+          : finalSummary ?? this.finalSummary,
       isRecording: isRecording ?? this.isRecording,
       isTranscribing: isTranscribing ?? this.isTranscribing,
       transcriptionText: clearTranscriptionText
           ? null
           : transcriptionText ?? this.transcriptionText,
+      transcriptionErrorMessage: clearTranscriptionError
+          ? null
+          : transcriptionErrorMessage ?? this.transcriptionErrorMessage,
+      pendingAnswer: clearPendingAnswer
+          ? null
+          : pendingAnswer ?? this.pendingAnswer,
     );
   }
 }
