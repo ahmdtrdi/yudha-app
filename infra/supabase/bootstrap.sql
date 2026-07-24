@@ -17,7 +17,7 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   username text not null,
   full_name text,
-  rank_points integer not null default 1000,
+  rank_points integer not null default 0,
   total_matches integer not null default 0,
   wins integer not null default 0,
   losses integer not null default 0,
