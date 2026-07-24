@@ -57,11 +57,11 @@ class PracticePage extends ConsumerWidget {
         backgroundColor: AppColors.warriorNavy,
         title: Text(
           'LATIHAN',
-          style: GoogleFonts.orbitron(
+          style: GoogleFonts.fredoka(
             fontWeight: FontWeight.w800,
             fontSize: 18,
             color: Colors.white,
-            letterSpacing: 2,
+            letterSpacing: 0,
           ),
         ),
         centerTitle: true,
@@ -135,7 +135,7 @@ class PracticePage extends ConsumerWidget {
                             color: AppColors.textMuted,
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
-                            letterSpacing: 1.2,
+                            letterSpacing: 0,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -320,11 +320,11 @@ class _InterviewPracticeCard extends StatelessWidget {
                 children: <Widget>[
                   Text(
                     'Latihan Interview AI',
-                    style: GoogleFonts.orbitron(
+                    style: GoogleFonts.fredoka(
                       color: Colors.white,
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: 1.1,
+                      letterSpacing: 0,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -373,7 +373,7 @@ class _CategorySection extends StatelessWidget {
             color: AppColors.textMuted,
             fontWeight: FontWeight.bold,
             fontSize: 13,
-            letterSpacing: 1.2,
+            letterSpacing: 0,
           ),
         ),
         const SizedBox(height: 12),
@@ -426,7 +426,7 @@ class _CategorySection extends StatelessWidget {
                           ),
                           child: Text(
                             item.badgeLabel ?? item.name,
-                            style: GoogleFonts.orbitron(
+                            style: GoogleFonts.dmSans(
                               color: AppColors.warriorNavy,
                               fontSize: 9,
                               fontWeight: FontWeight.bold,

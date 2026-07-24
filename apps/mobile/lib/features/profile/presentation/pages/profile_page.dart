@@ -64,7 +64,7 @@ class ProfilePage extends ConsumerWidget {
     final ProfileTarget? target = profile?.target ?? profileSettings.target;
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceLight,
+      backgroundColor: AppColors.scholarCream,
       appBar: AppBar(
         title: const Text(
           'Profil Personal',
@@ -785,7 +785,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                         color: AppColors.scholarCream,
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 0.5,
+                        letterSpacing: 0,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -1270,7 +1270,7 @@ class _AccuracyRow extends StatelessWidget {
           child: LinearProgressIndicator(
             value: progress,
             minHeight: 6,
-            backgroundColor: AppColors.surfaceLight,
+            backgroundColor: AppColors.scholarCream,
             color: accuracy < 60 ? AppColors.fireGold : AppColors.levelUpTeal,
           ),
         ),

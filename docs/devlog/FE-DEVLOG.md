@@ -1751,3 +1751,83 @@
 - The leaderboard endpoint does not return a total row count, so the client still infers whether another page may exist from the page size and can make one final empty request.
 - Weekly rankings and persisted streaks remain unavailable until the backend exposes explicit contracts for them.
 - Equipped cosmetic IDs are returned by the backend but the leaderboard still uses a generic shield because cosmetic asset resolution is owned by the broader gamification/store work.
+
+## 2026-07-24 - PvP-Aligned Application UI System
+
+### The Change
+- Added `AppTypography` as the shared non-PvP typography source with Fredoka headings, DM Sans interface copy, and JetBrains Mono metrics.
+- Updated the light and dark application themes with the shared typography roles plus consistent app bars, cards, form fields, filled/outlined/text buttons, dialogs, bottom sheets, snackbars, and dividers.
+- Replaced every remaining non-PvP Orbitron override with the appropriate PvP-aligned font role across authentication, onboarding, lobby, leaderboard, practice, interview, and profile flows.
+- Standardized explicit letter spacing to zero and aligned non-PvP page backgrounds to the shared scholar-cream surface.
+- Updated the persistent tab shell to use the shared body style and a quieter selected-state shape.
+- Preserved existing Fredoka, DM Sans, and JetBrains Mono work in Store, Hired Pass, and shared economy widgets while bringing their inherited controls and surfaces under the same theme.
+
+### The Reasoning
+- PvP already had a clear hierarchy: friendly Fredoka headings, highly readable DM Sans content, and monospaced competitive metrics. Reusing those roles gives the rest of the app one identity without making utility screens look like battle screens.
+- Central theme ownership keeps common controls consistent and reduces the need for page-level styling overrides.
+- The pass intentionally changed presentation only so the recently merged zero-point onboarding fix, signup skip, persistent login, and database mapping corrections remain untouched.
+
+### The Tech Debt
+- Several older pages still define their own large card radii and shadows. They now share typography, controls, and surfaces, but a future component-by-component layout pass can reduce those remaining local visual differences.
+- The PvP source was intentionally excluded. It should still be manually checked after hot restart because shared theme changes can affect any PvP widget that relies on inherited Material defaults.
+- Dart formatting and targeted Flutter analysis both timed out without diagnostics in the current Windows environment. `git diff --check`, installed-SDK theme type inspection, and static font/surface audits passed; mobile viewport and increased-text-scale validation remain manual.
+
+## 2026-07-24 - New Launcher And Splash Branding
+
+### The Change
+- Switched the Android launcher and adaptive icon source to `app-icon-new.png` with a `#1C405D` adaptive background.
+- Updated the native Android launch screen and Android 12 splash theme to use the same blue background and new circular icon treatment.
+- Reworked the Flutter splash screen to use a circle-clipped new icon, matching blue background, and light loading treatment.
+- Regenerated the checked-in Android launcher, adaptive foreground, splash, and background resources at their existing density sizes.
+
+### The Reasoning
+- Launcher artwork remains square so Android can apply each device's system icon mask without clipping the mark twice.
+- Splash artwork uses transparent circular variants to preserve the requested silhouette consistently across the native and Flutter launch stages.
+- Matching native and Flutter splash colors avoids a visible background flash while the Flutter engine starts.
+
+### The Tech Debt
+- The repository currently has no `apps/mobile/ios` project, so only Android native resources were generated even though the splash configuration remains ready for iOS.
+- The official Dart icon generator timed out in the current Windows environment, so Android resources were regenerated deterministically at the existing exact density sizes.
+- Launcher icons are cached by Android and cannot be validated through hot reload; final verification requires uninstalling and reinstalling the app on an emulator or device.
+
+## 2026-07-24 - Refined Splash Icon Framing
+
+### The Change
+- Reframed the splash artwork as a softly rounded square tile with the circular app icon inset inside it.
+- Matched the tile proportions, subtle border, and circular inner artwork across the native Android and Flutter splash stages.
+
+### The Reasoning
+- The previous standalone circle appeared to float against the full-screen background and changed scale between the native and Flutter launch stages.
+- A stable outer tile gives the mark clearer visual structure while retaining the circular icon treatment requested for the artwork itself.
+
+### The Tech Debt
+- Native splash changes still require an uninstall and reinstall because Android caches launch resources.
+- The official Dart splash generator remains unavailable on the current Windows runner, so the checked-in native splash bitmaps are maintained at the project's existing density sizes.
+
+## 2026-07-24 - Direct Square Splash Artwork
+
+### The Change
+- Removed the nested tile and circular crop from both native Android and Flutter splash artwork.
+- Displayed the original square `app-icon-new.png` directly with only lightly rounded corners in both launch stages.
+
+### The Reasoning
+- The source artwork already provides its own complete background and composition, so additional framing obscured its intended square silhouette.
+- Using the same direct asset treatment prevents a shape change between the native launch screen and the Flutter loading screen.
+
+### The Tech Debt
+- Android splash resources remain cached and require an uninstall and reinstall for reliable visual validation.
+
+## 2026-07-24 - Restrained Lime Accent
+
+### The Change
+- Added `#C0FF72` as the shared `growthLime` brand accent.
+- Applied the accent to shared progress indicators, selected controls and chips, floating actions, text selection, and the active navigation edge.
+- Added matching light and dark color-scheme roles while preserving navy as the primary action color.
+
+### The Reasoning
+- Concentrating the lime on active, progressive, and selected states gives the interface more energy without competing with content or weakening familiar navy actions.
+- Theme-level ownership keeps the accent consistent across non-PvP screens and avoids scattering near-duplicate color literals through feature widgets.
+
+### The Tech Debt
+- Feature widgets with explicit local progress or selection colors intentionally retain their semantic colors and can be reviewed individually in a later visual QA pass.
+- Shared inherited styles should be checked on PvP screens after hot restart even though no PvP source files were changed.

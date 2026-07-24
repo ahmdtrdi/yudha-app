@@ -195,11 +195,11 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
         ),
         title: Text(
           'SETUP INTERVIEW AI',
-          style: GoogleFonts.orbitron(
+          style: GoogleFonts.fredoka(
             color: Colors.white,
             fontWeight: FontWeight.w800,
             fontSize: 16,
-            letterSpacing: 2,
+            letterSpacing: 0,
           ),
         ),
         centerTitle: true,
@@ -455,11 +455,11 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
                   ),
                   child: Text(
                     'MULAI INTERVIEW AI',
-                    style: GoogleFonts.orbitron(
+                    style: GoogleFonts.dmSans(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
                       fontSize: 15,
-                      letterSpacing: 1.5,
+                      letterSpacing: 0,
                     ),
                   ),
                 ),
@@ -506,11 +506,11 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       title,
-      style: GoogleFonts.orbitron(
+      style: GoogleFonts.fredoka(
         color: AppColors.warriorNavy,
         fontWeight: FontWeight.w800,
         fontSize: 12,
-        letterSpacing: 1.5,
+        letterSpacing: 0,
       ),
     );
   }

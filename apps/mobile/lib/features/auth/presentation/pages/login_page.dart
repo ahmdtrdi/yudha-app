@@ -67,7 +67,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final AppAuthState authState = ref.watch(authProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.surfaceLight,
+      backgroundColor: AppColors.scholarCream,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -88,7 +88,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   children: [
                     Text(
                       'Selamat Datang',
-                      style: GoogleFonts.orbitron(
+                      style: GoogleFonts.fredoka(
                         color: AppColors.warriorNavy,
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
@@ -181,10 +181,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               )
                             : Text(
                                 'Masuk',
-                                style: GoogleFonts.orbitron(
+                                style: GoogleFonts.dmSans(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.2,
+                                  letterSpacing: 0,
                                 ),
                               ),
                       ),

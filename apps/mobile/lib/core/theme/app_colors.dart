@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 abstract final class AppColors {
   static const Color warriorNavy = Color(0xFF013192);
+  static const Color splashBlue = Color(0xFF1C405D);
   static const Color scholarCream = Color(0xFFFFF6E9);
   static const Color levelUpTeal = Color(0xFF00889E);
+  static const Color growthLime = Color(0xFFC0FF72);
   static const Color fireGold = Color(0xFFFFAB5B);
   static const Color surfaceLight = Color(0xFFF8F5EE);
   static const Color surfaceDark = Color(0xFF0B1633);

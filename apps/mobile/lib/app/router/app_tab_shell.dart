@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
+import 'package:yudha_mobile/core/theme/app_typography.dart';
 import 'package:yudha_mobile/features/pvp/application/battle_providers.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
 
@@ -106,7 +106,13 @@ class AppTabShell extends ConsumerWidget {
                                   color: selected
                                       ? AppColors.warriorNavy
                                       : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: selected
+                                      ? Border.all(
+                                          color: AppColors.growthLime,
+                                          width: 1.5,
+                                        )
+                                      : null,
                                   boxShadow: selected
                                       ? <BoxShadow>[
                                           BoxShadow(
@@ -138,7 +144,7 @@ class AppTabShell extends ConsumerWidget {
                               // Label is always visible below the icon.
                               Text(
                                 tab.label,
-                                style: GoogleFonts.dmSans(
+                                style: AppTypography.body(
                                   fontSize: 11,
                                   fontWeight: selected
                                       ? FontWeight.w700

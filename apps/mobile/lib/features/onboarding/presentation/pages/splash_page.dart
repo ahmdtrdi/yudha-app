@@ -44,7 +44,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.scholarCream,
+      backgroundColor: AppColors.splashBlue,
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -52,21 +52,23 @@ class _SplashPageState extends ConsumerState<SplashPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                Image.asset(
-                  'assets/branding/logo-color.png',
-                  width: 240,
-                  height: 240,
-                  fit: BoxFit.contain,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Image.asset(
+                    'assets/branding/app-icon-new.png',
+                    width: 220,
+                    height: 220,
+                    fit: BoxFit.cover,
+                  ),
                 ),
-                const SizedBox(height: 18),
-                const SizedBox(height: 12),
+                const SizedBox(height: 30),
                 Text(
                   'Menyiapkan arena belajarmu...',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.dmSans(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
-                    color: AppColors.textMuted,
+                    color: Colors.white.withAlpha(210),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -76,7 +78,7 @@ class _SplashPageState extends ConsumerState<SplashPage> {
                   child: CircularProgressIndicator(
                     strokeWidth: 2.6,
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColors.levelUpTeal,
+                      Colors.white,
                     ),
                   ),
                 ),

@@ -49,7 +49,7 @@ class LeaderboardPage extends ConsumerWidget {
       appBar: AppBar(
         title: Text(
           'LEADERBOARD',
-          style: GoogleFonts.orbitron(
+          style: GoogleFonts.fredoka(
             fontWeight: FontWeight.w800,
             fontSize: 18,
             color: Colors.white,
@@ -109,11 +109,11 @@ class LeaderboardPage extends ConsumerWidget {
                     padding: const EdgeInsets.only(left: 20, bottom: 8, top: 8),
                     child: Text(
                       'PERINGKAT LAINNYA',
-                      style: GoogleFonts.orbitron(
+                      style: GoogleFonts.fredoka(
                         color: AppColors.warriorNavy.withAlpha(150),
                         fontWeight: FontWeight.w800,
                         fontSize: 12,
-                        letterSpacing: 1.1,
+                        letterSpacing: 0,
                       ),
                     ),
                   ),
@@ -270,7 +270,7 @@ class _HeroRankCard extends StatelessWidget {
                               const SizedBox(width: 4),
                               Text(
                                 tierLabel,
-                                style: GoogleFonts.orbitron(
+                                style: GoogleFonts.dmSans(
                                   color: AppColors.fireGold,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
@@ -357,7 +357,7 @@ class _HeroRankCard extends StatelessWidget {
                 children: [
                   Text(
                     rank != null && rank! > 0 ? '#$rank' : '-',
-                    style: GoogleFonts.orbitron(
+                    style: GoogleFonts.jetBrainsMono(
                       color: AppColors.fireGold,
                       fontSize: 20,
                       fontWeight: FontWeight.w900,
@@ -401,10 +401,10 @@ class _StatColumn extends StatelessWidget {
         ),
         Text(
           label,
-          style: GoogleFonts.orbitron(
+          style: GoogleFonts.dmSans(
             color: Colors.white.withAlpha(160),
             fontSize: 10,
-            letterSpacing: 0.8,
+            letterSpacing: 0,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -629,7 +629,7 @@ class _LeaderboardTile extends StatelessWidget {
                         ),
                         child: Text(
                           'KAMU',
-                          style: GoogleFonts.orbitron(
+                          style: GoogleFonts.dmSans(
                             color: AppColors.levelUpTeal,
                             fontSize: 8,
                             fontWeight: FontWeight.w900,
