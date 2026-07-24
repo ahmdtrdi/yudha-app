@@ -6,6 +6,7 @@ class InterviewLaunchConfig {
     this.mode = 'coaching',
     this.language = 'id',
     this.responseStyle = 'text',
+    this.resumeSessionId,
   });
 
   factory InterviewLaunchConfig.bumnDefault() {
@@ -36,6 +37,7 @@ class InterviewLaunchConfig {
   final String mode;
   final String language;
   final String responseStyle;
+  final String? resumeSessionId;
 
   @override
   bool operator ==(Object other) {
@@ -46,16 +48,18 @@ class InterviewLaunchConfig {
             other.targetRole == targetRole &&
             other.mode == mode &&
             other.language == language &&
-            other.responseStyle == responseStyle;
+            other.responseStyle == responseStyle &&
+            other.resumeSessionId == resumeSessionId;
   }
 
   @override
   int get hashCode => Object.hash(
-        companyId,
-        companyName,
-        targetRole,
-        mode,
-        language,
-        responseStyle,
-      );
+    companyId,
+    companyName,
+    targetRole,
+    mode,
+    language,
+    responseStyle,
+    resumeSessionId,
+  );
 }

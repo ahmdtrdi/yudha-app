@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:yudha_mobile/app/config/app_config.dart';
@@ -103,13 +104,21 @@ class BackendInterviewRepository implements InterviewRepository {
     required String answer,
     required String idempotencyKey,
   }) async {
-    final Map<String, dynamic> body = await _post(
-      '/interview/sessions/$sessionId/turns',
-      <String, dynamic>{
-        'idempotencyKey': idempotencyKey,
-        'answer': <String, dynamic>{'type': 'text', 'text': answer},
-      },
-    );
+    final Map<String, dynamic> body;
+    try {
+      body = await _post(
+        '/interview/sessions/$sessionId/turns',
+        <String, dynamic>{
+          'idempotencyKey': idempotencyKey,
+          'answer': <String, dynamic>{'type': 'text', 'text': answer},
+        },
+      );
+    } on InterviewApiException catch (error) {
+      if (error.requiresNewIdempotencyKey) {
+        throw InterviewAnswerRetryRequiredException(error.message);
+      }
+      rethrow;
+    }
 
     final Object? nextQuestionJson = body['nextQuestion'];
     final Object? evaluationJson = body['evaluation'];
@@ -171,6 +180,14 @@ class BackendInterviewRepository implements InterviewRepository {
       throw const InterviewApiException(
         'Transkripsi membutuhkan waktu terlalu lama. Coba rekam ulang.',
       );
+    } on http.ClientException {
+      throw const InterviewApiException(
+        'Rekaman belum dapat dikirim. Periksa koneksi lalu coba lagi.',
+      );
+    } on SocketException {
+      throw const InterviewApiException(
+        'Rekaman belum dapat dikirim. Periksa koneksi lalu coba lagi.',
+      );
     }
     final http.Response response = await http.Response.fromStream(
       streamedResponse,
@@ -213,6 +230,14 @@ class BackendInterviewRepository implements InterviewRepository {
       throw const InterviewApiException(
         'Pewawancara AI belum merespons. Coba lagi sebentar.',
       );
+    } on http.ClientException {
+      throw const InterviewApiException(
+        'Pewawancara AI belum dapat dihubungi. Periksa koneksi lalu coba lagi.',
+      );
+    } on SocketException {
+      throw const InterviewApiException(
+        'Pewawancara AI belum dapat dihubungi. Periksa koneksi lalu coba lagi.',
+      );
     }
 
     return _decodeResponse(response);
@@ -230,6 +255,14 @@ class BackendInterviewRepository implements InterviewRepository {
     } on TimeoutException {
       throw const InterviewApiException(
         'Sesi interview belum berhasil dimuat. Coba lagi.',
+      );
+    } on http.ClientException {
+      throw const InterviewApiException(
+        'Sesi interview belum dapat dihubungi. Periksa koneksi lalu coba lagi.',
+      );
+    } on SocketException {
+      throw const InterviewApiException(
+        'Sesi interview belum dapat dihubungi. Periksa koneksi lalu coba lagi.',
       );
     }
 
@@ -250,9 +283,16 @@ class BackendInterviewRepository implements InterviewRepository {
   };
 
   Map<String, dynamic> _decodeResponse(http.Response response) {
-    final Object? decoded = response.body.isEmpty
-        ? const <String, dynamic>{}
-        : jsonDecode(response.body);
+    final Object? decoded;
+    try {
+      decoded = response.body.isEmpty
+          ? const <String, dynamic>{}
+          : jsonDecode(response.body);
+    } on FormatException {
+      throw const InterviewApiException(
+        'Respons interview belum dapat dibaca. Silakan coba lagi.',
+      );
+    }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final String backendMessage = decoded is Map<String, dynamic>
@@ -260,6 +300,9 @@ class BackendInterviewRepository implements InterviewRepository {
           : response.reasonPhrase ?? 'Error';
       throw InterviewApiException(
         _friendlyErrorMessage(response.statusCode, backendMessage),
+        requiresNewIdempotencyKey: backendMessage.toLowerCase().contains(
+          'submit a new request',
+        ),
       );
     }
 
@@ -283,8 +326,17 @@ class BackendInterviewRepository implements InterviewRepository {
     if (statusCode == 404) {
       return 'Sesi interview ini tidak ditemukan.';
     }
+    if (normalized.contains('submit at least one')) {
+      return 'Jawab setidaknya satu pertanyaan sebelum menyelesaikan sesi.';
+    }
+    if (normalized.contains('still processing')) {
+      return 'Jawabanmu masih sedang dinilai. Tunggu sebentar lalu coba lagi.';
+    }
+    if (normalized.contains('submit a new request')) {
+      return 'Jawaban sebelumnya belum berhasil dinilai. Kirim ulang jawabanmu.';
+    }
     if (statusCode == 409 || normalized.contains('not active')) {
-      return 'Sesi interview ini sudah selesai atau sedang diproses.';
+      return 'Sesi interview ini sudah selesai.';
     }
     if (statusCode == 413) {
       return 'Rekaman terlalu besar. Coba rekam jawaban yang lebih singkat.';
@@ -292,13 +344,16 @@ class BackendInterviewRepository implements InterviewRepository {
     if (statusCode == 429) {
       return 'Pewawancara AI sedang ramai. Tunggu sebentar lalu coba lagi.';
     }
+    if (statusCode == 400 && normalized.contains('5000')) {
+      return 'Jawaban terlalu panjang. Ringkas menjadi maksimal 5.000 karakter.';
+    }
+    if (statusCode == 400 && normalized.contains('audio')) {
+      return 'Format atau ukuran rekaman belum didukung. Coba rekam ulang.';
+    }
     if (statusCode >= 500 ||
         normalized.contains('model') ||
         normalized.contains('provider')) {
       return 'Pewawancara AI sedang tidak tersedia. Coba lagi sebentar.';
-    }
-    if (normalized.contains('submit at least one')) {
-      return 'Jawab setidaknya satu pertanyaan sebelum menyelesaikan sesi.';
     }
     return 'Permintaan interview belum berhasil. Silakan coba lagi.';
   }
@@ -363,9 +418,13 @@ class BackendInterviewRepository implements InterviewRepository {
 }
 
 class InterviewApiException implements Exception {
-  const InterviewApiException(this.message);
+  const InterviewApiException(
+    this.message, {
+    this.requiresNewIdempotencyKey = false,
+  });
 
   final String message;
+  final bool requiresNewIdempotencyKey;
 
   @override
   String toString() => message;

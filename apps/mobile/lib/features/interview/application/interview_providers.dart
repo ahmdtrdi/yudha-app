@@ -36,19 +36,19 @@ interviewSessionDetailProvider =
       return ref.watch(interviewRepositoryProvider).getSession(sessionId);
     });
 
-final StateNotifierProviderFamily<
+final AutoDisposeStateNotifierProviderFamily<
   InterviewController,
   InterviewState,
   InterviewLaunchConfig
 >
-interviewControllerProvider =
-    StateNotifierProvider.family<
-      InterviewController,
-      InterviewState,
-      InterviewLaunchConfig
-    >(
+interviewControllerProvider = StateNotifierProvider.autoDispose
+    .family<InterviewController, InterviewState, InterviewLaunchConfig>(
       (Ref ref, InterviewLaunchConfig config) => InterviewController(
         repository: ref.watch(interviewRepositoryProvider),
         config: config,
+        onSessionChanged: (String sessionId) {
+          ref.invalidate(interviewSessionsProvider);
+          ref.invalidate(interviewSessionDetailProvider(sessionId));
+        },
       ),
     );

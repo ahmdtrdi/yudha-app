@@ -16,6 +16,17 @@ class InterviewMessage {
   final DateTime createdAt;
   final InterviewEvaluation? evaluation;
   final bool audioAvailable;
+
+  InterviewMessage copyWith({InterviewEvaluation? evaluation}) {
+    return InterviewMessage(
+      id: id,
+      author: author,
+      text: text,
+      createdAt: createdAt,
+      evaluation: evaluation ?? this.evaluation,
+      audioAvailable: audioAvailable,
+    );
+  }
 }
 
 class InterviewEvaluation {
