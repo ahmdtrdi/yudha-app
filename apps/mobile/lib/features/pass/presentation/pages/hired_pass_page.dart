@@ -9,6 +9,8 @@ import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
 import 'package:yudha_mobile/features/economy/presentation/widgets/economy_widgets.dart';
+import 'package:yudha_mobile/features/pass/application/hired_pass_providers.dart';
+import 'package:yudha_mobile/features/pass/domain/entities/hired_pass_status.dart';
 
 class HiredPassPage extends ConsumerWidget {
   const HiredPassPage({super.key});
@@ -18,7 +20,15 @@ class HiredPassPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final GameEconomyState economy = ref.watch(gameEconomyProvider);
-    final double progress = (economy.passPoints / _seasonMaxPoints).clamp(0, 1);
+    final AsyncValue<HiredPassStatus> status = ref.watch(
+      hiredPassStatusProvider,
+    );
+    final HiredPassStatus? serverStatus = status.asData?.value;
+    final GameEconomyState displayedEconomy = serverStatus == null
+        ? economy
+        : economy.copyWith(passPoints: serverStatus.passPoints);
+    final double progress = (displayedEconomy.passPoints / _seasonMaxPoints)
+        .clamp(0, 1);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F0FA),
@@ -47,7 +57,7 @@ class HiredPassPage extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
           children: <Widget>[
             _PassHeroCard(
-              economy: economy,
+              economy: displayedEconomy,
               progress: progress,
               onActivate: () => _showResult(
                 context,
@@ -61,51 +71,16 @@ class HiredPassPage extends ConsumerWidget {
               title: 'Misi musim ini',
               subtitle: 'Aktivitas belajar menghasilkan Pass Points.',
               trailing: TextButton.icon(
-                key: const ValueKey<String>('add-pass-points-beta'),
+                key: const ValueKey<String>('refresh-pass-missions'),
                 onPressed: () {
-                  ref
-                      .read(gameEconomyProvider.notifier)
-                      .addPassPointsForTesting();
-                  ScaffoldMessenger.of(context)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(
-                      const SnackBar(content: Text('Beta +100 Pass Points.')),
-                    );
+                  ref.invalidate(hiredPassStatusProvider);
                 },
-                icon: const Icon(Icons.science_rounded, size: 16),
-                label: const Text('+100 beta'),
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Muat ulang'),
               ),
             ),
             const SizedBox(height: 10),
-            const _MissionCard(
-              icon: Icons.menu_book_rounded,
-              title: 'Latihan harian',
-              subtitle: 'Selesaikan 3 sesi practice',
-              progress: 2,
-              target: 3,
-              points: 100,
-              color: Color(0xFF2878F0),
-            ),
-            const SizedBox(height: 8),
-            const _MissionCard(
-              icon: Icons.sports_martial_arts_rounded,
-              title: 'Pejuang mingguan',
-              subtitle: 'Mainkan 5 battle PvP',
-              progress: 3,
-              target: 5,
-              points: 250,
-              color: Color(0xFFF05E5E),
-            ),
-            const SizedBox(height: 8),
-            const _MissionCard(
-              icon: Icons.mic_rounded,
-              title: 'Siap interview',
-              subtitle: 'Selesaikan 1 mock interview',
-              progress: 0,
-              target: 1,
-              points: 200,
-              color: Color(0xFF8B6FE8),
-            ),
+            ..._missionWidgets(status, ref),
             const SizedBox(height: 22),
             const _SectionTitle(
               title: 'Reward track',
@@ -117,7 +92,7 @@ class HiredPassPage extends ConsumerWidget {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _RewardMilestone(
                   milestone: milestone,
-                  economy: economy,
+                  economy: displayedEconomy,
                   onClaim: (PassReward reward) => _showResult(
                     context,
                     ref
@@ -159,6 +134,61 @@ class HiredPassPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  List<Widget> _missionWidgets(
+    AsyncValue<HiredPassStatus> status,
+    WidgetRef ref,
+  ) {
+    return status.when(
+      data: (HiredPassStatus value) {
+        if (value.missions.isEmpty) {
+          return const <Widget>[Text('Belum ada misi aktif untuk musim ini.')];
+        }
+        return <Widget>[
+          for (int index = 0; index < value.missions.length; index++) ...[
+            if (index > 0) const SizedBox(height: 8),
+            _MissionCard(
+              icon: _missionIcon(value.missions[index].id),
+              title: value.missions[index].title,
+              subtitle: value.missions[index].description,
+              progress: value.missions[index].progress,
+              target: value.missions[index].target,
+              passPointsReward: value.missions[index].passPointsReward,
+              color: _missionColor(value.missions[index].id),
+            ),
+          ],
+        ];
+      },
+      loading: () => const <Widget>[Center(child: CircularProgressIndicator())],
+      error: (Object error, StackTrace stackTrace) => <Widget>[
+        TextButton.icon(
+          onPressed: () => ref.invalidate(hiredPassStatusProvider),
+          icon: const Icon(Icons.refresh_rounded),
+          label: Text('Misi gagal dimuat: $error'),
+        ),
+      ],
+    );
+  }
+
+  IconData _missionIcon(String id) {
+    if (id.contains('practice')) {
+      return Icons.menu_book_rounded;
+    }
+    if (id.contains('ranked') || id.contains('battle')) {
+      return Icons.sports_martial_arts_rounded;
+    }
+    return Icons.mic_rounded;
+  }
+
+  Color _missionColor(String id) {
+    if (id.contains('practice')) {
+      return const Color(0xFF2878F0);
+    }
+    if (id.contains('ranked') || id.contains('battle')) {
+      return const Color(0xFFF05E5E);
+    }
+    return const Color(0xFF8B6FE8);
   }
 
   void _showResult(BuildContext context, EconomyActionResult result) {
@@ -403,7 +433,7 @@ class _MissionCard extends StatelessWidget {
     required this.subtitle,
     required this.progress,
     required this.target,
-    required this.points,
+    required this.passPointsReward,
     required this.color,
   });
 
@@ -412,7 +442,7 @@ class _MissionCard extends StatelessWidget {
   final String subtitle;
   final int progress;
   final int target;
-  final int points;
+  final int passPointsReward;
   final Color color;
 
   @override
@@ -453,7 +483,7 @@ class _MissionCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '+$points PP',
+                      '+$passPointsReward PASS POINTS',
                       style: GoogleFonts.jetBrainsMono(
                         color: color,
                         fontSize: 10.5,

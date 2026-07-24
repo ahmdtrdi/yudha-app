@@ -147,7 +147,7 @@ export class HiredPassService {
             cadence: mission.cadence,
             progress: progress?.progress_count ?? 0,
             target: mission.target_count,
-            points: mission.points_reward,
+            passPointsReward: mission.points_reward,
             completed: progress?.points_awarded_at != null,
             periodStart,
           };
