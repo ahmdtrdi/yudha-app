@@ -420,6 +420,66 @@ void main() {
   });
 
   group('BattleController authoritative online state', () {
+    test('keeps the player card details for online answer analysis', () async {
+      final _ControllableOnlineRepository online =
+          _ControllableOnlineRepository();
+      final BattleController controller = BattleController(
+        botRepository: const _FakeBotRepository(
+          BattleSessionSeed(
+            opponentName: 'BOT TEST',
+            questions: <BattleQuestion>[selectedQuestion],
+          ),
+        ),
+        onlineRepository: online,
+      );
+      addTearDown(controller.dispose);
+
+      controller.enterArena();
+      controller.setMode(BattleMode.online);
+      await controller.startBattle();
+      await controller.prepareQuestion(selectedQuestion);
+
+      online.emit(
+        const GameStateUpdated(
+          roomId: 'room-answer-analysis',
+          phase: 'active',
+          playerHp: 95,
+          opponentHp: 100,
+          playerPoints: 0,
+          opponentPoints: 5,
+          playerComboLevel: 1,
+          currentRound: 1,
+          roundSecondsRemaining: 170,
+          playerRoundWins: 0,
+          opponentRoundWins: 0,
+          lastRoundOutcome: null,
+          availableQuestions: <BattleQuestion>[],
+          answeredQuestionIds: <String>['q-selected'],
+          playerDisplayName: 'Yudha',
+          opponentDisplayName: 'Bima',
+        ),
+      );
+      online.emit(
+        const CardPlayedUpdate(
+          cardId: 'q-selected',
+          correct: false,
+          effect: QuestionEffect.damage,
+          effectValue: 5,
+          projectileLevel: 1,
+          isSelfAction: true,
+          category: 'verbal',
+        ),
+      );
+
+      expect(controller.state.answerHistory, hasLength(1));
+      expect(
+        controller.state.answerHistory.single.prompt,
+        selectedQuestion.prompt,
+      );
+      expect(controller.state.answerHistory.single.category, 'verbal');
+      expect(controller.state.answerHistory.single.isCorrect, isFalse);
+    });
+
     test('restores an active server room after controller recreation', () {
       final _ControllableOnlineRepository online =
           _ControllableOnlineRepository();

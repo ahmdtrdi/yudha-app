@@ -31,6 +31,9 @@ void main() {
       expect(resolved.playerPoints, 5);
       expect(resolved.phase, BattlePhase.inBattle);
       expect(resolved.outcome, BattleOutcome.inProgress);
+      expect(resolved.answerHistory, hasLength(1));
+      expect(resolved.answerHistory.single.questionId, question.id);
+      expect(resolved.answerHistory.single.isCorrect, isTrue);
     });
 
     test('caps heal at 100 when answer is correct', () {
@@ -102,6 +105,7 @@ void main() {
         equals(<String>[retainedQuestion.id]),
       );
       expect(resolved.answeredQuestionIds, contains(usedQuestion.id));
+      expect(resolved.answerHistory.single.isCorrect, isFalse);
     });
 
     test('recycles the final player card while battle remains active', () {

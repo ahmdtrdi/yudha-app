@@ -4,6 +4,7 @@ class _ResultSection extends StatelessWidget {
   const _ResultSection({
     required this.state,
     required this.onClaimReward,
+    required this.onPractice,
     required this.onReplay,
     required this.onReset,
     required this.playerDisplayName,
@@ -17,6 +18,7 @@ class _ResultSection extends StatelessWidget {
 
   final BattleState state;
   final VoidCallback onClaimReward;
+  final ValueChanged<String> onPractice;
   final VoidCallback onReplay;
   final VoidCallback onReset;
   final String playerDisplayName;
@@ -50,6 +52,9 @@ class _ResultSection extends StatelessWidget {
         : '${state.ratingDelta}';
     final NavigatorState navigator = Navigator.of(context);
     final bool canGoBack = navigator.canPop();
+    final BattlePerformanceInsight? insight = BattlePerformanceAnalyzer.analyze(
+      state.answerHistory,
+    );
 
     return ColoredBox(
       color: _warmCanvas,
@@ -105,6 +110,15 @@ class _ResultSection extends StatelessWidget {
                       playerDisplayName: playerDisplayName,
                       compact: compact,
                     ),
+                    if (insight != null) ...<Widget>[
+                      SizedBox(height: compact ? 10 : 12),
+                      _PerformanceInsightCard(
+                        insight: insight,
+                        compact: compact,
+                        onPractice: () =>
+                            onPractice(insight.weakestCategory.category),
+                      ),
+                    ],
                     SizedBox(height: compact ? 10 : 12),
                     _RewardCard(
                       ratingText: ratingText,
@@ -241,6 +255,190 @@ class _ResultSection extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PerformanceInsightCard extends StatelessWidget {
+  const _PerformanceInsightCard({
+    required this.insight,
+    required this.compact,
+    required this.onPractice,
+  });
+
+  final BattlePerformanceInsight insight;
+  final bool compact;
+  final VoidCallback onPractice;
+
+  @override
+  Widget build(BuildContext context) {
+    final BattleCategoryPerformance category = insight.weakestCategory;
+    final BattleMissedCard? missedCard = insight.mostMissedCard;
+    final String categoryLabel = _performanceCategoryLabel(category.category);
+    final bool flawless = category.incorrectAnswers == 0;
+
+    return Container(
+      key: const ValueKey<String>('battle-performance-insight'),
+      width: double.infinity,
+      padding: EdgeInsets.all(compact ? 14 : 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFF2878F0).withAlpha(34)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: const Color(0xFF17233F).withAlpha(12),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2878F0).withAlpha(18),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.insights_rounded,
+                  color: Color(0xFF2878F0),
+                  size: 21,
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      flawless
+                          ? 'Pertahankan performamu'
+                          : 'Fokus latihan berikutnya',
+                      style: GoogleFonts.fredoka(
+                        color: _ResultSection._ink,
+                        fontSize: compact ? 15 : 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$categoryLabel · ${category.correctAnswers} dari '
+                      '${category.totalAnswers} benar',
+                      style: GoogleFonts.dmSans(
+                        color: _ResultSection._mutedInk,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color:
+                      (flawless
+                              ? const Color(0xFF2FAE7D)
+                              : const Color(0xFFF05E5E))
+                          .withAlpha(18),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${category.accuracyPercent}%',
+                  style: GoogleFonts.dmSans(
+                    color: flawless
+                        ? const Color(0xFF21845F)
+                        : const Color(0xFFB83F45),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (missedCard != null) ...<Widget>[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF8EC),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'KARTU PALING SERING SALAH · '
+                    '${missedCard.incorrectAnswers}×',
+                    style: GoogleFonts.dmSans(
+                      color: const Color(0xFFB83F45),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    missedCard.prompt,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.dmSans(
+                      color: _ResultSection._ink,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: OutlinedButton.icon(
+              key: const ValueKey<String>('practice-weakest-category'),
+              onPressed: onPractice,
+              icon: const Icon(Icons.fitness_center_rounded, size: 18),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF0D2A52),
+                side: const BorderSide(color: Color(0xFF2878F0)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              label: Text(
+                'Latihan $categoryLabel',
+                style: GoogleFonts.dmSans(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _performanceCategoryLabel(String category) {
+  final String normalized = category.trim().toLowerCase();
+  return switch (normalized) {
+    'numerik' => 'Numerik',
+    'verbal' => 'Verbal',
+    'logika' => 'Logika',
+    'tiu' => 'TIU',
+    'twk' => 'TWK',
+    'tkp' => 'TKP',
+    'akhlak' => 'AKHLAK',
+    _ when normalized.isNotEmpty =>
+      '${normalized[0].toUpperCase()}${normalized.substring(1)}',
+    _ => 'Kategori soal',
+  };
 }
 
 class _ResultBadge extends StatelessWidget {

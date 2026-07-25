@@ -218,6 +218,20 @@ void main() {
     expect(controller.state.answerExplanation, isNotNull);
   });
 
+  test('starts the practice topic that matches a battle category', () async {
+    final _FakePracticeRepository repository = _FakePracticeRepository();
+    final PracticeController controller = PracticeController(
+      repository: repository,
+    );
+    await controller.reload();
+
+    final bool started = await controller.startRecommendedSession('numerik');
+
+    expect(started, isTrue);
+    expect(controller.state.selectedTopicId, _FakePracticeRepository.topic.id);
+    expect(controller.state.sessionId, 'session-1');
+  });
+
   test('finishes the server session after the final answer', () async {
     final _FakePracticeRepository repository = _FakePracticeRepository();
     final PracticeController controller = PracticeController(

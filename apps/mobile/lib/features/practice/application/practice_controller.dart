@@ -119,6 +119,18 @@ class PracticeController extends StateNotifier<PracticeState> {
     }
   }
 
+  Future<bool> startRecommendedSession(String battleCategory) {
+    final PracticeTopic? topic = _findRecommendedTopic(battleCategory);
+    if (topic == null) {
+      state = state.copyWith(
+        errorMessage:
+            'Latihan untuk kategori ${battleCategory.trim()} belum tersedia.',
+      );
+      return Future<bool>.value(false);
+    }
+    return startSession(topic.id);
+  }
+
   void selectOption(String optionId) {
     if (state.status != PracticeViewStatus.ready ||
         state.isCurrentQuestionSubmitted) {
@@ -241,6 +253,58 @@ class PracticeController extends StateNotifier<PracticeState> {
       }
     }
     return null;
+  }
+
+  PracticeTopic? _findRecommendedTopic(String battleCategory) {
+    final String focus = _normalizeTopicValue(battleCategory);
+    if (focus.isEmpty) {
+      return null;
+    }
+
+    PracticeTopic? bestTopic;
+    int? bestScore;
+    for (final PracticeTopic topic in state.topics) {
+      if (topic.isLocked) {
+        continue;
+      }
+      final int? score = _topicMatchScore(topic, focus);
+      if (score != null && (bestScore == null || score < bestScore)) {
+        bestTopic = topic;
+        bestScore = score;
+      }
+    }
+    return bestTopic;
+  }
+
+  int? _topicMatchScore(PracticeTopic topic, String focus) {
+    final String subcategory = _normalizeTopicValue(topic.subcategory ?? '');
+    final String name = _normalizeTopicValue(topic.name);
+    final String category = _normalizeTopicValue(topic.category);
+    final String badge = _normalizeTopicValue(topic.badgeLabel ?? '');
+    final String id = _normalizeTopicValue(topic.id);
+
+    if (subcategory == focus) {
+      return 0;
+    }
+    if (name == focus) {
+      return 1;
+    }
+    if (category == focus) {
+      return 2;
+    }
+    if (badge == focus) {
+      return 3;
+    }
+    if (id.contains(focus) ||
+        subcategory.contains(focus) ||
+        name.contains(focus)) {
+      return 4;
+    }
+    return null;
+  }
+
+  String _normalizeTopicValue(String value) {
+    return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
   String _messageFor(Object error, String fallback) {

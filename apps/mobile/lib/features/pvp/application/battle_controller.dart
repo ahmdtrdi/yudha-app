@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yudha_mobile/features/pvp/data/repositories/battle_repository.dart';
 import 'package:yudha_mobile/features/pvp/data/repositories/online_battle_repository.dart';
+import 'package:yudha_mobile/features/pvp/domain/entities/battle_answer_record.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_question.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_state.dart';
@@ -44,6 +45,8 @@ class BattleController extends StateNotifier<BattleState> {
   bool _acceptOnlineUpdates = false;
   bool _matchmakingCancelled = false;
   String? _preparedQuestionId;
+  final Map<String, BattleQuestion> _onlineQuestionSnapshots =
+      <String, BattleQuestion>{};
 
   Future<void> reconnectIfActive() async {
     try {
@@ -60,6 +63,7 @@ class BattleController extends StateNotifier<BattleState> {
     }
 
     _preparedQuestionId = null;
+    _onlineQuestionSnapshots.clear();
     _resetBattleTimers();
     state = state.copyWith(
       mode: mode,
@@ -76,6 +80,7 @@ class BattleController extends StateNotifier<BattleState> {
       coinsDelta: 0,
       availableQuestions: const <BattleQuestion>[],
       answeredQuestionIds: const <String>[],
+      answerHistory: const <BattleAnswerRecord>[],
       rewardClaimed: false,
       comboLevel: 1,
       comboSecondsRemaining: 0,
@@ -115,6 +120,7 @@ class BattleController extends StateNotifier<BattleState> {
     }
 
     _preparedQuestionId = null;
+    _onlineQuestionSnapshots.clear();
     _resetBattleTimers();
     state = state.copyWith(
       phase: BattlePhase.arenaMenu,
@@ -127,6 +133,7 @@ class BattleController extends StateNotifier<BattleState> {
       coinsDelta: 0,
       availableQuestions: const <BattleQuestion>[],
       answeredQuestionIds: const <String>[],
+      answerHistory: const <BattleAnswerRecord>[],
       rewardClaimed: false,
       comboLevel: 1,
       comboSecondsRemaining: 0,
@@ -155,6 +162,7 @@ class BattleController extends StateNotifier<BattleState> {
 
     _acceptOnlineUpdates = false;
     _preparedQuestionId = null;
+    _onlineQuestionSnapshots.clear();
     _resetBattleTimers();
     state = BattleState.initial().copyWith(mode: state.mode);
   }
@@ -189,6 +197,7 @@ class BattleController extends StateNotifier<BattleState> {
             : session.opponentName,
         availableQuestions: session.questions,
         answeredQuestionIds: const <String>[],
+        answerHistory: const <BattleAnswerRecord>[],
         playerHp: 100,
         opponentHp: 100,
         playerPoints: 0,
@@ -391,6 +400,7 @@ class BattleController extends StateNotifier<BattleState> {
   void resetBattle() {
     _acceptOnlineUpdates = false;
     _preparedQuestionId = null;
+    _onlineQuestionSnapshots.clear();
     _resetBattleTimers();
     state = BattleState.initial().copyWith(
       mode: state.mode,
@@ -410,6 +420,7 @@ class BattleController extends StateNotifier<BattleState> {
     try {
       await _onlineRepository.openCard(cardId: question.id);
       _preparedQuestionId = question.id;
+      _onlineQuestionSnapshots[question.id] = question;
       state = state.copyWith(
         statusMessage: 'Kartu arena dibuka. Jawab sekarang.',
         clearErrorMessage: true,
@@ -661,7 +672,10 @@ class BattleController extends StateNotifier<BattleState> {
         );
         break;
       case CardPlayedUpdate():
-        final BattleQuestion? question = _findQuestionById(update.cardId);
+        final BattleQuestion? question = update.isSelfAction
+            ? _onlineQuestionSnapshots.remove(update.cardId) ??
+                  _findQuestionById(update.cardId)
+            : _findQuestionById(update.cardId);
         final QuestionEffect? effect = update.effect;
         final bool isCorrect = update.correct;
         state = state.copyWith(
@@ -686,11 +700,24 @@ class BattleController extends StateNotifier<BattleState> {
           clearErrorMessage: true,
           clearBattleEvent: effect == null,
           lastProjectileLevel: update.projectileLevel,
+          answerHistory: update.isSelfAction
+              ? <BattleAnswerRecord>[
+                  ...state.answerHistory,
+                  BattleAnswerRecord(
+                    questionId: update.cardId,
+                    prompt: question?.prompt ?? '',
+                    category:
+                        update.category ?? question?.category ?? 'numerik',
+                    isCorrect: isCorrect,
+                  ),
+                ]
+              : state.answerHistory,
         );
         break;
       case MatchResultUpdate():
         _acceptOnlineUpdates = false;
         _preparedQuestionId = null;
+        _onlineQuestionSnapshots.clear();
         _resetBattleTimers();
         state = state.copyWith(
           phase: BattlePhase.finished,

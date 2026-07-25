@@ -12,11 +12,30 @@ import 'package:yudha_mobile/features/practice/domain/entities/practice_topic.da
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
-class PracticePage extends ConsumerWidget {
-  const PracticePage({super.key});
+class PracticePage extends ConsumerStatefulWidget {
+  const PracticePage({super.key, this.focusCategory});
+
+  final String? focusCategory;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PracticePage> createState() => _PracticePageState();
+}
+
+class _PracticePageState extends ConsumerState<PracticePage> {
+  bool _focusLaunchHandled = false;
+  bool _focusLaunchScheduled = false;
+
+  @override
+  void didUpdateWidget(covariant PracticePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusCategory != widget.focusCategory) {
+      _focusLaunchHandled = false;
+      _focusLaunchScheduled = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final PracticeState state = ref.watch(practiceControllerProvider);
     final controller = ref.read(practiceControllerProvider.notifier);
     final profileSettings = ref.watch(profileSettingsProvider);
@@ -29,6 +48,7 @@ class PracticePage extends ConsumerWidget {
     final Map<String, List<PracticeTopic>> topicGroups = _groupTopics(
       state.topics,
     );
+    _scheduleFocusedPractice(state);
 
     Future<void> openQuiz(String topicId) async {
       final bool started = await controller.startSession(topicId);
@@ -169,6 +189,39 @@ class PracticePage extends ConsumerWidget {
       groups.putIfAbsent(topic.groupTitle, () => <PracticeTopic>[]).add(topic);
     }
     return groups;
+  }
+
+  void _scheduleFocusedPractice(PracticeState state) {
+    final String focusCategory = widget.focusCategory?.trim() ?? '';
+    if (_focusLaunchHandled ||
+        _focusLaunchScheduled ||
+        focusCategory.isEmpty ||
+        state.status != PracticeViewStatus.ready ||
+        state.topics.isEmpty) {
+      return;
+    }
+
+    _focusLaunchScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      _focusLaunchHandled = true;
+      _focusLaunchScheduled = false;
+      final bool started = await ref
+          .read(practiceControllerProvider.notifier)
+          .startRecommendedSession(focusCategory);
+      if (!mounted) {
+        return;
+      }
+      if (started) {
+        context.push(AppRoutes.practiceQuiz);
+        return;
+      }
+      final String message =
+          ref.read(practiceControllerProvider).errorMessage ??
+          'Kategori latihan yang direkomendasikan belum tersedia.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    });
   }
 }
 

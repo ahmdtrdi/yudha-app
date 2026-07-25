@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/features/practice/application/practice_providers.dart';
 import 'package:yudha_mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_dashboard.dart';
@@ -158,5 +160,40 @@ void main() {
 
     expect(find.text('PETUNJUK'), findsOneWidget);
     expect(find.text('Only one number is not prime.'), findsOneWidget);
+  });
+
+  testWidgets('opens the recommended practice after a battle', (
+    WidgetTester tester,
+  ) async {
+    final GoRouter router = GoRouter(
+      initialLocation: AppRoutes.practice,
+      routes: <RouteBase>[
+        GoRoute(
+          path: AppRoutes.practice,
+          builder: (context, state) =>
+              const PracticePage(focusCategory: 'logika'),
+        ),
+        GoRoute(
+          path: AppRoutes.practiceQuiz,
+          builder: (context, state) => const PracticeQuizPage(),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          practiceRepositoryProvider.overrideWithValue(
+            const _SuccessPracticeRepository(),
+          ),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PracticeQuizPage), findsOneWidget);
+    expect(find.text('Find the odd one out: 2, 3, 5, 9, 11'), findsOneWidget);
   });
 }

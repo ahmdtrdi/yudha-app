@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:yudha_mobile/features/pvp/domain/entities/battle_answer_record.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_question.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_state.dart';
@@ -79,6 +80,15 @@ abstract final class BattleStateMachine {
       opponentPoints: opponentPoints,
       availableQuestions: remainingQuestions,
       answeredQuestionIds: answeredQuestions,
+      answerHistory: <BattleAnswerRecord>[
+        ...state.answerHistory,
+        BattleAnswerRecord(
+          questionId: question.id,
+          prompt: question.prompt,
+          category: question.category,
+          isCorrect: isCorrect,
+        ),
+      ],
       battleEventId: state.battleEventId + 1,
       lastActor: _actorForPlayerTurn(question: question, isCorrect: isCorrect),
       lastVisualEffect: _visualEffectForTurn(

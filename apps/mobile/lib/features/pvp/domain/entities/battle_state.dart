@@ -1,3 +1,4 @@
+import 'package:yudha_mobile/features/pvp/domain/entities/battle_answer_record.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_question.dart';
 
@@ -16,6 +17,7 @@ class BattleState {
     required this.onlineMatchmakingMode,
     required this.availableQuestions,
     required this.answeredQuestionIds,
+    required this.answerHistory,
     required this.isLoading,
     required this.rewardClaimed,
     required this.battleEventId,
@@ -57,6 +59,7 @@ class BattleState {
       onlineMatchmakingMode: OnlineMatchmakingMode.casual,
       availableQuestions: <BattleQuestion>[],
       answeredQuestionIds: <String>[],
+      answerHistory: <BattleAnswerRecord>[],
       isLoading: false,
       rewardClaimed: false,
       battleEventId: 0,
@@ -85,6 +88,7 @@ class BattleState {
   final OnlineMatchmakingMode onlineMatchmakingMode;
   final List<BattleQuestion> availableQuestions;
   final List<String> answeredQuestionIds;
+  final List<BattleAnswerRecord> answerHistory;
   final bool isLoading;
   final bool rewardClaimed;
   final int battleEventId;
@@ -129,6 +133,7 @@ class BattleState {
     OnlineMatchmakingMode? onlineMatchmakingMode,
     List<BattleQuestion>? availableQuestions,
     List<String>? answeredQuestionIds,
+    List<BattleAnswerRecord>? answerHistory,
     bool? isLoading,
     bool? rewardClaimed,
     int? battleEventId,
@@ -177,6 +182,7 @@ class BattleState {
           onlineMatchmakingMode ?? this.onlineMatchmakingMode,
       availableQuestions: availableQuestions ?? this.availableQuestions,
       answeredQuestionIds: answeredQuestionIds ?? this.answeredQuestionIds,
+      answerHistory: answerHistory ?? this.answerHistory,
       isLoading: isLoading ?? this.isLoading,
       rewardClaimed: rewardClaimed ?? this.rewardClaimed,
       battleEventId: battleEventId ?? this.battleEventId,
