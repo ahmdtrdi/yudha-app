@@ -130,8 +130,13 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Tujuan CPNS aktif. Arena lain terkunci agar materi dan '
-        'lawan tetap sesuai tujuan belajarmu.'), findsOneWidget);
+    expect(
+      find.text(
+        'Tujuan CPNS aktif. Arena lain terkunci agar materi dan '
+        'lawan tetap sesuai tujuan belajarmu.',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('TERKUNCI'), findsOneWidget);
     expect(
       find.text(
@@ -165,10 +170,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(
-      container.read(gameEconomyProvider).equippedArenaId,
-      'arena-bumn',
-    );
+    expect(container.read(gameEconomyProvider).equippedArenaId, 'arena-bumn');
     expect(
       find.text(
         'Pindah tujuan Anda di Pengaturan jika ingin bermain di Arena CPNS.',
@@ -452,6 +454,11 @@ void main() {
     expect(battleController.state.currentRound, 2);
     expect(battleController.state.phase, BattlePhase.finished);
     expect(find.text('VICTORY!'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('battle-performance-insight')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('dari'), findsWidgets);
   });
 
   testWidgets('renders authoritative multiplayer loadout and TWK card asset', (

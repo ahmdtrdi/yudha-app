@@ -1831,3 +1831,22 @@
 ### The Tech Debt
 - Feature widgets with explicit local progress or selection colors intentionally retain their semantic colors and can be reviewed individually in a later visual QA pass.
 - Shared inherited styles should be checked on PvP screens after hot restart even though no PvP source files were changed.
+
+## 2026-07-25 - Post-Match Weakness Analysis And Focused Practice
+
+### The Change
+- Added per-match player answer history for bot and online battles, including incorrect answers caused by card timeouts.
+- Added a deterministic performance analyzer that identifies the lowest-accuracy category and the question card answered incorrectly most often.
+- Added a post-match insight card for wins, losses, and draws with category accuracy, the most-missed prompt, and a focused practice action.
+- Connected the result action to the Practice flow so the closest unlocked topic is selected and its quiz session starts automatically.
+- Added unit and widget coverage for weakness ranking, local and online answer capture, battle-to-practice topic matching, result rendering, and automatic Practice navigation.
+
+### The Reasoning
+- Keeping answer analysis in the client battle state makes the feedback immediately available after either bot or online matches without changing the authoritative match outcome and economy contracts.
+- Category ranking compares exact correct-to-total ratios, then uses mistake count and correct count as deterministic tie-breakers so uneven card exposure does not distort the recommendation.
+- Online card snapshots preserve the prompt until the server result arrives because authoritative state updates may remove a played card from the visible hand first.
+- Practice matching prioritizes an exact subcategory such as Numerik, Verbal, or Logika before falling back to a high-level category such as TIU, TWK, TKP, or AKHLAK.
+
+### The Tech Debt
+- A reconnected online match can only analyze answer events observed after the client reconnects because the current server snapshot does not include historical per-card correctness.
+- Online battle cards do not currently expose their source subcategory. When only a high-level category is available and Practice requires a subcategory, the client starts the first matching unlocked topic.

@@ -24,6 +24,7 @@ import 'package:yudha_mobile/features/pvp/application/battle_providers.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_question.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_state.dart';
+import 'package:yudha_mobile/features/pvp/domain/services/battle_performance_analyzer.dart';
 import 'package:yudha_mobile/features/pvp/domain/services/battle_state_machine.dart';
 import 'package:yudha_mobile/features/pvp/presentation/audio/arena_audio_controller.dart';
 import 'package:yudha_mobile/features/pvp/presentation/pages/pvp_page/battle_effect_resolver.dart';
@@ -347,20 +348,30 @@ class _PvpPageState extends ConsumerState<PvpPage> {
     }
 
     if (state.phase == BattlePhase.finished) {
+      void claimReward() {
+        if (state.rewardClaimed) {
+          return;
+        }
+        if (state.mode == BattleMode.online) {
+          if (state.progressionPersisted) {
+            ref
+                .read(gameEconomyProvider.notifier)
+                .applyBattleReward(state.coinsDelta);
+          }
+          unawaited(
+            ref.read(playerProgressProvider.notifier).hydrateFromRepository(),
+          );
+        }
+        controller.markRewardClaimed();
+      }
+
       return _ResultSection(
         state: state,
-        onClaimReward: () {
-          if (state.mode == BattleMode.online) {
-            if (state.progressionPersisted) {
-              ref
-                  .read(gameEconomyProvider.notifier)
-                  .applyBattleReward(state.coinsDelta);
-            }
-            unawaited(
-              ref.read(playerProgressProvider.notifier).hydrateFromRepository(),
-            );
-          }
-          controller.markRewardClaimed();
+        onClaimReward: claimReward,
+        onPractice: (String category) {
+          claimReward();
+          controller.resetBattle();
+          context.go(AppRoutes.practice, extra: category);
         },
         onReplay: controller.startBattle,
         onReset: controller.resetBattle,
@@ -654,10 +665,7 @@ class _PvpPageState extends ConsumerState<PvpPage> {
 }
 
 class _SystemBarStyle extends StatelessWidget {
-  const _SystemBarStyle({
-    required this.darkBackground,
-    required this.child,
-  });
+  const _SystemBarStyle({required this.darkBackground, required this.child});
 
   final bool darkBackground;
   final Widget child;

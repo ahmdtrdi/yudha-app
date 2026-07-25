@@ -79,7 +79,11 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
           ),
           GoRoute(
             path: AppRoutes.practice,
-            builder: (context, state) => const PracticePage(),
+            builder: (context, state) => PracticePage(
+              focusCategory: state.extra is String
+                  ? state.extra as String
+                  : null,
+            ),
           ),
           GoRoute(
             path: AppRoutes.practiceQuiz,
