@@ -24,7 +24,7 @@ export class GameEngine {
   static readonly ROUND_BREAK_MS = 3_000;
   static readonly MAX_ROUNDS = 3;
   static readonly WINS_TO_WIN = 2;
-  static readonly BASE_DAMAGE = 5;
+  static readonly BASE_COMBO_EFFECT = 5;
   static readonly COMBO_WINDOW_MS = 7_000;
   private readonly dealer = new QuestionDealer();
 
@@ -193,7 +193,7 @@ export class GameEngine {
 
     if (correct && card.effect === 'damage') {
       effect = 'damage';
-      effectValue = this.damageForCombo(projectileLevel);
+      effectValue = this.effectValueForCombo(projectileLevel);
       opponent.hp = this.clampHp(opponent.hp - effectValue);
       player.points += effectValue;
       opponent.comboLevel = Math.max(1, opponent.comboLevel - 1);
@@ -202,7 +202,7 @@ export class GameEngine {
 
     if (correct && card.effect === 'heal') {
       effect = 'heal';
-      effectValue = card.healValue;
+      effectValue = this.effectValueForCombo(projectileLevel);
       player.hp = this.clampHp(player.hp + effectValue);
       player.points += effectValue;
     }
@@ -573,8 +573,8 @@ export class GameEngine {
     return room.lastRoundWinnerUserId === userId ? 'win' : 'lose';
   }
 
-  damageForCombo(comboLevel: number): number {
-    return Math.max(1, Math.min(3, comboLevel)) * GameEngine.BASE_DAMAGE;
+  effectValueForCombo(comboLevel: number): number {
+    return Math.max(1, Math.min(3, comboLevel)) * GameEngine.BASE_COMBO_EFFECT;
   }
 
   private normalizeCombo(player: InternalPlayerState): void {

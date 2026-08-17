@@ -49,6 +49,7 @@ void main() {
       final BattleState initial = BattleState.initial().copyWith(
         phase: BattlePhase.inBattle,
         playerHp: 95,
+        comboLevel: 3,
         availableQuestions: const <BattleQuestion>[healQuestion],
       );
 
@@ -59,14 +60,43 @@ void main() {
       );
 
       expect(resolved.playerHp, 100);
-      expect(resolved.playerPoints, greaterThan(0));
+      expect(resolved.playerPoints, 15);
     });
 
-    test('combo levels deal exactly 5, 10, and 15 damage', () {
-      expect(BattleStateMachine.damageFromCombo(1), 5);
-      expect(BattleStateMachine.damageFromCombo(2), 10);
-      expect(BattleStateMachine.damageFromCombo(3), 15);
-      expect(BattleStateMachine.damageFromCombo(99), 15);
+    test('combo levels apply exactly 5, 10, and 15 effect points', () {
+      expect(BattleStateMachine.effectFromCombo(1), 5);
+      expect(BattleStateMachine.effectFromCombo(2), 10);
+      expect(BattleStateMachine.effectFromCombo(3), 15);
+      expect(BattleStateMachine.effectFromCombo(99), 15);
+    });
+
+    test('heal uses the same combo-scaled values as damage', () {
+      const BattleQuestion healQuestion = BattleQuestion(
+        id: 'q-heal-scale',
+        prompt: 'Test scaled heal',
+        options: <String>['A', 'B'],
+        correctOptionIndex: 0,
+        weight: 4,
+        effect: QuestionEffect.heal,
+      );
+
+      for (final int comboLevel in <int>[1, 2, 3]) {
+        final BattleState initial = BattleState.initial().copyWith(
+          phase: BattlePhase.inBattle,
+          playerHp: 50,
+          comboLevel: comboLevel,
+          availableQuestions: const <BattleQuestion>[healQuestion],
+        );
+        final BattleState resolved = BattleStateMachine.resolveTurn(
+          state: initial,
+          question: healQuestion,
+          selectedOptionIndex: 0,
+        );
+
+        final int expectedHeal = comboLevel * 5;
+        expect(resolved.playerHp, 50 + expectedHeal);
+        expect(resolved.playerPoints, expectedHeal);
+      }
     });
 
     test('wrong answer replaces only the player card that was used', () {

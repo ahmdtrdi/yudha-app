@@ -21,10 +21,6 @@ const makeCards = (
     ...overrides,
   }));
 
-/** Create heal cards */
-const makeHealCards = (count: number): InternalCard[] =>
-  makeCards(count, { effect: 'heal', damageValue: 0, healValue: 20 });
-
 describe('GameEngine', () => {
   let engine: GameEngine;
 
@@ -196,30 +192,46 @@ describe('GameEngine', () => {
       expect(room.players.playerB.hp).toBe(70);
     });
 
-    it('heals on correct answer with heal card (capped at MAX_HP)', () => {
-      const healCards: InternalCard[] = Array.from({ length: 8 }, (_, i) => ({
-        id: `card_${i + 1}`,
-        sourceQuestionId: `question_${i + 1}`,
-        prompt: `Q${i}`,
-        options: ['A', 'B', 'C', 'D'],
-        correctOptionIndex: 0,
-        weight: 1,
-        effect: 'heal' as const,
-        damageValue: 0,
-        healValue: 50,
-        timeLimitSeconds: 30,
-      }));
-      const room = engine.createRoom('room_1', 'a', 'b', healCards);
-      room.players.playerA.hp = 80;
+    it('scales healing to 5, 10, then 15 and ignores stored healValue', () => {
+      const room = engine.createRoom(
+        'room_1',
+        'a',
+        'b',
+        makeCards(8, { effect: 'heal', damageValue: 0, healValue: 50 }),
+      );
+      room.players.playerA.hp = 60;
+
+      for (const [index, expectedHeal] of [5, 10, 15].entries()) {
+        const cardId = `card_${index + 1}`;
+        engine.openCard(room, 'a', cardId);
+        const result = engine.playCard(room, 'a', cardId, 1);
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+          expect(result.playResult.effect).toBe('heal');
+          expect(result.playResult.effectValue).toBe(expectedHeal);
+          expect(result.playResult.projectileLevel).toBe(index + 1);
+        }
+      }
+
+      expect(room.players.playerA.hp).toBe(90);
+      expect(room.players.playerA.points).toBe(30);
+    });
+
+    it('caps combo-scaled healing at MAX_HP', () => {
+      const room = engine.createRoom(
+        'room_1',
+        'a',
+        'b',
+        makeCards(8, { effect: 'heal', damageValue: 0, healValue: 50 }),
+      );
+      room.players.playerA.hp = 98;
 
       engine.openCard(room, 'a', 'card_1');
-      const result = engine.playCard(room, 'a', 'card_1', 0);
+      const result = engine.playCard(room, 'a', 'card_1', 1);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.playResult.correct).toBe(true);
-        expect(result.playResult.effect).toBe('heal');
-        // 80 + 50 = 130, but capped at 100
+        expect(result.playResult.effectValue).toBe(5);
         expect(room.players.playerA.hp).toBe(100);
       }
     });
@@ -265,18 +277,20 @@ describe('GameEngine', () => {
 
     it('recycles the Supabase pool with a fresh card-instance ID', () => {
       const active = makeCards(4); // Exactly HAND_SIZE, so no draws from main queue
-      const reserve: InternalCard[] = [{
-        id: 'reserve_1',
-        sourceQuestionId: 'question_reserve_1',
-        prompt: 'Reserve Q',
-        options: ['A', 'B', 'C', 'D'],
-        correctOptionIndex: 1,
-        weight: 1,
-        effect: 'damage',
-        damageValue: 10,
-        healValue: 0,
-        timeLimitSeconds: 30,
-      }];
+      const reserve: InternalCard[] = [
+        {
+          id: 'reserve_1',
+          sourceQuestionId: 'question_reserve_1',
+          prompt: 'Reserve Q',
+          options: ['A', 'B', 'C', 'D'],
+          correctOptionIndex: 1,
+          weight: 1,
+          effect: 'damage',
+          damageValue: 10,
+          healValue: 0,
+          timeLimitSeconds: 30,
+        },
+      ];
       const room = engine.createRoom('room_1', 'a', 'b', active, reserve);
 
       engine.openCard(room, 'a', 'card_1');
@@ -285,7 +299,9 @@ describe('GameEngine', () => {
       engine.playCard(room, 'a', 'card_2', 1);
 
       // Equivalent draw positions recycle the shared pool with a fresh ID.
-      const drawnCard = room.players.playerA.hand.find((c) => c.id.startsWith('card_r'));
+      const drawnCard = room.players.playerA.hand.find((c) =>
+        c.id.startsWith('card_r'),
+      );
       expect(drawnCard).toBeDefined();
     });
 
@@ -311,9 +327,9 @@ describe('GameEngine', () => {
       expect(new Set(instanceIds).size).toBe(instanceIds.length);
       expect(new Set(sourceIds).size).toBe(QuestionDealer.HAND_SIZE);
       expect(
-        instanceIds.slice(QuestionDealer.HAND_SIZE).every(
-          (id) => id.startsWith('card_r'),
-        ),
+        instanceIds
+          .slice(QuestionDealer.HAND_SIZE)
+          .every((id) => id.startsWith('card_r')),
       ).toBe(true);
     });
 
