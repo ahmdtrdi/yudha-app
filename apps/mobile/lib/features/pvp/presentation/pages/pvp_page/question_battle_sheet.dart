@@ -5,11 +5,13 @@ class _QuestionBattleSheet extends StatefulWidget {
     required this.question,
     required this.onAnswered,
     required this.isOnline,
+    required this.comboLevel,
   });
 
   final BattleQuestion question;
   final Future<bool> Function(int selectedOptionIndex) onAnswered;
   final bool isOnline;
+  final int comboLevel;
 
   @override
   State<_QuestionBattleSheet> createState() => _QuestionBattleSheetState();
@@ -127,9 +129,8 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
   Widget build(BuildContext context) {
     final bool isDamage = widget.question.effect == QuestionEffect.damage;
     final Color categoryColor = _categoryColor(widget.question.category);
-    final int impact = BattleStateMachine.impactFromWeight(
-      widget.question.weight,
-    );
+    final int comboLevel = widget.comboLevel.clamp(1, 3);
+    final int impact = BattleStateMachine.effectFromCombo(comboLevel);
     final double timerProgress = _remainingSeconds / _maxSeconds;
     final double bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final double screenHeight = MediaQuery.sizeOf(context).height;
@@ -198,9 +199,7 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              widget.isOnline
-                                  ? '${isDamage ? 'Serang' : 'Pulihkan'}  |  Power ${widget.question.weight.clamp(1, 3)}/3'
-                                  : '${isDamage ? 'Serang' : 'Pulihkan'}  |  $impact dampak',
+                              '${isDamage ? 'Serang' : 'Pulihkan'}  |  Combo x$comboLevel  |  $impact dampak',
                               style: GoogleFonts.dmSans(
                                 color: _mutedInk,
                                 fontSize: 13,

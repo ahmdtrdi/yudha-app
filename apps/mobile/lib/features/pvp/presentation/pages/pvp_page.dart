@@ -479,17 +479,18 @@ class _PvpPageState extends ConsumerState<PvpPage> {
       builder: (BuildContext sheetContext) {
         return Consumer(
           builder: (BuildContext context, WidgetRef ref, Widget? child) {
-            final ({BattlePhase phase, bool cardAvailable}) modalState = ref
-                .watch(
-                  battleControllerProvider.select(
-                    (BattleState current) => (
-                      phase: current.phase,
-                      cardAvailable: current.availableQuestions.any(
-                        (item) => item.id == question.id,
-                      ),
-                    ),
+            final ({BattlePhase phase, bool cardAvailable, int comboLevel})
+            modalState = ref.watch(
+              battleControllerProvider.select(
+                (BattleState current) => (
+                  phase: current.phase,
+                  cardAvailable: current.availableQuestions.any(
+                    (item) => item.id == question.id,
                   ),
-                );
+                  comboLevel: current.comboLevel,
+                ),
+              ),
+            );
             if (modalState.phase != BattlePhase.inBattle ||
                 !modalState.cardAvailable) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -499,18 +500,18 @@ class _PvpPageState extends ConsumerState<PvpPage> {
                 }
               });
             }
-            return child!;
+            return _QuestionBattleSheet(
+              question: question,
+              isOnline: mode == BattleMode.online,
+              comboLevel: modalState.comboLevel,
+              onAnswered: (int selectedOptionIndex) {
+                return controller.answerQuestion(
+                  questionId: question.id,
+                  selectedOptionIndex: selectedOptionIndex,
+                );
+              },
+            );
           },
-          child: _QuestionBattleSheet(
-            question: question,
-            isOnline: mode == BattleMode.online,
-            onAnswered: (int selectedOptionIndex) {
-              return controller.answerQuestion(
-                questionId: question.id,
-                selectedOptionIndex: selectedOptionIndex,
-              );
-            },
-          ),
         );
       },
     );

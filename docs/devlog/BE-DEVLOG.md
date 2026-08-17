@@ -363,3 +363,31 @@
 - The required two-account smoke test remains: target/mode isolation, distinct loadout rendering, reconnect restoration, 30-second forfeit, and Ranked-only progression should be verified against deployed backend instances.
 - Matchmaking queues, rooms, and grace timers are process-local. Horizontal scaling still requires Redis-backed queue/state coordination and distributed timer ownership.
 - Legacy test-compatible overloads remain in `GameEngine.createRoom`, `RoomManager.joinQueue`, and `RoomManager.createBotRoom`; remove them after all older backend callers and fixtures use profile-based room seeds.
+
+## 2026-08-17 - Combo-Scaled Heal And Battle PRD Alignment
+
+**The Change:**
+- Changed the Game Backend's live Heal calculation to use the same pre-answer combo value as Damage: combo `x1`, `x2`, and `x3` now apply `5`, `10`, and `15` HP respectively.
+- Kept Heal capped at maximum HP and kept awarded battle points equal to the resolved Heal amount.
+- Replaced the damage-specific base constant/helper with a shared combo-effect calculation used by both Damage and Heal.
+- Preserved `questions.heal_value` in the Supabase schema, question query, internal card mapping, and server-side types. It is now compatibility/future-balancing metadata and is not used by the live battle engine.
+- Aligned the local Flutter Bot battle calculation by removing weight-derived Heal values and using the shared `5/10/15` combo scale. Updated the question sheet to show the current combo and resolved impact instead of weight-based power.
+- Updated the canonical `docs/PRD.md` to document combo-scaled Damage/Heal, retained database value fields, 180-second rounds, 3-second round breaks, and best-of-three match resolution.
+- Added regression coverage proving that stored `healValue` does not affect live healing, Heal scales through `5/10/15`, and healing remains capped at `100 HP`.
+
+**The Reasoning:**
+- Damage and Heal now follow one predictable battle rule: resolve `5 × comboLevel.clamp(1, 3)` using the combo level that existed before the correct answer advances the chain.
+- Keeping `heal_value` in Supabase avoids a destructive schema/content migration and preserves the option to reintroduce authored values in a future balancing revision.
+- Centralizing both effects on one combo helper prevents Damage and Heal from drifting into separate formulas across PvP and server Bot matches.
+- Updating the local mobile fallback keeps its correct-answer Heal behavior consistent while Mobile still transitions toward the server-authoritative Bot flow.
+
+**Verification:**
+- Backend Game: 67 focused Jest tests passed for the engine, Supabase question mapping, and server Bot behavior.
+- Flutter: 22 focused battle state-machine/controller tests passed.
+- Focused Dart static analysis reported no issues.
+- `git diff --check` passed.
+
+**The Tech Debt:**
+- Mobile Bot mode still uses the local `BotBattleRepository` instead of authenticated `mode=bot` Socket.IO rooms, so the server must remain the production authority once that handoff is completed.
+- Project-wide Backend Game `tsc --noEmit` is still blocked by pre-existing `match-result.service.spec.ts` fixtures that omit the required `comboLevel` field; the focused changed-code tests pass.
+- Archived PRDs and gap reports intentionally remain historical and may describe the superseded stored-value Heal rule; `docs/PRD.md` is the canonical specification.

@@ -1,7 +1,7 @@
 # YUDHA — Product & Architecture Brief (Single Source of Truth)
 
 > Living document. Update this file directly in the repo as decisions change — do not fork it into a separate Google Doc.
-> Last updated: 2026-08-15
+> Last updated: 2026-08-17
 
 ---
 
@@ -61,10 +61,10 @@ Splash Screen
         ├─ PvP
         │    ├─ vs Bot → enters arena directly → card-based battle
         │    └─ vs Player → join matchmaking queue → matched → card-based battle
-        │         └─ Arena: draw hand of 4 cards → open card → answer within 10s
+        │         └─ Arena: draw hand of 4 cards → open card → answer within 30s
         │              → correct = damage/heal + advance combo → wrong/timeout = no combat effect + lower combo
-        │              → HP updates real-time → battle ends when HP = 0
-        │              → Results screen (outcome, score, remaining HP)
+        │              → HP updates real-time → each round lasts up to 180s or ends when HP = 0
+        │              → first to 2 round wins (maximum 3 rounds) → Results screen
         ├─ Hired Pass → complete daily/weekly learning missions → earn Pass Points
         │              → claim free-track rewards or better premium-track rewards
         ├─ Store → browse character/arena/tower skins → buy with coins → equip
@@ -81,7 +81,7 @@ Splash Screen
 
 Before choosing Bot, Casual, or Ranked mode, the PvP entry screen acts as a **loadout step**. The authenticated profile's `target` selects the shared CPNS/BUMN battle background and question pool. Each player keeps an independently equipped, server-owned character and tower; arena remains stored for compatibility but is not a live battle cosmetic. Character cards use three cosmetic tiers—**Basic**, **Rare**, and **Legend**—and expose every character with a complete pose/projectile set: Basic Squire and Pip, Rare Ignis and Brock, plus Legend Drakor and Luna. Loadout remains presentation-only and may not alter battle rules.
 
-PvP attacks use a combo chain. A correct Damage answer uses the player's current combo level before the answer advances it: `x1`, `x2`, and `x3` deal `5`, `10`, and `15` damage respectively. A correct answer advances the next projectile and starts a seven-second window; another correct answer inside that window advances the chain up to `x3`. A correct Heal answer uses the card's stored `heal_value`; combo does not multiply healing, score, or rating. A wrong answer or timeout causes no damage, healing, or points and lowers the actor's combo by one level. An incoming hit also lowers the defender's combo by one level, while an expired window resets it to `x1`.
+PvP effects use a combo chain. A correct Damage or Heal answer uses the player's current combo level before the answer advances it: `x1`, `x2`, and `x3` apply `5`, `10`, and `15` damage or healing respectively. A correct answer advances the next projectile and starts a seven-second window; another correct answer inside that window advances the chain up to `x3`. A wrong answer or timeout causes no damage, healing, or points and lowers the actor's combo by one level. An incoming hit also lowers the defender's combo by one level, while an expired window resets it to `x1`.
 
 ### 1.3 Hired Pass & Cosmetic Store
 
@@ -155,8 +155,8 @@ The player-facing name for `profiles.coins` is **Y-Coin**. The App Backend is au
 | weight | int | 1–4, retained for future balancing; unused by current battle effects |
 | effect | text | `damage` or `heal` |
 | damage_value | int | retained for compatibility/future balancing; unused by the current live battle engine |
-| heal_value | int | authoritative heal amount when a Heal card is answered correctly |
-| time_limit_seconds | int | per-question timer (default 10s for PvP) |
+| heal_value | int | retained for compatibility/future balancing; unused by the current live battle engine |
+| time_limit_seconds | int | per-question timer (default 30s for PvP) |
 | hint | text, nullable | optional hint for practice mode |
 | is_active | boolean | soft-delete flag |
 | created_at | timestamp | |
@@ -372,12 +372,14 @@ Unlike a simple quiz format, YUDHA uses a **card-based battle system** inspired 
 5. Answered cards are consumed; gaps in the hand are filled from the remaining pool.
 6. When the pool is exhausted, questions are recycled with fresh IDs.
 7. Incoming opponent or bot attacks never consume or reshuffle the local player's visible hand; a visible card changes only after that player uses it, regardless of whether the answer is correct or wrong.
+8. Each round lasts at most **180 seconds**. A round ends early when either player's HP reaches `0`.
+9. After a non-final round, both players receive a **3-second round break**. The next round resets both players to `100 HP`, `0` round points, and combo `x1`, then restores a starting hand from the shared question pool.
 
 **Card effects:**
 
 | Category | Effect | Correct Answer | Wrong Answer / Timeout |
 |---|---|---|---|
-| TWK | `heal` | Player heals by the card's stored `heal_value`, capped at maximum HP | No HP or points effect; actor's combo lowers by one level |
+| TWK | `heal` | Player heals `5 × current combo level`, capped at maximum HP | No HP or points effect; actor's combo lowers by one level |
 | TIU (numerik) | `damage` | Opponent takes `5 × current combo level` damage | No HP or points effect; actor's combo lowers by one level |
 | verbal | `damage` | Opponent takes `5 × current combo level` damage | No HP or points effect; actor's combo lowers by one level |
 | logika | `damage` | Opponent takes `5 × current combo level` damage | No HP or points effect; actor's combo lowers by one level |
@@ -385,15 +387,17 @@ Unlike a simple quiz format, YUDHA uses a **card-based battle system** inspired 
 **Effect values:**
 ```
 damage = 5 × comboLevel.clamp(1, 3)
-heal = heal_value
+heal = 5 × comboLevel.clamp(1, 3)
 ```
-Damage uses the combo level that existed before the correct answer advances the chain, producing `5`, `10`, or `15`. Weight remains stored as `1..4` for possible future balancing but does not affect current Damage or Heal resolution. `damage_value` is likewise retained for compatibility/future tuning and is not used by the current live battle engine.
+Damage and Heal use the combo level that existed before the correct answer advances the chain, producing `5`, `10`, or `15`. Heal remains capped at maximum HP. Weight remains stored as `1..4` for possible future balancing but does not affect current Damage or Heal resolution. `damage_value` and `heal_value` are likewise retained for compatibility/future tuning and are not used by the current live battle engine.
 
-**Win conditions:**
-- Opponent HP reaches 0 → **Win**
-- Player HP reaches 0 → **Lose**
-- Both HP reach 0 simultaneously → **Draw**
-- Player surrenders → opponent **Wins**
+**Round and match resolution:**
+- A match is best-of-three: the first player to win **2 rounds** wins the match, and a match never exceeds **3 rounds**.
+- If a player's HP reaches `0`, the round ends immediately. The player with higher remaining HP wins that round.
+- If the 180-second round timer expires, the player with higher remaining HP wins that round.
+- Equal HP when a round ends produces a tied round; neither player receives a round win.
+- After round 3, the player with more round wins wins the match. Equal round wins produce a match draw.
+- Player surrender ends the entire match immediately and awards the opponent the match win.
 - A disconnected human has a 30-second reconnect grace period while the opponent, card timers, and Bot turns continue. Reconnecting with a newer socket restores current state and cancels only that player's grace timer.
 - If the grace period expires, the connected opponent wins with reason `disconnect`. If both human players are offline, the match is persisted as an abandoned draw with zero progression.
 
@@ -403,7 +407,7 @@ Only normal Ranked results mutate rating, Y-Coin, win/loss statistics, and Hired
 
 - Bot mode runs through the authenticated Socket.IO Game Backend and schedules server-authoritative turns every 3.3–5.9 seconds.
 - Bot prefers damage cards when available; falls back to first available card.
-- Bot always answers correctly. Damage uses the Bot's current combo level (`5`, `10`, or `15`), while Heal uses the card's stored `heal_value`.
+- Bot always answers correctly. Damage and Heal use the Bot's current combo level (`5`, `10`, or `15`).
 - Bot uses a fixed server-owned character/tower loadout and the human player's target.
 - Bot and PvP rooms fetch active target-specific questions from Supabase's `questions` table. The room recycles that shared pool deterministically for the entire match; every recycled draw receives a fresh public card-instance ID while retaining its source Supabase question ID internally.
 - Question exhaustion is not a normal match-end condition.

@@ -14,8 +14,7 @@ abstract final class BattleStateMachine {
     required int selectedOptionIndex,
   }) {
     final bool isCorrect = selectedOptionIndex == question.correctOptionIndex;
-    final int damage = damageFromCombo(state.comboLevel);
-    final int heal = impactFromWeight(question.weight);
+    final int comboEffect = effectFromCombo(state.comboLevel);
 
     int playerHp = state.playerHp;
     int opponentHp = state.opponentHp;
@@ -26,13 +25,13 @@ abstract final class BattleStateMachine {
 
     if (question.effect == QuestionEffect.damage) {
       if (isCorrect) {
-        opponentHp -= damage;
-        playerPoints += damage;
+        opponentHp -= comboEffect;
+        playerPoints += comboEffect;
         statusMessage =
             '${_attackLabel(question.category)} x${state.comboLevel} masuk. '
-            'Musuh menerima $damage damage.';
+            'Musuh menerima $comboEffect damage.';
       } else {
-        final int reflectedDamage = damageFromCombo(1);
+        final int reflectedDamage = effectFromCombo(1);
         playerHp -= reflectedDamage;
         opponentPoints += reflectedDamage;
         statusMessage =
@@ -40,11 +39,13 @@ abstract final class BattleStateMachine {
       }
     } else {
       if (isCorrect) {
-        playerHp += heal;
-        playerPoints += max(1, heal ~/ 2);
-        statusMessage = 'TWK Heal aktif. Kamu memulihkan HP sebesar $heal.';
+        playerHp += comboEffect;
+        playerPoints += comboEffect;
+        statusMessage =
+            'TWK Heal x${state.comboLevel} aktif. '
+            'Kamu memulihkan HP sebesar $comboEffect.';
       } else {
-        final int opponentHeal = max(1, heal ~/ 2);
+        final int opponentHeal = max(1, comboEffect ~/ 2);
         opponentHp += opponentHeal;
         opponentPoints += opponentHeal;
         statusMessage =
@@ -105,8 +106,7 @@ abstract final class BattleStateMachine {
     required BattleState state,
     required BattleQuestion question,
   }) {
-    final int damage = damageFromCombo(1);
-    final int heal = impactFromWeight(question.weight);
+    final int comboEffect = effectFromCombo(1);
 
     int playerHp = state.playerHp;
     int opponentHp = state.opponentHp;
@@ -116,13 +116,15 @@ abstract final class BattleStateMachine {
     late final String statusMessage;
 
     if (question.effect == QuestionEffect.heal) {
-      opponentHp += heal;
-      opponentPoints += max(1, heal ~/ 2);
-      statusMessage = 'BOT YUDHA menjawab TWK. Musuh memulihkan HP $heal.';
+      opponentHp += comboEffect;
+      opponentPoints += comboEffect;
+      statusMessage =
+          'BOT YUDHA menjawab TWK. Musuh memulihkan HP $comboEffect.';
     } else {
-      playerHp -= damage;
-      opponentPoints += damage;
-      statusMessage = 'BOT YUDHA menjawab benar. Kamu menerima $damage damage.';
+      playerHp -= comboEffect;
+      opponentPoints += comboEffect;
+      statusMessage =
+          'BOT YUDHA menjawab benar. Kamu menerima $comboEffect damage.';
     }
 
     playerHp = _clampHp(playerHp);
@@ -148,12 +150,7 @@ abstract final class BattleStateMachine {
     );
   }
 
-  static int impactFromWeight(int weight) {
-    final int boundedWeight = weight.clamp(1, 4);
-    return 8 + (boundedWeight * 6);
-  }
-
-  static int damageFromCombo(int comboLevel) {
+  static int effectFromCombo(int comboLevel) {
     return comboLevel.clamp(1, 3) * 5;
   }
 
