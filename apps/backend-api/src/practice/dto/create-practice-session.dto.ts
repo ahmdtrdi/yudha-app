@@ -1,4 +1,4 @@
 export class CreatePracticeSessionDto {
-  category: string;
+  category?: string | null;
   subcategory?: string | null;
 }

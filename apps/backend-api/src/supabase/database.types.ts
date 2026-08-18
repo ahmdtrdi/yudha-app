@@ -31,12 +31,16 @@ export type Database = {
           total_matches: number;
           wins: number;
           losses: number;
+          draws: number;
           winrate: number;
           coins: number;
           equipped_avatar_id: Nullable<string>;
           equipped_arena_id: Nullable<string>;
           equipped_tower_id: Nullable<string>;
           hired_pass_expires_at: Nullable<string>;
+          current_streak: number;
+          best_streak: number;
+          last_streak_date: Nullable<string>;
           created_at: string;
           updated_at: string;
         };
@@ -49,12 +53,16 @@ export type Database = {
           total_matches?: number;
           wins?: number;
           losses?: number;
+          draws?: number;
           winrate?: number;
           coins?: number;
           equipped_avatar_id?: Nullable<string>;
           equipped_arena_id?: Nullable<string>;
           equipped_tower_id?: Nullable<string>;
           hired_pass_expires_at?: Nullable<string>;
+          current_streak?: number;
+          best_streak?: number;
+          last_streak_date?: Nullable<string>;
           created_at?: string;
           updated_at?: string;
         };
@@ -82,9 +90,7 @@ export type Database = {
           is_active?: boolean;
           is_pass_exclusive?: boolean;
         };
-        Update: Partial<
-          Database['public']['Tables']['store_items']['Insert']
-        >;
+        Update: Partial<Database['public']['Tables']['store_items']['Insert']>;
         Relationships: [];
       };
       user_inventory: {
@@ -304,13 +310,15 @@ export type Database = {
       questions: {
         Row: TimestampedRow & {
           id: string;
+          source_key: string;
+          content_hash: Nullable<string>;
           target: string;
           category: string;
           subcategory: Nullable<string>;
           prompt: string;
           options: Json;
           correct_option_index: number;
-          explanation: Nullable<string>;
+          explanation: string;
           difficulty: string;
           weight: number;
           effect: string;
@@ -322,13 +330,15 @@ export type Database = {
         };
         Insert: TimestampedInsert & {
           id?: string;
+          source_key: string;
+          content_hash?: Nullable<string>;
           target?: string;
           category: string;
           subcategory?: Nullable<string>;
           prompt: string;
           options: Json;
           correct_option_index: number;
-          explanation?: Nullable<string>;
+          explanation: string;
           difficulty?: string;
           weight?: number;
           effect?: string;
@@ -408,6 +418,10 @@ export type Database = {
           response_time_ms: Nullable<number>;
           answered_at: string;
           created_at: string;
+          idempotency_key: Nullable<string>;
+          score_gained: number;
+          correct_option_index_snapshot: Nullable<number>;
+          explanation_snapshot: Nullable<string>;
         };
         Insert: {
           id?: string;
@@ -423,9 +437,115 @@ export type Database = {
           response_time_ms?: Nullable<number>;
           answered_at?: string;
           created_at?: string;
+          idempotency_key?: Nullable<string>;
+          score_gained?: number;
+          correct_option_index_snapshot?: Nullable<number>;
+          explanation_snapshot?: Nullable<string>;
         };
         Update: Partial<
           Database['public']['Tables']['practice_answers']['Insert']
+        >;
+        Relationships: [];
+      };
+      api_idempotency_records: {
+        Row: {
+          id: string;
+          user_id: string;
+          operation: string;
+          idempotency_key: string;
+          request_hash: string;
+          response: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          operation: string;
+          idempotency_key: string;
+          request_hash: string;
+          response: Json;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database['public']['Tables']['api_idempotency_records']['Insert']
+        >;
+        Relationships: [];
+      };
+      rank_point_transactions: {
+        Row: {
+          id: string;
+          user_id: string;
+          applied_delta: number;
+          requested_delta: number;
+          source: string;
+          source_id: string;
+          idempotency_key: string;
+          balance_after: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          applied_delta: number;
+          requested_delta: number;
+          source: string;
+          source_id: string;
+          idempotency_key: string;
+          balance_after: number;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database['public']['Tables']['rank_point_transactions']['Insert']
+        >;
+        Relationships: [];
+      };
+      daily_mission_progress: {
+        Row: {
+          user_id: string;
+          mission_key: string;
+          business_date: string;
+          source_type: string;
+          source_id: string;
+          completed_at: string;
+          reward_rank_points: number;
+          rank_transaction_id: string;
+        };
+        Insert: Database['public']['Tables']['daily_mission_progress']['Row'];
+        Update: Partial<
+          Database['public']['Tables']['daily_mission_progress']['Row']
+        >;
+        Relationships: [];
+      };
+      daily_learning_activity: {
+        Row: {
+          user_id: string;
+          business_date: string;
+          source_type: string;
+          source_id: string;
+          completed_at: string;
+        };
+        Insert: Database['public']['Tables']['daily_learning_activity']['Row'];
+        Update: Partial<
+          Database['public']['Tables']['daily_learning_activity']['Row']
+        >;
+        Relationships: [];
+      };
+      practice_session_completions: {
+        Row: {
+          session_id: string;
+          user_id: string;
+          completed_at: string;
+          response: Json;
+          daily_mission_reward: Nullable<number>;
+          rank_points_after: number;
+          current_streak: number;
+          best_streak: number;
+          last_streak_date: string;
+          hired_pass_activity_applied: boolean;
+        };
+        Insert: Database['public']['Tables']['practice_session_completions']['Row'];
+        Update: Partial<
+          Database['public']['Tables']['practice_session_completions']['Row']
         >;
         Relationships: [];
       };

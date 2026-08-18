@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   InternalServerErrorException,
@@ -45,6 +46,50 @@ export class PracticeRepository {
     }
 
     return data.target;
+  }
+
+  async createTransactionalSession(
+    userId: string,
+    category: string | null,
+    subcategory: string | null,
+  ): Promise<Record<string, any>> {
+    return this.callJsonRpc('create_practice_session', {
+      p_user_id: userId,
+      p_category: category,
+      p_subcategory: subcategory,
+    });
+  }
+
+  async submitTransactionalAnswer(input: {
+    userId: string;
+    sessionId: string;
+    idempotencyKey: string;
+    sessionQuestionId: string;
+    selectedOptionIndex: number;
+    responseTimeMs: number | null;
+    usedHint: boolean;
+  }): Promise<Record<string, any>> {
+    return this.callJsonRpc('submit_practice_answer', {
+      p_user_id: input.userId,
+      p_session_id: input.sessionId,
+      p_idempotency_key: input.idempotencyKey,
+      p_session_question_id: input.sessionQuestionId,
+      p_selected_option_index: input.selectedOptionIndex,
+      p_response_time_ms: input.responseTimeMs,
+      p_used_hint: input.usedHint,
+    });
+  }
+
+  async finishTransactionalSession(
+    userId: string,
+    sessionId: string,
+    idempotencyKey: string,
+  ): Promise<Record<string, any>> {
+    return this.callJsonRpc('finish_practice_session', {
+      p_user_id: userId,
+      p_session_id: sessionId,
+      p_idempotency_key: idempotencyKey,
+    });
   }
 
   async listActiveQuestions(
@@ -331,6 +376,25 @@ export class PracticeRepository {
     return data ?? [];
   }
 
+  async countOwnedSessions(
+    userId: string,
+    target: PracticeTarget,
+    options: { category?: string; subcategory?: string },
+  ): Promise<number> {
+    let query = this.supabaseService
+      .getClient()
+      .from('practice_sessions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('target', target);
+    if (options.category) query = query.eq('category', options.category);
+    if (options.subcategory)
+      query = query.eq('subcategory', options.subcategory);
+    const { count, error } = await query;
+    if (error) throw new InternalServerErrorException(error.message);
+    return count ?? 0;
+  }
+
   async getActiveOwnedSession(
     userId: string,
     target: PracticeTarget,
@@ -351,5 +415,34 @@ export class PracticeRepository {
     }
 
     return data ?? null;
+  }
+
+  private async callJsonRpc(
+    name: string,
+    parameters: Record<string, unknown>,
+  ): Promise<Record<string, any>> {
+    const { data, error } = await (this.supabaseService.getClient() as any).rpc(
+      name,
+      parameters,
+    );
+    if (error) this.throwRpcError(error.message);
+    if (!data || Array.isArray(data) || typeof data !== 'object') {
+      throw new InternalServerErrorException(`${name} returned invalid data.`);
+    }
+    return data as Record<string, unknown>;
+  }
+
+  private throwRpcError(message: string): never {
+    if (message.includes('IDEMPOTENCY_KEY_REUSED')) {
+      throw new ConflictException('IDEMPOTENCY_KEY_REUSED');
+    }
+    if (message.includes('NOT_FOUND')) throw new NotFoundException(message);
+    if (message.includes('CONFLICT') || message.includes('ACTION_REJECTED')) {
+      throw new ConflictException(message);
+    }
+    if (message.includes('VALIDATION_FAILED')) {
+      throw new BadRequestException(message);
+    }
+    throw new InternalServerErrorException(message);
   }
 }

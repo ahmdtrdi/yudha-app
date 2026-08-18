@@ -7,5 +7,6 @@ import { HiredPassService } from './hired-pass.service';
   imports: [SupabaseModule],
   controllers: [HiredPassController],
   providers: [HiredPassService],
+  exports: [HiredPassService],
 })
 export class HiredPassModule {}

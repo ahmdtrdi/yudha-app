@@ -1,7 +1,16 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { SupabaseAuthGuard } from '../auth/guards/supabase-auth.guard';
 import { CreatePracticeSessionDto } from './dto/create-practice-session.dto';
+import { FinishPracticeSessionDto } from './dto/finish-practice-session.dto';
 import { PracticeHistoryQueryDto } from './dto/practice-history-query.dto';
 import { SubmitPracticeAnswerDto } from './dto/submit-practice-answer.dto';
 import { PracticeService } from './practice.service';
@@ -57,7 +66,8 @@ export class PracticeController {
   finishSession(
     @GetUser() user: AuthenticatedUser,
     @Param('sessionId') sessionId: string,
+    @Body() input: FinishPracticeSessionDto,
   ) {
-    return this.practiceService.finishSession(user.id, sessionId);
+    return this.practiceService.finishSession(user.id, sessionId, input);
   }
 }

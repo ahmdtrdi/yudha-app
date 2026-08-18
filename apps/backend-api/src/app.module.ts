@@ -12,6 +12,7 @@ import { MatchesModule } from './matches/matches.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { HiredPassModule } from './hired-pass/hired-pass.module';
 import { StoreModule } from './store/store.module';
+import { LobbyModule } from './lobby/lobby.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { StoreModule } from './store/store.module';
     AnalyticsModule,
     StoreModule,
     HiredPassModule,
+    LobbyModule,
   ],
   controllers: [AppController],
   providers: [AppService],
