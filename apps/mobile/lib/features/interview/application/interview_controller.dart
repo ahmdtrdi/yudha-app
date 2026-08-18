@@ -352,7 +352,10 @@ class InterviewController extends StateNotifier<InterviewState> {
         );
   }
 
+  int _idempotencyCounter = 0;
+
   String _newIdempotencyKey() {
-    return 'answer-${DateTime.now().microsecondsSinceEpoch}';
+    _idempotencyCounter += 1;
+    return 'answer-${DateTime.now().microsecondsSinceEpoch}-$_idempotencyCounter';
   }
 }

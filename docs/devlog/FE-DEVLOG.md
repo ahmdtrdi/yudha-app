@@ -1850,3 +1850,30 @@
 ### The Tech Debt
 - A reconnected online match can only analyze answer events observed after the client reconnects because the current server snapshot does not include historical per-card correctness.
 - Online battle cards do not currently expose their source subcategory. When only a high-level category is available and Practice requires a subcategory, the client starts the first matching unlocked topic.
+
+## 2026-08-18 - Server-Authoritative Mobile Bot Mode & Local Simulation Elimination
+
+### The Change
+- Routed mobile Bot mode through the Game Backend via Socket.IO WebSocket on `/match` gateway, unifying all match modes (Casual, Ranked, Bot) under `SocketOnlineBattleRepository`.
+- Added `OnlineMatchmakingMode.bot` to domain enums and wired socket repository `createSession` to emit `join_queue` with `{ mode: 'bot' }`.
+- Completely removed dead client-side offline bot and question storage code:
+  - Deleted `apps/mobile/lib/features/pvp/data/repositories/bot_battle_repository.dart`
+  - Deleted `apps/mobile/lib/features/pvp/data/repositories/mock_question_bank.dart`
+- Refactored `BattleController`:
+  - Removed offline `_botRepository` dependency and `botBattleRepositoryProvider`.
+  - Removed offline simulation timers (`_comboTimer`, `_roundTimer`, `_roundClockPaused`) and manual turn resolution methods (`resolveTurn`, `resolveOpponentTurn`, `answerBotQuestion`).
+  - Unified `startBattle()`, `prepareQuestion()`, and `answerQuestion()` to flow strictly through `_onlineRepository` and server updates (`game_state_update`, `play_card_result`, `match_result`).
+- Cleaned up presentation components in `PvpPage`:
+  - Updated `_ArenaMenuSection` to trigger bot matchmaking via `OnlineMatchmakingMode.bot`.
+  - Removed `_botTimer`, local attack scheduler, and `onBotAnswer` callback from `_InBattleSection`.
+- Updated unit and widget test suites (`battle_controller_test.dart`, `pvp_page_test.dart`, `leaderboard_page_test.dart`, `interview_controller_test.dart`) to validate server-authoritative bot flows, mock event streams, and distinct idempotency key generation.
+
+### The Reasoning
+- `apps/backend-game` already implements server-authoritative Bot sessions (`BotBattleService`) with Supabase-backed question loading, combat engine validation, and automated bot pacing (3.3s–5.9s).
+- Running local offline game rules and bundled question JSONs created architectural divergence, maintenance overhead, and vulnerability to client manipulation.
+- Unifying all battle modes under a single thin presentation client guarantees consistent game mechanics, accurate post-match performance analytics, and seamless match progression telemetry.
+
+### The Tech Debt
+- Zero new technical debt introduced.
+- Successfully eliminated substantial legacy client-side simulation tech debt, duplicate game logic, and obsolete offline mock question assets.
+

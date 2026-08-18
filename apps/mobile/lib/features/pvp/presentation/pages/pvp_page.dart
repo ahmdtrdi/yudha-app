@@ -324,9 +324,13 @@ class _PvpPageState extends ConsumerState<PvpPage> {
           controller.exitArena();
           setState(() => _setupStep = _ArenaSetupStep.loadout);
         },
-        onStartBot: () {
-          controller.setMode(BattleMode.bot);
-          controller.startBattle();
+        onStartBot: () async {
+          await _startOnlineBattle(
+            context: context,
+            ref: ref,
+            controller: controller,
+            matchmakingMode: OnlineMatchmakingMode.bot,
+          );
         },
         onStartCasual: () async {
           await _startOnlineBattle(
@@ -402,7 +406,6 @@ class _PvpPageState extends ConsumerState<PvpPage> {
       },
       onRoundReady: controller.beginRound,
       onArenaDisposed: controller.stopRoundClock,
-      onBotAnswer: controller.answerBotQuestion,
       onPickQuestion: (BattleQuestion question) async {
         final bool ready = await controller.prepareQuestion(question);
         if (!ready || !context.mounted) {
