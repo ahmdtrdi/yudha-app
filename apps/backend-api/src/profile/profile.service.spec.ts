@@ -48,7 +48,7 @@ describe('ProfileService', () => {
     expect(service).toBeDefined();
   });
 
-  it('fetches every profile column for the authenticated user', async () => {
+  it('returns the PRD camelCase profile projection', async () => {
     const profile = {
       id: 'user-1',
       username: 'player',
@@ -58,16 +58,44 @@ describe('ProfileService', () => {
       total_matches: 0,
       wins: 0,
       losses: 0,
+      draws: 2,
       winrate: 0,
       coins: 0,
       equipped_avatar_id: null,
       equipped_arena_id: null,
+      equipped_tower_id: 'tower-garda-biru',
+      current_streak: 3,
+      best_streak: 7,
+      last_streak_date: '2026-08-17',
       created_at: '2026-06-04T00:00:00Z',
       updated_at: '2026-06-04T00:00:00Z',
     };
     single.mockResolvedValue({ data: profile, error: null });
 
-    await expect(service.getProfile('user-1')).resolves.toEqual(profile);
+    await expect(service.getProfile('user-1')).resolves.toEqual({
+      data: {
+        id: 'user-1',
+        username: 'player',
+        fullName: 'Player One',
+        target: 'cpns',
+        rankPoints: 1000,
+        tier: 'elite',
+        rankedStats: {
+          wins: 0,
+          losses: 0,
+          draws: 2,
+          winRate: 0,
+        },
+        yCoins: 0,
+        characterId: null,
+        towerId: 'tower-garda-biru',
+        streak: {
+          current: 3,
+          best: 7,
+          lastDate: '2026-08-17',
+        },
+      },
+    });
 
     expect(from).toHaveBeenCalledWith('profiles');
     expect(select).toHaveBeenCalledWith('*');
@@ -87,10 +115,17 @@ describe('ProfileService', () => {
     await expect(
       service.updateProfile('user-1', {
         username: 'player-two',
-        full_name: null,
+        fullName: null,
         target: 'bumn',
       }),
-    ).resolves.toEqual(updatedProfile);
+    ).resolves.toEqual({
+      data: expect.objectContaining({
+        id: 'user-1',
+        username: 'player-two',
+        fullName: null,
+        target: 'bumn',
+      }),
+    });
 
     expect(from).toHaveBeenCalledWith('profiles');
     expect(update).toHaveBeenCalledWith({
@@ -115,7 +150,6 @@ describe('ProfileService', () => {
       data: {
         characterId: 'character-basic-pip',
         towerId: 'tower-garda-biru',
-        arenaId: 'arena-cpns',
       },
       error: null,
     });
@@ -128,7 +162,6 @@ describe('ProfileService', () => {
       data: {
         characterId: 'character-basic-pip',
         towerId: 'tower-garda-biru',
-        arenaId: 'arena-cpns',
       },
     });
     expect(rpc).toHaveBeenCalledWith('set_profile_loadout', {

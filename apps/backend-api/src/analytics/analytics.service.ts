@@ -1,165 +1,435 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { rankTier } from '../progression/progression.utils';
 import { SupabaseService } from '../supabase/supabase.service';
 import type {
-  BattleAnalytics,
-  CategoryAccuracy,
-  PerformanceAnalyticsResponse,
-  PracticeAnalytics,
-  WeakSubcategory,
+  AnswerObservation,
+  LearningAnalytics,
+  LearningRecommendation,
+  TopicMetric,
 } from './analytics.types';
 
-const WEAK_SUBCATEGORY_ACCURACY_THRESHOLD = 60.0;
-const WEAK_SUBCATEGORY_MIN_SAMPLE_SIZE = 5;
+const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
+const HISTORY_LIMIT = 20;
 
-type RpcAnalyticsRow = {
-  category: string;
-  subcategory: string | null;
-  total_answered: number;
-  total_correct: number;
-  avg_response_time_ms: number | null;
+type RawAnswer = {
+  is_correct: boolean | null;
+  response_time_ms: number | null;
+  answered_at?: string;
+  action_timestamp?: string;
+  questions: {
+    target: string;
+    category: string;
+    subcategory: string | null;
+  } | null;
 };
 
 @Injectable()
 export class AnalyticsService {
-  private readonly logger = new Logger(AnalyticsService.name);
-
   constructor(private readonly supabaseService: SupabaseService) {}
 
-  async getPerformanceAnalytics(userId: string): Promise<{ data: PerformanceAnalyticsResponse }> {
-    const client = this.supabaseService.getClient();
+  async getPerformanceAnalytics(userId: string) {
+    return { data: await this.getAnalyticsData(userId) };
+  }
 
-    // Call Supabase RPC for aggregated practice statistics
-    const { data: rpcData, error: rpcError } = await (client as any).rpc('get_practice_analytics', {
-      p_user_id: userId,
-    });
+  async getAnalyticsData(
+    userId: string,
+    requestedAt = new Date(),
+  ): Promise<LearningAnalytics> {
+    const client = this.supabaseService.getClient() as any;
+    const window = recommendationWindow(requestedAt);
 
-    if (rpcError) {
-      this.logger.error(`RPC get_practice_analytics failed for user=${userId}: ${rpcError.message}`);
-    }
-
-    // Fetch profile battle statistics
-    const { data: profileData, error: profileError } = await client
+    const profileResult = await client
       .from('profiles')
-      .select('wins, losses, total_matches, winrate')
+      .select(
+        'target, rank_points, wins, losses, draws, current_streak, best_streak, last_streak_date',
+      )
       .eq('id', userId)
-      .maybeSingle();
+      .single();
 
-    if (profileError) {
-      this.logger.error(`Failed to fetch profile stats for analytics (user=${userId}): ${profileError.message}`);
+    if (profileResult.error || !profileResult.data) {
+      throw new InternalServerErrorException(
+        profileResult.error?.message ?? 'Profile not found for analytics.',
+      );
     }
 
-    const practice = this.computePracticeAnalytics((rpcData as unknown as RpcAnalyticsRow[]) ?? []);
-    const battle = this.computeBattleAnalytics(profileData);
+    const target = String(profileResult.data.target);
+    const results = await Promise.all([
+      client
+        .from('practice_answers')
+        .select(
+          'is_correct, response_time_ms, answered_at, questions!inner(target, category, subcategory)',
+        )
+        .eq('user_id', userId)
+        .eq('questions.target', target)
+        .not('question_id', 'is', null)
+        .gte('answered_at', window.startsAt)
+        .lte('answered_at', window.endsAt),
+      client
+        .from('match_logs')
+        .select(
+          'is_correct, response_time_ms, action_timestamp, questions!inner(target, category, subcategory), match_results!inner(mode)',
+        )
+        .eq('player_id', userId)
+        .eq('questions.target', target)
+        .eq('match_results.mode', 'ranked')
+        .not('is_correct', 'is', null)
+        .gte('action_timestamp', window.startsAt)
+        .lte('action_timestamp', window.endsAt),
+      client
+        .from('practice_sessions')
+        .select(
+          'id, category, subcategory, correct_count, total_questions, accuracy, finished_at',
+        )
+        .eq('user_id', userId)
+        .not('finished_at', 'is', null)
+        .order('finished_at', { ascending: false })
+        .limit(HISTORY_LIMIT),
+      client
+        .from('rank_point_transactions')
+        .select('source_id, applied_delta, balance_after, created_at')
+        .eq('user_id', userId)
+        .eq('source', 'ranked_result')
+        .order('created_at', { ascending: false })
+        .limit(HISTORY_LIMIT),
+      client
+        .from('interview_sessions')
+        .select('updated_at')
+        .eq('user_id', userId)
+        .eq('status', 'completed')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      client
+        .from('questions')
+        .select('target, category')
+        .eq('target', target)
+        .eq('is_active', true),
+      client
+        .from('match_results')
+        .select('winner_user_id, outcome, mode, reason, ended_at')
+        .in('mode', ['casual', 'ranked'])
+        .or(`player_a_id.eq.${userId},player_b_id.eq.${userId}`),
+    ]);
+
+    const failed = results.find((result) => result.error);
+    if (failed?.error) {
+      throw new InternalServerErrorException(failed.error.message);
+    }
+
+    const practiceAnswers = mapAnswers(
+      (results[0].data ?? []) as RawAnswer[],
+      'practice',
+    );
+    const rankedAnswers = mapAnswers(
+      (results[1].data ?? []) as RawAnswer[],
+      'ranked',
+    );
+    const allAnswers = [...practiceAnswers, ...rankedAnswers];
+    const categoryBreakdown = aggregateTopics(practiceAnswers, false);
+    const subcategoryBreakdown = aggregateTopics(practiceAnswers, true);
+    const recommendationTopics = {
+      categories: aggregateTopics(allAnswers, false),
+      subcategories: aggregateTopics(allAnswers, true),
+    };
+    const activeCategories = Array.from(
+      new Set<string>(
+        ((results[5].data ?? []) as { category: string }[]).map(
+          (row) => row.category,
+        ),
+      ),
+    ).sort();
+    const latestInterview = results[4].data?.updated_at ?? null;
+    const recommendation = buildRecommendation({
+      target,
+      answers: allAnswers,
+      categories: recommendationTopics.categories,
+      subcategories: recommendationTopics.subcategories,
+      activeCategories,
+      lastInterviewCompletedAt: latestInterview,
+      requestedAt,
+    });
+    const publicMatches = publicMatchStats(results[6].data ?? [], userId);
 
     return {
-      data: {
-        practice,
-        battle,
+      window,
+      practice: {
+        ...answerSummary(practiceAnswers),
+        categoryBreakdown,
+        subcategoryBreakdown,
+      },
+      ranked: answerSummary(rankedAnswers),
+      weakTopics: [
+        ...recommendationTopics.subcategories.filter(
+          (topic) => topic.sampleSize >= 5 && topic.accuracy < 70,
+        ),
+        ...recommendationTopics.categories.filter(
+          (topic) => topic.sampleSize >= 10 && topic.accuracy < 80,
+        ),
+      ].sort(compareWeakTopics),
+      publicMatches,
+      tier: rankTier(Number(profileResult.data.rank_points ?? 0)),
+      streak: {
+        current: Number(profileResult.data.current_streak ?? 0),
+        best: Number(profileResult.data.best_streak ?? 0),
+        lastDate: profileResult.data.last_streak_date ?? null,
+      },
+      history: {
+        practice: results[2].data ?? [],
+        ranked: results[3].data ?? [],
+      },
+      recommendation,
+    };
+  }
+}
+
+export function buildRecommendation(input: {
+  target: string;
+  answers: AnswerObservation[];
+  categories: TopicMetric[];
+  subcategories: TopicMetric[];
+  activeCategories: string[];
+  lastInterviewCompletedAt: string | null;
+  requestedAt: Date;
+}): LearningRecommendation {
+  if (input.answers.length < 5) {
+    return {
+      type: 'practice',
+      target: input.target,
+      reason:
+        'Kerjakan latihan umum agar YUDHA memiliki cukup data untuk rekomendasi yang lebih spesifik.',
+      metrics: {
+        sampleSize: input.answers.length,
+        accuracy: accuracy(input.answers),
+        lastPracticedAt: latestAnswer(input.answers),
       },
     };
   }
 
-  private computePracticeAnalytics(rows: RpcAnalyticsRow[]): PracticeAnalytics {
-    if (rows.length === 0) {
-      return {
-        overallAccuracy: 0,
-        totalAnswered: 0,
-        categoryBreakdown: [],
-        weakSubcategories: [],
-        avgResponseTimeMs: 0,
-      };
-    }
+  const weakSubcategory = input.subcategories
+    .filter((topic) => topic.sampleSize >= 5 && topic.accuracy < 70)
+    .sort(compareWeakTopics)[0];
+  if (weakSubcategory) {
+    return practiceRecommendation(
+      input.target,
+      weakSubcategory,
+      `Perkuat ${weakSubcategory.subcategory} karena akurasinya masih di bawah 70%.`,
+    );
+  }
 
-    let totalAnswered = 0;
-    let totalCorrect = 0;
-    let weightedResponseTimeSum = 0;
-    let totalTimeAnswered = 0;
+  const weakCategory = input.categories
+    .filter((topic) => topic.sampleSize >= 10 && topic.accuracy < 80)
+    .sort(compareWeakTopics)[0];
+  if (weakCategory) {
+    return practiceRecommendation(
+      input.target,
+      weakCategory,
+      `Perkuat ${weakCategory.category} karena akurasinya masih di bawah 80%.`,
+    );
+  }
 
-    const catStats = new Map<string, { total: number; correct: number }>();
-    const subcatStats = new Map<string, { total: number; correct: number }>();
+  const interviewCutoff = startOfWibDate(addWibDays(input.requestedAt, -6));
+  if (
+    !input.lastInterviewCompletedAt ||
+    new Date(input.lastInterviewCompletedAt).getTime() <
+      interviewCutoff.getTime()
+  ) {
+    return {
+      type: 'interview',
+      reason:
+        'Jadwalkan simulasi wawancara untuk melatih jawaban dan komunikasi minggu ini.',
+      lastCompletedAt: input.lastInterviewCompletedAt,
+    };
+  }
 
-    for (const row of rows) {
-      const answered = Number(row.total_answered ?? 0);
-      const correct = Number(row.total_correct ?? 0);
-      const category = row.category ?? 'UNKNOWN';
-      const subcategory = row.subcategory;
+  const categoryById = new Map(
+    input.categories.map((topic) => [topic.category, topic]),
+  );
+  const leastRecent = input.activeCategories
+    .map(
+      (category) =>
+        categoryById.get(category) ?? {
+          target: input.target,
+          category,
+          subcategory: null,
+          accuracy: 0,
+          sampleSize: 0,
+          averageResponseTimeMs: 0,
+          lastPracticedAt: null,
+        },
+    )
+    .sort(compareLeastRecent)[0];
 
-      totalAnswered += answered;
-      totalCorrect += correct;
+  return practiceRecommendation(
+    input.target,
+    leastRecent ?? {
+      target: input.target,
+      category: '',
+      subcategory: null,
+      accuracy: 0,
+      sampleSize: input.answers.length,
+      averageResponseTimeMs: 0,
+      lastPracticedAt: latestAnswer(input.answers),
+    },
+    'Latih kembali topik yang paling lama tidak dipraktikkan agar kemampuan tetap merata.',
+  );
+}
 
-      if (row.avg_response_time_ms != null && answered > 0) {
-        weightedResponseTimeSum += Number(row.avg_response_time_ms) * answered;
-        totalTimeAnswered += answered;
-      }
+export function aggregateTopics(
+  answers: AnswerObservation[],
+  bySubcategory: boolean,
+): TopicMetric[] {
+  const groups = new Map<string, AnswerObservation[]>();
+  for (const answer of answers) {
+    if (bySubcategory && !answer.subcategory) continue;
+    const key = bySubcategory
+      ? `${answer.target}\u0000${answer.category}\u0000${answer.subcategory}`
+      : `${answer.target}\u0000${answer.category}`;
+    const values = groups.get(key) ?? [];
+    values.push(answer);
+    groups.set(key, values);
+  }
 
-      // Roll up Category
-      const cat = catStats.get(category) ?? { total: 0, correct: 0 };
-      cat.total += answered;
-      cat.correct += correct;
-      catStats.set(category, cat);
+  return Array.from(groups.values()).map((values) => ({
+    target: values[0].target,
+    category: values[0].category,
+    subcategory: bySubcategory ? values[0].subcategory : null,
+    accuracy: accuracy(values) ?? 0,
+    sampleSize: values.length,
+    averageResponseTimeMs: averageResponseTime(values),
+    lastPracticedAt: latestAnswer(values),
+  }));
+}
 
-      // Roll up Subcategory
-      if (subcategory) {
-        const sub = subcatStats.get(subcategory) ?? { total: 0, correct: 0 };
-        sub.total += answered;
-        sub.correct += correct;
-        subcatStats.set(subcategory, sub);
-      }
-    }
-
-    const overallAccuracy =
-      totalAnswered === 0 ? 0 : Number(((totalCorrect / totalAnswered) * 100).toFixed(2));
-
-    const avgResponseTimeMs =
-      totalTimeAnswered === 0 ? 0 : Math.round(weightedResponseTimeSum / totalTimeAnswered);
-
-    // Build category breakdown
-    const categoryBreakdown: CategoryAccuracy[] = Array.from(catStats.entries()).map(([category, stats]) => ({
-      category,
-      accuracy: stats.total === 0 ? 0 : Number(((stats.correct / stats.total) * 100).toFixed(2)),
-      totalAnswered: stats.total,
+function mapAnswers(
+  rows: RawAnswer[],
+  source: 'practice' | 'ranked',
+): AnswerObservation[] {
+  return rows
+    .filter((row) => row.questions && row.is_correct !== null)
+    .map((row) => ({
+      target: row.questions!.target,
+      category: row.questions!.category,
+      subcategory: row.questions!.subcategory,
+      isCorrect: Boolean(row.is_correct),
+      responseTimeMs: row.response_time_ms,
+      answeredAt: String(row.answered_at ?? row.action_timestamp),
+      source,
     }));
+}
 
-    // Build weak subcategories
-    const weakSubcategories: WeakSubcategory[] = Array.from(subcatStats.entries())
-      .map(([subcategory, stats]) => ({
-        subcategory,
-        accuracy: stats.total === 0 ? 0 : Number(((stats.correct / stats.total) * 100).toFixed(2)),
-        totalAnswered: stats.total,
-      }))
-      .filter(
-        (sub) =>
-          sub.totalAnswered >= WEAK_SUBCATEGORY_MIN_SAMPLE_SIZE &&
-          sub.accuracy < WEAK_SUBCATEGORY_ACCURACY_THRESHOLD,
-      )
-      .sort((a, b) => a.accuracy - b.accuracy);
+function answerSummary(answers: AnswerObservation[]) {
+  return {
+    accuracy: accuracy(answers) ?? 0,
+    averageResponseTimeMs: averageResponseTime(answers),
+    sampleSize: answers.length,
+  };
+}
 
-    return {
-      overallAccuracy,
-      totalAnswered,
-      categoryBreakdown,
-      weakSubcategories,
-      avgResponseTimeMs,
-    };
-  }
+function accuracy(answers: AnswerObservation[]): number | null {
+  if (answers.length === 0) return null;
+  const correct = answers.filter((answer) => answer.isCorrect).length;
+  return Number(((correct / answers.length) * 100).toFixed(2));
+}
 
-  private computeBattleAnalytics(
-    profile: { wins: number; losses: number; total_matches: number; winrate: number } | null,
-  ): BattleAnalytics {
-    if (!profile) {
-      return {
-        winrate: 0,
-        wins: 0,
-        losses: 0,
-        totalMatches: 0,
-      };
-    }
+function averageResponseTime(answers: AnswerObservation[]): number {
+  const measured = answers
+    .map((answer) => answer.responseTimeMs)
+    .filter((value): value is number => value !== null && value >= 0);
+  if (measured.length === 0) return 0;
+  return Math.round(
+    measured.reduce((sum, value) => sum + value, 0) / measured.length,
+  );
+}
 
-    return {
-      winrate: Number(profile.winrate ?? 0),
-      wins: profile.wins ?? 0,
-      losses: profile.losses ?? 0,
-      totalMatches: profile.total_matches ?? 0,
-    };
-  }
+function latestAnswer(answers: AnswerObservation[]): string | null {
+  if (answers.length === 0) return null;
+  return answers.reduce(
+    (latest, answer) =>
+      answer.answeredAt > latest ? answer.answeredAt : latest,
+    answers[0].answeredAt,
+  );
+}
+
+function practiceRecommendation(
+  target: string,
+  topic: TopicMetric,
+  reason: string,
+): LearningRecommendation {
+  return {
+    type: 'practice',
+    target,
+    ...(topic.category ? { category: topic.category } : {}),
+    ...(topic.subcategory ? { subcategory: topic.subcategory } : {}),
+    reason,
+    metrics: {
+      sampleSize: topic.sampleSize,
+      accuracy: topic.sampleSize > 0 ? topic.accuracy : null,
+      lastPracticedAt: topic.lastPracticedAt,
+    },
+  };
+}
+
+function compareWeakTopics(a: TopicMetric, b: TopicMetric): number {
+  return (
+    a.accuracy - b.accuracy ||
+    b.sampleSize - a.sampleSize ||
+    compareNullableDates(a.lastPracticedAt, b.lastPracticedAt) ||
+    stableTopicId(a).localeCompare(stableTopicId(b))
+  );
+}
+
+function compareLeastRecent(a: TopicMetric, b: TopicMetric): number {
+  return (
+    compareNullableDates(a.lastPracticedAt, b.lastPracticedAt) ||
+    a.category.localeCompare(b.category)
+  );
+}
+
+function compareNullableDates(a: string | null, b: string | null): number {
+  if (a === null && b === null) return 0;
+  if (a === null) return -1;
+  if (b === null) return 1;
+  return new Date(a).getTime() - new Date(b).getTime();
+}
+
+function stableTopicId(topic: TopicMetric): string {
+  return `${topic.target}:${topic.category}:${topic.subcategory ?? ''}`;
+}
+
+function publicMatchStats(rows: any[], userId: string) {
+  const wins = rows.filter((row) => row.winner_user_id === userId).length;
+  const draws = rows.filter((row) => row.outcome === 'draw').length;
+  const losses = rows.length - wins - draws;
+  const sampleSize = wins + losses + draws;
+  return {
+    wins,
+    losses,
+    draws,
+    sampleSize,
+    winRate:
+      sampleSize === 0 ? 0 : Number(((wins / sampleSize) * 100).toFixed(2)),
+  };
+}
+
+export function recommendationWindow(
+  requestedAt: Date,
+): LearningAnalytics['window'] {
+  const startsAt = startOfWibDate(addWibDays(requestedAt, -89));
+  return {
+    businessDays: 90,
+    startsAt: startsAt.toISOString(),
+    endsAt: requestedAt.toISOString(),
+  };
+}
+
+function addWibDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+function startOfWibDate(date: Date): Date {
+  const wib = new Date(date.getTime() + WIB_OFFSET_MS);
+  return new Date(
+    Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()) -
+      WIB_OFFSET_MS,
+  );
 }

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": "development-2026-08",
+  "approvalStatus": "development",
+  "smeApproved": false,
+  "targets": [
+    {
+      "id": "cpns",
+      "categories": [
+        { "id": "twk", "enabled": true, "subcategories": [] },
+        {
+          "id": "tiu",
+          "enabled": true,
+          "subcategories": ["verbal", "numerik", "logika"]
+        },
+        {
+          "id": "tkp",
+          "enabled": false,
+          "disabledReason": "awaiting_sme_content",
+          "subcategories": ["service", "teamwork", "integrity"]
+        }
+      ]
+    },
+    {
+      "id": "bumn",
+      "categories": [
+        {
+          "id": "tkd",
+          "enabled": true,
+          "subcategories": ["verbal", "numerik", "logika"]
+        },
+        { "id": "akhlak", "enabled": true, "subcategories": [] }
+      ]
+    }
+  ]
+}

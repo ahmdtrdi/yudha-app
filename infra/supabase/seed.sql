@@ -1,0 +1,2 @@
+-- Authoritative Gate 0 content is synchronized by infra/scripts/sync-content.mjs
+-- after migrations. Keep this seed intentionally free of duplicated content.

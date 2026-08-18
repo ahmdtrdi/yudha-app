@@ -1,0 +1,9 @@
+{
+  "data": {
+    "isCorrect": true,
+    "correctOptionIndex": 1,
+    "explanation": "Jawaban yang benar adalah \"tepat\".",
+    "scoreGained": 20,
+    "progress": { "answeredCount": 1, "totalQuestions": 5, "correctCount": 1, "wrongCount": 0, "unansweredCount": 4, "accuracy": 100, "totalScore": 20, "isFinished": false }
+  }
+}

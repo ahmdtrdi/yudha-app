@@ -3,13 +3,9 @@ export interface LeaderboardEntry {
   userId: string;
   username: string | null;
   rankPoints: number;
-  totalMatches: number;
-  wins: number;
-  losses: number;
-  winrate: number;
-  equippedAvatarId: string | null;
-  equippedArenaId: string | null;
-  equippedTowerId: string | null;
+  tier: string;
+  rankedWins: number;
+  rankedWinRate: number;
 }
 
 export interface LeaderboardQuery {

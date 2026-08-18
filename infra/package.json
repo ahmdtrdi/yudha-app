@@ -1,4 +1,14 @@
 {
+  "name": "yudha-infra",
+  "private": true,
+  "scripts": {
+    "generate:questions": "node scripts/generate-canonical-questions.mjs",
+    "validate:gate0": "node scripts/validate-gate0.mjs",
+    "test:gate0": "node --test scripts/*.test.mjs",
+    "sync:content": "node scripts/sync-content.mjs",
+    "provision:local": "node scripts/provision-local.mjs",
+    "provision:verify": "node scripts/provision-local.mjs --verify-idempotency"
+  },
   "devDependencies": {
     "supabase": "^2.115.0-beta.15"
   }

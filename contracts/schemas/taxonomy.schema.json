@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yudha.local/contracts/taxonomy.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "contentVersion", "approvalStatus", "smeApproved", "targets"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "contentVersion": { "type": "string", "minLength": 1 },
+    "approvalStatus": { "enum": ["development", "sme_approved"] },
+    "smeApproved": { "type": "boolean" },
+    "targets": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["id", "categories"],
+        "properties": {
+          "id": { "enum": ["cpns", "bumn"] },
+          "categories": { "type": "array", "minItems": 2 }
+        }
+      }
+    }
+  }
+}

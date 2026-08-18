@@ -6,15 +6,15 @@ import {
 } from '@nestjs/common';
 import type { Json } from '../supabase/database.types';
 import { SupabaseService } from '../supabase/supabase.service';
+import { asNumber, rankTier } from '../progression/progression.utils';
 
 export type UpdateProfilePayload = Record<string, unknown>;
 export type UpdateLoadoutPayload = {
   characterId?: unknown;
   towerId?: unknown;
-  arenaId?: unknown;
 };
 
-const EDITABLE_PROFILE_FIELDS = new Set(['username', 'full_name', 'target']);
+const EDITABLE_PROFILE_FIELDS = new Set(['username', 'fullName', 'target']);
 const PROFILE_TARGETS = new Set(['cpns', 'bumn']);
 
 @Injectable()
@@ -22,19 +22,12 @@ export class ProfileService {
   constructor(private readonly supabase: SupabaseService) {}
 
   async getProfile(userId: string) {
-    const client = this.supabase.getClient();
+    return { data: await this.getProfileData(userId) };
+  }
 
-    const { data, error } = await client
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (error) {
-      this.handleProfileReadError(error);
-    }
-
-    return data;
+  async getProfileData(userId: string) {
+    const row = await this.getProfileRow(userId);
+    return this.presentProfile(row);
   }
 
   async updateProfile(userId: string, payload: UpdateProfilePayload) {
@@ -52,12 +45,14 @@ export class ProfileService {
       this.handleProfileReadError(error);
     }
 
-    return data;
+    return { data: this.presentProfile(data) };
   }
 
   async updateLoadout(userId: string, payload: UpdateLoadoutPayload) {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-      throw new BadRequestException('Loadout update payload must be an object.');
+      throw new BadRequestException(
+        'Loadout update payload must be an object.',
+      );
     }
 
     const characterId = this.optionalText(
@@ -66,22 +61,18 @@ export class ProfileService {
       120,
     );
     const towerId = this.optionalText(payload.towerId, 'towerId', 120);
-    const arenaId = this.optionalText(payload.arenaId, 'arenaId', 120);
-    if (!characterId && !towerId && !arenaId) {
-      throw new BadRequestException(
-        'At least one loadout field is required.',
-      );
+    if (!characterId && !towerId) {
+      throw new BadRequestException('At least one loadout field is required.');
     }
 
-    const { data, error } = await this.supabase.getClient().rpc(
-      'set_profile_loadout',
-      {
+    const { data, error } = await this.supabase
+      .getClient()
+      .rpc('set_profile_loadout', {
         p_user_id: userId,
         p_avatar_id: characterId,
         p_tower_id: towerId,
-        p_arena_id: arenaId,
-      },
-    );
+        p_arena_id: undefined,
+      });
 
     if (error) {
       const normalized = error.message.toLowerCase();
@@ -97,12 +88,21 @@ export class ProfileService {
       throw new InternalServerErrorException(error.message);
     }
 
-    return { data: this.requireObject(data) };
+    const result = this.requireObject(data);
+    return {
+      data: {
+        characterId:
+          result.characterId ?? result.avatarId ?? characterId ?? null,
+        towerId: result.towerId ?? towerId ?? null,
+      },
+    };
   }
 
   private cleanUpdatePayload(payload: UpdateProfilePayload) {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-      throw new BadRequestException('Profile update payload must be an object.');
+      throw new BadRequestException(
+        'Profile update payload must be an object.',
+      );
     }
 
     const unsupportedFields = Object.keys(payload).filter(
@@ -124,7 +124,12 @@ export class ProfileService {
       throw new BadRequestException('At least one profile field is required.');
     }
 
-    return Object.fromEntries(entries);
+    return Object.fromEntries(
+      entries.map(([field, value]) => [
+        field === 'fullName' ? 'full_name' : field,
+        value,
+      ]),
+    );
   }
 
   private validateProfileValue(field: string, value: unknown) {
@@ -171,10 +176,59 @@ export class ProfileService {
     return value;
   }
 
-  private handleProfileReadError(error: { code?: string; message: string }): never {
+  private handleProfileReadError(error: {
+    code?: string;
+    message: string;
+  }): never {
     if (error.code === 'PGRST116') {
       throw new NotFoundException('Profile not found.');
     }
     throw new InternalServerErrorException(error.message);
+  }
+
+  private async getProfileRow(userId: string): Promise<Record<string, any>> {
+    const { data, error } = await this.supabase
+      .getClient()
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    if (error || !data) {
+      this.handleProfileReadError(error ?? { message: 'Profile not found.' });
+    }
+    return data as Record<string, any>;
+  }
+
+  private presentProfile(row: Record<string, any>) {
+    const rankPoints = asNumber(row.rank_points);
+    const wins = asNumber(row.wins);
+    const losses = asNumber(row.losses);
+    const draws = asNumber(row.draws);
+    const rankedMatches = wins + losses + draws;
+    return {
+      id: String(row.id),
+      username: String(row.username ?? ''),
+      fullName: row.full_name == null ? null : String(row.full_name),
+      target: row.target === 'bumn' ? 'bumn' : 'cpns',
+      rankPoints,
+      tier: rankTier(rankPoints),
+      rankedStats: {
+        wins,
+        losses,
+        draws,
+        winRate:
+          rankedMatches === 0
+            ? 0
+            : Number(((wins / rankedMatches) * 100).toFixed(2)),
+      },
+      yCoins: asNumber(row.coins),
+      characterId: row.equipped_avatar_id ?? null,
+      towerId: row.equipped_tower_id ?? null,
+      streak: {
+        current: asNumber(row.current_streak),
+        best: asNumber(row.best_streak),
+        lastDate: row.last_streak_date ?? null,
+      },
+    };
   }
 }

@@ -391,3 +391,35 @@
 - Mobile Bot mode still uses the local `BotBattleRepository` instead of authenticated `mode=bot` Socket.IO rooms, so the server must remain the production authority once that handoff is completed.
 - Project-wide Backend Game `tsc --noEmit` is still blocked by pre-existing `match-result.service.spec.ts` fixtures that omit the required `comboLevel` field; the focused changed-code tests pass.
 - Archived PRDs and gap reports intentionally remain historical and may describe the superseded stored-value Heal rule; `docs/PRD.md` is the canonical specification.
+
+## 2026-08-18 - Gate 0–1 backend contract cutover
+
+**The Change:**
+- Added the Gate 1 API surface in `apps/backend-api` for Lobby, Analytics, Practice, Profile, and Leaderboard, aligning the server response shapes with the PRD contract and camelCase payload patterns.
+- Added a shared `LobbyService` that aggregates profile state, rank points/Y-Coin balances, business-date daily mission progress, Hired Pass summary, and a single recommendation payload for the home screen.
+- Expanded the Practice flow to enforce category/subcategory validation, required `idempotencyKey` handling for answer and finish operations, and the paginated `items/limit/offset/total` history envelope.
+- Updated the Practice repository/service flow to use transactional session completion/answer handling, plus the repository-side idempotency/replay safeguards expected by the contract.
+- Added deterministic analytics and recommendation logic for practice performance, weak-topic detection, public-match stats, tier/streak views, and a recommendation selection based on the configured 90-day and recency rules.
+- Refined leaderboard access to use SQL-backed page/rank RPCs and normalized the leaderboard types to the Gate 1 contract shape.
+- Added a shared progression helper for WIB business-date calculations and rank-tier mapping that is consumed by lobby and analytics composition.
+- Added the common API exception filter so stable error codes like `IDEMPOTENCY_KEY_REUSED` are surfaced consistently in the Nest API layer.
+- Added and updated tests for the new Gate 1 modules and REST contracts, covering lobby summary, analytics recommendation, practice session behavior, leaderboard ordering, and API error mapping.
+- Added and updated the shared Supabase database typing to cover the new progression and gate-1 response shapes.
+- Added the Gate 0 content contract artifacts under `contracts/` and the validation tooling under `infra/` for taxonomy, question-bank, Store catalog, and season manifest checks.
+
+**The Reasoning:**
+- The backend needed one consistent source of truth for the post-PRD cutover: authoritative profile summaries, deterministic recommendation logic, and SQL-backed ranking without leaking internal answer data.
+- Practice, analytics, and lobby are now composed from the same domain primitives so the client can switch to the new PRD contract without mixing legacy response formats.
+- The idempotency and error normalization are intentionally enforced server-side so retries remain safe and the mobile client can rely on stable error envelopes.
+- The content validation and contract work is being kept development-only until external SME approval and the dedicated security hotfix are complete.
+
+**The Tech Debt:**
+- The repository still carries the explicit external dependency on SME approval for the development question bank before the gate can be declared officially passed.
+- Authentication/RLS hardening remains tracked as a separate security hotfix and is intentionally excluded from this backend delivery acceptance scope.
+- Mobile integration remains deferred until its parsers and idempotency key handling are updated to match the backend contract.
+- The current repo state preserves the existing backend-game `.env.example` change and does not refactor it as part of this staged backend work.
+
+**Verification:**
+- Backend API test suite passed: 16/16 suites, 54/54 tests.
+- Gate 0 validation passed via `npm run validate:gate0` in `infra/` with the expected development-only warning.
+- Backend API build passed via `npm run build`.

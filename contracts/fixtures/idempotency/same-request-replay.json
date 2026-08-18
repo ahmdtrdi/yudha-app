@@ -1,0 +1,11 @@
+{
+  "operation": "practice.answer",
+  "idempotencyKey": "fixture-answer-1",
+  "request": {
+    "sessionQuestionId": "00000000-0000-0000-0000-000000000101",
+    "selectedOptionIndex": 1,
+    "responseTimeMs": 3200,
+    "usedHint": false
+  },
+  "expected": { "sameResponse": true, "duplicateSideEffects": false }
+}

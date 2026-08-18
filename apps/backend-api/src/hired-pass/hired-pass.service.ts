@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import type { Database, Json } from '../supabase/database.types';
 import { SupabaseService } from '../supabase/supabase.service';
+import { wibBusinessDate } from '../progression/progression.utils';
 
 @Injectable()
 export class HiredPassService {
@@ -83,9 +84,7 @@ export class HiredPassService {
       throw new NotFoundException('Profile not found.');
     }
 
-    const missionIds = (missionsResult.data ?? []).map(
-      (mission) => mission.id,
-    );
+    const missionIds = (missionsResult.data ?? []).map((mission) => mission.id);
     const rewardIds = (rewardsResult.data ?? []).map((reward) => reward.id);
     let missionProgress: Database['public']['Tables']['user_hired_pass_mission_progress']['Row'][] =
       [];
@@ -192,12 +191,10 @@ export class HiredPassService {
     seasonStartsAt: string,
   ): string {
     if (cadence === 'season') {
-      return seasonStartsAt.slice(0, 10);
+      return wibBusinessDate(new Date(seasonStartsAt));
     }
 
-    const date = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-    );
+    const date = new Date(`${wibBusinessDate(now)}T00:00:00.000Z`);
     if (cadence === 'weekly') {
       const daysSinceMonday = (date.getUTCDay() + 6) % 7;
       date.setUTCDate(date.getUTCDate() - daysSinceMonday);

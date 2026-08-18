@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "IDEMPOTENCY_KEY_REUSED",
+    "message": "Kunci idempotensi sudah digunakan untuk permintaan yang berbeda.",
+    "details": { "recoverable": false },
+    "requestId": "fixture-request-id"
+  }
+}

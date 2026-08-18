@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "Data permintaan tidak valid.",
+    "details": {},
+    "requestId": "fixture-request-id"
+  }
+}
