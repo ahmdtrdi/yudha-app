@@ -1,0 +1,13 @@
+{
+  "data": {
+    "window": { "businessDays": 90, "startsAt": "2026-05-19T17:00:00.000Z", "endsAt": "2026-08-17T05:00:00.000Z" },
+    "practice": { "accuracy": 75, "averageResponseTimeMs": 4200, "sampleSize": 20, "categoryBreakdown": [], "subcategoryBreakdown": [] },
+    "ranked": { "accuracy": 60, "averageResponseTimeMs": 5100, "sampleSize": 10 },
+    "weakTopics": [],
+    "publicMatches": { "wins": 3, "losses": 2, "draws": 1, "sampleSize": 6, "winRate": 50 },
+    "tier": "warrior",
+    "streak": { "current": 2, "best": 5, "lastDate": "2026-08-17" },
+    "history": { "practice": [], "ranked": [] },
+    "recommendation": { "type": "practice", "target": "cpns", "reason": "Kerjakan latihan umum agar YUDHA memiliki cukup data untuk rekomendasi yang lebih spesifik.", "metrics": { "sampleSize": 4, "accuracy": 75, "lastPracticedAt": null } }
+  }
+}

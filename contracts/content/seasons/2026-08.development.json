@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "manifestVersion": "development-2026-08-v1",
+  "releaseActive": true,
+  "season": {
+    "id": "beta-2026-08",
+    "name": "Beta Agustus 2026",
+    "startsAt": "2026-08-01T00:00:00+07:00",
+    "endsAt": "2026-09-01T00:00:00+07:00"
+  },
+  "missions": [
+    { "id": "daily-practice", "title": "Latihan Harian", "description": "Selesaikan satu sesi Practice normal.", "source": "practice_completed", "cadence": "daily", "targetCount": 1, "passPoints": 20 },
+    { "id": "daily-public-pvp", "title": "PvP Harian", "description": "Selesaikan satu pertandingan Casual atau Ranked normal.", "source": "public_pvp_completed", "cadence": "daily", "targetCount": 1, "passPoints": 20 },
+    { "id": "weekly-ranked-three", "title": "Tiga Ranked", "description": "Selesaikan tiga pertandingan Ranked normal.", "source": "ranked_completed", "cadence": "weekly", "targetCount": 3, "passPoints": 100 },
+    { "id": "weekly-ranked-win", "title": "Menang Ranked", "description": "Menangkan satu pertandingan Ranked normal.", "source": "ranked_won", "cadence": "weekly", "targetCount": 1, "passPoints": 80 },
+    { "id": "season-interview", "title": "Latihan Interview", "description": "Selesaikan satu AI Interview.", "source": "interview_completed", "cadence": "season", "targetCount": 1, "passPoints": 150 },
+    { "id": "season-streak-seven", "title": "Streak Tujuh Hari", "description": "Buat tujuh hari aktivitas belajar.", "source": "streak_day_created", "cadence": "season", "targetCount": 7, "passPoints": 200 }
+  ],
+  "rewards": [
+    { "id": "free-100-coins", "track": "free", "pointsRequired": 100, "label": "100 Y-Coin", "coins": 100 },
+    { "id": "premium-100-coins", "track": "premium", "pointsRequired": 100, "label": "250 Y-Coin", "coins": 250 },
+    { "id": "free-300-coins", "track": "free", "pointsRequired": 300, "label": "150 Y-Coin", "coins": 150 },
+    { "id": "premium-300-tower", "track": "premium", "pointsRequired": 300, "label": "150 Y-Coin + Benteng Bara", "coins": 150, "itemId": "tower-benteng-bara" },
+    { "id": "free-600-coins", "track": "free", "pointsRequired": 600, "label": "300 Y-Coin", "coins": 300 },
+    { "id": "premium-600-character", "track": "premium", "pointsRequired": 600, "label": "300 Y-Coin + Pip", "coins": 300, "itemId": "character-basic-pip" },
+    { "id": "free-1000-coins", "track": "free", "pointsRequired": 1000, "label": "500 Y-Coin", "coins": 500 },
+    { "id": "premium-1000-coins", "track": "premium", "pointsRequired": 1000, "label": "1.000 Y-Coin", "coins": 1000 }
+  ]
+}

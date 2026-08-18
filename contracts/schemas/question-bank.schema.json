@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yudha.local/contracts/question-bank.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "contentVersion", "approvalStatus", "smeApproved", "target", "questions"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "target": { "enum": ["cpns", "bumn"] },
+    "approvalStatus": { "enum": ["development", "sme_approved"] },
+    "smeApproved": { "type": "boolean" },
+    "questions": {
+      "type": "array",
+      "minItems": 100,
+      "items": {
+        "type": "object",
+        "required": ["sourceKey", "target", "category", "prompt", "options", "correctOptionIndex", "explanation", "difficulty", "weight", "effect", "timeLimitSeconds", "active"],
+        "properties": {
+          "sourceKey": { "type": "string", "minLength": 1 },
+          "target": { "enum": ["cpns", "bumn"] },
+          "options": { "type": "array", "minItems": 2, "maxItems": 6, "items": { "type": "string", "minLength": 1 } },
+          "correctOptionIndex": { "type": "integer", "minimum": 0, "maximum": 5 },
+          "explanation": { "type": "string", "minLength": 1 },
+          "weight": { "type": "integer", "minimum": 1, "maximum": 4 },
+          "effect": { "enum": ["damage", "heal"] },
+          "damageValue": { "type": "integer", "minimum": 0 },
+          "healValue": { "type": "integer", "minimum": 0 },
+          "timeLimitSeconds": { "type": "integer", "minimum": 1 },
+          "active": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

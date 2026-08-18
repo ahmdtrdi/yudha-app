@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "catalogVersion": "development-2026-08",
+  "betaMode": true,
+  "betaPackages": [
+    { "id": "beta-100", "coins": 100, "priceLabel": "GRATIS", "repeatable": true }
+  ],
+  "disabledPaidPackages": [
+    { "id": "pack-500", "coins": 500, "priceLabel": "Rp9.000", "disabledCode": "FEATURE_DISABLED", "message": "Pembelian Y-Coin berbayar tersedia setelah masa beta." },
+    { "id": "pack-1200", "coins": 1200, "priceLabel": "Rp19.000", "disabledCode": "FEATURE_DISABLED", "message": "Pembelian Y-Coin berbayar tersedia setelah masa beta." },
+    { "id": "pack-2800", "coins": 2800, "priceLabel": "Rp39.000", "disabledCode": "FEATURE_DISABLED", "message": "Pembelian Y-Coin berbayar tersedia setelah masa beta." },
+    { "id": "pack-6800", "coins": 6800, "priceLabel": "Rp89.000", "disabledCode": "FEATURE_DISABLED", "message": "Pembelian Y-Coin berbayar tersedia setelah masa beta." }
+  ],
+  "items": [
+    { "id": "character-basic-squire", "type": "character", "name": "Squire", "description": "Ksatria pemula yang tangguh dan selalu siap berlatih.", "rarity": "common", "coinPrice": 0, "active": true, "passExclusive": false },
+    { "id": "character-basic-pip", "type": "character", "name": "Pip", "description": "Pemanah lincah dengan serangan alam yang presisi.", "rarity": "common", "coinPrice": 500, "active": true, "passExclusive": true },
+    { "id": "character-rare-ignis", "type": "character", "name": "Ignis", "description": "Penyihir api gesit dengan rentetan bara yang membara.", "rarity": "rare", "coinPrice": 900, "active": true, "passExclusive": false },
+    { "id": "character-rare-brock", "type": "character", "name": "Brock", "description": "Golem batu perkasa yang menghantam dengan tenaga magma.", "rarity": "rare", "coinPrice": 1100, "active": true, "passExclusive": false },
+    { "id": "character-legend-drakor", "type": "character", "name": "Drakor", "description": "Ksatria naga legendaris dengan kobaran api merah.", "rarity": "legendary", "coinPrice": 2200, "active": true, "passExclusive": false },
+    { "id": "character-legend-luna", "type": "character", "name": "Luna", "description": "Penyihir bintang legendaris dengan kekuatan galaksi.", "rarity": "legendary", "coinPrice": 2500, "active": true, "passExclusive": false },
+    { "id": "tower-garda-biru", "type": "tower", "name": "Garda Biru", "description": "Benteng batu klasik dengan panji biru.", "rarity": "common", "coinPrice": 0, "active": true, "passExclusive": false },
+    { "id": "tower-benteng-bara", "type": "tower", "name": "Benteng Bara", "description": "Menara coral hangat dengan ukiran emas.", "rarity": "rare", "coinPrice": 650, "active": true, "passExclusive": true }
+  ]
+}
