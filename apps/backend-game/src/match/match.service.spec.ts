@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { MatchService } from './match.service';
+import { MatchService, type PrivateCommandResult } from './match.service';
 import { GameEngine } from './engine/game-engine';
 import { QuestionDealer } from './engine/question-dealer';
 import { QuestionService } from './questions/question.service';
@@ -12,6 +12,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 import type { InternalCard } from './questions/question.types';
 import { SERVER_MATCH_EVENTS } from '../contracts/match.events';
 import { GamePlayerProfileService } from './profiles/game-player-profile.service';
+import { MatchmakingService } from './rooms/matchmaking.service';
 
 /** Stub cards for testing — mimics DB-sourced values */
 const STUB_CARDS: InternalCard[] = Array.from({ length: 12 }, (_, i) => ({
@@ -86,10 +87,24 @@ const profileFor = (userId: string) => ({
   },
 });
 
+const privateData = <T>(result: PrivateCommandResult): T => {
+  if ('data' in result.ack) return result.ack.data as T;
+  throw new Error(
+    `Expected Private command success, received ${result.ack.error.code}`,
+  );
+};
+
+const privateErrorCode = (result: PrivateCommandResult): string => {
+  if ('error' in result.ack) return result.ack.error.code;
+  throw new Error('Expected Private command failure.');
+};
+
 const mockProfileService = {
   getProfile: jest
     .fn()
-    .mockImplementation(async (userId: string) => profileFor(userId)),
+    .mockImplementation((userId: string) =>
+      Promise.resolve(profileFor(userId)),
+    ),
   botProfile: jest.fn().mockImplementation(() => ({
     ...profileFor('bot'),
     displayName: 'BOT YUDHA',
@@ -108,6 +123,7 @@ describe('MatchService', () => {
         GameEngine,
         QuestionDealer,
         RoomManager,
+        MatchmakingService,
         MatchLogBuffer,
         CardTimeoutService,
         { provide: QuestionService, useValue: mockQuestionService },
@@ -121,6 +137,10 @@ describe('MatchService', () => {
     service = module.get<MatchService>(MatchService);
     roomManager = module.get<RoomManager>(RoomManager);
     cardTimeoutService = module.get<CardTimeoutService>(CardTimeoutService);
+
+    mockProfileService.getProfile.mockImplementation((userId: string) =>
+      Promise.resolve(profileFor(userId)),
+    );
 
     mockBotBattleService.createBotMatch.mockImplementation(
       async (profile, socketId) => {
@@ -241,6 +261,175 @@ describe('MatchService', () => {
         mode: 'bot',
       });
       expect(result.emits[0].event).toBe(SERVER_MATCH_EVENTS.error);
+    });
+  });
+
+  describe('Private Matchmaking', () => {
+    it('creates a room code and returns the same acknowledgement on replay', async () => {
+      service.registerSocket('socket-a', 'player-a');
+
+      const created = await service.handleCreatePrivateRoom(
+        'player-a',
+        'socket-a',
+        { commandId: 'create-1' },
+      );
+      const replay = await service.handleCreatePrivateRoom(
+        'player-a',
+        'socket-a',
+        { commandId: 'create-1' },
+      );
+
+      expect(created.ack).toHaveProperty('data.code');
+      expect(created.emits[0].event).toBe(
+        SERVER_MATCH_EVENTS.privateRoomCreated,
+      );
+      expect(replay.ack).toEqual(created.ack);
+      expect(replay.emits).toEqual([]);
+    });
+
+    it('rejects a command ID reused for a different Private operation', async () => {
+      service.registerSocket('socket-a', 'player-a');
+      const created = await service.handleCreatePrivateRoom(
+        'player-a',
+        'socket-a',
+        { commandId: 'shared-command' },
+      );
+      const code = privateData<{ code: string }>(created).code;
+
+      const reused = await service.handleCancelPrivateRoom(
+        'player-a',
+        'socket-a',
+        { commandId: 'shared-command', code },
+      );
+
+      expect(privateErrorCode(reused)).toBe('IDEMPOTENCY_KEY_REUSED');
+      expect(reused.emits).toEqual([]);
+    });
+
+    it('joins two same-target players into the shared battle engine', async () => {
+      service.registerSocket('socket-a', 'player-a');
+      service.registerSocket('socket-b', 'player-b');
+      const created = await service.handleCreatePrivateRoom(
+        'player-a',
+        'socket-a',
+        { commandId: 'create-private' },
+      );
+      const code = privateData<{ code: string }>(created).code;
+
+      const joined = await service.handleJoinPrivateRoom(
+        'player-b',
+        'socket-b',
+        { commandId: 'join-private', code },
+      );
+
+      expect(privateData<{ code: string; roomId: string }>(joined)).toEqual({
+        code,
+        roomId: expect.any(String),
+      });
+      expect(
+        joined.emits.filter(
+          (emit) => emit.event === SERVER_MATCH_EVENTS.privateRoomJoined,
+        ),
+      ).toHaveLength(2);
+      expect(
+        joined.emits.filter(
+          (emit) => emit.event === SERVER_MATCH_EVENTS.matchFound,
+        ),
+      ).toHaveLength(2);
+      const states = joined.emits.filter(
+        (emit) => emit.event === SERVER_MATCH_EVENTS.gameStateUpdate,
+      );
+      expect(states).toHaveLength(2);
+      expect(
+        states.every(
+          (emit) => (emit.payload as { mode: string }).mode === 'private',
+        ),
+      ).toBe(true);
+    });
+
+    it('rejects invalid command IDs, malformed codes, and cross-target joins', async () => {
+      service.registerSocket('socket-a', 'player-a');
+      service.registerSocket('socket-b', 'player-b');
+      const invalidCommand = await service.handleCreatePrivateRoom(
+        'player-a',
+        'socket-a',
+        { commandId: '' },
+      );
+      expect(privateErrorCode(invalidCommand)).toBe('VALIDATION_FAILED');
+
+      const invalidCode = await service.handleJoinPrivateRoom(
+        'player-b',
+        'socket-b',
+        { commandId: 'bad-code', code: 'ABC10I' },
+      );
+      expect(privateErrorCode(invalidCode)).toBe('VALIDATION_FAILED');
+
+      const created = await service.handleCreatePrivateRoom(
+        'player-a',
+        'socket-a',
+        { commandId: 'target-create' },
+      );
+      const code = privateData<{ code: string }>(created).code;
+      mockProfileService.getProfile.mockImplementation((userId: string) =>
+        Promise.resolve({
+          ...profileFor(userId),
+          target: userId === 'player-b' ? 'bumn' : 'cpns',
+        }),
+      );
+      const wrongTarget = await service.handleJoinPrivateRoom(
+        'player-b',
+        'socket-b',
+        { commandId: 'target-join', code },
+      );
+      expect(privateErrorCode(wrongTarget)).toBe('ROOM_CODE_INVALID');
+    });
+
+    it('invalidates the code when its creator disconnects before the join', async () => {
+      service.registerSocket('socket-a', 'player-a');
+      service.registerSocket('socket-b', 'player-b');
+      const created = await service.handleCreatePrivateRoom(
+        'player-a',
+        'socket-a',
+        { commandId: 'disconnect-create' },
+      );
+      const code = privateData<{ code: string }>(created).code;
+
+      service.handleDisconnect('socket-a');
+      const joined = await service.handleJoinPrivateRoom(
+        'player-b',
+        'socket-b',
+        { commandId: 'disconnect-join', code },
+      );
+
+      expect(privateErrorCode(joined)).toBe('ROOM_CODE_INVALID');
+    });
+
+    it('blocks public matchmaking until the creator cancels the Private code', async () => {
+      service.registerSocket('socket-a', 'player-a');
+      const created = await service.handleCreatePrivateRoom(
+        'player-a',
+        'socket-a',
+        { commandId: 'pending-create' },
+      );
+      const code = privateData<{ code: string }>(created).code;
+
+      const blocked = await service.handleJoinQueue('player-a', 'socket-a', {
+        mode: 'casual',
+      });
+      expect(blocked.emits[0].event).toBe(SERVER_MATCH_EVENTS.error);
+
+      const cancelled = await service.handleCancelPrivateRoom(
+        'player-a',
+        'socket-a',
+        { commandId: 'pending-cancel', code },
+      );
+      expect(cancelled.emits[0].event).toBe(
+        SERVER_MATCH_EVENTS.privateRoomCancelled,
+      );
+      const queued = await service.handleJoinQueue('player-a', 'socket-a', {
+        mode: 'casual',
+      });
+      expect(queued.emits[0].event).toBe(SERVER_MATCH_EVENTS.queueJoined);
     });
   });
 

@@ -2,22 +2,23 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MatchResultService } from './match-result.service';
 import { SupabaseService } from '../../supabase/supabase.service';
 import type { InternalRoomState } from '../engine/battle.types';
-import type { InternalCard } from '../questions/question.types';
 import type { MatchLogRpcEntry } from '../logs/match-log.types';
 
 /** Helper to create a finished room state for testing */
-function createFinishedRoom(overrides: Partial<{
-  roomId: string;
-  playerAUserId: string;
-  playerBUserId: string;
-  mode: 'ranked' | 'casual' | 'bot';
-  winnerUserId: string | null;
-  loserUserId: string | null;
-  reason: 'hp_zero' | 'surrender' | 'disconnect' | 'draw';
-  outcome: 'win' | 'lose' | 'draw' | 'surrender';
-  playerAHp: number;
-  playerBHp: number;
-}> = {}): InternalRoomState {
+function createFinishedRoom(
+  overrides: Partial<{
+    roomId: string;
+    playerAUserId: string;
+    playerBUserId: string;
+    mode: 'ranked' | 'casual' | 'bot' | 'private';
+    winnerUserId: string | null;
+    loserUserId: string | null;
+    reason: 'hp_zero' | 'surrender' | 'disconnect' | 'draw';
+    outcome: 'win' | 'lose' | 'draw' | 'surrender';
+    playerAHp: number;
+    playerBHp: number;
+  }> = {},
+): InternalRoomState {
   const playerAUserId = overrides.playerAUserId ?? 'user-a';
   const playerBUserId = overrides.playerBUserId ?? 'user-b';
 
@@ -150,23 +151,26 @@ describe('MatchResultService', () => {
 
       const deltas = await service.finalizeMatch(room);
 
-      expect(mockRpc).toHaveBeenCalledWith('finalize_match_result', expect.objectContaining({
-        p_room_id: 'room_test',
-        p_mode: 'ranked',
-        p_target: 'cpns',
-        p_player_a_id: 'user-a',
-        p_player_b_id: 'user-b',
-        p_winner_user_id: 'user-a',
-        p_loser_user_id: 'user-b',
-        p_outcome: 'player_a_win',
-        p_reason: 'hp_zero',
-        p_player_a_hp: 80,
-        p_player_b_hp: 0,
-        p_player_a_points: 20,
-        p_player_b_points: 10,
-        p_duration_seconds: 300,
-        p_started_at: expect.any(String),
-      }));
+      expect(mockRpc).toHaveBeenCalledWith(
+        'finalize_match_result',
+        expect.objectContaining({
+          p_room_id: 'room_test',
+          p_mode: 'ranked',
+          p_target: 'cpns',
+          p_player_a_id: 'user-a',
+          p_player_b_id: 'user-b',
+          p_winner_user_id: 'user-a',
+          p_loser_user_id: 'user-b',
+          p_outcome: 'player_a_win',
+          p_reason: 'hp_zero',
+          p_player_a_hp: 80,
+          p_player_b_hp: 0,
+          p_player_a_points: 20,
+          p_player_b_points: 10,
+          p_duration_seconds: 300,
+          p_started_at: expect.any(String),
+        }),
+      );
 
       expect(deltas).toEqual({
         ratingDeltaA: 20,
@@ -234,7 +238,9 @@ describe('MatchResultService', () => {
         error: null,
       });
 
-      await expect(service.finalizeMatch(createFinishedRoom())).resolves.toEqual({
+      await expect(
+        service.finalizeMatch(createFinishedRoom()),
+      ).resolves.toEqual({
         ratingDeltaA: 20,
         ratingDeltaB: -12,
         coinsDeltaA: 10,
@@ -303,6 +309,38 @@ describe('MatchResultService', () => {
         expect.objectContaining({
           p_mode: 'casual',
           p_target: 'cpns',
+        }),
+      );
+    });
+
+    it('persists Private history with both human players and zero progression', async () => {
+      mockRpc.mockResolvedValue({
+        data: {
+          persisted: true,
+          matchResultId: 'private-result',
+          ratingDeltaA: 0,
+          ratingDeltaB: 0,
+          coinsDeltaA: 0,
+          coinsDeltaB: 0,
+          progressionApplied: false,
+        },
+        error: null,
+      });
+      const room = createFinishedRoom({ mode: 'private' });
+
+      await expect(service.finalizeMatch(room)).resolves.toEqual({
+        ratingDeltaA: 0,
+        ratingDeltaB: 0,
+        coinsDeltaA: 0,
+        coinsDeltaB: 0,
+        progressionApplied: false,
+      });
+      expect(mockRpc).toHaveBeenCalledWith(
+        'finalize_match_result',
+        expect.objectContaining({
+          p_mode: 'private',
+          p_player_a_id: 'user-a',
+          p_player_b_id: 'user-b',
         }),
       );
     });
