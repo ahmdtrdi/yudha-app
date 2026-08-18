@@ -58,6 +58,8 @@ class _LiveOnlineBattleRepository extends OnlineBattleRepository {
   final StreamController<OnlineBattleUpdate> _updates =
       StreamController<OnlineBattleUpdate>.broadcast(sync: true);
 
+  OnlineMatchmakingMode? lastMatchmakingMode;
+
   @override
   Stream<OnlineBattleUpdate> get updates => _updates.stream;
 
@@ -67,6 +69,7 @@ class _LiveOnlineBattleRepository extends OnlineBattleRepository {
   Future<BattleSessionSeed> createSession({
     OnlineMatchmakingMode matchmakingMode = OnlineMatchmakingMode.casual,
   }) async {
+    lastMatchmakingMode = matchmakingMode;
     return const BattleSessionSeed(
       opponentName: 'Bima Saputra',
       questions: <BattleQuestion>[],
@@ -317,150 +320,6 @@ void main() {
     );
   });
 
-  testWidgets('transitions from pre-battle to result', (
-    WidgetTester tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(411, 914));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    const BattleSessionSeed seed = BattleSessionSeed(
-      opponentName: 'BOT TEST',
-      questions: <BattleQuestion>[
-        BattleQuestion(
-          id: 'q1',
-          prompt: '2 + 2 = ?',
-          options: <String>['4', '5'],
-          correctOptionIndex: 0,
-          weight: 4,
-          effect: QuestionEffect.damage,
-          category: 'numerik',
-        ),
-        BattleQuestion(
-          id: 'q2',
-          prompt: 'Sinonim cepat?',
-          options: <String>['Lekas', 'Lambat'],
-          correctOptionIndex: 0,
-          weight: 4,
-          effect: QuestionEffect.damage,
-          category: 'verbal',
-        ),
-        BattleQuestion(
-          id: 'q3',
-          prompt: 'Pola berikutnya?',
-          options: <String>['8', '9'],
-          correctOptionIndex: 0,
-          weight: 4,
-          effect: QuestionEffect.damage,
-          category: 'logika',
-        ),
-        BattleQuestion(
-          id: 'q4',
-          prompt: 'Pilih jawaban benar.',
-          options: <String>['Benar', 'Salah'],
-          correctOptionIndex: 0,
-          weight: 4,
-          effect: QuestionEffect.damage,
-          category: 'numerik',
-        ),
-      ],
-    );
-
-    final ProviderContainer container = ProviderContainer(
-      overrides: <Override>[
-        botBattleRepositoryProvider.overrideWithValue(
-          const _FakeBattleRepository(seed),
-        ),
-        onlineBattleRepositoryProvider.overrideWithValue(
-          const _FakeBattleRepository(seed),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
-
-    final battleController = container.read(battleControllerProvider.notifier);
-    battleController.enterArena();
-    battleController.setMode(BattleMode.bot);
-    await battleController.startBattle();
-
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: PvpPage()),
-      ),
-    );
-    await tester.pump();
-
-    expect(
-      find.byKey(const ValueKey<String>('question-card-q1')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('question-card-q2')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('question-card-q3')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('question-card-q4')),
-      findsOneWidget,
-    );
-    expect(find.text('BOT TEST'), findsOneWidget);
-    expect(find.text('Kamu'), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('combo-meter')), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey<String>('combo-meter')),
-        matching: find.text('x1'),
-      ),
-      findsOneWidget,
-    );
-    expect(find.byKey(const ValueKey<String>('round-clock')), findsOneWidget);
-
-    Future<void> winCurrentRound() async {
-      int safety = 0;
-      while (battleController.state.opponentHp > 0 && safety < 12) {
-        final BattleQuestion question =
-            battleController.state.availableQuestions.first;
-        await battleController.answerQuestion(
-          questionId: question.id,
-          selectedOptionIndex: question.correctOptionIndex!,
-        );
-        safety += 1;
-      }
-    }
-
-    await winCurrentRound();
-    await tester.pump();
-
-    expect(
-      find.text('Kamu memenangkan ronde 1. Ronde 2 segera dimulai.'),
-      findsOneWidget,
-    );
-    expect(battleController.state.playerRoundWins, 1);
-    expect(battleController.state.phase, BattlePhase.roundBreak);
-
-    await tester.pump(const Duration(milliseconds: 3000));
-    expect(battleController.state.currentRound, 2);
-    expect(battleController.state.playerHp, 100);
-    expect(battleController.state.opponentHp, 100);
-
-    await winCurrentRound();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 800));
-
-    expect(battleController.state.playerRoundWins, 2);
-    expect(battleController.state.currentRound, 2);
-    expect(battleController.state.phase, BattlePhase.finished);
-    expect(find.text('VICTORY!'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey<String>('battle-performance-insight')),
-      findsOneWidget,
-    );
-    expect(find.textContaining('dari'), findsWidgets);
-  });
-
   testWidgets('renders authoritative multiplayer loadout and TWK card asset', (
     WidgetTester tester,
   ) async {
@@ -549,69 +408,19 @@ void main() {
     );
   });
 
-  testWidgets('bot keeps attacking while a question sheet is open', (
+  testWidgets('clicking Lawan Bot starts session with OnlineMatchmakingMode.bot', (
     WidgetTester tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(411, 914));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    const BattleSessionSeed seed = BattleSessionSeed(
-      opponentName: 'BOT REALTIME',
-      questions: <BattleQuestion>[
-        BattleQuestion(
-          id: 'live-q1',
-          prompt: 'Pertanyaan yang sedang dijawab',
-          options: <String>['A', 'B', 'C', 'D'],
-          correctOptionIndex: 0,
-          weight: 2,
-          effect: QuestionEffect.damage,
-          category: 'numerik',
-        ),
-        BattleQuestion(
-          id: 'live-q2',
-          prompt: 'Serangan bot satu',
-          options: <String>['A', 'B'],
-          correctOptionIndex: 0,
-          weight: 2,
-          effect: QuestionEffect.damage,
-          category: 'verbal',
-        ),
-        BattleQuestion(
-          id: 'live-q3',
-          prompt: 'Serangan bot dua',
-          options: <String>['A', 'B'],
-          correctOptionIndex: 0,
-          weight: 2,
-          effect: QuestionEffect.damage,
-          category: 'logika',
-        ),
-        BattleQuestion(
-          id: 'live-q4',
-          prompt: 'Serangan bot tiga',
-          options: <String>['A', 'B'],
-          correctOptionIndex: 0,
-          weight: 2,
-          effect: QuestionEffect.damage,
-          category: 'numerik',
-        ),
-      ],
-    );
+    final _LiveOnlineBattleRepository online = _LiveOnlineBattleRepository();
     final ProviderContainer container = ProviderContainer(
       overrides: <Override>[
-        botBattleRepositoryProvider.overrideWithValue(
-          const _FakeBattleRepository(seed),
-        ),
-        onlineBattleRepositoryProvider.overrideWithValue(
-          const _FakeBattleRepository(seed),
-        ),
+        onlineBattleRepositoryProvider.overrideWithValue(online),
       ],
     );
     addTearDown(container.dispose);
-
-    final battleController = container.read(battleControllerProvider.notifier);
-    battleController.enterArena();
-    battleController.setMode(BattleMode.bot);
-    await battleController.startBattle();
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -619,22 +428,137 @@ void main() {
         child: const MaterialApp(home: PvpPage()),
       ),
     );
-    await tester.pump(const Duration(milliseconds: 2900));
-    await tester.tap(
-      find.byKey(const ValueKey<String>('question-card-live-q1')),
+    await tester.pump();
+
+    // Navigate from arena selection -> loadout -> mode selection
+    await tester.tap(find.byKey(const ValueKey<String>('continue-to-loadout')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('continue-to-mode')));
+    await tester.pumpAndSettle();
+
+    // Tap Lawan Bot
+    await tester.tap(find.byKey(const ValueKey<String>('mode-bot')));
+    await tester.pump();
+
+    expect(online.lastMatchmakingMode, OnlineMatchmakingMode.bot);
+  });
+
+  testWidgets('renders in-battle view and responds to server game_state_update and match_result', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(411, 914));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final _LiveOnlineBattleRepository online = _LiveOnlineBattleRepository();
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        onlineBattleRepositoryProvider.overrideWithValue(online),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final battleController = container.read(battleControllerProvider.notifier);
+    battleController.enterArena();
+    battleController.setOnlineMatchmakingMode(OnlineMatchmakingMode.bot);
+    await battleController.startBattle();
+
+    online.emit(
+      const GameStateUpdated(
+        roomId: 'room-bot-1',
+        phase: 'active',
+        playerHp: 100,
+        opponentHp: 100,
+        playerPoints: 0,
+        opponentPoints: 0,
+        playerComboLevel: 1,
+        currentRound: 1,
+        roundSecondsRemaining: 180,
+        playerRoundWins: 0,
+        opponentRoundWins: 0,
+        lastRoundOutcome: null,
+        availableQuestions: <BattleQuestion>[
+          BattleQuestion(
+            id: 'q1',
+            prompt: '2 + 2 = ?',
+            options: <String>['4', '5'],
+            correctOptionIndex: 0,
+            weight: 4,
+            effect: QuestionEffect.damage,
+            category: 'numerik',
+          ),
+          BattleQuestion(
+            id: 'q2',
+            prompt: 'Sinonim cepat?',
+            options: <String>['Lekas', 'Lambat'],
+            correctOptionIndex: 0,
+            weight: 4,
+            effect: QuestionEffect.damage,
+            category: 'verbal',
+          ),
+        ],
+        answeredQuestionIds: <String>[],
+        playerDisplayName: 'Kamu',
+        opponentDisplayName: 'BOT YUDHA',
+      ),
+    );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: PvpPage()),
+      ),
     );
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 250));
 
-    expect(find.text('Pertanyaan yang sedang dijawab'), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('question-card-q1')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('question-card-q2')), findsOneWidget);
+    expect(find.text('BOT'), findsWidgets);
+    expect(find.text('Kamu'), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('combo-meter')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('round-clock')), findsOneWidget);
+
+    // Answer a question to generate answer history for performance insight
+    await battleController.prepareQuestion(
+      const BattleQuestion(
+        id: 'q1',
+        prompt: '2 + 2 = ?',
+        options: <String>['4', '5'],
+        correctOptionIndex: 0,
+        weight: 4,
+        effect: QuestionEffect.damage,
+        category: 'numerik',
+      ),
+    );
+    online.emit(
+      const CardPlayedUpdate(
+        cardId: 'q1',
+        correct: true,
+        effect: QuestionEffect.damage,
+        effectValue: 4,
+        projectileLevel: 1,
+        isSelfAction: true,
+        category: 'numerik',
+      ),
+    );
+
+    // Emit match finished
+    online.emit(
+      const MatchResultUpdate(
+        outcome: BattleOutcome.win,
+        reason: 'opponent_hp_zero',
+        ratingDelta: 20,
+        coinsDelta: 50,
+        progressionPersisted: true,
+        matchmakingMode: OnlineMatchmakingMode.bot,
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('VICTORY!'), findsOneWidget);
     expect(
-      find.byKey(const ValueKey<String>('assets/game/basic_squire_ready.webp')),
+      find.byKey(const ValueKey<String>('battle-performance-insight')),
       findsOneWidget,
     );
-    await tester.pump(const Duration(milliseconds: 6300));
-
-    expect(container.read(battleControllerProvider).playerHp, lessThan(100));
-    expect(find.text('Pertanyaan yang sedang dijawab'), findsOneWidget);
   });
 }
 

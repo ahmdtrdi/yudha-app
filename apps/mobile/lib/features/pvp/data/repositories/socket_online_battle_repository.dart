@@ -601,9 +601,11 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
   }
 
   OnlineMatchmakingMode _parseMatchmakingMode(dynamic value) {
-    return value == 'ranked'
-        ? OnlineMatchmakingMode.ranked
-        : OnlineMatchmakingMode.casual;
+    return switch (value?.toString().toLowerCase()) {
+      'ranked' => OnlineMatchmakingMode.ranked,
+      'bot' => OnlineMatchmakingMode.bot,
+      _ => OnlineMatchmakingMode.casual,
+    };
   }
 
   BattleTarget _parseTarget(dynamic value) {

@@ -35,7 +35,6 @@ class _InBattleSection extends StatefulWidget {
     required this.onPause,
     required this.onRoundReady,
     required this.onArenaDisposed,
-    required this.onBotAnswer,
     required this.onPickQuestion,
   });
 
@@ -50,7 +49,6 @@ class _InBattleSection extends StatefulWidget {
   final Future<void> Function() onPause;
   final VoidCallback onRoundReady;
   final VoidCallback onArenaDisposed;
-  final VoidCallback onBotAnswer;
   final Future<void> Function(BattleQuestion question) onPickQuestion;
 
   @override
@@ -62,10 +60,8 @@ class _InBattleSectionState extends State<_InBattleSection>
   late final AnimationController _ambientController;
   late final AnimationController _effectController;
   late final ArenaAudioController _arenaAudio;
-  final Random _random = Random();
 
   Timer? _countdownTimer;
-  Timer? _botTimer;
   Timer? _noticeTimer;
   final List<Timer> _effectSoundTimers = <Timer>[];
   final List<_BattleEffectEvent> _pendingEffects = <_BattleEffectEvent>[];
@@ -216,23 +212,6 @@ class _InBattleSectionState extends State<_InBattleSection>
     if (newError != null && newError != oldError) {
       _showNotice(newError, isError: true);
     }
-
-    if (widget.state.phase != BattlePhase.inBattle ||
-        widget.state.mode != BattleMode.bot ||
-        widget.state.availableQuestions.isEmpty) {
-      _cancelBotTimer();
-    } else if (_canBotAct && !(_botTimer?.isActive ?? false)) {
-      _scheduleBotAttack();
-    }
-  }
-
-  bool get _canBotAct {
-    return mounted &&
-        _countdownDone &&
-        !_pauseOpen &&
-        widget.state.phase == BattlePhase.inBattle &&
-        widget.state.mode == BattleMode.bot &&
-        widget.state.availableQuestions.isNotEmpty;
   }
 
   void _startCountdownTimer() {
@@ -263,27 +242,6 @@ class _InBattleSectionState extends State<_InBattleSection>
         _countdownDone = true;
       });
       widget.onRoundReady();
-      _scheduleBotAttack();
-    });
-  }
-
-  void _cancelBotTimer() {
-    _botTimer?.cancel();
-    _botTimer = null;
-  }
-
-  void _scheduleBotAttack() {
-    if (!_canBotAct || (_botTimer?.isActive ?? false)) {
-      return;
-    }
-
-    final int delayMs = 4300 + _random.nextInt(1900);
-    _botTimer = Timer(Duration(milliseconds: delayMs), () {
-      _botTimer = null;
-      if (!_canBotAct) {
-        return;
-      }
-      widget.onBotAnswer();
     });
   }
 
@@ -530,7 +488,6 @@ class _InBattleSectionState extends State<_InBattleSection>
             _playerPose = _CharacterPose.idle;
           }
         });
-        _scheduleBotAttack();
       }
     }
   }
@@ -542,7 +499,6 @@ class _InBattleSectionState extends State<_InBattleSection>
     _pauseOpen = true;
     unawaited(_arenaAudio.pauseMusic());
     _countdownTimer?.cancel();
-    _cancelBotTimer();
     try {
       await widget.onPause();
     } finally {
@@ -551,8 +507,6 @@ class _InBattleSectionState extends State<_InBattleSection>
         unawaited(_arenaAudio.resumeMusic());
         if (!_countdownDone) {
           _startCountdownTimer();
-        } else {
-          _scheduleBotAttack();
         }
       }
     }
@@ -562,7 +516,6 @@ class _InBattleSectionState extends State<_InBattleSection>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _countdownTimer?.cancel();
-    _botTimer?.cancel();
     _noticeTimer?.cancel();
     for (final Timer timer in _effectSoundTimers) {
       timer.cancel();
