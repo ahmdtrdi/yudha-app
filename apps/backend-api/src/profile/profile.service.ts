@@ -14,7 +14,12 @@ export type UpdateLoadoutPayload = {
   towerId?: unknown;
 };
 
-const EDITABLE_PROFILE_FIELDS = new Set(['username', 'fullName', 'target']);
+const EDITABLE_PROFILE_FIELDS = new Set([
+  'username',
+  'fullName',
+  'full_name',
+  'target',
+]);
 const PROFILE_TARGETS = new Set(['cpns', 'bumn']);
 
 @Injectable()
@@ -126,7 +131,7 @@ export class ProfileService {
 
     return Object.fromEntries(
       entries.map(([field, value]) => [
-        field === 'fullName' ? 'full_name' : field,
+        field === 'fullName' || field === 'full_name' ? 'full_name' : field,
         value,
       ]),
     );

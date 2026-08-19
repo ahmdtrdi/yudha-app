@@ -15,7 +15,7 @@ class UserProfileUpdate {
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'username': username.trim(),
-      'full_name': fullName.trim(),
+      'fullName': fullName.trim(),
       'target': target.name,
     };
   }

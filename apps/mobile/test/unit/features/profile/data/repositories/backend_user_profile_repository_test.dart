@@ -25,10 +25,12 @@ void main() {
               expect(request.headers['authorization'], 'Bearer token-123');
               return http.Response(
                 jsonEncode(<String, Object?>{
-                  'id': 'user-1',
-                  'username': 'raka',
-                  'full_name': 'Raka Saputra',
-                  'target': 'bumn',
+                  'data': <String, Object?>{
+                    'id': 'user-1',
+                    'username': 'raka',
+                    'fullName': 'Raka Saputra',
+                    'target': 'bumn',
+                  },
                 }),
                 200,
               );
@@ -53,15 +55,17 @@ void main() {
               expect(request.method, 'PATCH');
               expect(jsonDecode(request.body), <String, Object?>{
                 'username': 'raka-baru',
-                'full_name': 'Raka Baru',
+                'fullName': 'Raka Baru',
                 'target': 'cpns',
               });
               return http.Response(
                 jsonEncode(<String, Object?>{
-                  'id': 'user-1',
-                  'username': 'raka-baru',
-                  'full_name': 'Raka Baru',
-                  'target': 'cpns',
+                  'data': <String, Object?>{
+                    'id': 'user-1',
+                    'username': 'raka-baru',
+                    'full_name': 'Raka Baru',
+                    'target': 'cpns',
+                  },
                 }),
                 200,
               );

@@ -138,6 +138,24 @@ describe('ProfileService', () => {
     expect(single).toHaveBeenCalled();
   });
 
+  it('accepts the snake_case full_name field used by the mobile client', async () => {
+    const updatedProfile = {
+      id: 'user-1',
+      username: 'player',
+      full_name: 'Player Updated',
+      target: 'cpns',
+    };
+    single.mockResolvedValue({ data: updatedProfile, error: null });
+
+    await expect(
+      service.updateProfile('user-1', { full_name: 'Player Updated' }),
+    ).resolves.toEqual({
+      data: expect.objectContaining({ fullName: 'Player Updated' }),
+    });
+
+    expect(update).toHaveBeenCalledWith({ full_name: 'Player Updated' });
+  });
+
   it('rejects attempts to update protected progression fields', async () => {
     await expect(
       service.updateProfile('user-1', { coins: 999999, rank_points: 99999 }),

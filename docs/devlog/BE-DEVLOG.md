@@ -449,3 +449,20 @@
 - Backend Game: 14 Jest suites and 189 tests passed; the Private-focused run with open-handle detection also passed 34 tests cleanly.
 - Backend API: 17 Jest suites and 55 tests passed.
 - Backend Game and Backend API TypeScript checks, touched-production-file lint checks, and Nest production builds passed.
+
+## 2026-08-19 - Profile Full-Name Contract Compatibility
+
+**The Change:**
+- Updated `PATCH /profile` to accept both the documented `fullName` field and the database-style `full_name` field.
+- Normalized either input to the `profiles.full_name` column before updating Supabase.
+- Added a service regression test for the mobile client's snake_case profile payload.
+
+**The Reasoning:**
+- The public profile contract uses camelCase while the persisted Supabase column uses snake_case.
+- Accepting both forms prevents deployed mobile clients and older integrations from failing validation while keeping the database mapping explicit.
+
+**Verification:**
+- Profile service tests passed, including the `full_name` compatibility case.
+
+**The Tech Debt:**
+- The API currently keeps a compatibility alias until all clients consistently send the canonical `fullName` field.

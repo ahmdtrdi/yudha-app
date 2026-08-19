@@ -12,7 +12,8 @@ class UserProfile {
     return UserProfile(
       id: json['id']?.toString() ?? '',
       username: json['username']?.toString().trim() ?? '',
-      fullName: json['full_name']?.toString().trim() ?? '',
+      fullName:
+          (json['fullName'] ?? json['full_name'])?.toString().trim() ?? '',
       target: _targetFromValue(json['target']),
     );
   }
