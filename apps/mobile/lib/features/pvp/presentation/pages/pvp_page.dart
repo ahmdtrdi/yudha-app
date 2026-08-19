@@ -526,21 +526,12 @@ class _PvpPageState extends ConsumerState<PvpPage> {
     required BattleController controller,
     required OnlineMatchmakingMode matchmakingMode,
   }) async {
-    final EconomyActionResult syncResult = await ref
-        .read(gameEconomyProvider.notifier)
-        .syncAuthoritativeLoadout();
-    if (!syncResult.success) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(
-              content: Text(syncResult.message),
-              backgroundColor: const Color(0xFFB64040),
-            ),
-          );
-      }
-      return;
+    try {
+      await ref
+          .read(gameEconomyProvider.notifier)
+          .syncAuthoritativeLoadout();
+    } catch (_) {
+      // Ignored: Non-fatal loadout sync failure should not block entering battle.
     }
     controller.setMode(BattleMode.online);
     controller.setOnlineMatchmakingMode(matchmakingMode);

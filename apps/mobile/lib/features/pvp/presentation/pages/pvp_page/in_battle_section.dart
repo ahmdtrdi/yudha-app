@@ -59,6 +59,9 @@ class _InBattleSectionState extends State<_InBattleSection>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _ambientController;
   late final AnimationController _effectController;
+  late final AnimationController _shakeController;
+  late final AnimationController _hitFlashController;
+  late final AnimationController _lowHpController;
   late final ArenaAudioController _arenaAudio;
 
   Timer? _countdownTimer;
@@ -81,6 +84,8 @@ class _InBattleSectionState extends State<_InBattleSection>
   Timer? _opponentPoseTimer;
   bool _playerHitQueued = false;
   bool _opponentHitQueued = false;
+  bool _rushModeAnnounced = false;
+  double _shakeIntensity = 0.0;
 
   BattleActor? _effectActor;
   BattleVisualEffect? _effectKind;
@@ -104,6 +109,18 @@ class _InBattleSectionState extends State<_InBattleSection>
       vsync: this,
       duration: const Duration(milliseconds: 1050),
     )..addStatusListener(_handleEffectStatus);
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    );
+    _hitFlashController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 240),
+    );
+    _lowHpController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
     _hand = widget.state.availableQuestions.take(4).toList();
     _notice = widget.state.errorMessage;
     _noticeIsError = true;
@@ -205,6 +222,21 @@ class _InBattleSectionState extends State<_InBattleSection>
       _playerQuestionReady = false;
       _arenaAudio.playCountdown();
       _startCountdownTimer();
+    }
+
+    final int oldSeconds = oldWidget.state.roundSecondsRemaining;
+    final int currentSeconds = widget.state.roundSecondsRemaining;
+    if (widget.state.phase == BattlePhase.inBattle &&
+        oldSeconds > 30 &&
+        currentSeconds <= 30 &&
+        !_rushModeAnnounced) {
+      _rushModeAnnounced = true;
+      _showNotice('🔥 RUSH MODE: 30 DETIK TERAKHIR! 🔥');
+      try {
+        HapticFeedback.heavyImpact();
+      } catch (_) {}
+    } else if (widget.state.phase != BattlePhase.inBattle) {
+      _rushModeAnnounced = false;
     }
 
     final String? newError = widget.state.errorMessage;
@@ -345,6 +377,11 @@ class _InBattleSectionState extends State<_InBattleSection>
       _effectSoundTimers.add(
         Timer(const Duration(milliseconds: 860), () {
           _arenaAudio.playImpact();
+          _triggerHitJuice(
+            targetsPlayer: event.targetsPlayer,
+            projectileLevel: event.projectileLevel,
+            amount: event.amount,
+          );
           _playHitPose(
             event.targetsPlayer ? BattleActor.player : BattleActor.opponent,
           );
@@ -432,6 +469,37 @@ class _InBattleSectionState extends State<_InBattleSection>
     }
   }
 
+  void _triggerHitJuice({
+    required bool targetsPlayer,
+    required int projectileLevel,
+    required int amount,
+  }) {
+    if (!mounted) {
+      return;
+    }
+    _shakeIntensity = (0.5 + (projectileLevel * 0.35) + (amount > 20 ? 0.3 : 0.0)).clamp(0.4, 1.5);
+    _shakeController.forward(from: 0);
+
+    if (targetsPlayer) {
+      _hitFlashController.forward(from: 0);
+      try {
+        if (projectileLevel >= 2 || amount >= 25) {
+          HapticFeedback.heavyImpact();
+        } else {
+          HapticFeedback.mediumImpact();
+        }
+      } catch (_) {}
+    } else {
+      try {
+        if (projectileLevel >= 2) {
+          HapticFeedback.mediumImpact();
+        } else {
+          HapticFeedback.lightImpact();
+        }
+      } catch (_) {}
+    }
+  }
+
   void _setRestingPose(BattleActor actor) {
     if (actor == BattleActor.player) {
       _playerPose = _playerQuestionReady
@@ -463,6 +531,10 @@ class _InBattleSectionState extends State<_InBattleSection>
         widget.state.phase != BattlePhase.inBattle) {
       return;
     }
+
+    try {
+      HapticFeedback.selectionClick();
+    } catch (_) {}
 
     setState(() {
       _interactionLocked = true;
@@ -524,6 +596,9 @@ class _InBattleSectionState extends State<_InBattleSection>
     _opponentPoseTimer?.cancel();
     _ambientController.dispose();
     _effectController.dispose();
+    _shakeController.dispose();
+    _hitFlashController.dispose();
+    _lowHpController.dispose();
     unawaited(_arenaAudio.dispose());
     widget.onArenaDisposed();
     super.dispose();
@@ -573,26 +648,30 @@ class _InBattleSectionState extends State<_InBattleSection>
                         compact ? 6 : 8,
                         6,
                       ),
-                      child: _ArenaBoard(
-                        playerHp: widget.state.playerHp,
-                        opponentHp: widget.state.opponentHp,
-                        playerCharacter: widget.playerCharacter,
-                        opponentCharacter: widget.opponentCharacter,
-                        playerTowerAsset: widget.playerTowerAsset,
-                        opponentTowerAsset: widget.opponentTowerAsset,
-                        playerPose: _playerPose,
-                        opponentPose: _opponentPose,
-                        arenaTheme: widget.arenaTheme,
-                        compact: compact,
-                        ambientAnimation: _ambientController,
-                        effectAnimation: _effectController,
-                        effectActor: _effectActor,
-                        effectKind: _effectKind,
-                        effectCategory: _effectCategory,
-                        effectAmount: _effectAmount,
-                        effectTargetsPlayer: _effectTargetsPlayer,
-                        effectIsHeal: _effectIsHeal,
-                        effectProjectileLevel: _effectProjectileLevel,
+                      child: _ArenaShakeWrapper(
+                        controller: _shakeController,
+                        intensity: _shakeIntensity,
+                        child: _ArenaBoard(
+                          playerHp: widget.state.playerHp,
+                          opponentHp: widget.state.opponentHp,
+                          playerCharacter: widget.playerCharacter,
+                          opponentCharacter: widget.opponentCharacter,
+                          playerTowerAsset: widget.playerTowerAsset,
+                          opponentTowerAsset: widget.opponentTowerAsset,
+                          playerPose: _playerPose,
+                          opponentPose: _opponentPose,
+                          arenaTheme: widget.arenaTheme,
+                          compact: compact,
+                          ambientAnimation: _ambientController,
+                          effectAnimation: _effectController,
+                          effectActor: _effectActor,
+                          effectKind: _effectKind,
+                          effectCategory: _effectCategory,
+                          effectAmount: _effectAmount,
+                          effectTargetsPlayer: _effectTargetsPlayer,
+                          effectIsHeal: _effectIsHeal,
+                          effectProjectileLevel: _effectProjectileLevel,
+                        ),
                       ),
                     ),
                   ),
@@ -619,6 +698,18 @@ class _InBattleSectionState extends State<_InBattleSection>
                     onPickQuestion: _handlePickQuestion,
                   ),
                 ],
+              ),
+              if (widget.state.playerHp <= 30 &&
+                  widget.state.phase == BattlePhase.inBattle)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: _LowHpVignetteOverlay(animation: _lowHpController),
+                  ),
+                ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: _HitFlashOverlay(animation: _hitFlashController),
+                ),
               ),
               Positioned(
                 top: compact ? 64 : 72,
@@ -875,24 +966,38 @@ class _RoundClockPill extends StatelessWidget {
     );
     final String minutes = (safeSeconds ~/ 60).toString().padLeft(2, '0');
     final String seconds = (safeSeconds % 60).toString().padLeft(2, '0');
+    final bool isRush = safeSeconds <= 30 && safeSeconds > 0;
     return Semantics(
       label: 'Ronde $round',
       value:
           '$minutes menit $seconds detik, skor ronde '
           '$playerWins lawan $opponentWins',
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
         key: const ValueKey<String>('round-clock'),
         constraints: BoxConstraints(minWidth: compact ? 58 : 66),
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
         decoration: BoxDecoration(
-          color: const Color(0xFF0D2A52),
+          color: isRush ? const Color(0xFFC0392B) : const Color(0xFF0D2A52),
           borderRadius: BorderRadius.circular(12),
+          border: isRush
+              ? Border.all(color: const Color(0xFFFFC857), width: 1.5)
+              : null,
+          boxShadow: isRush
+              ? <BoxShadow>[
+                  BoxShadow(
+                    color: const Color(0xFFE74C3C).withAlpha(140),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Text(
-              'R$round  $minutes:$seconds',
+              isRush ? '🔥 $minutes:$seconds' : 'R$round  $minutes:$seconds',
               style: GoogleFonts.jetBrainsMono(
                 color: Colors.white,
                 fontSize: compact ? 8 : 9,
@@ -1772,24 +1877,71 @@ class _BattleEffectLayer extends StatelessWidget {
                     ),
                   if (raw >= 0.76)
                     Positioned(
-                      left: target.dx - 38,
-                      top: target.dy - 58 - ((raw - 0.76) * 34),
-                      width: 76,
+                      left: target.dx - 55,
+                      top: target.dy - 64 - ((raw - 0.76) * 38),
+                      width: 110,
                       child: Opacity(
                         opacity: (1 - ((raw - 0.84).clamp(0, 0.16) / 0.16))
                             .clamp(0, 1),
-                        child: Text(
-                          '${isHeal ? '+' : '-'}$amount',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.fredoka(
-                            color: color,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                            shadows: const <Shadow>[
-                              Shadow(
-                                color: Colors.white,
-                                blurRadius: 2,
-                                offset: Offset(0, 1),
+                        child: Transform.scale(
+                          scale: 0.8 + ((raw - 0.76) / 0.08).clamp(0, 1) * 0.35,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              if (!isHeal && projectileLevel >= 2)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  margin: const EdgeInsets.only(bottom: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFF9F43),
+                                    borderRadius: BorderRadius.circular(6),
+                                    boxShadow: const <BoxShadow>[
+                                      BoxShadow(
+                                        color: Colors.black26,
+                                        blurRadius: 4,
+                                        offset: Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    projectileLevel == 3
+                                        ? '🔥 CRITICAL x3!'
+                                        : '⚡ COMBO x2!',
+                                    style: GoogleFonts.dmSans(
+                                      color: Colors.white,
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 0.4,
+                                    ),
+                                  ),
+                                ),
+                              Text(
+                                '${isHeal ? '+' : '-'}$amount',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.fredoka(
+                                  color: isHeal
+                                      ? const Color(0xFF2ECC71)
+                                      : (projectileLevel >= 2
+                                          ? const Color(0xFFFF5252)
+                                          : color),
+                                  fontSize: projectileLevel >= 2 ? 28 : 24,
+                                  fontWeight: FontWeight.w700,
+                                  shadows: const <Shadow>[
+                                    Shadow(
+                                      color: Colors.white,
+                                      blurRadius: 3,
+                                      offset: Offset(0, 1),
+                                    ),
+                                    Shadow(
+                                      color: Colors.black26,
+                                      blurRadius: 4,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
@@ -2493,3 +2645,101 @@ Color _battleEffectColor(BattleVisualEffect effect, String category) {
     ),
   };
 }
+
+class _ArenaShakeWrapper extends StatelessWidget {
+  const _ArenaShakeWrapper({
+    required this.controller,
+    required this.intensity,
+    required this.child,
+  });
+
+  final AnimationController controller;
+  final double intensity;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return child;
+    }
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (BuildContext context, Widget? _) {
+        final double progress = controller.value;
+        if (progress == 0.0 || progress == 1.0) {
+          return child;
+        }
+        final double decay = 1.0 - progress;
+        final double dx = sin(progress * pi * 8) * 6.5 * intensity * decay;
+        final double dy = cos(progress * pi * 6) * 4.5 * intensity * decay;
+        return Transform.translate(
+          offset: Offset(dx, dy),
+          child: child,
+        );
+      },
+    );
+  }
+}
+
+class _HitFlashOverlay extends StatelessWidget {
+  const _HitFlashOverlay({required this.animation});
+
+  final AnimationController animation;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (BuildContext context, Widget? child) {
+        final double progress = animation.value;
+        if (progress == 0.0 || progress == 1.0) {
+          return const SizedBox.shrink();
+        }
+        final int alpha = ((1.0 - progress) * 96).clamp(0, 255).toInt();
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            color: const Color(0xFFE74C3C).withAlpha(alpha),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LowHpVignetteOverlay extends StatelessWidget {
+  const _LowHpVignetteOverlay({required this.animation});
+
+  final AnimationController animation;
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return const SizedBox.shrink();
+    }
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (BuildContext context, Widget? child) {
+        final double pulse = sin(animation.value * pi);
+        final int alpha = (38 + (pulse * 56)).clamp(0, 255).toInt();
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: const Color(0xFFE74C3C).withAlpha(alpha),
+              width: 3.5,
+            ),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: const Color(0xFFE74C3C).withAlpha((alpha * 0.7).toInt()),
+                blurRadius: 16,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+

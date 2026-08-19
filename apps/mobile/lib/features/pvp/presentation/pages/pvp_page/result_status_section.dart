@@ -1,6 +1,6 @@
 part of '../pvp_page.dart';
 
-class _ResultSection extends StatelessWidget {
+class _ResultSection extends StatefulWidget {
   const _ResultSection({
     required this.state,
     required this.onClaimReward,
@@ -24,13 +24,80 @@ class _ResultSection extends StatelessWidget {
   final String playerDisplayName;
 
   @override
+  State<_ResultSection> createState() => _ResultSectionState();
+}
+
+class _ResultSectionState extends State<_ResultSection>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _confettiController;
+  final List<_ConfettiParticle> _particles = <_ConfettiParticle>[];
+  Timer? _hapticTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _confettiController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    );
+
+    if (widget.state.outcome == BattleOutcome.win) {
+      _initConfetti();
+      _confettiController.forward();
+      try {
+        HapticFeedback.mediumImpact();
+        _hapticTimer = Timer(const Duration(milliseconds: 160), () {
+          if (mounted) HapticFeedback.mediumImpact();
+        });
+      } catch (_) {}
+    }
+  }
+
+  void _initConfetti() {
+    final Random random = Random();
+    final List<Color> colors = <Color>[
+      const Color(0xFFFFC857),
+      const Color(0xFFFF9F1C),
+      const Color(0xFF2878F0),
+      const Color(0xFF2FAE7D),
+      const Color(0xFF8B6FE8),
+      const Color(0xFFFF5964),
+    ];
+
+    _particles.clear();
+    for (int i = 0; i < 45; i++) {
+      _particles.add(
+        _ConfettiParticle(
+          x: 0.15 + random.nextDouble() * 0.7,
+          y: -0.1 - random.nextDouble() * 0.3,
+          vx: (random.nextDouble() - 0.5) * 0.6,
+          vy: 0.4 + random.nextDouble() * 0.6,
+          size: 6.0 + random.nextDouble() * 8.0,
+          color: colors[random.nextInt(colors.length)],
+          rotation: random.nextDouble() * pi * 2,
+          vRotation: (random.nextDouble() - 0.5) * 6.0,
+          shape: random.nextInt(3),
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _hapticTimer?.cancel();
+    _confettiController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final BattleState state = widget.state;
     final bool isVictory = state.outcome == BattleOutcome.win;
     final bool isDefeat = state.outcome == BattleOutcome.lose;
     final Color accent = isVictory
         ? const Color(0xFFFFC857)
         : isDefeat
-        ? _rivalCoral
+        ? _ResultSection._rivalCoral
         : const Color(0xFF8B6FE8);
     final Color titleColor = isVictory
         ? const Color(0xFF9A6200)
@@ -57,203 +124,303 @@ class _ResultSection extends StatelessWidget {
     );
 
     return ColoredBox(
-      color: _warmCanvas,
-      child: LayoutBuilder(
-        builder: (BuildContext context, BoxConstraints constraints) {
-          final bool compact = constraints.maxHeight < 700;
-          final double badgeSize = compact ? 88 : 106;
+      color: _ResultSection._warmCanvas,
+      child: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                final bool compact = constraints.maxHeight < 700;
+                final double badgeSize = compact ? 88 : 106;
 
-          return SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              compact ? 12 : 20,
-              16,
-              compact ? 14 : 22,
-            ),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Column(
-                  children: <Widget>[
-                    _ResultBadge(
-                      accent: accent,
-                      victory: isVictory,
-                      defeat: isDefeat,
-                      size: badgeSize,
-                    ),
-                    SizedBox(height: compact ? 10 : 14),
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.fredoka(
-                        color: titleColor,
-                        fontSize: compact ? 30 : 36,
-                        fontWeight: FontWeight.w700,
-                        height: 1,
-                        letterSpacing: 0.4,
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    Text(
-                      subtitle,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.dmSans(
-                        color: _mutedInk,
-                        fontSize: compact ? 13 : 14,
-                        fontWeight: FontWeight.w600,
-                        height: 1.3,
-                      ),
-                    ),
-                    SizedBox(height: compact ? 14 : 18),
-                    _ScoreCard(
-                      state: state,
-                      playerDisplayName: playerDisplayName,
-                      compact: compact,
-                    ),
-                    if (insight != null) ...<Widget>[
-                      SizedBox(height: compact ? 10 : 12),
-                      _PerformanceInsightCard(
-                        insight: insight,
-                        compact: compact,
-                        onPractice: () =>
-                            onPractice(insight.weakestCategory.category),
-                      ),
-                    ],
-                    SizedBox(height: compact ? 10 : 12),
-                    _RewardCard(
-                      ratingText: ratingText,
-                      coinsDelta: state.coinsDelta,
-                      isRanked:
-                          state.mode == BattleMode.online &&
-                          state.onlineMatchmakingMode ==
-                              OnlineMatchmakingMode.ranked,
-                      claimed: state.rewardClaimed,
-                      accent: accent,
-                      compact: compact,
-                    ),
-                    SizedBox(height: compact ? 12 : 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: FilledButton.icon(
-                        onPressed: state.rewardClaimed
-                            ? onReplay
-                            : onClaimReward,
-                        icon: Icon(
-                          state.rewardClaimed
-                              ? Icons.replay_rounded
-                              : Icons.redeem_rounded,
-                          size: 21,
-                        ),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF0D2A52),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(17),
+                return SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    compact ? 12 : 20,
+                    16,
+                    compact ? 14 : 22,
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 520),
+                      child: Column(
+                        children: <Widget>[
+                          _ResultBadge(
+                            accent: accent,
+                            victory: isVictory,
+                            defeat: isDefeat,
+                            size: badgeSize,
                           ),
-                        ),
-                        label: Text(
-                          state.rewardClaimed ? 'Main lagi' : 'Klaim hadiah',
-                          style: GoogleFonts.dmSans(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (!state.rewardClaimed) ...<Widget>[
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: OutlinedButton.icon(
-                          onPressed: onReplay,
-                          icon: const Icon(Icons.replay_rounded, size: 20),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: _ink,
-                            side: BorderSide(color: _ink.withAlpha(45)),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                          SizedBox(height: compact ? 10 : 14),
+                          Text(
+                            title,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.fredoka(
+                              color: titleColor,
+                              fontSize: compact ? 30 : 36,
+                              fontWeight: FontWeight.w700,
+                              height: 1,
+                              letterSpacing: 0.4,
                             ),
                           ),
-                          label: Text(
-                            'Main lagi',
+                          const SizedBox(height: 7),
+                          Text(
+                            subtitle,
+                            textAlign: TextAlign.center,
                             style: GoogleFonts.dmSans(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
+                              color: _ResultSection._mutedInk,
+                              fontSize: compact ? 13 : 14,
+                              fontWeight: FontWeight.w600,
+                              height: 1.3,
                             ),
                           ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: SizedBox(
-                            height: 46,
-                            child: TextButton.icon(
-                              onPressed: onReset,
-                              icon: const Icon(
-                                Icons.grid_view_rounded,
-                                size: 18,
+                          SizedBox(height: compact ? 14 : 18),
+                          _ScoreCard(
+                            state: state,
+                            playerDisplayName: widget.playerDisplayName,
+                            compact: compact,
+                          ),
+                          if (insight != null) ...<Widget>[
+                            SizedBox(height: compact ? 10 : 12),
+                            _PerformanceInsightCard(
+                              insight: insight,
+                              compact: compact,
+                              onPractice: () =>
+                                  widget.onPractice(insight.weakestCategory.category),
+                            ),
+                          ],
+                          SizedBox(height: compact ? 10 : 12),
+                          _RewardCard(
+                            ratingText: ratingText,
+                            coinsDelta: state.coinsDelta,
+                            isRanked:
+                                state.mode == BattleMode.online &&
+                                state.onlineMatchmakingMode ==
+                                    OnlineMatchmakingMode.ranked,
+                            claimed: state.rewardClaimed,
+                            accent: accent,
+                            compact: compact,
+                          ),
+                          SizedBox(height: compact ? 12 : 16),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: FilledButton.icon(
+                              onPressed: state.rewardClaimed
+                                  ? widget.onReplay
+                                  : widget.onClaimReward,
+                              icon: Icon(
+                                state.rewardClaimed
+                                    ? Icons.replay_rounded
+                                    : Icons.redeem_rounded,
+                                size: 21,
                               ),
-                              style: TextButton.styleFrom(
-                                foregroundColor: _mutedInk,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF0D2A52),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(17),
                                 ),
                               ),
                               label: Text(
-                                'Pilih mode',
+                                state.rewardClaimed ? 'Main lagi' : 'Klaim hadiah',
                                 style: GoogleFonts.dmSans(
-                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                        if (canGoBack) ...<Widget>[
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: SizedBox(
-                              height: 46,
-                              child: TextButton.icon(
-                                onPressed: () {
-                                  onReset();
-                                  navigator.maybePop();
-                                },
-                                icon: const Icon(
-                                  Icons.arrow_back_rounded,
-                                  size: 18,
-                                ),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: _mutedInk,
+                          if (!state.rewardClaimed) ...<Widget>[
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 48,
+                              child: OutlinedButton.icon(
+                                onPressed: widget.onReplay,
+                                icon: const Icon(Icons.replay_rounded, size: 20),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: _ResultSection._ink,
+                                  side: BorderSide(color: _ResultSection._ink.withAlpha(45)),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
+                                    borderRadius: BorderRadius.circular(16),
                                   ),
                                 ),
                                 label: Text(
-                                  'Kembali',
+                                  'Main lagi',
                                   style: GoogleFonts.dmSans(
-                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
                               ),
                             ),
+                          ],
+                          const SizedBox(height: 8),
+                          Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: SizedBox(
+                                  height: 46,
+                                  child: TextButton.icon(
+                                    onPressed: widget.onReset,
+                                    icon: const Icon(
+                                      Icons.grid_view_rounded,
+                                      size: 18,
+                                    ),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: _ResultSection._mutedInk,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                    ),
+                                    label: Text(
+                                      'Pilih mode',
+                                      style: GoogleFonts.dmSans(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (canGoBack) ...<Widget>[
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 46,
+                                    child: TextButton.icon(
+                                      onPressed: () {
+                                        widget.onReset();
+                                        navigator.maybePop();
+                                      },
+                                      icon: const Icon(
+                                        Icons.arrow_back_rounded,
+                                        size: 18,
+                                      ),
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: _ResultSection._mutedInk,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(14),
+                                        ),
+                                      ),
+                                      label: Text(
+                                        'Kembali',
+                                        style: GoogleFonts.dmSans(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ],
-                      ],
+                      ),
                     ),
-                  ],
+                  ),
+                );
+              },
+            ),
+          ),
+          if (isVictory)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: _confettiController,
+                  builder: (BuildContext context, Widget? child) {
+                    return CustomPaint(
+                      painter: _ConfettiPainter(
+                        progress: _confettiController.value,
+                        particles: _particles,
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
-          );
-        },
+        ],
       ),
     );
+  }
+}
+
+class _ConfettiParticle {
+  _ConfettiParticle({
+    required this.x,
+    required this.y,
+    required this.vx,
+    required this.vy,
+    required this.size,
+    required this.color,
+    required this.rotation,
+    required this.vRotation,
+    required this.shape,
+  });
+
+  final double x;
+  final double y;
+  final double vx;
+  final double vy;
+  final double size;
+  final Color color;
+  final double rotation;
+  final double vRotation;
+  final int shape; // 0: rect, 1: circle, 2: star/strip
+}
+
+class _ConfettiPainter extends CustomPainter {
+  _ConfettiPainter({
+    required this.progress,
+    required this.particles,
+  });
+
+  final double progress;
+  final List<_ConfettiParticle> particles;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress == 0 || progress >= 1.0) return;
+
+    final Paint paint = Paint()..style = PaintingStyle.fill;
+    final double fade = (1.0 - progress).clamp(0.0, 1.0);
+
+    for (final _ConfettiParticle p in particles) {
+      final double curX = (p.x + p.vx * progress) * size.width;
+      final double curY = (p.y + p.vy * progress * 1.5 + (0.5 * 1.2 * progress * progress)) * size.height;
+      if (curY < 0 || curY > size.height) continue;
+
+      paint.color = p.color.withAlpha((fade * 255).round().clamp(0, 255));
+      final double curRot = p.rotation + p.vRotation * progress;
+
+      canvas.save();
+      canvas.translate(curX, curY);
+      canvas.rotate(curRot);
+
+      if (p.shape == 0) {
+        canvas.drawRect(
+          Rect.fromCenter(center: Offset.zero, width: p.size, height: p.size * 0.6),
+          paint,
+        );
+      } else if (p.shape == 1) {
+        canvas.drawCircle(Offset.zero, p.size * 0.35, paint);
+      } else {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(center: Offset.zero, width: p.size * 1.2, height: p.size * 0.35),
+            const Radius.circular(2),
+          ),
+          paint,
+        );
+      }
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConfettiPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }
 
