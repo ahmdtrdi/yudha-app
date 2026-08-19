@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
+import 'package:yudha_mobile/core/theme/app_colors.dart';
+import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
+import 'package:yudha_mobile/features/gamification/data/models/player_progress_snapshot.dart';
+import 'package:yudha_mobile/features/gamification/data/repositories/player_progress_repository.dart';
 import 'package:yudha_mobile/features/practice/application/practice_providers.dart';
 import 'package:yudha_mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_dashboard.dart';
@@ -13,9 +17,6 @@ import 'package:yudha_mobile/features/practice/domain/entities/practice_session.
 import 'package:yudha_mobile/features/practice/domain/entities/practice_topic.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_page.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_quiz_page.dart';
-import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
-import 'package:yudha_mobile/features/gamification/data/models/player_progress_snapshot.dart';
-import 'package:yudha_mobile/features/gamification/data/repositories/player_progress_repository.dart';
 
 class _SuccessPracticeRepository implements PracticeRepository {
   const _SuccessPracticeRepository();
@@ -29,6 +30,17 @@ class _SuccessPracticeRepository implements PracticeRepository {
     groupTitle: 'TIU - INTELEGENSIA UMUM',
     badgeLabel: 'TIU',
     questionCount: 12,
+  );
+
+  static const PracticeTopic secondCategoryTopic = PracticeTopic(
+    id: 'VERBAL::Sinonim',
+    category: 'VERBAL',
+    subcategory: 'Sinonim',
+    name: 'Sinonim',
+    description: 'Sesi latihan dengan 5 soal.',
+    groupTitle: 'BAHASA',
+    badgeLabel: 'Verbal',
+    questionCount: 8,
   );
 
   static const PracticeQuestion question = PracticeQuestion(
@@ -51,7 +63,7 @@ class _SuccessPracticeRepository implements PracticeRepository {
   @override
   Future<PracticeDashboard> fetchDashboard() async {
     return const PracticeDashboard(
-      topics: <PracticeTopic>[topic],
+      topics: <PracticeTopic>[topic, secondCategoryTopic],
       overallProgressPercent: 28,
       recentActivities: <PracticeRecentActivity>[],
     );
@@ -133,6 +145,67 @@ class _RecordingPlayerProgressRepository extends PlayerProgressRepository {
   }
 }
 
+class _TwoQuestionPracticeRepository extends _SuccessPracticeRepository {
+  const _TwoQuestionPracticeRepository();
+
+  static const PracticeQuestion secondQuestion = PracticeQuestion(
+    id: 'q2',
+    sessionQuestionId: 'sq2',
+    topicId: 'TIU::Logika',
+    topicName: 'Logika',
+    prompt: 'What comes next: 2, 4, 8, 16?',
+    hint: 'Each number doubles.',
+    options: <PracticeOption>[
+      PracticeOption(id: '0', label: '18', index: 0),
+      PracticeOption(id: '1', label: '24', index: 1),
+      PracticeOption(id: '2', label: '30', index: 2),
+      PracticeOption(id: '3', label: '32', index: 3),
+    ],
+    questionOrder: 2,
+    timeLimitSeconds: 60,
+  );
+
+  @override
+  Future<PracticeSession> startSession({
+    required String category,
+    String? subcategory,
+  }) async {
+    return const PracticeSession(
+      id: 'session-2',
+      category: 'TIU',
+      subcategory: 'Logika',
+      totalQuestions: 2,
+      questions: <PracticeQuestion>[
+        _SuccessPracticeRepository.question,
+        secondQuestion,
+      ],
+    );
+  }
+
+  @override
+  Future<PracticeAnswerResult> submitAnswer({
+    required String sessionId,
+    required String sessionQuestionId,
+    required int selectedOptionIndex,
+    required int responseTimeMs,
+    required bool usedHint,
+  }) async {
+    return const PracticeAnswerResult(
+      isCorrect: true,
+      correctOptionIndex: 2,
+      explanation: 'Nine is not a prime number.',
+      scoreGained: 10,
+      progress: PracticeSessionSummary(
+        totalQuestions: 2,
+        answeredCount: 1,
+        correctCount: 1,
+        accuracy: 100,
+        totalScore: 10,
+      ),
+    );
+  }
+}
+
 void main() {
   testWidgets('renders practice dashboard from repository data', (
     WidgetTester tester,
@@ -154,6 +227,32 @@ void main() {
     expect(find.text('Progress CPNS'), findsOneWidget);
     expect(find.text('Latihan Interview AI'), findsOneWidget);
     expect(find.text('TIU - INTELEGENSIA UMUM'), findsOneWidget);
+    expect(find.text('1 topik • 5 soal per sesi'), findsNWidgets(2));
+    expect(find.text('Temukan pola dan kesimpulan'), findsOneWidget);
+    expect(find.text('12 tersedia'), findsNothing);
+    expect(find.text('Mulai'), findsNothing);
+    expect(find.byIcon(Icons.arrow_forward_rounded), findsNothing);
+    expect(find.text('Sesi latihan dengan 5 soal.'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('practice-topic-TIU::Logika')),
+      findsOneWidget,
+    );
+    final DecoratedBox topicSurface = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('practice-topic-surface-TIU::Logika')),
+    );
+    expect(
+      (topicSurface.decoration as BoxDecoration).color,
+      const Color(0xFFE4EEFF),
+    );
+    final DecoratedBox secondCategorySurface = tester.widget<DecoratedBox>(
+      find.byKey(
+        const ValueKey<String>('practice-topic-surface-VERBAL::Sinonim'),
+      ),
+    );
+    expect(
+      (secondCategorySurface.decoration as BoxDecoration).color,
+      const Color(0xFFE0F6FB),
+    );
     expect(find.text('TANTANGAN HARIAN'), findsNothing);
   });
 
@@ -183,6 +282,22 @@ void main() {
 
     expect(find.text('Lihat petunjuk'), findsOneWidget);
     expect(find.text('KONFIRMASI'), findsOneWidget);
+    DecoratedBox confirmSurface = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('practice-action-surface-confirm')),
+    );
+    expect(
+      (confirmSurface.decoration as BoxDecoration).color,
+      const Color(0xFFEAE6DE),
+    );
+    await tester.tap(find.text('9'));
+    await tester.pump();
+    confirmSurface = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('practice-action-surface-confirm')),
+    );
+    expect(
+      (confirmSurface.decoration as BoxDecoration).color,
+      AppColors.fireGold,
+    );
     await tester.tap(find.text('Lihat petunjuk'));
     await tester.pump();
 
@@ -224,6 +339,59 @@ void main() {
 
     expect(progressRepository.fetchCount, 1);
     expect(find.text('SESI SELESAI'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('practice-action-complete')),
+      findsOneWidget,
+    );
+    final DecoratedBox completeSurface = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('practice-action-surface-complete')),
+    );
+    expect(
+      (completeSurface.decoration as BoxDecoration).color,
+      AppColors.growthLime,
+    );
+  });
+
+  testWidgets('uses blue clay styling to continue a session', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        practiceRepositoryProvider.overrideWithValue(
+          const _TwoQuestionPracticeRepository(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(practiceControllerProvider.notifier).reload();
+    await container
+        .read(practiceControllerProvider.notifier)
+        .startSession(_SuccessPracticeRepository.topic.id);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: PracticeQuizPage()),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.text('9'));
+    await tester.pump();
+    await tester.tap(find.text('KONFIRMASI'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('LANJUT'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('practice-action-next')),
+      findsOneWidget,
+    );
+    final DecoratedBox nextSurface = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('practice-action-surface-next')),
+    );
+    expect(
+      (nextSurface.decoration as BoxDecoration).color,
+      const Color(0xFF0066DE),
+    );
   });
 
   testWidgets('opens the recommended practice after a battle', (
