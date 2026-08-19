@@ -78,6 +78,17 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
         ? null
         : selectedIndex == correctOptionIndex;
     _timer?.cancel();
+    try {
+      if (timedOut) {
+        HapticFeedback.vibrate();
+      } else if (correct == true) {
+        HapticFeedback.mediumImpact();
+      } else if (correct == false) {
+        HapticFeedback.heavyImpact();
+      } else {
+        HapticFeedback.lightImpact();
+      }
+    } catch (_) {}
     setState(() {
       _locked = true;
       if (timedOut) {

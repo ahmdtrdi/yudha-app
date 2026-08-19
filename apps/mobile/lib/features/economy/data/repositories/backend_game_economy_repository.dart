@@ -115,9 +115,15 @@ class BackendGameEconomyRepository extends GameEconomyRepository {
         ? const <String, dynamic>{}
         : jsonDecode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final String message = decoded is Map<String, dynamic>
-          ? decoded['message']?.toString() ?? 'Economy request gagal.'
-          : 'Economy request gagal.';
+      String message = 'Economy request gagal.';
+      if (decoded is Map<String, dynamic>) {
+        final Object? errorObj = decoded['error'];
+        if (errorObj is Map<String, dynamic> && errorObj['message'] != null) {
+          message = errorObj['message'].toString();
+        } else if (decoded['message'] != null) {
+          message = decoded['message'].toString();
+        }
+      }
       throw GameEconomyApiException(message);
     }
     if (decoded is! Map<String, dynamic>) {
