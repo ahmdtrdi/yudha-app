@@ -12,6 +12,7 @@ class PlayerProgress {
     required this.streak,
     required this.bestStreak,
     required this.lastDelta,
+    required this.dailyMissions,
   });
 
   factory PlayerProgress.initial() {
@@ -25,6 +26,7 @@ class PlayerProgress {
       streak: 0,
       bestStreak: 0,
       lastDelta: 0,
+      dailyMissions: <Map<String, Object?>>[],
     );
   }
 
@@ -37,6 +39,7 @@ class PlayerProgress {
   final int streak;
   final int bestStreak;
   final int lastDelta;
+  final List<Map<String, Object?>> dailyMissions;
 
   int get matchesPlayed => wins + losses + draws;
 
@@ -87,6 +90,7 @@ class PlayerProgress {
     int? streak,
     int? bestStreak,
     int? lastDelta,
+    List<Map<String, Object?>>? dailyMissions,
   }) {
     return PlayerProgress(
       playerId: playerId ?? this.playerId,
@@ -98,10 +102,16 @@ class PlayerProgress {
       streak: streak ?? this.streak,
       bestStreak: bestStreak ?? this.bestStreak,
       lastDelta: lastDelta ?? this.lastDelta,
+      dailyMissions: dailyMissions ?? this.dailyMissions,
     );
   }
 
   PlayerProgress mergeSnapshot(PlayerProgressSnapshot snapshot) {
+    final int mergedStreak = snapshot.streak == 0 ? this.streak : snapshot.streak;
+    final int mergedBestStreak = snapshot.streak == 0
+        ? this.bestStreak
+        : (snapshot.streak > this.bestStreak ? snapshot.streak : this.bestStreak);
+
     return copyWith(
       playerId: snapshot.playerId,
       displayName: snapshot.displayName,
@@ -109,6 +119,9 @@ class PlayerProgress {
       wins: snapshot.wins,
       losses: snapshot.losses,
       draws: snapshot.draws,
+      streak: mergedStreak,
+      bestStreak: mergedBestStreak,
+      dailyMissions: snapshot.dailyMissions,
     );
   }
 }

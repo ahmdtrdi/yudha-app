@@ -14,6 +14,26 @@ class LobbyPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final progress = ref.watch(playerProgressProvider);
+    final List<Map<String, Object?>> dailyMissions = progress.dailyMissions;
+    final Map<String, Object?>? practiceMission = dailyMissions.firstWhere(
+      (Map<String, Object?> mission) =>
+          mission['key'] == 'daily_practice',
+      orElse: () => const <String, Object?>{
+        'key': 'daily_practice',
+        'title': 'Daily Question',
+        'rewardRankPoints': 50,
+        'completed': false,
+      },
+    );
+    final Map<String, Object?>? pvpMission = dailyMissions.firstWhere(
+      (Map<String, Object?> mission) => mission['key'] == 'daily_pvp',
+      orElse: () => const <String, Object?>{
+        'key': 'daily_pvp',
+        'title': 'Daily PvP',
+        'rewardRankPoints': 80,
+        'completed': false,
+      },
+    );
 
     return Scaffold(
       backgroundColor: AppColors.scholarCream,
@@ -73,6 +93,8 @@ class LobbyPage extends ConsumerWidget {
                   SizedBox(height: compact ? 10 : 14),
                   _TodayQuestsSection(
                     compact: compact,
+                    practiceMission: practiceMission,
+                    pvpMission: pvpMission,
                     onPracticeTap: () => context.go(AppRoutes.practice),
                     onPvpTap: () => context.go(AppRoutes.pvp),
                   ),
@@ -326,18 +348,28 @@ class _HeroPill extends StatelessWidget {
 class _TodayQuestsSection extends StatelessWidget {
   const _TodayQuestsSection({
     required this.compact,
+    required this.practiceMission,
+    required this.pvpMission,
     required this.onPracticeTap,
     required this.onPvpTap,
   });
 
   final bool compact;
+  final Map<String, Object?>? practiceMission;
+  final Map<String, Object?>? pvpMission;
   final VoidCallback onPracticeTap;
   final VoidCallback onPvpTap;
 
   @override
   Widget build(BuildContext context) {
-    const int totalQuests = 2;
-    const int completedQuests = 0; // TODO: wire to real completion data
+    final int totalQuests = [practiceMission, pvpMission]
+        .whereType<Map<String, Object?>>()
+        .length;
+    final int completedQuests = [practiceMission, pvpMission]
+        .whereType<Map<String, Object?>>()
+        .where((Map<String, Object?> mission) =>
+            mission['completed'] == true)
+        .length;
 
     return Container(
       width: double.infinity,
@@ -384,18 +416,25 @@ class _TodayQuestsSection extends StatelessWidget {
           ),
           SizedBox(height: compact ? 8 : 10),
           _QuestTile(
-            title: 'Daily Question',
-            subtitle: 'Practice one question',
-            xpReward: '+50 XP',
-            completed: false,
+            title: (practiceMission?['title'] ?? 'Daily Question')
+                .toString(),
+            subtitle: practiceMission?['completed'] == true
+                ? 'Selesai hari ini'
+                : 'Practice one question',
+            xpReward:
+                '+${((practiceMission?['rewardRankPoints'] as num?) ?? 50).toInt()} XP',
+            completed: practiceMission?['completed'] == true,
             onTap: onPracticeTap,
           ),
           const SizedBox(height: 4),
           _QuestTile(
-            title: 'Daily PvP',
-            subtitle: 'Win one battle',
-            xpReward: '+80 XP',
-            completed: false,
+            title: (pvpMission?['title'] ?? 'Daily PvP').toString(),
+            subtitle: pvpMission?['completed'] == true
+                ? 'Selesai hari ini'
+                : 'Win one battle',
+            xpReward:
+                '+${((pvpMission?['rewardRankPoints'] as num?) ?? 80).toInt()} XP',
+            completed: pvpMission?['completed'] == true,
             onTap: onPvpTap,
           ),
         ],

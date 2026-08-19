@@ -6,6 +6,8 @@ class PlayerProgressSnapshot {
     required this.wins,
     required this.losses,
     required this.draws,
+    this.streak = 0,
+    this.dailyMissions = const <Map<String, Object?>>[],
   });
 
   final String playerId;
@@ -14,4 +16,6 @@ class PlayerProgressSnapshot {
   final int wins;
   final int losses;
   final int draws;
+  final int streak;
+  final List<Map<String, Object?>> dailyMissions;
 }

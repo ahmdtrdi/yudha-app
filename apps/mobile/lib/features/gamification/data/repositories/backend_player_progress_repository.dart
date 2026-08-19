@@ -35,7 +35,7 @@ class BackendPlayerProgressRepository implements PlayerProgressRepository {
       );
     }
 
-    final Uri uri = Uri.parse('${_config.baseUrl}/profile');
+    final Uri uri = Uri.parse('${_config.baseUrl}/lobby/summary');
     final http.Response response = await _client.get(
       uri,
       headers: <String, String>{
@@ -57,26 +57,71 @@ class BackendPlayerProgressRepository implements PlayerProgressRepository {
 
     if (decoded is! Map<String, dynamic>) {
       throw const PlayerProgressApiException(
-        'Profile API returned invalid JSON.',
+        'Lobby summary API returned invalid JSON.',
       );
     }
 
-    final int wins = _readInt(decoded['wins']);
-    final int losses = _readInt(decoded['losses']);
-    final int totalMatches = _readInt(decoded['total_matches']);
-    final int draws = (totalMatches - wins - losses).clamp(0, totalMatches);
-    final String fullName = decoded['full_name']?.toString().trim() ?? '';
-    final String username = decoded['username']?.toString().trim() ?? '';
+    final Map<String, dynamic> payload = _asMap(decoded['data']) ?? decoded;
+    final Map<String, dynamic> profile = _asMap(payload['profile']) ?? payload;
+    final Map<String, dynamic> rankedStats =
+        _asMap(profile['rankedStats']) ?? <String, dynamic>{};
+    final Map<String, dynamic> streakMap =
+        _asMap(profile['streak']) ?? _asMap(payload['streak']) ?? <String, dynamic>{};
+    final List<Map<String, Object?>> dailyMissions =
+        (payload['dailyMissions'] as List?)
+                ?.map((dynamic item) => Map<String, Object?>.from(item as Map))
+                .toList() ??
+            const <Map<String, Object?>>[];
+
+    final int wins = _readInt(profile['wins'] ?? rankedStats['wins']);
+    final int losses = _readInt(profile['losses'] ?? rankedStats['losses']);
+    final int draws = _readInt(profile['draws'] ?? rankedStats['draws']);
+    final int totalMatches = _readInt(
+      profile['total_matches'] ??
+          payload['total_matches'] ??
+          (wins + losses + draws),
+    );
+    final int resolvedDraws = draws > 0 || totalMatches == 0
+        ? draws
+        : (totalMatches - wins - losses).clamp(0, totalMatches);
+    final String fullName =
+        (profile['fullName'] ??
+                profile['full_name'] ??
+                payload['fullName'] ??
+                payload['full_name'])
+            ?.toString()
+            .trim() ??
+        '';
+    final String username =
+        (profile['username'] ?? payload['username'])?.toString().trim() ?? '';
     final String displayName = fullName.isNotEmpty ? fullName : username;
+    final int totalPoints = _readInt(
+      profile['rankPoints'] ??
+          payload['rankPoints'] ??
+          profile['rank_points'] ??
+          payload['rank_points'],
+    );
+    final int currentStreak = _readInt(
+      profile['streak']?['current'] ?? streakMap['current'] ?? 0,
+    );
 
     return PlayerProgressSnapshot(
-      playerId: decoded['id']?.toString() ?? 'you',
+      playerId: (profile['id'] ?? payload['id'])?.toString() ?? 'you',
       displayName: displayName.isEmpty ? 'Kamu' : displayName,
-      totalPoints: _readInt(decoded['rank_points']),
+      totalPoints: totalPoints,
       wins: wins,
       losses: losses,
-      draws: draws,
+      draws: resolvedDraws,
+      streak: currentStreak,
+      dailyMissions: dailyMissions,
     );
+  }
+
+  Map<String, dynamic>? _asMap(Object? value) {
+    if (value is Map) {
+      return Map<String, dynamic>.from(value);
+    }
+    return null;
   }
 
   int _readInt(Object? value) {
