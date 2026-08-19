@@ -25,29 +25,29 @@ void main() {
                 jsonEncode(<String, Object?>{
                   'data': <String, Object?>{
                     'practice': <String, Object?>{
-                      'overallAccuracy': 72.5,
-                      'totalAnswered': 40,
-                      'avgResponseTimeMs': 2450,
+                      'accuracy': 72.5,
+                      'sampleSize': 40,
+                      'averageResponseTimeMs': 2450,
                       'categoryBreakdown': <Map<String, Object?>>[
                         <String, Object?>{
                           'category': 'TIU',
                           'accuracy': 80,
-                          'totalAnswered': 20,
+                          'sampleSize': 20,
                         },
                       ],
-                      'weakSubcategories': <Map<String, Object?>>[
+                      'subcategoryBreakdown': <Map<String, Object?>>[
                         <String, Object?>{
                           'subcategory': 'pelayanan_publik',
                           'accuracy': 45,
-                          'totalAnswered': 10,
+                          'sampleSize': 10,
                         },
                       ],
                     },
-                    'battle': <String, Object?>{
-                      'winrate': 0.6,
+                    'publicMatches': <String, Object?>{
+                      'winRate': 60,
                       'wins': 6,
                       'losses': 4,
-                      'totalMatches': 10,
+                      'sampleSize': 10,
                     },
                   },
                 }),
@@ -61,6 +61,7 @@ void main() {
       expect(analytics.practice.overallAccuracy, 72.5);
       expect(analytics.practice.averageResponseTimeMs, 2450);
       expect(analytics.practice.categoryBreakdown.single.category, 'TIU');
+      expect(analytics.practice.categoryBreakdown.single.totalAnswered, 20);
       expect(
         analytics.practice.weakSubcategories.single.subcategory,
         'pelayanan_publik',

@@ -5,6 +5,7 @@ export interface LeaderboardEntry {
   rankPoints: number;
   tier: string;
   rankedWins: number;
+  totalMatches: number;
   rankedWinRate: number;
 }
 

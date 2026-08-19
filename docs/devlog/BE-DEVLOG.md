@@ -466,3 +466,23 @@
 
 **The Tech Debt:**
 - The API currently keeps a compatibility alias until all clients consistently send the canonical `fullName` field.
+
+## 2026-08-19 - Leaderboard Total Match Contract
+
+**The Change:**
+- Added `totalMatches` to the leaderboard RPC responses for both the paginated leaderboard and the authenticated user's rank.
+- Exposed the authoritative `profiles.total_matches` column directly instead of reconstructing the count from ranked wins, losses, and draws.
+- Updated the backend `LeaderboardEntry` contract and regression fixture to include `totalMatches`.
+- Added forward migration `20260819000000_add_leaderboard_match_count.sql` so existing Supabase environments receive the RPC change.
+
+**The Reasoning:**
+- `profiles.total_matches` is maintained by match finalization and is the product's persisted total-match projection.
+- Wins, losses, and draws remain the inputs for ranked leaderboard ordering and win-rate calculation, but they are not a safe substitute for the total match count.
+- Returning the count from the RPC prevents mobile clients from silently defaulting a missing field to zero.
+
+**Verification:**
+- Leaderboard service contract and focused mobile leaderboard repository tests passed.
+- Touched TypeScript and SQL files reported no diagnostics.
+
+**The Tech Debt:**
+- The forward migration must be applied to each existing Supabase environment; editing historical migrations only affects fresh database provisioning.

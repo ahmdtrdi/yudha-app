@@ -56,6 +56,7 @@ function entry() {
     rankPoints: 500,
     tier: 'warrior',
     rankedWins: 8,
+    totalMatches: 13,
     rankedWinRate: 61.54,
   };
 }

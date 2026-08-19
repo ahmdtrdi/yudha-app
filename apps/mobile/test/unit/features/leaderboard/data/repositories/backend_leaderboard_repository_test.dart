@@ -26,7 +26,8 @@ void main() {
                       'username': 'Kamu',
                       'rankPoints': 990,
                       'totalMatches': 12,
-                      'winrate': 0.78,
+                      'rankedWins': 9,
+                      'rankedWinRate': 78,
                     },
                   }),
                   200,
@@ -47,7 +48,8 @@ void main() {
                         'username': 'Raka',
                         'rankPoints': 1420,
                         'totalMatches': 18,
-                        'winrate': 0.82,
+                        'rankedWins': 15,
+                        'rankedWinRate': 82,
                       },
                       <String, Object?>{
                         'rank': 4,
@@ -55,7 +57,8 @@ void main() {
                         'username': 'Kamu',
                         'rankPoints': 990,
                         'totalMatches': 12,
-                        'winrate': 0.78,
+                        'rankedWins': 9,
+                        'rankedWinRate': 78,
                       },
                     ],
                     'limit': 8,
@@ -78,6 +81,7 @@ void main() {
       expect(payload.currentUserRank, 4);
       expect(payload.currentUserEntry?.playerId, 'user-4');
       expect(payload.currentUserEntry?.totalMatches, 12);
+      expect(payload.currentUserEntry?.winRate, 0.78);
       expect(payload.currentUserEntry?.isCurrentUser, isTrue);
       expect(payload.hasMore, isFalse);
     },
