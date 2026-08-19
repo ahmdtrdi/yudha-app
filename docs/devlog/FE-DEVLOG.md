@@ -1902,3 +1902,23 @@
 - Lobby, Leaderboard, and Practice response parsing still contain compatibility branches for older payload shapes; these can be removed once all deployed backend environments use the canonical contract.
 - Player progress hydration currently keeps the previous state if the refresh request fails, so a transient completion-refresh error can still leave the Lobby stale until a later refresh.
 
+## 2026-08-19 - Profile Full-Name Display And API Response Fix
+
+### The Change
+- Updated profile updates to send the documented `fullName` field while retaining the backend's `full_name` database mapping.
+- Unwrapped the backend `{ data: ... }` profile response for both profile loading and saving.
+- Updated `UserProfile.fromJson` to prefer `fullName` and support `full_name` for compatibility.
+- Fixed the Profile and Lobby pages so the user's full name is displayed instead of the username when a full name exists.
+- Added and updated repository, controller, and profile widget coverage for the profile save and display flow.
+
+### The Reasoning
+- The backend response uses a stable API envelope and camelCase profile fields, while older mobile fixtures and database-oriented payloads used snake_case.
+- Keeping the normalization at the repository and model boundaries prevents response naming details from leaking into the Profile and Lobby widgets.
+
+### Verification
+- Seven focused profile tests passed.
+- Focused Dart diagnostics reported no issues.
+
+### The Tech Debt
+- Snake_case parsing remains as a compatibility path until all deployed profile responses use the canonical camelCase contract.
+

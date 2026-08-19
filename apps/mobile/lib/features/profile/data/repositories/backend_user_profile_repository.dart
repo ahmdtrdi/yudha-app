@@ -32,12 +32,22 @@ class BackendUserProfileRepository implements UserProfileRepository {
 
   @override
   Future<UserProfile> fetchProfile() async {
-    return UserProfile.fromJson(await _request('GET'));
+    return _profileFromResponse(await _request('GET'));
   }
 
   @override
   Future<UserProfile> updateProfile(UserProfileUpdate update) async {
-    return UserProfile.fromJson(await _request('PATCH', body: update.toJson()));
+    return _profileFromResponse(await _request('PATCH', body: update.toJson()));
+  }
+
+  UserProfile _profileFromResponse(Map<String, dynamic> response) {
+    final Object? data = response['data'];
+    if (data is! Map<String, dynamic>) {
+      throw const UserProfileApiException(
+        'Profil belum dapat dibaca. Silakan coba lagi.',
+      );
+    }
+    return UserProfile.fromJson(data);
   }
 
   Future<Map<String, dynamic>> _request(
@@ -81,7 +91,9 @@ class BackendUserProfileRepository implements UserProfileRepository {
       );
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw UserProfileApiException(_messageForStatus(response.statusCode));
+      throw UserProfileApiException(
+        _messageForResponse(response.statusCode, decoded),
+      );
     }
     if (decoded is! Map<String, dynamic>) {
       throw const UserProfileApiException(
@@ -91,7 +103,16 @@ class BackendUserProfileRepository implements UserProfileRepository {
     return decoded;
   }
 
-  String _messageForStatus(int statusCode) {
+  String _messageForResponse(int statusCode, Object? decoded) {
+    if (decoded is Map<String, dynamic>) {
+      final Object? error = decoded['error'];
+      if (error is Map<String, dynamic>) {
+        final Object? message = error['message'];
+        if (message is String && message.trim().isNotEmpty) {
+          return message.trim();
+        }
+      }
+    }
     if (statusCode == 401 || statusCode == 403) {
       return 'Sesi loginmu sudah berakhir. Silakan masuk kembali.';
     }
