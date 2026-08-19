@@ -13,6 +13,9 @@ import 'package:yudha_mobile/features/practice/domain/entities/practice_session.
 import 'package:yudha_mobile/features/practice/domain/entities/practice_topic.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_page.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_quiz_page.dart';
+import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
+import 'package:yudha_mobile/features/gamification/data/models/player_progress_snapshot.dart';
+import 'package:yudha_mobile/features/gamification/data/repositories/player_progress_repository.dart';
 
 class _SuccessPracticeRepository implements PracticeRepository {
   const _SuccessPracticeRepository();
@@ -105,6 +108,31 @@ class _SuccessPracticeRepository implements PracticeRepository {
   }
 }
 
+class _RecordingPlayerProgressRepository extends PlayerProgressRepository {
+  int fetchCount = 0;
+
+  @override
+  Future<PlayerProgressSnapshot> fetchCurrentProgress() async {
+    fetchCount += 1;
+    return const PlayerProgressSnapshot(
+      playerId: 'user-1',
+      displayName: 'Raka',
+      totalPoints: 50,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      dailyMissions: <Map<String, Object?>>[
+        <String, Object?>{
+          'key': 'daily_practice',
+          'title': 'Daily Question',
+          'rewardRankPoints': 50,
+          'completed': true,
+        },
+      ],
+    );
+  }
+}
+
 void main() {
   testWidgets('renders practice dashboard from repository data', (
     WidgetTester tester,
@@ -160,6 +188,42 @@ void main() {
 
     expect(find.text('PETUNJUK'), findsOneWidget);
     expect(find.text('Only one number is not prime.'), findsOneWidget);
+  });
+
+  testWidgets('refreshes player progress after completing a session', (
+    WidgetTester tester,
+  ) async {
+    final _RecordingPlayerProgressRepository progressRepository =
+        _RecordingPlayerProgressRepository();
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        practiceRepositoryProvider.overrideWithValue(
+          const _SuccessPracticeRepository(),
+        ),
+        playerProgressRepositoryProvider.overrideWithValue(progressRepository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(practiceControllerProvider.notifier).reload();
+    await container
+        .read(practiceControllerProvider.notifier)
+        .startSession(_SuccessPracticeRepository.topic.id);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: PracticeQuizPage()),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.text('9'));
+    await tester.pump();
+    await tester.tap(find.text('KONFIRMASI'));
+    await tester.pumpAndSettle();
+
+    expect(progressRepository.fetchCount, 1);
+    expect(find.text('SESI SELESAI'), findsOneWidget);
   });
 
   testWidgets('opens the recommended practice after a battle', (

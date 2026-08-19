@@ -6,6 +6,74 @@ import 'package:http/testing.dart';
 import 'package:yudha_mobile/features/practice/data/repositories/backend_practice_repository.dart';
 
 void main() {
+  test(
+    'includes idempotency keys when submitting and finishing a session',
+    () async {
+      final List<Map<String, dynamic>> requests = <Map<String, dynamic>>[];
+      final BackendPracticeRepository repository = BackendPracticeRepository(
+        config: const PracticeApiConfig(
+          baseUrl: 'https://api.example.com',
+          accessToken: 'token-123',
+        ),
+        client: MockClient((http.Request request) async {
+          final Map<String, dynamic> body =
+              jsonDecode(request.body) as Map<String, dynamic>;
+          requests.add(body);
+          if (request.url.path.endsWith('/answers')) {
+            return http.Response(
+              jsonEncode(<String, Object?>{
+                'data': <String, Object?>{
+                  'isCorrect': true,
+                  'correctOptionIndex': 0,
+                  'scoreGained': 10,
+                  'progress': <String, Object?>{
+                    'totalQuestions': 1,
+                    'answeredCount': 1,
+                    'correctCount': 1,
+                    'accuracy': 100,
+                    'totalScore': 10,
+                  },
+                },
+              }),
+              200,
+            );
+          }
+          return http.Response(
+            jsonEncode(<String, Object?>{
+              'data': <String, Object?>{
+                'totalQuestions': 1,
+                'answeredCount': 1,
+                'correctCount': 1,
+                'accuracy': 100,
+                'totalScore': 10,
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      await repository.submitAnswer(
+        sessionId: 'session-1',
+        sessionQuestionId: 'session-question-1',
+        selectedOptionIndex: 0,
+        responseTimeMs: 1000,
+        usedHint: false,
+      );
+      await repository.finishSession(sessionId: 'session-1');
+
+      expect(requests, hasLength(2));
+      expect(
+        requests[0]['idempotencyKey'],
+        startsWith('mobile-practice-answer-'),
+      );
+      expect(
+        requests[1]['idempotencyKey'],
+        startsWith('mobile-practice-finish-'),
+      );
+    },
+  );
+
   test('humanizes practice labels while preserving API identifiers', () async {
     final BackendPracticeRepository repository = BackendPracticeRepository(
       config: const PracticeApiConfig(

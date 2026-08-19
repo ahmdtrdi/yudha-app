@@ -99,6 +99,7 @@ class BackendPracticeRepository implements PracticeRepository {
   }) async {
     final Map<String, dynamic> data =
         await _post('/practice/sessions/$sessionId/answers', <String, dynamic>{
+          'idempotencyKey': _requestId('answer'),
           'sessionQuestionId': sessionQuestionId,
           'selectedOptionIndex': selectedOptionIndex,
           'responseTimeMs': responseTimeMs,
@@ -127,7 +128,7 @@ class BackendPracticeRepository implements PracticeRepository {
   }) async {
     final Map<String, dynamic> data = await _post(
       '/practice/sessions/$sessionId/finish',
-      const <String, dynamic>{},
+      <String, dynamic>{'idempotencyKey': _requestId('finish')},
     );
 
     return PracticeSessionSummary(
@@ -174,6 +175,10 @@ class BackendPracticeRepository implements PracticeRepository {
     'authorization': 'Bearer ${_config.accessToken}',
     'content-type': 'application/json',
   };
+
+  String _requestId(String operation) {
+    return 'mobile-practice-$operation-${DateTime.now().microsecondsSinceEpoch}';
+  }
 
   Map<String, dynamic> _decodeData(http.Response response) {
     final Object? decoded = response.body.isEmpty

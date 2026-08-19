@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
+import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/practice/application/practice_providers.dart';
 import 'package:yudha_mobile/features/practice/application/practice_state.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_hint_state.dart';
@@ -351,6 +352,15 @@ class PracticeQuizPage extends ConsumerWidget {
                           if (!isSubmitted) {
                             final bool submitted = await controller
                                 .submitCurrentAnswer();
+                            if (submitted &&
+                              ref
+                                  .read(practiceControllerProvider)
+                                  .status ==
+                                PracticeViewStatus.completed) {
+                              await ref
+                                .read(playerProgressProvider.notifier)
+                                .hydrateFromRepository();
+                            }
                             if (!submitted && context.mounted) {
                               final String message =
                                   ref

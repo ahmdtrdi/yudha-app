@@ -1877,3 +1877,28 @@
 - Zero new technical debt introduced.
 - Successfully eliminated substantial legacy client-side simulation tech debt, duplicate game logic, and obsolete offline mock question assets.
 
+## 2026-08-19 - Backend API Response Integration & Practice Completion Refresh
+
+### The Change
+- Integrated the mobile Lobby flow with `GET /lobby/summary`:
+  - parsed the backend response envelope and nested profile data
+  - mapped rank points, streak, profile identity, and daily missions into `PlayerProgress`
+  - made Today's Quests render completion state from backend mission data.
+- Integrated the Leaderboard repository with the updated backend response shape:
+  - supports paginated `data.items` responses
+  - preserves compatibility with the previous list-shaped payload
+  - reads pagination metadata from either the response metadata or page object.
+- Wired Practice sessions to the backend API for dashboard loading, session creation, answer submission, and idempotent session completion.
+- Added idempotency keys to Practice answer and finish requests and covered the request payloads in repository tests.
+- Fixed stale Lobby progress after the first Practice session of the day by rehydrating `playerProgressProvider` after the final answer succeeds, so points and Today's Quest update before returning to the Lobby.
+- Added widget coverage for the completion-triggered player progress refresh.
+
+### The Reasoning
+- The mobile repositories remain responsible for translating backend response contracts into stable domain models, keeping presentation widgets independent from envelope and pagination details.
+- Shared Lobby state is refreshed at the mutation boundary because Practice completion changes server-owned rank points and daily mission state while the existing provider remains alive across tab navigation.
+- Idempotency keys are generated at the API boundary so retries do not duplicate answer or completion effects.
+
+### The Tech Debt
+- Lobby, Leaderboard, and Practice response parsing still contain compatibility branches for older payload shapes; these can be removed once all deployed backend environments use the canonical contract.
+- Player progress hydration currently keeps the previous state if the refresh request fails, so a transient completion-refresh error can still leave the Lobby stale until a later refresh.
+
