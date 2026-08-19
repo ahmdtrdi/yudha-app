@@ -1942,3 +1942,26 @@
 ### The Tech Debt
 - Compatibility aliases for legacy analytics and leaderboard fields can be removed after all deployed API environments use the canonical response shapes.
 
+## 2026-08-19 - Hired Pass Server-Wired Beta Flow
+
+### The Change
+- Updated the mobile Hired Pass model and repository to consume server season, entitlement, mission, reward, and claimed-reward fields from `GET /hired-pass`.
+- Replaced local reward-track and premium activation behavior with authenticated calls to `POST /hired-pass/beta-activate` and `POST /hired-pass/rewards/:rewardId/claim`.
+- Applied server-owned Pass Points, Premium status, claimed reward IDs, Y-Coin balance, and cosmetic item ownership back into the mobile economy projection.
+- Added idempotency keys to activation and reward claims and focused repository coverage for both mutation contracts.
+- Improved mobile Hired Pass error parsing so nested NestJS messages are visible instead of collapsing to a generic failure.
+
+### The Reasoning
+- Hired Pass progression and rewards must remain authoritative in the backend so clients cannot fabricate Pass Points, Premium access, Y-Coin, or cosmetics.
+- Keeping the existing economy state as a display projection lets the rest of the app remain stable while the Hired Pass repository owns API translation.
+- Beta activation intentionally has no payment mechanism; it grants the current season entitlement for testing and remains idempotent.
+
+### Verification
+- Focused Hired Pass Flutter repository tests passed.
+- Focused Flutter analysis reported no issues.
+- Remote Supabase verification confirmed the active August season contains six missions and eight rewards.
+
+### The Tech Debt
+- The deployed Railway API must be redeployed with the new activation route; stale deployments return `404 Cannot POST /hired-pass/beta-activate`.
+- Reward and entitlement UI still relies on the current season manifest and can later consume backend-provided presentation metadata.
+

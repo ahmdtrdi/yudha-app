@@ -3,13 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
-import 'package:yudha_mobile/features/economy/application/game_economy_controller.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_providers.dart';
 import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
 import 'package:yudha_mobile/features/economy/presentation/widgets/economy_widgets.dart';
 import 'package:yudha_mobile/features/pass/application/hired_pass_providers.dart';
+import 'package:yudha_mobile/features/pass/data/repositories/hired_pass_repository.dart';
 import 'package:yudha_mobile/features/pass/domain/entities/hired_pass_status.dart';
 
 class HiredPassPage extends ConsumerWidget {
@@ -26,7 +26,19 @@ class HiredPassPage extends ConsumerWidget {
     final HiredPassStatus? serverStatus = status.asData?.value;
     final GameEconomyState displayedEconomy = serverStatus == null
         ? economy
-        : economy.copyWith(passPoints: serverStatus.passPoints);
+        : economy.copyWith(
+            passPoints: serverStatus.passPoints,
+            premiumPassActive: serverStatus.premiumActive,
+            claimedRewardIds: serverStatus.claimedRewardIds,
+          );
+    final List<PassReward> passRewards = serverStatus == null
+        ? GameEconomyCatalog.passRewards
+        : serverStatus.rewards.map(_toPassReward).toList(growable: false);
+    final List<int> milestones = passRewards
+        .map((PassReward reward) => reward.pointsRequired)
+        .toSet()
+        .toList()
+      ..sort();
     final double progress = (displayedEconomy.passPoints / _seasonMaxPoints)
         .clamp(0, 1);
 
@@ -59,12 +71,7 @@ class HiredPassPage extends ConsumerWidget {
             _PassHeroCard(
               economy: displayedEconomy,
               progress: progress,
-              onActivate: () => _showResult(
-                context,
-                ref
-                    .read(gameEconomyProvider.notifier)
-                    .activatePremiumPassForBeta(),
-              ),
+              onActivate: () => _activateBeta(context, ref, serverStatus),
             ),
             const SizedBox(height: 16),
             _SectionTitle(
@@ -87,17 +94,17 @@ class HiredPassPage extends ConsumerWidget {
               subtitle: 'Free untuk semua, Premium memberi bonus kosmetik.',
             ),
             const SizedBox(height: 10),
-            ...<int>[100, 300, 600, 1000].map(
+            ...milestones.map(
               (int milestone) => Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _RewardMilestone(
                   milestone: milestone,
                   economy: displayedEconomy,
-                  onClaim: (PassReward reward) => _showResult(
+                  rewards: passRewards,
+                  onClaim: (PassReward reward) => _claimReward(
                     context,
-                    ref
-                        .read(gameEconomyProvider.notifier)
-                        .claimPassReward(reward),
+                    ref,
+                    reward,
                   ),
                 ),
               ),
@@ -134,6 +141,83 @@ class HiredPassPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  PassReward _toPassReward(HiredPassReward reward) {
+    return PassReward(
+      id: reward.id,
+      pointsRequired: reward.pointsRequired,
+      track: reward.track == 'premium' ? PassTrack.premium : PassTrack.free,
+      label: reward.label,
+      yCoins: reward.coins,
+      cosmeticItemId: reward.itemId,
+    );
+  }
+
+  Future<void> _activateBeta(
+    BuildContext context,
+    WidgetRef ref,
+    HiredPassStatus? status,
+  ) async {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final String? seasonId = status?.seasonId;
+    if (seasonId == null || seasonId.isEmpty) {
+      _showMessage(messenger, 'Belum ada musim Hired Pass aktif.', false);
+      return;
+    }
+    try {
+      final HiredPassMutationResult result = await ref
+          .read(hiredPassRepositoryProvider)
+          .activateBeta(seasonId);
+      ref.read(gameEconomyProvider.notifier).applyHiredPassActivation();
+      ref.invalidate(hiredPassStatusProvider);
+      _showMessage(
+        messenger,
+        'Hired Pass Premium aktif sampai ${result.expiresAt ?? 'akhir musim'}.',
+        true,
+      );
+    } catch (error) {
+      _showMessage(messenger, error.toString(), false);
+    }
+  }
+
+  Future<void> _claimReward(
+    BuildContext context,
+    WidgetRef ref,
+    PassReward reward,
+  ) async {
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    try {
+      final HiredPassMutationResult result = await ref
+          .read(hiredPassRepositoryProvider)
+          .claimReward(reward.id);
+      ref.read(gameEconomyProvider.notifier).applyHiredPassClaim(
+        rewardId: reward.id,
+        coins: result.coins,
+        itemId: result.itemId,
+      );
+      ref.invalidate(hiredPassStatusProvider);
+      _showMessage(messenger, '${reward.label} berhasil diklaim.', true);
+    } catch (error) {
+      _showMessage(messenger, error.toString(), false);
+    }
+  }
+
+  void _showMessage(
+    ScaffoldMessengerState messenger,
+    String message,
+    bool success,
+  ) {
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: success
+              ? AppColors.levelUpTeal
+              : const Color(0xFFB64040),
+        ),
+      );
   }
 
   List<Widget> _missionWidgets(
@@ -191,18 +275,6 @@ class HiredPassPage extends ConsumerWidget {
     return const Color(0xFF8B6FE8);
   }
 
-  void _showResult(BuildContext context, EconomyActionResult result) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(result.message),
-          backgroundColor: result.success
-              ? AppColors.levelUpTeal
-              : const Color(0xFFB64040),
-        ),
-      );
-  }
 }
 
 class _PassHeroCard extends StatelessWidget {
@@ -523,20 +595,22 @@ class _RewardMilestone extends StatelessWidget {
   const _RewardMilestone({
     required this.milestone,
     required this.economy,
+    required this.rewards,
     required this.onClaim,
   });
 
   final int milestone;
   final GameEconomyState economy;
+  final List<PassReward> rewards;
   final ValueChanged<PassReward> onClaim;
 
   @override
   Widget build(BuildContext context) {
-    final PassReward freeReward = GameEconomyCatalog.passRewards.firstWhere(
+    final PassReward freeReward = rewards.firstWhere(
       (PassReward reward) =>
           reward.pointsRequired == milestone && reward.track == PassTrack.free,
     );
-    final PassReward premiumReward = GameEconomyCatalog.passRewards.firstWhere(
+    final PassReward premiumReward = rewards.firstWhere(
       (PassReward reward) =>
           reward.pointsRequired == milestone &&
           reward.track == PassTrack.premium,

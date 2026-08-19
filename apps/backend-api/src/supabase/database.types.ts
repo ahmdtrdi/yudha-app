@@ -704,6 +704,22 @@ export type Database = {
         };
         Returns: Json;
       };
+      claim_hired_pass_reward_idempotent: {
+        Args: {
+          p_user_id: string;
+          p_reward_id: string;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };
+      activate_hired_pass_beta: {
+        Args: {
+          p_user_id: string;
+          p_season_id: string;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };
       record_hired_pass_activity: {
         Args: {
           p_user_id: string;

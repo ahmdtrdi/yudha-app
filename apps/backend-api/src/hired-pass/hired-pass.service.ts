@@ -8,6 +8,10 @@ import {
 import type { Database, Json } from '../supabase/database.types';
 import { SupabaseService } from '../supabase/supabase.service';
 import { wibBusinessDate } from '../progression/progression.utils';
+import type {
+  ActivateHiredPassPayload,
+  ClaimHiredPassPayload,
+} from './hired-pass.types';
 
 @Injectable()
 export class HiredPassService {
@@ -164,13 +168,23 @@ export class HiredPassService {
     };
   }
 
-  async claimReward(userId: string, rewardIdValue: unknown) {
+  async claimReward(
+    userId: string,
+    rewardIdValue: unknown,
+    payload: ClaimHiredPassPayload = {},
+  ) {
     const rewardId = this.requiredText(rewardIdValue, 'rewardId', 120);
+    const idempotencyKey = this.requiredText(
+      payload.idempotencyKey,
+      'idempotencyKey',
+      160,
+    );
     const { data, error } = await this.supabaseService
       .getClient()
-      .rpc('claim_hired_pass_reward', {
+      .rpc('claim_hired_pass_reward_idempotent', {
         p_user_id: userId,
         p_reward_id: rewardId,
+        p_idempotency_key: idempotencyKey,
       });
 
     if (error) {
@@ -183,6 +197,28 @@ export class HiredPassService {
     }
 
     return { data: result };
+  }
+
+  async activateBeta(userId: string, payload: ActivateHiredPassPayload) {
+    const idempotencyKey = this.requiredText(
+      payload.idempotencyKey,
+      'idempotencyKey',
+      160,
+    );
+    const seasonId = this.requiredText(payload.seasonId, 'seasonId', 120);
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .rpc('activate_hired_pass_beta', {
+        p_user_id: userId,
+        p_season_id: seasonId,
+        p_idempotency_key: idempotencyKey,
+      });
+
+    if (error) {
+      this.throwActivationError(error.message);
+    }
+
+    return { data: this.requireObject(data) };
   }
 
   private periodStart(
@@ -234,6 +270,17 @@ export class HiredPassService {
       normalized.includes('entitlement')
     ) {
       throw new BadRequestException(message);
+    }
+    throw new InternalServerErrorException(message);
+  }
+
+  private throwActivationError(message: string): never {
+    const normalized = message.toLowerCase();
+    if (normalized.includes('not available')) {
+      throw new NotFoundException(message);
+    }
+    if (normalized.includes('idempotency')) {
+      throw new ConflictException(message);
     }
     throw new InternalServerErrorException(message);
   }

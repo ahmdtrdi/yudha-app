@@ -30,6 +30,18 @@ export async function syncContent(environment = process.env) {
   return report;
 }
 
+export async function syncHiredPass(environment = process.env) {
+  await validateGate0(repositoryRoot);
+  const baseUrl = required(environment.SUPABASE_URL, 'SUPABASE_URL').replace(/\/$/, '');
+  const secret = required(environment.SUPABASE_SECRET_KEY ?? environment.SUPABASE_SERVICE_ROLE_KEY, 'SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY');
+  const client = new RestClient(baseUrl, secret);
+  const catalog = await load('contracts/content/store-catalog.v1.json');
+  const seasonManifest = await load('contracts/content/seasons/2026-08.development.json');
+  await syncCatalog(client, catalog);
+  await syncSeason(client, seasonManifest);
+  process.stdout.write(`${JSON.stringify({ catalogItems: catalog.items.length, season: seasonManifest.season.id, missions: seasonManifest.missions.length, rewards: seasonManifest.rewards.length })}\n`);
+}
+
 async function syncCatalog(client, catalog) {
   const rows = catalog.items.map((item) => ({
     id: item.id,
@@ -270,7 +282,10 @@ function required(value, label) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  syncContent().catch((error) => {
+  const sync = process.argv.includes('--hired-pass-only')
+      ? syncHiredPass()
+      : syncContent();
+  sync.catch((error) => {
     process.stderr.write(`Content synchronization failed: ${error.message}\n`);
     process.exitCode = 1;
   });

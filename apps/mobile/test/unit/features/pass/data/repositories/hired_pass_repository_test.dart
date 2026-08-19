@@ -72,4 +72,66 @@ void main() {
       throwsA(isA<HiredPassApiException>()),
     );
   });
+
+  test('activates the current season with an idempotency key', () async {
+    final HiredPassRepository repository = HiredPassRepository(
+      accessToken: 'token-123',
+      baseUrl: 'https://api.example.com',
+      client: MockClient((http.Request request) async {
+        expect(request.method, 'POST');
+        expect(request.url.path, '/hired-pass/beta-activate');
+        expect(request.headers['authorization'], 'Bearer token-123');
+        expect(request.body, contains('"seasonId":"beta-2026-08"'));
+        expect(request.body, contains('"idempotencyKey"'));
+        return http.Response(
+          jsonEncode(<String, Object?>{
+            'data': <String, Object?>{
+              'activated': true,
+              'replayed': false,
+              'entitlement': <String, Object?>{
+                'premiumActive': true,
+                'expiresAt': '2026-09-01T00:00:00Z',
+              },
+            },
+          }),
+          200,
+        );
+      }),
+    );
+
+    final result = await repository.activateBeta('beta-2026-08');
+
+    expect(result.success, isTrue);
+    expect(result.premiumActive, isTrue);
+    expect(result.expiresAt, isNotNull);
+  });
+
+  test('claims a reward and maps the authoritative balance', () async {
+    final HiredPassRepository repository = HiredPassRepository(
+      accessToken: 'token-123',
+      baseUrl: 'https://api.example.com',
+      client: MockClient((http.Request request) async {
+        expect(request.method, 'POST');
+        expect(request.url.path, '/hired-pass/rewards/free-100-coins/claim');
+        expect(request.body, contains('"idempotencyKey"'));
+        return http.Response(
+          jsonEncode(<String, Object?>{
+            'data': <String, Object?>{
+              'claimed': true,
+              'replayed': false,
+              'rewardId': 'free-100-coins',
+              'coins': 400,
+            },
+          }),
+          200,
+        );
+      }),
+    );
+
+    final result = await repository.claimReward('free-100-coins');
+
+    expect(result.success, isTrue);
+    expect(result.rewardId, 'free-100-coins');
+    expect(result.coins, 400);
+  });
 }
