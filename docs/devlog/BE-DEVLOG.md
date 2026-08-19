@@ -486,3 +486,27 @@
 
 **The Tech Debt:**
 - The forward migration must be applied to each existing Supabase environment; editing historical migrations only affects fresh database provisioning.
+
+## 2026-08-19 - Hired Pass Beta Activation And Reward Claims
+
+**The Change:**
+- Added authenticated `POST /hired-pass/beta-activate` with typed `seasonId` and `idempotencyKey` validation.
+- Added `activate_hired_pass_beta` to grant the active season entitlement through its season end without payment processing.
+- Added idempotent reward claiming through `claim_hired_pass_reward_idempotent`, preserving atomic Y-Coin and inventory updates.
+- Updated Supabase database types, backend service tests, and the Hired Pass forward migration for both mutations.
+- Added `infra sync:hired-pass` to synchronize the checked-in season manifest and store catalog without unrelated question-bank validation blocking pass setup.
+
+**The Reasoning:**
+- Premium beta access must be free for testing but still follow server-authoritative entitlement and retry rules.
+- Reward claims need idempotency at both API and database boundaries so retries cannot duplicate Y-Coin or cosmetic ownership.
+- Missions and rewards remain release content defined by `contracts/content/seasons/2026-08.development.json`, not hardcoded in API or mobile UI.
+
+**Verification:**
+- Backend Hired Pass service tests passed.
+- Backend API build passed.
+- Pass-only content sync completed with six missions and eight rewards.
+- Remote Supabase confirmed the active `beta-2026-08` season and all manifest rows.
+
+**The Tech Debt:**
+- The Railway deployment inspected during testing was stale and returned `404 Cannot POST /hired-pass/beta-activate`; it must be redeployed from current backend source.
+- The full content sync still reports one unrelated duplicate question after catalog and season synchronization complete.

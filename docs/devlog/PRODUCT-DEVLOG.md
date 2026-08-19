@@ -23,3 +23,24 @@
 - Build and preserve acceptance evidence for WIB boundaries, concurrent ledger mutations, two-instance Redis behavior, all Interview transports, two-device journeys, accessibility, recovery, and the pilot load targets.
 
 No product feature code was changed in this documentation-only consolidation.
+
+## 2026-08-19 — Hired Pass Beta Testable Economy Flow
+
+### Change
+
+- Completed the paymentless Hired Pass beta journey from season content to mission progress, Pass Points, reward-track claims, and Premium entitlement activation.
+- Kept missions and rewards release-controlled through the checked-in August season manifest: six missions and eight free/premium rewards.
+- Defined beta Premium activation as a button-driven, once-per-season server mutation with no real payment provider involved.
+- Preserved the product economy rules: rewards are server-authoritative, Premium rewards require active entitlement, and claims are idempotent.
+
+### Product reasoning
+
+- The beta flow exercises the real progression, entitlement, Y-Coin, and inventory paths while removing only the payment boundary.
+- Testing against the same season manifest and atomic claim behavior reduces the gap between beta validation and the eventual paid entitlement flow.
+- Free and Premium tracks remain visibly distinct so testers can verify both access rules and claim behavior.
+
+### Remaining implementation debt
+
+- The latest mobile/backend source must be redeployed to Railway before beta activation is available through the production API URL.
+- Real payment checkout and entitlement purchase remain post-beta work; the beta button is intentionally not a payment simulation.
+- A duplicate question in the full content sync still needs separate content cleanup, although the dedicated Hired Pass sync is available.

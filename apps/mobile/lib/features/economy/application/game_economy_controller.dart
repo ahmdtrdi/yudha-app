@@ -321,6 +321,28 @@ class GameEconomyController extends StateNotifier<GameEconomyState> {
     );
   }
 
+  void applyHiredPassActivation() {
+    _setState(state.copyWith(premiumPassActive: true));
+  }
+
+  void applyHiredPassClaim({
+    required String rewardId,
+    required int? coins,
+    String? itemId,
+  }) {
+    final Set<String> owned = <String>{...state.ownedItemIds};
+    if (itemId != null && itemId.isNotEmpty) {
+      owned.add(itemId);
+    }
+    _setState(
+      state.copyWith(
+        yCoins: coins ?? state.yCoins,
+        ownedItemIds: owned,
+        claimedRewardIds: <String>{...state.claimedRewardIds, rewardId},
+      ),
+    );
+  }
+
   EconomyActionResult claimPassReward(PassReward reward) {
     if (state.hasClaimed(reward.id)) {
       return const EconomyActionResult(

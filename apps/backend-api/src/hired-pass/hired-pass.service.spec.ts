@@ -25,7 +25,9 @@ describe('HiredPassService', () => {
     });
 
     await expect(
-      service.claimReward('user-1', 'free-100-coins'),
+      service.claimReward('user-1', 'free-100-coins', {
+        idempotencyKey: 'claim-1',
+      }),
     ).resolves.toEqual({
       data: {
         claimed: true,
@@ -34,9 +36,10 @@ describe('HiredPassService', () => {
         itemId: null,
       },
     });
-    expect(rpc).toHaveBeenCalledWith('claim_hired_pass_reward', {
+    expect(rpc).toHaveBeenCalledWith('claim_hired_pass_reward_idempotent', {
       p_user_id: 'user-1',
       p_reward_id: 'free-100-coins',
+      p_idempotency_key: 'claim-1',
     });
   });
 
@@ -52,7 +55,9 @@ describe('HiredPassService', () => {
     });
 
     await expect(
-      service.claimReward('user-1', 'free-100-coins'),
+      service.claimReward('user-1', 'free-100-coins', {
+        idempotencyKey: 'claim-1',
+      }),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 });

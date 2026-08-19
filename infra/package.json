@@ -6,6 +6,7 @@
     "validate:gate0": "node scripts/validate-gate0.mjs",
     "test:gate0": "node --test scripts/*.test.mjs",
     "sync:content": "node scripts/sync-content.mjs",
+    "sync:hired-pass": "node scripts/sync-content.mjs --hired-pass-only",
     "provision:local": "node scripts/provision-local.mjs",
     "provision:verify": "node scripts/provision-local.mjs --verify-idempotency"
   },
