@@ -39,25 +39,25 @@ void main() {
               expect(request.url.queryParameters['offset'], '0');
               return http.Response(
                 jsonEncode(<String, Object?>{
-                  'data': <Map<String, Object?>>[
-                    <String, Object?>{
-                      'rank': 1,
-                      'userId': 'user-1',
-                      'username': 'Raka',
-                      'rankPoints': 1420,
-                      'totalMatches': 18,
-                      'winrate': 0.82,
-                    },
-                    <String, Object?>{
-                      'rank': 4,
-                      'userId': 'user-4',
-                      'username': 'Kamu',
-                      'rankPoints': 990,
-                      'totalMatches': 12,
-                      'winrate': 0.78,
-                    },
-                  ],
-                  'meta': <String, Object?>{
+                  'data': <String, Object?>{
+                    'items': <Map<String, Object?>>[
+                      <String, Object?>{
+                        'rank': 1,
+                        'userId': 'user-1',
+                        'username': 'Raka',
+                        'rankPoints': 1420,
+                        'totalMatches': 18,
+                        'winrate': 0.82,
+                      },
+                      <String, Object?>{
+                        'rank': 4,
+                        'userId': 'user-4',
+                        'username': 'Kamu',
+                        'rankPoints': 990,
+                        'totalMatches': 12,
+                        'winrate': 0.78,
+                      },
+                    ],
                     'limit': 8,
                     'offset': 0,
                     'total': 2,

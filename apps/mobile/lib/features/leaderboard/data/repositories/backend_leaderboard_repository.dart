@@ -41,12 +41,19 @@ class BackendLeaderboardRepository extends LeaderboardRepository {
   }
 
   LeaderboardPagePayload _payloadFromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic>? page = json['data'] is Map<String, dynamic>
+        ? json['data'] as Map<String, dynamic>
+        : null;
+    final List<dynamic> items = page?['items'] as List<dynamic>? ??
+        json['data'] as List<dynamic>? ??
+        const <dynamic>[];
+
     return LeaderboardPagePayload(
-      entries: (json['data'] as List<dynamic>? ?? const <dynamic>[])
+      entries: items
           .whereType<Map<String, dynamic>>()
           .map(_entryFromJson)
           .toList(growable: false),
-      hasMore: _readHasMore(json),
+      hasMore: _readHasMore(json, page: page),
     );
   }
 
@@ -141,8 +148,8 @@ class BackendLeaderboardRepository extends LeaderboardRepository {
     );
   }
 
-  bool _readHasMore(Map<String, dynamic> json) {
-    final Object? meta = json['meta'];
+  bool _readHasMore(Map<String, dynamic> json, {Map<String, dynamic>? page}) {
+    final Object? meta = json['meta'] ?? page;
     if (meta is Map<String, dynamic>) {
       final int? total = _readNullableInt(meta['total']);
       final int? offset = _readNullableInt(meta['offset']);
