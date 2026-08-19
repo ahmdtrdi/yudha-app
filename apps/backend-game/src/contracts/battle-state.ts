@@ -10,7 +10,7 @@ export type BattlePhase =
   | 'finished';
 export type BattleOutcome = 'win' | 'lose' | 'draw' | 'surrender';
 export type BattleTarget = 'cpns' | 'bumn';
-export type MatchmakingMode = 'ranked' | 'casual' | 'bot';
+export type MatchmakingMode = 'ranked' | 'casual' | 'bot' | 'private';
 
 export type BattleLoadout = {
   characterId: string;

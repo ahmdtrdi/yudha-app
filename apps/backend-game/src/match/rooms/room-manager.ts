@@ -7,7 +7,9 @@ import type { GamePlayerProfile } from '../profiles/game-player-profile.service'
 import type {
   DisconnectResult,
   MatchCreated,
+  PublicMatchmakingMode,
   QueueEntry,
+  RoomParticipant,
   SocketRegistrationResult,
 } from './room.types';
 
@@ -17,7 +19,10 @@ export class RoomManager {
   private readonly rooms = new Map<string, InternalRoomState>();
   private readonly userToRoom = new Map<string, string>();
   private readonly socketToUser = new Map<string, string>();
-  private readonly cleanupTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly cleanupTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
 
   constructor(
     private readonly engine: GameEngine,
@@ -65,10 +70,15 @@ export class RoomManager {
   joinQueue(
     profileOrUserId: GamePlayerProfile | string,
     socketId: string,
-    mode: 'ranked' | 'casual',
+    mode: PublicMatchmakingMode,
     cards: InternalCard[],
     legacyReserve: InternalCard[] = [],
-  ): { queued: QueueEntry; queueDepth: number; match?: MatchCreated; rejected?: string } {
+  ): {
+    queued: QueueEntry;
+    queueDepth: number;
+    match?: MatchCreated;
+    rejected?: string;
+  } {
     const profile =
       typeof profileOrUserId === 'string'
         ? this.defaultProfile(profileOrUserId)
@@ -88,7 +98,10 @@ export class RoomManager {
       existingEntry.socketId = socketId;
       return {
         queued: existingEntry,
-        queueDepth: this.queueDepthFor(existingEntry.target, existingEntry.mode),
+        queueDepth: this.queueDepthFor(
+          existingEntry.target,
+          existingEntry.mode,
+        ),
       };
     }
 
@@ -113,7 +126,10 @@ export class RoomManager {
     }
 
     const [opponent] = this.queue.splice(opponentIndex, 1);
-    const room = this.createRoom(opponent, queued, [...cards, ...legacyReserve]);
+    const room = this.createHumanRoom(opponent, queued, mode, [
+      ...cards,
+      ...legacyReserve,
+    ]);
     return {
       queued,
       queueDepth: this.queueDepthFor(profile.target, mode),
@@ -123,6 +139,10 @@ export class RoomManager {
 
   cancelQueue(userId: string): boolean {
     return this.removeFromQueue(userId);
+  }
+
+  isQueued(userId: string): boolean {
+    return this.queue.some((entry) => entry.userId === userId);
   }
 
   getRoom(roomId: string): InternalRoomState | undefined {
@@ -144,7 +164,10 @@ export class RoomManager {
   ): string | undefined {
     const room = sourceRoom ?? this.getRoomForUser(userId);
     const player = room ? this.findPlayer(room, userId) : undefined;
-    return player?.socketId ?? this.queue.find((entry) => entry.userId === userId)?.socketId;
+    return (
+      player?.socketId ??
+      this.queue.find((entry) => entry.userId === userId)?.socketId
+    );
   }
 
   listRoomUsers(room: InternalRoomState): string[] {
@@ -169,16 +192,25 @@ export class RoomManager {
     this.cleanupTimers.delete(roomId);
   }
 
-  private createRoom(
-    playerA: QueueEntry,
-    playerB: QueueEntry,
+  createPrivateRoom(
+    playerA: RoomParticipant,
+    playerB: RoomParticipant,
+    cards: InternalCard[],
+  ): InternalRoomState {
+    return this.createHumanRoom(playerA, playerB, 'private', cards);
+  }
+
+  private createHumanRoom(
+    playerA: RoomParticipant,
+    playerB: RoomParticipant,
+    mode: PublicMatchmakingMode | 'private',
     cards: InternalCard[],
   ): InternalRoomState {
     const roomId = `room_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const sharedQueue = this.dealer.createSharedQueue(cards);
     const room = this.engine.createRoom(
       roomId,
-      playerA.mode,
+      mode,
       playerA.target,
       playerA,
       playerB,
@@ -224,10 +256,7 @@ export class RoomManager {
       ? (botOrSocketId as string)
       : (socketIdOrCards as string);
     const cards = legacy
-      ? [
-          ...(socketIdOrCards as InternalCard[]),
-          ...cardsOrReserve,
-        ]
+      ? [...(socketIdOrCards as InternalCard[]), ...cardsOrReserve]
       : cardsOrReserve;
     const roomId = `room_bot_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const sharedQueue = this.dealer.createSharedQueue(cards);
@@ -288,6 +317,8 @@ export class RoomManager {
   }
 
   private findPlayer(room: InternalRoomState, userId: string) {
-    return Object.values(room.players).find((player) => player.userId === userId);
+    return Object.values(room.players).find(
+      (player) => player.userId === userId,
+    );
   }
 }

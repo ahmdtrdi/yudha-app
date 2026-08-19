@@ -1,17 +1,18 @@
 import type { InternalRoomState } from '../engine/battle.types';
-import type {
-  BattleLoadout,
-  BattleTarget,
-  MatchmakingMode,
-} from '../../contracts/battle-state';
+import type { BattleLoadout, BattleTarget } from '../../contracts/battle-state';
 
-export type QueueEntry = {
+export type PublicMatchmakingMode = 'ranked' | 'casual';
+
+export type RoomParticipant = {
   userId: string;
   displayName: string;
   target: BattleTarget;
   loadout: BattleLoadout;
   socketId: string;
-  mode: Exclude<MatchmakingMode, 'bot'>;
+};
+
+export type QueueEntry = RoomParticipant & {
+  mode: PublicMatchmakingMode;
   joinedAt: Date;
 };
 

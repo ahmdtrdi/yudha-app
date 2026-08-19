@@ -1,16 +1,16 @@
-import type { PublicQuestionCard } from './question-card';
+import type { PublicQuestionCard } from "./question-card";
 
-export type BattleRole = 'playerA' | 'playerB';
-export type RoomStatus = 'waiting' | 'active' | 'finished' | 'cancelled';
+export type BattleRole = "playerA" | "playerB";
+export type RoomStatus = "waiting" | "active" | "finished" | "cancelled";
 export type BattlePhase =
-  | 'waiting'
-  | 'active'
-  | 'card_opened'
-  | 'round_break'
-  | 'finished';
-export type BattleOutcome = 'win' | 'lose' | 'draw' | 'surrender';
-export type BattleTarget = 'cpns' | 'bumn';
-export type MatchmakingMode = 'ranked' | 'casual' | 'bot';
+  | "waiting"
+  | "active"
+  | "card_opened"
+  | "round_break"
+  | "finished";
+export type BattleOutcome = "win" | "lose" | "draw" | "surrender";
+export type BattleTarget = "cpns" | "bumn";
+export type MatchmakingMode = "ranked" | "casual" | "bot" | "private";
 
 export type BattleLoadout = {
   characterId: string;
@@ -49,7 +49,7 @@ export type PublicBattleState = {
   roundSecondsRemaining: number;
   selfRoundWins: number;
   opponentRoundWins: number;
-  lastRoundOutcome?: 'win' | 'lose' | 'draw';
+  lastRoundOutcome?: "win" | "lose" | "draw";
   phase: BattlePhase;
   outcome?: BattleOutcome;
 };

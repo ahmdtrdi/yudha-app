@@ -191,12 +191,7 @@ describe('RoomManager', () => {
       );
 
       manager.joinQueue(playerA, 'socket-a', 'ranked', cards);
-      const result = manager.joinQueue(
-        playerB,
-        'socket-b',
-        'ranked',
-        cards,
-      );
+      const result = manager.joinQueue(playerB, 'socket-b', 'ranked', cards);
       const room = result.match!.room;
 
       expect(room.players.playerA.displayName).toBe('Display user-a');
@@ -259,15 +254,26 @@ describe('RoomManager', () => {
     });
 
     it('creates room with reserve cards when provided', () => {
-      const reserve = makeCards(4).map((c, i) => ({ ...c, id: `reserve_${i}` }));
+      const reserve = makeCards(4).map((c, i) => ({
+        ...c,
+        id: `reserve_${i}`,
+      }));
       manager.registerSocket('socket-a', 'user-a');
       manager.registerSocket('socket-b', 'user-b');
 
       manager.joinQueue('user-a', 'socket-a', 'casual', cards, reserve);
-      const result = manager.joinQueue('user-b', 'socket-b', 'casual', cards, reserve);
+      const result = manager.joinQueue(
+        'user-b',
+        'socket-b',
+        'casual',
+        cards,
+        reserve,
+      );
 
       expect(result.match).toBeDefined();
-      expect(result.match!.room.sharedQueue.length).toBeGreaterThan(cards.length);
+      expect(result.match!.room.sharedQueue.length).toBeGreaterThan(
+        cards.length,
+      );
     });
   });
 
@@ -311,10 +317,29 @@ describe('RoomManager', () => {
     });
 
     it('supports reserve cards', () => {
-      const reserve = makeCards(4).map((c, i) => ({ ...c, id: `reserve_${i}` }));
+      const reserve = makeCards(4).map((c, i) => ({
+        ...c,
+        id: `reserve_${i}`,
+      }));
       const room = manager.createBotRoom('user-a', 'socket-a', cards, reserve);
 
       expect(room.sharedQueue.length).toBeGreaterThan(cards.length);
+    });
+  });
+
+  describe('createPrivateRoom', () => {
+    it('creates an active human room with Private mode', () => {
+      const room = manager.createPrivateRoom(
+        { ...profile('user-a'), socketId: 'socket-a' },
+        { ...profile('user-b'), socketId: 'socket-b' },
+        cards,
+      );
+
+      expect(room.mode).toBe('private');
+      expect(room.players.playerA.userId).toBe('user-a');
+      expect(room.players.playerB.userId).toBe('user-b');
+      expect(manager.getRoomForUser('user-a')).toBe(room);
+      expect(manager.getRoomForUser('user-b')).toBe(room);
     });
   });
 
@@ -325,7 +350,12 @@ describe('RoomManager', () => {
       manager.registerSocket('socket-a', 'user-a');
       manager.registerSocket('socket-b', 'user-b');
       manager.joinQueue('user-a', 'socket-a', 'casual', cards);
-      const { match } = manager.joinQueue('user-b', 'socket-b', 'casual', cards);
+      const { match } = manager.joinQueue(
+        'user-b',
+        'socket-b',
+        'casual',
+        cards,
+      );
 
       expect(manager.getRoom(match!.room.roomId)).toBe(match!.room);
     });
@@ -338,7 +368,12 @@ describe('RoomManager', () => {
       manager.registerSocket('socket-a', 'user-a');
       manager.registerSocket('socket-b', 'user-b');
       manager.joinQueue('user-a', 'socket-a', 'casual', cards);
-      const { match } = manager.joinQueue('user-b', 'socket-b', 'casual', cards);
+      const { match } = manager.joinQueue(
+        'user-b',
+        'socket-b',
+        'casual',
+        cards,
+      );
 
       expect(manager.getRoomForUser('user-a')).toBe(match!.room);
     });
@@ -367,7 +402,12 @@ describe('RoomManager', () => {
       manager.registerSocket('socket-a', 'user-a');
       manager.registerSocket('socket-b', 'user-b');
       manager.joinQueue('user-a', 'socket-a', 'casual', cards);
-      const { match } = manager.joinQueue('user-b', 'socket-b', 'casual', cards);
+      const { match } = manager.joinQueue(
+        'user-b',
+        'socket-b',
+        'casual',
+        cards,
+      );
 
       const users = manager.listRoomUsers(match!.room);
       expect(users).toEqual(['user-a', 'user-b']);
@@ -389,7 +429,12 @@ describe('RoomManager', () => {
       manager.registerSocket('socket-a', 'user-a');
       manager.registerSocket('socket-b', 'user-b');
       manager.joinQueue('user-a', 'socket-a', 'casual', cards);
-      const { match } = manager.joinQueue('user-b', 'socket-b', 'casual', cards);
+      const { match } = manager.joinQueue(
+        'user-b',
+        'socket-b',
+        'casual',
+        cards,
+      );
 
       manager.destroyRoom(match!.room.roomId);
 
@@ -402,7 +447,12 @@ describe('RoomManager', () => {
       manager.registerSocket('socket-a', 'user-a');
       manager.registerSocket('socket-b', 'user-b');
       manager.joinQueue('user-a', 'socket-a', 'casual', cards);
-      const { match } = manager.joinQueue('user-b', 'socket-b', 'casual', cards);
+      const { match } = manager.joinQueue(
+        'user-b',
+        'socket-b',
+        'casual',
+        cards,
+      );
       const roomId = match!.room.roomId;
 
       manager.scheduleCleanup(roomId, 2000);

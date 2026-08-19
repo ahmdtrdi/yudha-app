@@ -1,4 +1,5 @@
 import {
+  Ack,
   ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
@@ -11,16 +12,25 @@ import {
 import { Server, Socket } from 'socket.io';
 import { CLIENT_MATCH_EVENTS } from '../contracts/match.events';
 import type {
+  CancelPrivateRoomPayload,
+  CreatePrivateRoomPayload,
   JoinQueuePayload,
+  JoinPrivateRoomPayload,
   OpenCardPayload,
   PlayCardPayload,
   SurrenderPayload,
 } from '../contracts/match.payloads';
 import { SupabaseService } from '../supabase/supabase.service';
-import { MatchService, type MatchServiceResult } from './match.service';
+import {
+  MatchService,
+  type MatchServiceResult,
+  type PrivateCommandResult,
+} from './match.service';
 
 @WebSocketGateway({ namespace: '/match', cors: true })
-export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+export class MatchGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -39,9 +49,11 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
 
   async handleConnection(client: Socket) {
     try {
-      let token = client.handshake.auth?.token;
-      if (!token && client.handshake.headers.authorization) {
-        token = client.handshake.headers.authorization.split(' ')[1];
+      const authToken: unknown = client.handshake.auth?.token;
+      let token = typeof authToken === 'string' ? authToken : undefined;
+      const authorization = client.handshake.headers.authorization;
+      if (!token && typeof authorization === 'string') {
+        token = authorization.split(' ')[1];
       }
       if (!token) throw new Error('No token provided');
 
@@ -56,7 +68,8 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
       this.emitAll(this.matchService.registerSocket(client.id, user.id));
       client.emit('connection_success', { message: 'Welcome to the Arena!' });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Connection rejected';
+      const message =
+        error instanceof Error ? error.message : 'Connection rejected';
       client.emit('error', { message });
       client.disconnect();
     }
@@ -67,7 +80,10 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   }
 
   @SubscribeMessage('ping_server')
-  handlePing(@ConnectedSocket() client: Socket, @MessageBody() payload: unknown) {
+  handlePing(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: unknown,
+  ) {
     const playerId = this.matchService.getUserIdForSocket(client.id);
     client.emit('pong_client', {
       message: `Hello player ${playerId}, I received your data!`,
@@ -76,10 +92,15 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   }
 
   @SubscribeMessage(CLIENT_MATCH_EVENTS.joinQueue)
-  async handleJoinQueue(@ConnectedSocket() client: Socket, @MessageBody() payload?: JoinQueuePayload) {
+  async handleJoinQueue(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload?: JoinQueuePayload,
+  ) {
     const userId = this.requireUser(client);
     if (!userId) return;
-    this.emitAll(await this.matchService.handleJoinQueue(userId, client.id, payload));
+    this.emitAll(
+      await this.matchService.handleJoinQueue(userId, client.id, payload),
+    );
   }
 
   @SubscribeMessage(CLIENT_MATCH_EVENTS.cancelQueue)
@@ -89,31 +110,102 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     this.emitAll(this.matchService.handleCancelQueue(userId, client.id));
   }
 
+  @SubscribeMessage(CLIENT_MATCH_EVENTS.createPrivateRoom)
+  async handleCreatePrivateRoom(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: CreatePrivateRoomPayload,
+    @Ack() acknowledgement?: (payload: unknown) => void,
+  ) {
+    const userId = this.requireUser(client);
+    if (!userId) return;
+    this.deliverPrivateResult(
+      await this.matchService.handleCreatePrivateRoom(
+        userId,
+        client.id,
+        payload,
+      ),
+      acknowledgement,
+    );
+  }
+
+  @SubscribeMessage(CLIENT_MATCH_EVENTS.joinPrivateRoom)
+  async handleJoinPrivateRoom(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: JoinPrivateRoomPayload,
+    @Ack() acknowledgement?: (payload: unknown) => void,
+  ) {
+    const userId = this.requireUser(client);
+    if (!userId) return;
+    this.deliverPrivateResult(
+      await this.matchService.handleJoinPrivateRoom(userId, client.id, payload),
+      acknowledgement,
+    );
+  }
+
+  @SubscribeMessage(CLIENT_MATCH_EVENTS.cancelPrivateRoom)
+  async handleCancelPrivateRoom(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: CancelPrivateRoomPayload,
+    @Ack() acknowledgement?: (payload: unknown) => void,
+  ) {
+    const userId = this.requireUser(client);
+    if (!userId) return;
+    this.deliverPrivateResult(
+      await this.matchService.handleCancelPrivateRoom(
+        userId,
+        client.id,
+        payload,
+      ),
+      acknowledgement,
+    );
+  }
+
   @SubscribeMessage(CLIENT_MATCH_EVENTS.openCard)
-  handleOpenCard(@ConnectedSocket() client: Socket, @MessageBody() payload: OpenCardPayload) {
+  handleOpenCard(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: OpenCardPayload,
+  ) {
     const userId = this.requireUser(client);
     if (!userId) return;
     this.emitAll(this.matchService.handleOpenCard(userId, client.id, payload));
   }
 
   @SubscribeMessage(CLIENT_MATCH_EVENTS.playCard)
-  async handlePlayCard(@ConnectedSocket() client: Socket, @MessageBody() payload: PlayCardPayload) {
+  async handlePlayCard(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: PlayCardPayload,
+  ) {
     const userId = this.requireUser(client);
     if (!userId) return;
-    this.emitAll(await this.matchService.handlePlayCard(userId, client.id, payload));
+    this.emitAll(
+      await this.matchService.handlePlayCard(userId, client.id, payload),
+    );
   }
 
   @SubscribeMessage(CLIENT_MATCH_EVENTS.surrender)
-  async handleSurrender(@ConnectedSocket() client: Socket, @MessageBody() payload: SurrenderPayload) {
+  async handleSurrender(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: SurrenderPayload,
+  ) {
     const userId = this.requireUser(client);
     if (!userId) return;
-    this.emitAll(await this.matchService.handleSurrender(userId, client.id, payload));
+    this.emitAll(
+      await this.matchService.handleSurrender(userId, client.id, payload),
+    );
   }
 
   private emitAll(result: MatchServiceResult): void {
     for (const emit of result.emits) {
       this.server.to(emit.socketId).emit(emit.event, emit.payload);
     }
+  }
+
+  private deliverPrivateResult(
+    result: PrivateCommandResult,
+    acknowledgement?: (payload: unknown) => void,
+  ): void {
+    acknowledgement?.(result.ack);
+    this.emitAll(result);
   }
 
   private requireUser(client: Socket): string | undefined {

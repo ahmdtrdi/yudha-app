@@ -22,6 +22,54 @@ export type QueueCancelledPayload = {
   reason: 'cancelled' | 'disconnected';
 };
 
+export type CreatePrivateRoomPayload = {
+  commandId: string;
+};
+
+export type JoinPrivateRoomPayload = {
+  commandId: string;
+  code: string;
+};
+
+export type CancelPrivateRoomPayload = {
+  commandId: string;
+  code: string;
+};
+
+export type PrivateRoomCreatedPayload = {
+  code: string;
+  target: BattleTarget;
+  expiresAt: string;
+};
+
+export type PrivateRoomJoinedPayload = {
+  code: string;
+  roomId: string;
+};
+
+export type PrivateRoomCancelledPayload = {
+  code: string;
+  reason: 'cancelled' | 'expired' | 'disconnected';
+};
+
+export type SocketCommandErrorCode =
+  | 'VALIDATION_FAILED'
+  | 'IDEMPOTENCY_KEY_REUSED'
+  | 'CONFLICT'
+  | 'ROOM_CODE_INVALID'
+  | 'QUEUE_UNAVAILABLE';
+
+export type SocketCommandAck<T> =
+  | { data: T; requestId: string }
+  | {
+      error: {
+        code: SocketCommandErrorCode;
+        message: string;
+        details: { recoverable: boolean };
+        requestId: string;
+      };
+    };
+
 export type MatchFoundPayload = {
   roomId: string;
   opponentUserId: string;
@@ -114,6 +162,9 @@ export type PresenceUpdatePayload = {
 export type MatchGatewayEvents = {
   queue_joined: QueueJoinedPayload;
   queue_cancelled: QueueCancelledPayload;
+  private_room_created: PrivateRoomCreatedPayload;
+  private_room_joined: PrivateRoomJoinedPayload;
+  private_room_cancelled: PrivateRoomCancelledPayload;
   match_found: MatchFoundPayload;
   game_state_update: PublicBattleState;
   open_card_accepted: OpenCardAcceptedPayload;

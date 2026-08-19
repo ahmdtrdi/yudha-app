@@ -423,3 +423,29 @@
 - Backend API test suite passed: 16/16 suites, 54/54 tests.
 - Gate 0 validation passed via `npm run validate:gate0` in `infra/` with the expected development-only warning.
 - Backend API build passed via `npm run build`.
+
+## 2026-08-19 - Single-instance Private PvP matchmaking
+
+**The Change:**
+- Added authenticated `create_private_room`, `join_private_room`, and `cancel_private_room` Socket.IO commands with acknowledgements, stable error envelopes, and 15-minute in-memory command replay protection.
+- Added cryptographically generated six-character room codes, single-use joining, target validation, creator-only cancellation, expiry notification, and immediate invalidation when the waiting creator disconnects.
+- Routed joined Private players through the existing authoritative battle engine, timers, reconnect handling, logging, and result finalization with `mode=private`.
+- Added a Supabase migration and pgTAP coverage for durable Private history with two human players and zero rank, Y-Coin, daily mission, streak, or Hired Pass progression.
+- Extended the Backend API match-history contract so Private matches remain human matches and are returned as `mode=private`.
+
+**The Reasoning:**
+- Keeping pending codes separate from active battle rooms avoids allocating questions and combat state until a valid same-target friend joins.
+- A synchronous in-process claim makes a code single-use for this delivery slice, while the existing engine remains the only source of battle truth after activation.
+- The database wrapper preserves existing Ranked, Casual, and Bot finalization behavior and gives Private matches an isolated no-progression path.
+- Private command acknowledgements are emitted before domain events so clients can safely retry without creating duplicate codes, joins, or cancellations.
+
+**The Tech Debt:**
+- Room codes and command replay records are process-local and are lost on restart; Redis atomic reservations, distributed replay protection, and cross-instance routing/pub-sub remain required before horizontal scaling.
+- Public matchmaking is still process-local and must move to the same Redis ownership model in the multi-instance phase.
+- The Flutter client does not yet expose the Private room create/join/cancel flow.
+- The new pgTAP test is checked in but was not executed in this session because approval for the Supabase CLI to access its user configuration directory was declined.
+
+**Verification:**
+- Backend Game: 14 Jest suites and 189 tests passed; the Private-focused run with open-handle detection also passed 34 tests cleanly.
+- Backend API: 17 Jest suites and 55 tests passed.
+- Backend Game and Backend API TypeScript checks, touched-production-file lint checks, and Nest production builds passed.

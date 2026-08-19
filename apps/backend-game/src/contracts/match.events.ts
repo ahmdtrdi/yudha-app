@@ -1,6 +1,9 @@
 export const CLIENT_MATCH_EVENTS = {
   joinQueue: 'join_queue',
   cancelQueue: 'cancel_queue',
+  createPrivateRoom: 'create_private_room',
+  joinPrivateRoom: 'join_private_room',
+  cancelPrivateRoom: 'cancel_private_room',
   openCard: 'open_card',
   playCard: 'play_card',
   surrender: 'surrender',
@@ -9,6 +12,9 @@ export const CLIENT_MATCH_EVENTS = {
 export const SERVER_MATCH_EVENTS = {
   queueJoined: 'queue_joined',
   queueCancelled: 'queue_cancelled',
+  privateRoomCreated: 'private_room_created',
+  privateRoomJoined: 'private_room_joined',
+  privateRoomCancelled: 'private_room_cancelled',
   matchFound: 'match_found',
   gameStateUpdate: 'game_state_update',
   openCardAccepted: 'open_card_accepted',

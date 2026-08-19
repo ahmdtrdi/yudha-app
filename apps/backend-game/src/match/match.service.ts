@@ -1,20 +1,34 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { SERVER_MATCH_EVENTS } from '../contracts/match.events';
 import type {
   CardActionRejectedPayload,
+  CancelPrivateRoomPayload,
+  CreatePrivateRoomPayload,
   JoinQueuePayload,
+  JoinPrivateRoomPayload,
   MatchFoundPayload,
   OpenCardPayload,
   PlayCardPayload,
   PlayCardResultPayload,
+  PrivateRoomCancelledPayload,
+  PrivateRoomCreatedPayload,
+  PrivateRoomJoinedPayload,
+  SocketCommandAck,
+  SocketCommandErrorCode,
   SurrenderPayload,
 } from '../contracts/match.payloads';
 import type { MatchmakingMode } from '../contracts/battle-state';
 import { GameEngine } from './engine/game-engine';
 import type { InternalRoomState } from './engine/battle.types';
 import { QuestionService } from './questions/question.service';
+import type { InternalCard } from './questions/question.types';
 import { MatchResultService } from './results/match-result.service';
 import { RoomManager } from './rooms/room-manager';
+import {
+  MatchmakingService,
+  type PrivateMatchmakingFailure,
+} from './rooms/matchmaking.service';
 import { MatchLogBuffer } from './logs/match-log-buffer';
 import { BotBattleService } from './bot/bot-battle.service';
 import { CardTimeoutService } from './timeout/card-timeout.service';
@@ -36,6 +50,28 @@ export type MatchServiceResult = {
   emits: MatchEmit[];
 };
 
+type PrivateCommandData =
+  | PrivateRoomCreatedPayload
+  | PrivateRoomJoinedPayload
+  | { code: string };
+
+export type PrivateCommandResult<
+  T extends PrivateCommandData = PrivateCommandData,
+> = MatchServiceResult & {
+  ack: SocketCommandAck<T>;
+};
+
+type CachedPrivateCommand = {
+  fingerprint: string;
+  ack: SocketCommandAck<PrivateCommandData>;
+  timer: ReturnType<typeof setTimeout>;
+};
+
+type InFlightPrivateCommand = {
+  fingerprint: string;
+  result: Promise<PrivateCommandResult>;
+};
+
 @Injectable()
 export class MatchService {
   static readonly DISCONNECT_GRACE_MS = 30_000;
@@ -53,6 +89,14 @@ export class MatchService {
     string,
     ReturnType<typeof setTimeout>
   >();
+  private readonly privateCommandCache = new Map<
+    string,
+    CachedPrivateCommand
+  >();
+  private readonly inFlightPrivateCommands = new Map<
+    string,
+    InFlightPrivateCommand
+  >();
 
   constructor(
     private readonly engine: GameEngine,
@@ -63,6 +107,7 @@ export class MatchService {
     private readonly botBattleService: BotBattleService,
     private readonly cardTimeoutService: CardTimeoutService,
     private readonly profiles: GamePlayerProfileService,
+    private readonly matchmaking: MatchmakingService,
   ) {}
 
   /**
@@ -80,10 +125,27 @@ export class MatchService {
       this.clearDisconnectTimersForRoom(room.roomId);
       this.cardTimeoutService.cancelAllTimersForRoom(room.roomId);
     });
+    this.matchmaking.setExpiryCallback((reservation) => {
+      if (!this.emitServer) return;
+      const payload: PrivateRoomCancelledPayload = {
+        code: reservation.code,
+        reason: 'expired',
+      };
+      this.emitServer({
+        emits: [
+          {
+            socketId: reservation.owner.socketId,
+            event: SERVER_MATCH_EVENTS.privateRoomCancelled,
+            payload,
+          },
+        ],
+      });
+    });
   }
 
   registerSocket(socketId: string, userId: string): MatchServiceResult {
     const result = this.rooms.registerSocket(socketId, userId);
+    this.matchmaking.rebindOwnerSocket(userId, socketId);
     if (result.type !== 'active_reconnect') {
       return { emits: [] };
     }
@@ -101,6 +163,8 @@ export class MatchService {
   }
 
   handleDisconnect(socketId: string): MatchServiceResult {
+    const userId = this.rooms.getUserIdForSocket(socketId);
+    if (userId) this.matchmaking.disconnectOwner(userId, socketId);
     const result = this.rooms.disconnectSocket(socketId);
     if (result.type === 'queued_removed') {
       return { emits: [] };
@@ -125,6 +189,21 @@ export class MatchService {
             socketId,
             event: SERVER_MATCH_EVENTS.error,
             payload: { message: 'Mode must be ranked, casual, or bot.' },
+          },
+        ],
+      };
+    }
+
+    if (this.matchmaking.hasPendingPrivateRoom(userId)) {
+      return {
+        emits: [
+          {
+            socketId,
+            event: SERVER_MATCH_EVENTS.error,
+            payload: {
+              message:
+                'Batalkan ruang Private sebelum memulai matchmaking lain.',
+            },
           },
         ],
       };
@@ -221,6 +300,194 @@ export class MatchService {
     this.scheduleRoundTimeout(room);
 
     return { emits };
+  }
+
+  async handleCreatePrivateRoom(
+    userId: string,
+    socketId: string,
+    payload?: CreatePrivateRoomPayload,
+  ): Promise<PrivateCommandResult> {
+    return this.executePrivateCommand(
+      userId,
+      payload?.commandId,
+      'create_private_room',
+      'create_private_room',
+      async (requestId) => {
+        const profile = await this.loadPrivateProfile(userId, requestId);
+        if (!profile.ok) return profile.result;
+
+        const created = this.matchmaking.createPrivateRoom(
+          profile.profile,
+          socketId,
+        );
+        if (!created.ok) {
+          return this.privateMatchmakingFailure(created.reason, requestId);
+        }
+
+        const data: PrivateRoomCreatedPayload = {
+          code: created.reservation.code,
+          target: created.reservation.target,
+          expiresAt: created.reservation.expiresAt.toISOString(),
+        };
+        return {
+          ack: { data, requestId },
+          emits: [
+            {
+              socketId,
+              event: SERVER_MATCH_EVENTS.privateRoomCreated,
+              payload: data,
+            },
+          ],
+        };
+      },
+    );
+  }
+
+  async handleJoinPrivateRoom(
+    userId: string,
+    socketId: string,
+    payload?: JoinPrivateRoomPayload,
+  ): Promise<PrivateCommandResult> {
+    const code = payload?.code;
+    const fingerprint = `join_private_room:${typeof code === 'string' ? code : ''}`;
+    return this.executePrivateCommand(
+      userId,
+      payload?.commandId,
+      fingerprint,
+      'join_private_room',
+      async (requestId) => {
+        if (!this.isPrivateRoomCode(code)) {
+          return this.privateError(
+            requestId,
+            'VALIDATION_FAILED',
+            'Kode ruang harus terdiri dari enam karakter yang valid.',
+            false,
+          );
+        }
+
+        const profile = await this.loadPrivateProfile(userId, requestId);
+        if (!profile.ok) return profile.result;
+
+        const validation = this.matchmaking.validateJoin(profile.profile, code);
+        if (!validation.ok) {
+          return this.privateMatchmakingFailure(validation.reason, requestId);
+        }
+
+        let cards: InternalCard[];
+        try {
+          cards = await this.questions.getMatchQuestionPool(
+            profile.profile.target,
+          );
+        } catch {
+          return this.privateError(
+            requestId,
+            'QUEUE_UNAVAILABLE',
+            'Pertandingan Private belum dapat dimulai. Coba lagi.',
+            true,
+          );
+        }
+
+        const joined = this.matchmaking.joinPrivateRoom(
+          profile.profile,
+          socketId,
+          code,
+          cards,
+        );
+        if (!joined.ok) {
+          return this.privateMatchmakingFailure(joined.reason, requestId);
+        }
+
+        const { room, playerA, playerB } = joined.match;
+        const data: PrivateRoomJoinedPayload = { code, roomId: room.roomId };
+        const matchFoundA: MatchFoundPayload = {
+          roomId: room.roomId,
+          opponentUserId: playerB.userId,
+          opponentDisplayName: playerB.displayName,
+          opponentLoadout: playerB.loadout,
+          role: 'playerA',
+          mode: 'private',
+          target: room.target,
+        };
+        const matchFoundB: MatchFoundPayload = {
+          roomId: room.roomId,
+          opponentUserId: playerA.userId,
+          opponentDisplayName: playerA.displayName,
+          opponentLoadout: playerA.loadout,
+          role: 'playerB',
+          mode: 'private',
+          target: room.target,
+        };
+        const emits: MatchEmit[] = [
+          {
+            socketId: playerA.socketId,
+            event: SERVER_MATCH_EVENTS.privateRoomJoined,
+            payload: data,
+          },
+          {
+            socketId: playerB.socketId,
+            event: SERVER_MATCH_EVENTS.privateRoomJoined,
+            payload: data,
+          },
+          {
+            socketId: playerA.socketId,
+            event: SERVER_MATCH_EVENTS.matchFound,
+            payload: matchFoundA,
+          },
+          {
+            socketId: playerB.socketId,
+            event: SERVER_MATCH_EVENTS.matchFound,
+            payload: matchFoundB,
+          },
+          ...this.stateEmits(room),
+        ];
+        this.scheduleRoundTimeout(room);
+        return { ack: { data, requestId }, emits };
+      },
+    );
+  }
+
+  async handleCancelPrivateRoom(
+    userId: string,
+    socketId: string,
+    payload?: CancelPrivateRoomPayload,
+  ): Promise<PrivateCommandResult> {
+    const code = payload?.code;
+    const fingerprint = `cancel_private_room:${typeof code === 'string' ? code : ''}`;
+    return this.executePrivateCommand(
+      userId,
+      payload?.commandId,
+      fingerprint,
+      'cancel_private_room',
+      (requestId) => {
+        if (!this.isPrivateRoomCode(code)) {
+          return this.privateError(
+            requestId,
+            'VALIDATION_FAILED',
+            'Kode ruang harus terdiri dari enam karakter yang valid.',
+            false,
+          );
+        }
+        const cancelled = this.matchmaking.cancelPrivateRoom(userId, code);
+        if (!cancelled.ok) {
+          return this.privateMatchmakingFailure(cancelled.reason, requestId);
+        }
+        const data = { code };
+        const eventPayload: PrivateRoomCancelledPayload = {
+          code,
+          reason: 'cancelled',
+        };
+        return {
+          ack: { data, requestId },
+          emits: [
+            {
+              socketId,
+              event: SERVER_MATCH_EVENTS.privateRoomCancelled,
+              payload: eventPayload,
+            },
+          ],
+        };
+      },
+    );
   }
 
   private async handleBotMode(
@@ -859,7 +1126,158 @@ export class MatchService {
     return `${roomId}:${userId}`;
   }
 
-  private isMatchmakingMode(value: unknown): value is MatchmakingMode {
+  private async executePrivateCommand(
+    userId: string,
+    commandId: unknown,
+    fingerprint: string,
+    operation: string,
+    execute: (
+      requestId: string,
+    ) => PrivateCommandResult | Promise<PrivateCommandResult>,
+  ): Promise<PrivateCommandResult> {
+    if (
+      typeof commandId !== 'string' ||
+      commandId.length < 1 ||
+      commandId.length > 160
+    ) {
+      return this.privateError(
+        randomUUID(),
+        'VALIDATION_FAILED',
+        'commandId wajib diisi dengan panjang 1 sampai 160 karakter.',
+        false,
+      );
+    }
+
+    const cacheKey = `${userId}:${commandId}`;
+    const fullFingerprint = `${operation}:${fingerprint}`;
+    const cached = this.privateCommandCache.get(cacheKey);
+    if (cached) {
+      if (cached.fingerprint !== fullFingerprint) {
+        return this.privateError(
+          randomUUID(),
+          'IDEMPOTENCY_KEY_REUSED',
+          'Command ID sudah digunakan untuk permintaan yang berbeda.',
+          false,
+        );
+      }
+      return { ack: cached.ack, emits: [] };
+    }
+
+    const inFlight = this.inFlightPrivateCommands.get(cacheKey);
+    if (inFlight) {
+      if (inFlight.fingerprint !== fullFingerprint) {
+        return this.privateError(
+          randomUUID(),
+          'IDEMPOTENCY_KEY_REUSED',
+          'Command ID sudah digunakan untuk permintaan yang berbeda.',
+          false,
+        );
+      }
+      const replay = await inFlight.result;
+      return { ack: replay.ack, emits: [] };
+    }
+
+    const resultPromise = Promise.resolve(execute(randomUUID()));
+    this.inFlightPrivateCommands.set(cacheKey, {
+      fingerprint: fullFingerprint,
+      result: resultPromise,
+    });
+    try {
+      const result = await resultPromise;
+      const timer = setTimeout(() => {
+        this.privateCommandCache.delete(cacheKey);
+      }, MatchmakingService.PRIVATE_ROOM_TTL_MS);
+      timer.unref?.();
+      this.privateCommandCache.set(cacheKey, {
+        fingerprint: fullFingerprint,
+        ack: result.ack,
+        timer,
+      });
+      return result;
+    } finally {
+      this.inFlightPrivateCommands.delete(cacheKey);
+    }
+  }
+
+  private async loadPrivateProfile(
+    userId: string,
+    requestId: string,
+  ): Promise<
+    | { ok: true; profile: GamePlayerProfile }
+    | { ok: false; result: PrivateCommandResult }
+  > {
+    try {
+      return { ok: true, profile: await this.profiles.getProfile(userId) };
+    } catch {
+      return {
+        ok: false,
+        result: this.privateError(
+          requestId,
+          'QUEUE_UNAVAILABLE',
+          'Profil permainan belum tersedia. Coba lagi.',
+          true,
+        ),
+      };
+    }
+  }
+
+  private privateMatchmakingFailure(
+    reason: PrivateMatchmakingFailure,
+    requestId: string,
+  ): PrivateCommandResult {
+    if (reason === 'matchmaking_conflict') {
+      return this.privateError(
+        requestId,
+        'CONFLICT',
+        'Selesaikan atau batalkan matchmaking yang sedang aktif terlebih dahulu.',
+        true,
+      );
+    }
+    if (reason === 'code_generation_failed') {
+      return this.privateError(
+        requestId,
+        'QUEUE_UNAVAILABLE',
+        'Kode ruang belum dapat dibuat. Coba lagi.',
+        true,
+      );
+    }
+    return this.privateError(
+      requestId,
+      'ROOM_CODE_INVALID',
+      'Kode ruang tidak valid atau sudah tidak tersedia.',
+      true,
+    );
+  }
+
+  private privateError(
+    requestId: string,
+    code: SocketCommandErrorCode,
+    message: string,
+    recoverable: boolean,
+  ): PrivateCommandResult {
+    return {
+      ack: {
+        error: {
+          code,
+          message,
+          details: { recoverable },
+          requestId,
+        },
+      },
+      emits: [],
+    };
+  }
+
+  private isPrivateRoomCode(value: unknown): value is string {
+    return (
+      typeof value === 'string' &&
+      /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/.test(value)
+    );
+  }
+
+  private isMatchmakingMode(
+    value: unknown,
+  ): value is Exclude<MatchmakingMode, 'private'> {
     return value === 'ranked' || value === 'casual' || value === 'bot';
   }
 

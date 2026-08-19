@@ -11,6 +11,7 @@ import { MatchLogBuffer } from './logs/match-log-buffer';
 import { BotBattleService } from './bot/bot-battle.service';
 import { CardTimeoutService } from './timeout/card-timeout.service';
 import { GamePlayerProfileService } from './profiles/game-player-profile.service';
+import { MatchmakingService } from './rooms/matchmaking.service';
 
 @Module({
   imports: [SupabaseModule],
@@ -22,6 +23,7 @@ import { GamePlayerProfileService } from './profiles/game-player-profile.service
     QuestionService,
     MatchResultService,
     RoomManager,
+    MatchmakingService,
     MatchLogBuffer,
     BotBattleService,
     CardTimeoutService,

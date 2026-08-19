@@ -1,6 +1,29 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import type { MatchHistoryEntry, MatchHistoryQuery } from './matches.types';
+
+type MatchHistoryQueryResult = {
+  data: Record<string, unknown>[] | null;
+  error: { message: string } | null;
+};
+
+type MatchHistoryQueryBuilder = {
+  select(columns: string): MatchHistoryQueryBuilder;
+  or(filter: string): MatchHistoryQueryBuilder;
+  order(
+    column: string,
+    options: { ascending: boolean },
+  ): MatchHistoryQueryBuilder;
+  range(from: number, to: number): Promise<MatchHistoryQueryResult>;
+};
+
+type MatchHistoryClient = {
+  from(table: 'match_results'): MatchHistoryQueryBuilder;
+};
 
 @Injectable()
 export class MatchesService {
@@ -11,14 +34,19 @@ export class MatchesService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
   async getHistory(userId: string, query: MatchHistoryQuery) {
-    const limit = this.parseNonNegativeInteger(query.limit, this.defaultLimit, this.maxLimit);
+    const limit = this.parseNonNegativeInteger(
+      query.limit,
+      this.defaultLimit,
+      this.maxLimit,
+    );
     const offset = this.parseNonNegativeInteger(query.offset, 0);
 
-    const client = this.supabaseService.getClient();
+    const client =
+      this.supabaseService.getClient() as unknown as MatchHistoryClient;
 
     // match_results is not yet in the generated database.types.ts,
-    // so we use an untyped query until the types are regenerated.
-    const { data, error } = await (client as any)
+    // so this local structural type keeps the temporary query boundary safe.
+    const { data, error } = await client
       .from('match_results')
       .select('*')
       .or(`player_a_id.eq.${userId},player_b_id.eq.${userId}`)
@@ -26,11 +54,13 @@ export class MatchesService {
       .range(offset, offset + limit - 1);
 
     if (error) {
-      this.logger.error(`Failed to fetch match history for ${userId}: ${error.message}`);
+      this.logger.error(
+        `Failed to fetch match history for ${userId}: ${error.message}`,
+      );
       throw new InternalServerErrorException('Failed to fetch match history.');
     }
 
-    const entries: MatchHistoryEntry[] = (data ?? []).map((row: Record<string, unknown>) =>
+    const entries: MatchHistoryEntry[] = (data ?? []).map((row) =>
       this.toHistoryDto(row, userId),
     );
 
@@ -44,14 +74,19 @@ export class MatchesService {
     };
   }
 
-  private toHistoryDto(row: Record<string, unknown>, requestingUserId: string): MatchHistoryEntry {
+  private toHistoryDto(
+    row: Record<string, unknown>,
+    requestingUserId: string,
+  ): MatchHistoryEntry {
     const playerAId = row.player_a_id as string;
     const playerBId = row.player_b_id as string | null;
     const winnerId = row.winner_user_id as string | null;
     const mode = row.mode as string;
 
     const normalizedMode =
-      mode === 'casual' || mode === 'bot' ? mode : 'ranked';
+      mode === 'casual' || mode === 'bot' || mode === 'private'
+        ? mode
+        : 'ranked';
     const target = row.target === 'bumn' ? 'bumn' : 'cpns';
     const isBotMatch = normalizedMode === 'bot' || playerBId === null;
     const isSelfPlayerA = playerAId === requestingUserId;
@@ -67,17 +102,32 @@ export class MatchesService {
     }
 
     // Derive opponent info
-    const opponentId = isBotMatch ? null : (isSelfPlayerA ? playerBId : playerAId);
+    const opponentId = isBotMatch
+      ? null
+      : isSelfPlayerA
+        ? playerBId
+        : playerAId;
 
     // Build self-relative final state
-    const hpSelf = (isSelfPlayerA ? row.player_a_hp : row.player_b_hp) as number;
-    const hpOpponent = (isSelfPlayerA ? row.player_b_hp : row.player_a_hp) as number;
-    const scoreSelf = (isSelfPlayerA ? row.player_a_points : row.player_b_points) as number;
-    const scoreOpponent = (isSelfPlayerA ? row.player_b_points : row.player_a_points) as number;
+    const hpSelf = (
+      isSelfPlayerA ? row.player_a_hp : row.player_b_hp
+    ) as number;
+    const hpOpponent = (
+      isSelfPlayerA ? row.player_b_hp : row.player_a_hp
+    ) as number;
+    const scoreSelf = (
+      isSelfPlayerA ? row.player_a_points : row.player_b_points
+    ) as number;
+    const scoreOpponent = (
+      isSelfPlayerA ? row.player_b_points : row.player_a_points
+    ) as number;
 
     // Self-relative deltas
-    const ratingDelta = (isSelfPlayerA ? row.rating_delta_a : row.rating_delta_b) as number ?? 0;
-    const coinsDelta = (isSelfPlayerA ? row.coins_delta_a : row.coins_delta_b) as number ?? 0;
+    const ratingDelta =
+      ((isSelfPlayerA ? row.rating_delta_a : row.rating_delta_b) as number) ??
+      0;
+    const coinsDelta =
+      ((isSelfPlayerA ? row.coins_delta_a : row.coins_delta_b) as number) ?? 0;
 
     return {
       id: row.id as string,

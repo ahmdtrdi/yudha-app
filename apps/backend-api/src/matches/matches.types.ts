@@ -4,7 +4,7 @@ export interface MatchHistoryEntry {
   opponentId: string | null;
   opponentUsername: string | null;
   isBotMatch: boolean;
-  mode: 'ranked' | 'casual' | 'bot';
+  mode: 'ranked' | 'casual' | 'bot' | 'private';
   target: 'cpns' | 'bumn';
   outcome: 'win' | 'lose' | 'draw';
   reason: string;
