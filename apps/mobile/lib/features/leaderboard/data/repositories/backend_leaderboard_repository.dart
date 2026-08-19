@@ -44,7 +44,8 @@ class BackendLeaderboardRepository extends LeaderboardRepository {
     final Map<String, dynamic>? page = json['data'] is Map<String, dynamic>
         ? json['data'] as Map<String, dynamic>
         : null;
-    final List<dynamic> items = page?['items'] as List<dynamic>? ??
+    final List<dynamic> items =
+        page?['items'] as List<dynamic>? ??
         json['data'] as List<dynamic>? ??
         const <dynamic>[];
 
@@ -76,7 +77,9 @@ class BackendLeaderboardRepository extends LeaderboardRepository {
       playerId: playerId,
       playerName: playerName.isEmpty ? 'Pengguna YUDHA' : playerName,
       points: _readNullableInt(json['rankPoints'] ?? json['points']) ?? 0,
-      winRate: _readDouble(json['winrate'] ?? json['winRate']),
+      winRate: _readRate(
+        json['rankedWinRate'] ?? json['winrate'] ?? json['winRate'],
+      ),
       totalMatches:
           _readNullableInt(json['totalMatches'] ?? json['total_matches']) ?? 0,
       isCurrentUser: json['isCurrentUser'] == true,
@@ -202,6 +205,11 @@ class BackendLeaderboardRepository extends LeaderboardRepository {
       return double.tryParse(value) ?? 0;
     }
     return 0;
+  }
+
+  double _readRate(Object? value) {
+    final double rate = _readDouble(value);
+    return rate > 1 ? rate / 100 : rate;
   }
 }
 

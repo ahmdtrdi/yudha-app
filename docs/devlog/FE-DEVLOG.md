@@ -1922,3 +1922,23 @@
 ### The Tech Debt
 - Snake_case parsing remains as a compatibility path until all deployed profile responses use the canonical camelCase contract.
 
+## 2026-08-19 - Leaderboard And Performance Analytics Contract Alignment
+
+### The Change
+- Updated the mobile leaderboard parser to read the backend's `rankedWinRate` and normalize percentage values into the existing UI fraction format.
+- Updated Profile performance parsing to consume the current analytics response fields: `accuracy`, `sampleSize`, `subcategoryBreakdown`, and `publicMatches`.
+- Mapped backend `publicMatches.sampleSize` to the Profile PvP total-match metric and preserved compatibility with the previous `battle` response shape.
+- Added leaderboard and analytics repository coverage for the current backend payloads, including percentage normalization and total match counts.
+
+### The Reasoning
+- The backend already returned authoritative values, but older mobile field names caused missing values to default to zero.
+- Keeping normalization at the repository/model boundary lets existing widgets continue using their stable fraction-based display convention without recalculating server-owned statistics.
+- Supporting the legacy aliases avoids breaking older fixtures or deployed responses while the canonical contract rolls out.
+
+### Verification
+- Four focused Flutter repository tests passed for leaderboard and Profile analytics parsing.
+- Focused Dart diagnostics reported no issues in the touched files.
+
+### The Tech Debt
+- Compatibility aliases for legacy analytics and leaderboard fields can be removed after all deployed API environments use the canonical response shapes.
+

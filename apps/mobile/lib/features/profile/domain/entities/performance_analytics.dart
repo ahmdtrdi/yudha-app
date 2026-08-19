@@ -2,9 +2,12 @@ class PerformanceAnalytics {
   const PerformanceAnalytics({required this.practice, required this.battle});
 
   factory PerformanceAnalytics.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic> publicMatches = _readMap(json['publicMatches']);
     return PerformanceAnalytics(
       practice: PracticePerformance.fromJson(_readMap(json['practice'])),
-      battle: BattlePerformance.fromJson(_readMap(json['battle'])),
+      battle: BattlePerformance.fromJson(
+        publicMatches.isEmpty ? _readMap(json['battle']) : publicMatches,
+      ),
     );
   }
 
@@ -26,15 +29,17 @@ class PracticePerformance {
 
   factory PracticePerformance.fromJson(Map<String, dynamic> json) {
     return PracticePerformance(
-      overallAccuracy: _readDouble(json['overallAccuracy']),
-      totalAnswered: _readInt(json['totalAnswered']),
+      overallAccuracy: _readDouble(json['overallAccuracy'] ?? json['accuracy']),
+      totalAnswered: _readInt(json['totalAnswered'] ?? json['sampleSize']),
       categoryBreakdown: _readMaps(
         json['categoryBreakdown'],
       ).map(CategoryPerformance.fromJson).toList(growable: false),
       weakSubcategories: _readMaps(
-        json['weakSubcategories'],
+        json['weakSubcategories'] ?? json['subcategoryBreakdown'],
       ).map(SubcategoryPerformance.fromJson).toList(growable: false),
-      averageResponseTimeMs: _readInt(json['avgResponseTimeMs']),
+      averageResponseTimeMs: _readInt(
+        json['avgResponseTimeMs'] ?? json['averageResponseTimeMs'],
+      ),
     );
   }
 
@@ -55,10 +60,10 @@ class BattlePerformance {
 
   factory BattlePerformance.fromJson(Map<String, dynamic> json) {
     return BattlePerformance(
-      winRate: _readDouble(json['winrate']),
+      winRate: _readRate(json['winrate'] ?? json['winRate']),
       wins: _readInt(json['wins']),
       losses: _readInt(json['losses']),
-      totalMatches: _readInt(json['totalMatches']),
+      totalMatches: _readInt(json['totalMatches'] ?? json['sampleSize']),
     );
   }
 
@@ -79,7 +84,7 @@ class CategoryPerformance {
     return CategoryPerformance(
       category: json['category']?.toString() ?? '',
       accuracy: _readDouble(json['accuracy']),
-      totalAnswered: _readInt(json['totalAnswered']),
+      totalAnswered: _readInt(json['totalAnswered'] ?? json['sampleSize']),
     );
   }
 
@@ -99,7 +104,7 @@ class SubcategoryPerformance {
     return SubcategoryPerformance(
       subcategory: json['subcategory']?.toString() ?? '',
       accuracy: _readDouble(json['accuracy']),
-      totalAnswered: _readInt(json['totalAnswered']),
+      totalAnswered: _readInt(json['totalAnswered'] ?? json['sampleSize']),
     );
   }
 
@@ -122,6 +127,11 @@ double _readDouble(Object? value) {
   return value is num
       ? value.toDouble()
       : double.tryParse(value?.toString() ?? '') ?? 0;
+}
+
+double _readRate(Object? value) {
+  final double rate = _readDouble(value);
+  return rate > 1 ? rate / 100 : rate;
 }
 
 int _readInt(Object? value) {

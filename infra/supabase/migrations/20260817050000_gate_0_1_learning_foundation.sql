@@ -318,7 +318,7 @@ as $$
   with ordered as (
     select
       row_number() over (order by rank_points desc, wins desc, id asc) as rank,
-      id, username, rank_points, wins, losses, draws
+      id, username, rank_points, wins, losses, draws, total_matches
     from public.profiles
   ), page as (
     select * from ordered
@@ -335,6 +335,7 @@ as $$
         'rankPoints', rank_points,
         'tier', public.rank_tier(rank_points),
         'rankedWins', wins,
+        'totalMatches', total_matches,
         'rankedWinRate', case when wins + losses + draws = 0 then 0
           else round((wins::numeric / (wins + losses + draws)::numeric) * 100, 2) end
       ) order by rank) from page
@@ -353,7 +354,7 @@ as $$
   with ordered as (
     select
       row_number() over (order by rank_points desc, wins desc, id asc) as rank,
-      id, username, rank_points, wins, losses, draws
+      id, username, rank_points, wins, losses, draws, total_matches
     from public.profiles
   )
   select jsonb_build_object(
@@ -363,6 +364,7 @@ as $$
     'rankPoints', rank_points,
     'tier', public.rank_tier(rank_points),
     'rankedWins', wins,
+    'totalMatches', total_matches,
     'rankedWinRate', case when wins + losses + draws = 0 then 0
       else round((wins::numeric / (wins + losses + draws)::numeric) * 100, 2) end
   )
