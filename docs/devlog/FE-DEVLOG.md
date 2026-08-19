@@ -1965,3 +1965,121 @@
 - The deployed Railway API must be redeployed with the new activation route; stale deployments return `404 Cannot POST /hired-pass/beta-activate`.
 - Reward and entitlement UI still relies on the current season manifest and can later consume backend-provided presentation metadata.
 
+## 2026-08-19 - Practice Dashboard Clay Topic Cards
+
+### The Change
+- Redesigned only the Practice dashboard topic grid with a soft 3D/clay component language while leaving the question and result flow unchanged.
+- Replaced repeated category badges and the per-card `Sesi latihan dengan 5 soal.` copy with one section-level summary showing the topic count and five-question session rule.
+- Added distinct Flutter-native topic icons, pastel surfaces, darker card bases, labelled availability pills, short learning cues, and a tactile press-down animation.
+- Added button semantics to each topic card and retained the existing server-backed topic IDs, availability counts, and session-start behavior.
+- Expanded the focused Practice dashboard widget coverage for the consolidated metadata and new topic-card presentation.
+
+### The Reasoning
+- The previous cards spent their limited content on information already established by the section, leaving each topic without a strong visual identity.
+- A simple front/base construction creates the requested game-like physicality without adding image assets or changing the authoritative Practice contract.
+- Shared session rules belong at section level, while each card should communicate only its topic, available-question count, learning focus, and action.
+
+### Verification
+- Focused Dart analysis reported no issues in the Practice dashboard and widget test files.
+- All four focused Practice widget tests passed.
+
+### The Tech Debt
+- Topic icons, colors, and short learning cues are currently selected from stable topic-name patterns in the presentation layer. Backend-provided presentation metadata should replace this mapping if the topic catalog becomes dynamic or localized beyond the current taxonomy.
+
+## 2026-08-19 - Practice Topic Card Category Palette Refinement
+
+### The Change
+- Changed Practice topic-card palettes to derive from the parent group/category instead of individual topic names, giving every card within sections such as Kepribadian, TIU/Logika, TWK, AKHLAK, and TKD one consistent color family.
+- Kept topic-specific Flutter icons so individual cards remain recognizable without fragmenting the section palette.
+- Reduced topic-card height and removed the learning-description line and explicit `Mulai` label, leaving only the icon, labelled availability, topic title, and directional arrow.
+- Preserved the existing clay base, press animation, accessibility semantics, and server-backed navigation behavior.
+
+### The Reasoning
+- Category-owned color makes the content taxonomy easier to scan and prevents a single section from looking like an unrelated collection of tiles.
+- The whole card is already visibly pressable, so an additional action label and explanatory sentence added noise without improving discoverability.
+
+### Verification
+- Focused Dart analysis reported no issues.
+- All four focused Practice widget tests passed.
+
+### The Tech Debt
+- Category palettes still match stable frontend-readable group/category keywords. Backend presentation metadata should become authoritative if category labels or the enabled taxonomy become more dynamic.
+
+## 2026-08-19 - Compact Practice Topic Card Layout
+
+### The Change
+- Converted Practice topic cards from a vertically separated layout into compact horizontal tiles with the icon on the left and topic information on the right.
+- Reduced the fixed tile height from `144` to `108` logical pixels while retaining the clay base and press-down interaction.
+- Removed the available-question pill and directional arrow, leaving the topic title and one short learning description as the card's content.
+- Updated accessibility labels to announce the topic and its learning focus instead of exposing question-pool inventory.
+- Updated focused widget expectations for the new description-first presentation.
+
+### The Reasoning
+- Available-question inventory repeated the section's fixed five-question session rule and exposed a backend content-readiness concern that should not drive topic selection.
+- A short description helps users distinguish adjacent topics, while the compact two-column composition removes unused vertical space and remains visibly interactive through its clay treatment.
+
+### Verification
+- Focused Dart analysis reported no issues.
+- All four focused Practice widget tests passed.
+
+### The Tech Debt
+- Short topic descriptions are selected from stable frontend topic-name patterns. They should move to backend/content presentation metadata if the taxonomy expands or requires editorial localization.
+
+## 2026-08-19 - Ordered Practice Card Color Palette
+
+### The Change
+- Applied the supplied dark-blue, bright-blue, cyan, lime, orange, and pink palette only to Practice topic cards; restored the app bar, progress indicator, retry action, and Interview banner to their previous colors.
+- Assigned card colors by category display order: the first category uses bright blue with a dark-blue clay base, followed by cyan, lime, orange, and pink.
+- Added contrast-aware card copy so the bright-blue category uses white titles and cyan supporting text, while lighter categories use dark-blue text.
+- Expanded dashboard widget coverage to verify the first and second category surface colors.
+
+### The Reasoning
+- The requested palette describes category sequencing within the topic grid, not a page-wide recolor.
+- Keeping color ownership on the cards preserves the established hierarchy of the rest of the Practice dashboard while making adjacent categories immediately distinguishable.
+
+### Verification
+- Focused Dart analysis reported no issues.
+- All four focused Practice widget tests passed, including ordered palette assertions.
+
+### The Tech Debt
+- Category color is intentionally tied to backend response/display order. If categories later become user-sortable, the product will need to decide whether colors should travel with stable category IDs or continue representing visual order.
+
+## 2026-08-19 - Softened Practice Category Palette
+
+### The Change
+- Reduced the saturation of the ordered Practice card palette while preserving the blue, cyan, lime, orange, and pink sequence from the supplied reference.
+- Gave each category a light pastel card face, a dusty darker clay base, a medium-tint border/icon surface, and dark hue-matched title, icon, and supporting copy.
+- Kept the palette scoped exclusively to topic cards; all other Practice dashboard colors remain unchanged.
+- Updated focused palette assertions for the new soft blue and cyan surface values.
+
+### The Reasoning
+- The saturated reference established the desired hue direction, but its neon intensity competed with YUDHA's cream surface and reading-focused interface.
+- Using light, medium, and dark values from the same hue family preserves the playful clay construction while keeping labels readable and the overall screen calm.
+
+### Verification
+- Focused Dart analysis reported no issues.
+- All four focused Practice widget tests passed.
+
+### The Tech Debt
+- These pastel ramps are currently local to the Practice dashboard. If the visual direction expands across features, they should move into shared semantic theme tokens instead of being copied between pages.
+
+## 2026-08-19 - Practice Quiz State-Aware Clay CTA
+
+### The Change
+- Replaced only the Practice quiz's bottom primary `FilledButton` presentation with a tactile clay button while preserving the existing answer submission, progression, completion, loading, and navigation logic.
+- Added distinct semantic action colors: orange/gold for enabled `KONFIRMASI`, bright blue with a dark-blue base for `LANJUT`, and lime with a darker green base for completed `SELESAI`.
+- Added a muted, shallow disabled treatment before an answer is selected and retained an in-button loading indicator during submission.
+- Added press-depth animation, button semantics, and stable state/surface keys for focused widget coverage.
+- Expanded Practice tests with a two-question session to exercise the intermediate `LANJUT` state as well as disabled/enabled Confirm and completed states.
+
+### The Reasoning
+- Confirming an answer is a commitment, continuing is ordinary navigation, and completing a session is a reward moment; distinct color families make those meanings legible while labels remain the accessible source of truth.
+- Limiting clay treatment to the primary CTA keeps answer correctness, hints, explanations, and reading surfaces visually calm.
+
+### Verification
+- Focused Dart analysis reported no issues.
+- All five focused Practice widget tests passed, including CTA state-color assertions.
+
+### The Tech Debt
+- The CTA palette is local to the Practice quiz. It should become a shared semantic action component only after the same confirm/continue/complete pattern appears in at least two additional flows.
+

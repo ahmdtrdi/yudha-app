@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
+import 'package:yudha_mobile/core/theme/app_typography.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/practice/application/practice_providers.dart';
 import 'package:yudha_mobile/features/practice/application/practice_state.dart';
@@ -32,6 +33,11 @@ class PracticeQuizPage extends ConsumerWidget {
     final bool isCompleted = state.status == PracticeViewStatus.completed;
     final bool isSubmitting = state.status == PracticeViewStatus.submitting;
     final bool hasSelection = state.selectedOptionId != null;
+    final _QuizActionKind actionKind = !isSubmitted
+        ? _QuizActionKind.confirm
+        : isCompleted
+        ? _QuizActionKind.complete
+        : _QuizActionKind.next;
 
     return Scaffold(
       backgroundColor: AppColors.scholarCream,
@@ -345,21 +351,21 @@ class PracticeQuizPage extends ConsumerWidget {
               ),
               child: SizedBox(
                 width: double.infinity,
-                height: 56,
-                child: FilledButton(
+                height: 62,
+                child: _ClayQuizActionButton(
+                  kind: actionKind,
+                  isLoading: isSubmitting,
                   onPressed: hasSelection && !isSubmitting
                       ? () async {
                           if (!isSubmitted) {
                             final bool submitted = await controller
                                 .submitCurrentAnswer();
                             if (submitted &&
-                              ref
-                                  .read(practiceControllerProvider)
-                                  .status ==
-                                PracticeViewStatus.completed) {
+                                ref.read(practiceControllerProvider).status ==
+                                    PracticeViewStatus.completed) {
                               await ref
-                                .read(playerProgressProvider.notifier)
-                                .hydrateFromRepository();
+                                  .read(playerProgressProvider.notifier)
+                                  .hydrateFromRepository();
                             }
                             if (!submitted && context.mounted) {
                               final String message =
@@ -380,34 +386,100 @@ class PracticeQuizPage extends ConsumerWidget {
                           }
                         }
                       : null,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.warriorNavy,
-                    disabledBackgroundColor: AppColors.warriorNavy.withAlpha(
-                      15,
-                    ),
-                    disabledForegroundColor: AppColors.warriorNavy.withAlpha(
-                      80,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: isSubmitting
-                      ? const SizedBox.square(
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum _QuizActionKind { confirm, next, complete }
+
+class _ClayQuizActionButton extends StatefulWidget {
+  const _ClayQuizActionButton({
+    required this.kind,
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  final _QuizActionKind kind;
+  final bool isLoading;
+  final VoidCallback? onPressed;
+
+  @override
+  State<_ClayQuizActionButton> createState() => _ClayQuizActionButtonState();
+}
+
+class _ClayQuizActionButtonState extends State<_ClayQuizActionButton> {
+  bool _isPressed = false;
+
+  bool get _isEnabled => widget.onPressed != null;
+
+  @override
+  Widget build(BuildContext context) {
+    final _QuizActionPalette palette = _isEnabled
+        ? _QuizActionPalette.forKind(widget.kind)
+        : _QuizActionPalette.disabled;
+    final double depth = _isEnabled ? 6 : 3;
+    final double pressedOffset = _isPressed ? 4 : 0;
+
+    return Semantics(
+      button: true,
+      enabled: _isEnabled,
+      label: _label,
+      child: InkWell(
+        key: ValueKey<String>('practice-action-${widget.kind.name}'),
+        onTap: widget.onPressed,
+        onHighlightChanged: _isEnabled
+            ? (bool value) => setState(() => _isPressed = value)
+            : null,
+        borderRadius: BorderRadius.circular(17),
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        child: Stack(
+          children: <Widget>[
+            Positioned.fill(
+              top: depth,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: palette.baseColor,
+                  borderRadius: BorderRadius.circular(17),
+                ),
+              ),
+            ),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 90),
+              curve: Curves.easeOut,
+              top: pressedOffset,
+              right: 0,
+              bottom: depth - pressedOffset,
+              left: 0,
+              child: DecoratedBox(
+                key: ValueKey<String>(
+                  'practice-action-surface-${widget.kind.name}',
+                ),
+                decoration: BoxDecoration(
+                  color: palette.frontColor,
+                  borderRadius: BorderRadius.circular(17),
+                ),
+                child: Center(
+                  child: widget.isLoading
+                      ? SizedBox.square(
                           dimension: 22,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: palette.foregroundColor,
                           ),
                         )
                       : Text(
-                          !isSubmitted
-                              ? 'KONFIRMASI'
-                              : (isCompleted ? 'SELESAI' : 'LANJUT'),
-                          style: GoogleFonts.dmSans(
-                            fontWeight: FontWeight.bold,
+                          _label,
+                          style: AppTypography.heading(
+                            color: palette.foregroundColor,
                             fontSize: 16,
-                            letterSpacing: 0,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                 ),
@@ -417,6 +489,50 @@ class PracticeQuizPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  String get _label => switch (widget.kind) {
+    _QuizActionKind.confirm => 'KONFIRMASI',
+    _QuizActionKind.next => 'LANJUT',
+    _QuizActionKind.complete => 'SELESAI',
+  };
+}
+
+class _QuizActionPalette {
+  const _QuizActionPalette({
+    required this.frontColor,
+    required this.baseColor,
+    required this.foregroundColor,
+  });
+
+  final Color frontColor;
+  final Color baseColor;
+  final Color foregroundColor;
+
+  static const _QuizActionPalette disabled = _QuizActionPalette(
+    frontColor: Color(0xFFEAE6DE),
+    baseColor: Color(0xFFCFC8BC),
+    foregroundColor: Color(0xFF858897),
+  );
+
+  factory _QuizActionPalette.forKind(_QuizActionKind kind) {
+    return switch (kind) {
+      _QuizActionKind.confirm => const _QuizActionPalette(
+        frontColor: AppColors.fireGold,
+        baseColor: Color(0xFFD97928),
+        foregroundColor: Color(0xFF442B1D),
+      ),
+      _QuizActionKind.next => const _QuizActionPalette(
+        frontColor: Color(0xFF0066DE),
+        baseColor: Color(0xFF000180),
+        foregroundColor: Colors.white,
+      ),
+      _QuizActionKind.complete => const _QuizActionPalette(
+        frontColor: AppColors.growthLime,
+        baseColor: Color(0xFF69AB2D),
+        foregroundColor: Color(0xFF173A20),
+      ),
+    };
   }
 }
 
