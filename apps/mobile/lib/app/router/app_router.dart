@@ -13,6 +13,7 @@ import 'package:yudha_mobile/features/leaderboard/presentation/pages/leaderboard
 import 'package:yudha_mobile/features/lobby/presentation/pages/lobby_page.dart';
 import 'package:yudha_mobile/features/onboarding/presentation/pages/splash_page.dart';
 import 'package:yudha_mobile/features/pass/presentation/pages/hired_pass_page.dart';
+import 'package:yudha_mobile/features/practice/presentation/pages/practice_history_page.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_page.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_quiz_page.dart';
 import 'package:yudha_mobile/features/profile/presentation/pages/profile_onboarding_page.dart';
@@ -101,6 +102,10 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
           GoRoute(
             path: AppRoutes.practiceQuiz,
             builder: (context, state) => const PracticeQuizPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.practiceHistory,
+            builder: (context, state) => const PracticeHistoryPage(),
           ),
           GoRoute(
             path: AppRoutes.profile,

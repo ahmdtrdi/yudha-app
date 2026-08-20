@@ -9,6 +9,7 @@ void main() {
       AppRoutes.pvp,
       AppRoutes.leaderboard,
       AppRoutes.practice,
+      AppRoutes.practiceHistory,
       AppRoutes.practiceQuiz,
       AppRoutes.profile,
       AppRoutes.interviewSetup,

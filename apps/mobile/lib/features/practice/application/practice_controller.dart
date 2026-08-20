@@ -20,8 +20,10 @@ class PracticeController extends StateNotifier<PracticeState> {
 
   final PracticeRepository _repository;
   final DateTime Function() _now;
+  PracticeTopic? _activeTopic;
 
   Future<void> load() async {
+    _activeTopic = null;
     state = state.copyWith(
       status: PracticeViewStatus.loading,
       clearSession: true,
@@ -74,6 +76,15 @@ class PracticeController extends StateNotifier<PracticeState> {
       return false;
     }
 
+    return startTopic(topic);
+  }
+
+  Future<bool> startTopic(PracticeTopic topic) async {
+    if (topic.isLocked) {
+      return false;
+    }
+
+    _activeTopic = topic;
     state = state.copyWith(
       status: PracticeViewStatus.loading,
       selectedTopicId: topic.id,
@@ -231,11 +242,11 @@ class PracticeController extends StateNotifier<PracticeState> {
   }
 
   Future<bool> restartSession() {
-    final String? topicId = state.selectedTopicId;
-    if (topicId == null) {
+    final PracticeTopic? topic = _activeTopic;
+    if (topic == null) {
       return Future<bool>.value(false);
     }
-    return startSession(topicId);
+    return startTopic(topic);
   }
 
   void unlockHint() {

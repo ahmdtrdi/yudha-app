@@ -1,8 +1,14 @@
 import 'package:yudha_mobile/features/practice/domain/entities/practice_dashboard.dart';
+import 'package:yudha_mobile/features/practice/domain/entities/practice_history_batch.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_session.dart';
 
 abstract class PracticeRepository {
   Future<PracticeDashboard> fetchDashboard();
+
+  Future<PracticeHistoryBatch> fetchHistory({
+    required int limit,
+    required int offset,
+  });
 
   Future<PracticeSession> startSession({
     required String category,

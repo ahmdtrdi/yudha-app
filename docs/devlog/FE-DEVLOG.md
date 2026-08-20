@@ -2106,3 +2106,67 @@
 - The MVP ad service intentionally records non-blocking placements only. A production ad SDK, consent flow, failure policy, and telemetry still need product and platform integration.
 - Mobile currently exposes Bot, Casual, and Ranked matchmaking. If a distinct Private mode is added, it must remain explicitly excluded from result-exit placements and receive focused coverage.
 
+## 2026-08-20 - Four-Topic Practice Dashboard
+
+### The Change
+- Replaced the backend-driven Practice category sections with one target-aware section titled `LATIHAN SOAL CPNS` or `LATIHAN SOAL BUMN`.
+- Limited the dashboard to four stable user-facing cards: Verbal, Numerik, Logika, and either TWK for CPNS or AKHLAK for BUMN.
+- Assigned the existing soft blue, cyan, lime, and orange clay palettes by card position so every topic has a distinct, consistent color.
+- Removed the topic-name description fallback and gave the four frontend topics deliberate Indonesian supporting copy and matching Flutter-native icons.
+- Preserved backend filtering beneath the simplified cards: aptitude topics launch their exact category/subcategory when available, while TWK and AKHLAK launch category-wide five-question sessions. The Practice controller now retains aggregate topic filters for restart behavior.
+- Expanded focused widget and controller coverage for CPNS/BUMN copy, stale subcategory suppression, ordered card colors, category-wide launch filters, and aggregate restarts.
+
+### The Reasoning
+- Database subcategories such as Analitis, Implikasi, or Silogisme are content classifications, not useful top-level choices for the current Practice dashboard.
+- Four predictable choices reduce taxonomy noise while keeping session generation server-authoritative and compatible with both the canonical TIU/TKD structure and the older `kepribadian` BUMN category alias.
+
+### Verification
+- Focused Dart analysis completed with no issues.
+- All 12 focused Practice widget and controller tests passed.
+- `git diff --check` completed without whitespace errors.
+
+### The Tech Debt
+- The four-card adapter temporarily recognizes `kepribadian` as a BUMN alias until deployed question data is normalized to the PRD's canonical `akhlak` category.
+- Backend content sync still needs to deactivate stale canonical-managed questions and the dashboard contract should eventually expose a stable, session-ready topic catalog instead of every distinct database subcategory.
+
+## 2026-08-20 - BUMN Practice Category Label Alignment
+
+### The Change
+- Renamed the fourth BUMN Practice card from uppercase `AKHLAK` to title-case `Kepribadian`, matching the category identifier returned by the deployed database and the casing of Verbal, Numerik, and Logika.
+- Updated its supporting copy to `Kenali karakter dan sikap kerja` while preserving the category-wide `kepribadian` session filter.
+- Updated focused BUMN dashboard expectations for the corrected label and description.
+
+### The Reasoning
+- The frontend should not translate an authoritative `kepribadian` category into a different taxonomy label, especially when the other three cards directly reflect backend categories.
+- Consistent title casing keeps all four peer cards at the same visual level; uppercase remains appropriate only for genuine abbreviations such as TWK.
+
+### Verification
+- Focused Practice widget and controller tests passed.
+- Focused Dart analysis reported no issues.
+
+### The Tech Debt
+- The repository PRD and canonical content bank still use `akhlak` while the deployed BUMN database uses `kepribadian`; backend and product taxonomy should be reconciled so the frontend no longer needs to recognize both identifiers.
+
+## 2026-08-20 - Practice Recent Activity Cap and Full History
+
+### The Change
+- Limited `TERAKHIR DIKERJAKAN` on the Practice dashboard to the three newest activities returned by the dashboard response.
+- Added a compact `Lihat semua` text action with a 44-pixel tap target and registered the authenticated `/practice/history` route.
+- Added a full Practice history screen backed by `GET /practice/history`, including pull-to-refresh, empty/error states, 20-row pagination, and `Muat lebih banyak` behavior.
+- Added a shared Practice activity tile so dashboard and full-history rows keep one presentation implementation.
+- Extended the Practice repository, provider, controller, and domain state with offset-based history retrieval while leaving the existing dashboard loading flow unchanged.
+- Added focused coverage for the three-row cap, pagination, endpoint query/response parsing, and private-route registration.
+
+### The Reasoning
+- The dashboard should provide a quick snapshot rather than grow into an unbounded activity feed, while a dedicated screen can support deliberate history review.
+- A small text action preserves the topic cards as the page's primary actions without sacrificing accessibility or making the history destination appear decorative.
+
+### Verification
+- Focused Dart analysis completed with no issues.
+- All 22 focused router, repository, Practice controller, and widget tests passed.
+- `git diff --check` completed without whitespace errors.
+
+### The Tech Debt
+- Both dashboard `recentSessions` and `/practice/history` currently include unfinished sessions. The backend should distinguish completed history from the single resumable active session so empty abandoned sessions do not dominate either feed.
+- History rows reuse the current summary contract, which has timestamps but the mobile activity model does not yet expose them. Adding a human-readable completion date would make repeated category attempts easier to distinguish.
+

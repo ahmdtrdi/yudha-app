@@ -10,6 +10,7 @@ import 'package:yudha_mobile/features/practice/application/practice_providers.da
 import 'package:yudha_mobile/features/practice/application/practice_state.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_recent_activity.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_topic.dart';
+import 'package:yudha_mobile/features/practice/presentation/widgets/practice_activity_tile.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
@@ -18,7 +19,6 @@ abstract final class _PracticeColors {
   static const Color cyan = Color(0xFFE0F6FB);
   static const Color lime = Color(0xFFEBF8DA);
   static const Color orange = Color(0xFFFDE9D6);
-  static const Color pink = Color(0xFFF8E5F1);
 }
 
 class PracticePage extends ConsumerStatefulWidget {
@@ -54,13 +54,17 @@ class _PracticePageState extends ConsumerState<PracticePage> {
     final InterviewLaunchConfig interviewConfig = isCpns
         ? InterviewLaunchConfig.cpnsDefault()
         : InterviewLaunchConfig.bumnDefault();
-    final Map<String, List<PracticeTopic>> topicGroups = _groupTopics(
+    final List<PracticeTopic> practiceTopics = _buildPracticeTopics(
       state.topics,
+      isCpns: isCpns,
     );
+    final List<PracticeRecentActivity> recentActivities = state.recentActivities
+        .take(3)
+        .toList(growable: false);
     _scheduleFocusedPractice(state);
 
-    Future<void> openQuiz(String topicId) async {
-      final bool started = await controller.startSession(topicId);
+    Future<void> openQuiz(PracticeTopic topic) async {
+      final bool started = await controller.startTopic(topic);
       if (!context.mounted) {
         return;
       }
@@ -148,36 +152,58 @@ class _PracticePageState extends ConsumerState<PracticePage> {
                         onTap: openInterviewPractice,
                       ),
                       const SizedBox(height: 24),
-                      for (final group
-                          in topicGroups.entries.indexed) ...<Widget>[
-                        _CategorySection(
-                          title: group.$2.key,
-                          items: group.$2.value,
-                          paletteIndex: group.$1,
-                          onTapTopic: openQuiz,
+                      _CategorySection(
+                        title: isCpns
+                            ? 'LATIHAN SOAL CPNS'
+                            : 'LATIHAN SOAL BUMN',
+                        items: practiceTopics,
+                        onTapTopic: openQuiz,
+                      ),
+                      const SizedBox(height: 24),
+                      if (recentActivities.isNotEmpty) ...<Widget>[
+                        Row(
+                          children: <Widget>[
+                            const Expanded(
+                              child: Text(
+                                'TERAKHIR DIKERJAKAN',
+                                style: TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  letterSpacing: 0,
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              height: 44,
+                              child: TextButton(
+                                onPressed: () =>
+                                    context.push(AppRoutes.practiceHistory),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppColors.warriorNavy,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  textStyle: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                child: const Text('Lihat semua'),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 24),
-                      ],
-                      if (state.recentActivities.isNotEmpty) ...<Widget>[
-                        const Text(
-                          'TERAKHIR DIKERJAKAN',
-                          style: TextStyle(
-                            color: AppColors.textMuted,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
                         for (
                           int index = 0;
-                          index < state.recentActivities.length;
+                          index < recentActivities.length;
                           index++
                         ) ...<Widget>[
-                          _RecentActivityTile(
-                            activity: state.recentActivities[index],
+                          PracticeActivityTile(
+                            activity: recentActivities[index],
                           ),
-                          if (index != state.recentActivities.length - 1)
+                          if (index != recentActivities.length - 1)
                             const SizedBox(height: 8),
                         ],
                       ],
@@ -192,13 +218,112 @@ class _PracticePageState extends ConsumerState<PracticePage> {
     );
   }
 
-  Map<String, List<PracticeTopic>> _groupTopics(List<PracticeTopic> topics) {
-    final Map<String, List<PracticeTopic>> groups =
-        <String, List<PracticeTopic>>{};
+  List<PracticeTopic> _buildPracticeTopics(
+    List<PracticeTopic> sourceTopics, {
+    required bool isCpns,
+  }) {
+    final String aptitudeCategory = isCpns ? 'tiu' : 'tkd';
+    return <PracticeTopic>[
+      _buildPracticeTopic(
+        sourceTopics,
+        name: 'Verbal',
+        description: 'Pahami kata dan hubungan makna',
+        fallbackCategory: aptitudeCategory,
+        subcategory: 'verbal',
+      ),
+      _buildPracticeTopic(
+        sourceTopics,
+        name: 'Numerik',
+        description: 'Latih hitungan dan penalaran angka',
+        fallbackCategory: aptitudeCategory,
+        subcategory: 'numerik',
+      ),
+      _buildPracticeTopic(
+        sourceTopics,
+        name: 'Logika',
+        description: 'Temukan pola dan tarik kesimpulan',
+        fallbackCategory: aptitudeCategory,
+        subcategory: 'logika',
+      ),
+      _buildGeneralKnowledgeTopic(sourceTopics, isCpns: isCpns),
+    ];
+  }
+
+  PracticeTopic _buildPracticeTopic(
+    List<PracticeTopic> sourceTopics, {
+    required String name,
+    required String description,
+    required String fallbackCategory,
+    required String subcategory,
+  }) {
+    final String normalizedSubcategory = subcategory.toLowerCase();
+    final PracticeTopic? exactSubcategory = _firstTopicWhere(
+      sourceTopics,
+      (PracticeTopic topic) =>
+          topic.subcategory?.trim().toLowerCase() == normalizedSubcategory,
+    );
+    final PracticeTopic? categoryTopic = _firstTopicWhere(
+      sourceTopics,
+      (PracticeTopic topic) =>
+          topic.category.trim().toLowerCase() == normalizedSubcategory,
+    );
+    final PracticeTopic? source = exactSubcategory ?? categoryTopic;
+    final bool launchesWholeCategory =
+        exactSubcategory == null && categoryTopic != null;
+    final String category = source?.category ?? fallbackCategory;
+    final String? launchSubcategory = launchesWholeCategory
+        ? null
+        : source?.subcategory ?? subcategory;
+
+    return PracticeTopic(
+      id: 'practice-${name.toLowerCase()}',
+      category: category,
+      subcategory: launchSubcategory,
+      name: name,
+      description: description,
+      groupTitle: 'LATIHAN SOAL',
+      questionCount: source?.questionCount ?? 0,
+      isLocked: source?.isLocked ?? false,
+    );
+  }
+
+  PracticeTopic _buildGeneralKnowledgeTopic(
+    List<PracticeTopic> sourceTopics, {
+    required bool isCpns,
+  }) {
+    final List<String> categoryAliases = isCpns
+        ? const <String>['twk']
+        : const <String>['akhlak', 'kepribadian'];
+    final PracticeTopic? source = _firstTopicWhere(
+      sourceTopics,
+      (PracticeTopic topic) =>
+          categoryAliases.contains(topic.category.trim().toLowerCase()),
+    );
+    final String name = isCpns ? 'TWK' : 'Kepribadian';
+
+    return PracticeTopic(
+      id: 'practice-${name.toLowerCase()}',
+      category: source?.category ?? categoryAliases.first,
+      name: name,
+      description: isCpns
+          ? 'Perkuat wawasan kebangsaan'
+          : 'Kenali karakter dan sikap kerja',
+      groupTitle: 'LATIHAN SOAL',
+      questionCount: source?.questionCount ?? 0,
+      isLocked: source?.isLocked ?? false,
+    );
+  }
+
+  PracticeTopic? _firstTopicWhere(
+    List<PracticeTopic> topics,
+    bool Function(PracticeTopic topic) matches,
+  ) {
     for (final PracticeTopic topic in topics) {
-      groups.putIfAbsent(topic.groupTitle, () => <PracticeTopic>[]).add(topic);
+      if (matches(topic)) {
+        return topic;
+      }
     }
-    return groups;
+    return null;
   }
 
   void _scheduleFocusedPractice(PracticeState state) {
@@ -418,14 +543,12 @@ class _CategorySection extends StatelessWidget {
   const _CategorySection({
     required this.title,
     required this.items,
-    required this.paletteIndex,
     required this.onTapTopic,
   });
 
   final String title;
   final List<PracticeTopic> items;
-  final int paletteIndex;
-  final ValueChanged<String> onTapTopic;
+  final ValueChanged<PracticeTopic> onTapTopic;
 
   @override
   Widget build(BuildContext context) {
@@ -465,8 +588,8 @@ class _CategorySection extends StatelessWidget {
             return _PracticeTopicCard(
               key: ValueKey<String>('practice-topic-${item.id}'),
               topic: item,
-              paletteIndex: paletteIndex,
-              onTap: () => onTapTopic(item.id),
+              paletteIndex: index,
+              onTap: () => onTapTopic(item),
             );
           },
         ),
@@ -500,7 +623,7 @@ class _PracticeTopicCardState extends State<_PracticeTopicCard> {
       widget.topic,
       widget.paletteIndex,
     );
-    final String description = _TopicVisual.descriptionFor(widget.topic);
+    final String description = widget.topic.description;
 
     return Semantics(
       button: true,
@@ -647,46 +770,11 @@ class _TopicVisual {
   static IconData _iconForTopic(PracticeTopic topic) {
     final String value = '${topic.name} ${topic.subcategory ?? ''}'
         .toLowerCase();
-    if (value.contains('adapt')) return Icons.autorenew_rounded;
-    if (value.contains('inov')) return Icons.lightbulb_rounded;
-    if (value.contains('integr')) return Icons.verified_user_rounded;
-    if (value.contains('kolabor')) return Icons.groups_rounded;
-    if (value.contains('pelayan') || value.contains('service')) {
-      return Icons.volunteer_activism_rounded;
-    }
-    if (value.contains('profes')) return Icons.workspace_premium_rounded;
     if (value.contains('numer')) return Icons.calculate_rounded;
     if (value.contains('verbal')) return Icons.forum_rounded;
     if (value.contains('logika')) return Icons.extension_rounded;
-    return Icons.school_rounded;
-  }
-
-  static String descriptionFor(PracticeTopic topic) {
-    final String value = '${topic.name} ${topic.subcategory ?? ''}'
-        .toLowerCase();
-    if (value.contains('adapt')) return 'Siap menghadapi perubahan';
-    if (value.contains('inov')) return 'Ide baru dan solusi kreatif';
-    if (value.contains('integr')) return 'Jujur, etis, dan konsisten';
-    if (value.contains('kolabor')) return 'Kerja sama dalam tim';
-    if (value.contains('pelayan') || value.contains('service')) {
-      return 'Fokus pada kebutuhan orang lain';
-    }
-    if (value.contains('profes')) return 'Standar kerja dan tanggung jawab';
-    if (value.contains('numer')) return 'Hitung cepat dan akurat';
-    if (value.contains('verbal')) return 'Pahami kata dan hubungan makna';
-    if (value.contains('logika')) return 'Temukan pola dan kesimpulan';
-    if (value.contains('nasional')) return 'Pahami nilai kebangsaan';
-    if (value.contains('konstitusi')) return 'Kenali dasar aturan negara';
-    if (value.contains('governance') || value.contains('pemerintah')) {
-      return 'Pahami tata kelola pemerintahan';
-    }
-    if (value.contains('amanah')) {
-      return 'Pegang kepercayaan dan tanggung jawab';
-    }
-    if (value.contains('kompeten')) return 'Terus belajar dan berkembang';
-    if (value.contains('harmonis')) return 'Bangun kepedulian dan perbedaan';
-    if (value.contains('loyal')) return 'Utamakan kepentingan bersama';
-    return 'Asah pemahaman topik ini';
+    if (value.contains('twk')) return Icons.account_balance_rounded;
+    return Icons.shield_rounded;
   }
 }
 
@@ -704,7 +792,7 @@ class _TopicPalette {
   final Color iconColor;
 
   factory _TopicPalette.forIndex(int categoryIndex) {
-    return switch (categoryIndex % 5) {
+    return switch (categoryIndex % 4) {
       0 => const _TopicPalette(
         frontColor: _PracticeColors.blue,
         baseColor: Color(0xFF91AFE4),
@@ -723,99 +811,12 @@ class _TopicPalette {
         borderColor: Color(0xFFCFE5B9),
         iconColor: Color(0xFFD6EDBE),
       ),
-      3 => const _TopicPalette(
+      _ => const _TopicPalette(
         frontColor: _PracticeColors.orange,
         baseColor: Color(0xFFDDA476),
         borderColor: Color(0xFFEEC9A9),
         iconColor: Color(0xFFF5CCAA),
       ),
-      _ => const _TopicPalette(
-        frontColor: _PracticeColors.pink,
-        baseColor: Color(0xFFD3A0C0),
-        borderColor: Color(0xFFE9C6DB),
-        iconColor: Color(0xFFF0CFE3),
-      ),
     };
-  }
-}
-
-class _RecentActivityTile extends StatelessWidget {
-  const _RecentActivityTile({required this.activity});
-
-  final PracticeRecentActivity activity;
-
-  @override
-  Widget build(BuildContext context) {
-    final IconData icon = switch (activity.type) {
-      PracticeRecentActivityType.insight => Icons.lightbulb_outline,
-      PracticeRecentActivityType.interview => Icons.record_voice_over_rounded,
-      PracticeRecentActivityType.quiz => Icons.article_outlined,
-    };
-    final Color scoreColor = switch (activity.type) {
-      PracticeRecentActivityType.insight => AppColors.fireGold,
-      PracticeRecentActivityType.interview => AppColors.warriorNavy,
-      PracticeRecentActivityType.quiz => AppColors.levelUpTeal,
-    };
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.warriorNavy.withAlpha(20)),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: AppColors.warriorNavy.withAlpha(5),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: <Widget>[
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.scholarCream,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: AppColors.warriorNavy, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  activity.title,
-                  style: const TextStyle(
-                    color: AppColors.textStrong,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  activity.subtitle,
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            activity.scoreLabel,
-            style: TextStyle(
-              color: scoreColor,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

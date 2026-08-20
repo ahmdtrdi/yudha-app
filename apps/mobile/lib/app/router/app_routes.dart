@@ -9,6 +9,7 @@ abstract final class AppRoutes {
   static const String pvp = '/pvp';
   static const String leaderboard = '/leaderboard';
   static const String practice = '/practice';
+  static const String practiceHistory = '/practice/history';
   static const String practiceQuiz = '/practice/quiz';
   static const String profile = '/profile';
   static const String interviewSetup = '/interview/setup';
@@ -28,6 +29,7 @@ abstract final class AppRoutes {
     pvp,
     leaderboard,
     practice,
+    practiceHistory,
     practiceQuiz,
     profile,
     interviewSetup,
