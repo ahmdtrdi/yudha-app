@@ -10,13 +10,19 @@ import 'package:yudha_mobile/features/gamification/data/repositories/player_prog
 import 'package:yudha_mobile/features/practice/application/practice_providers.dart';
 import 'package:yudha_mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_dashboard.dart';
+import 'package:yudha_mobile/features/practice/domain/entities/practice_history_batch.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_option.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_question.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_recent_activity.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_session.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_topic.dart';
+import 'package:yudha_mobile/features/practice/presentation/pages/practice_history_page.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_page.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_quiz_page.dart';
+import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
+import 'package:yudha_mobile/features/profile/application/profile_settings_storage.dart';
+import 'package:yudha_mobile/features/profile/domain/entities/profile_settings.dart';
+import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
 class _SuccessPracticeRepository implements PracticeRepository {
   const _SuccessPracticeRepository();
@@ -32,15 +38,43 @@ class _SuccessPracticeRepository implements PracticeRepository {
     questionCount: 12,
   );
 
-  static const PracticeTopic secondCategoryTopic = PracticeTopic(
-    id: 'VERBAL::Sinonim',
-    category: 'VERBAL',
-    subcategory: 'Sinonim',
-    name: 'Sinonim',
+  static const PracticeTopic verbalTopic = PracticeTopic(
+    id: 'TIU::Verbal',
+    category: 'TIU',
+    subcategory: 'Verbal',
+    name: 'Verbal',
     description: 'Sesi latihan dengan 5 soal.',
-    groupTitle: 'BAHASA',
-    badgeLabel: 'Verbal',
+    groupTitle: 'TIU - INTELEGENSIA UMUM',
     questionCount: 8,
+  );
+
+  static const PracticeTopic numerikTopic = PracticeTopic(
+    id: 'TIU::Numerik',
+    category: 'TIU',
+    subcategory: 'Numerik',
+    name: 'Numerik',
+    description: 'Sesi latihan dengan 5 soal.',
+    groupTitle: 'TIU - INTELEGENSIA UMUM',
+    questionCount: 10,
+  );
+
+  static const PracticeTopic twkTopic = PracticeTopic(
+    id: 'TWK',
+    category: 'TWK',
+    name: 'TWK',
+    description: 'Sesi latihan dengan 5 soal.',
+    groupTitle: 'KATEGORI LATIHAN',
+    questionCount: 20,
+  );
+
+  static const PracticeTopic staleTopic = PracticeTopic(
+    id: 'VERBAL::Silogisme',
+    category: 'VERBAL',
+    subcategory: 'Silogisme',
+    name: 'Silogisme',
+    description: 'Sesi latihan dengan 5 soal.',
+    groupTitle: 'VERBAL',
+    questionCount: 5,
   );
 
   static const PracticeQuestion question = PracticeQuestion(
@@ -63,9 +97,72 @@ class _SuccessPracticeRepository implements PracticeRepository {
   @override
   Future<PracticeDashboard> fetchDashboard() async {
     return const PracticeDashboard(
-      topics: <PracticeTopic>[topic, secondCategoryTopic],
+      topics: <PracticeTopic>[
+        topic,
+        verbalTopic,
+        numerikTopic,
+        twkTopic,
+        staleTopic,
+      ],
       overallProgressPercent: 28,
-      recentActivities: <PracticeRecentActivity>[],
+      recentActivities: <PracticeRecentActivity>[
+        PracticeRecentActivity(
+          type: PracticeRecentActivityType.quiz,
+          title: 'Riwayat 1',
+          subtitle: '5 dari 5 soal',
+          scoreLabel: '100%',
+        ),
+        PracticeRecentActivity(
+          type: PracticeRecentActivityType.quiz,
+          title: 'Riwayat 2',
+          subtitle: '5 dari 5 soal',
+          scoreLabel: '80%',
+        ),
+        PracticeRecentActivity(
+          type: PracticeRecentActivityType.quiz,
+          title: 'Riwayat 3',
+          subtitle: '5 dari 5 soal',
+          scoreLabel: '60%',
+        ),
+        PracticeRecentActivity(
+          type: PracticeRecentActivityType.quiz,
+          title: 'Riwayat 4',
+          subtitle: '5 dari 5 soal',
+          scoreLabel: '40%',
+        ),
+        PracticeRecentActivity(
+          type: PracticeRecentActivityType.quiz,
+          title: 'Riwayat 5',
+          subtitle: '5 dari 5 soal',
+          scoreLabel: '20%',
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<PracticeHistoryBatch> fetchHistory({
+    required int limit,
+    required int offset,
+  }) async {
+    final List<PracticeRecentActivity> allItems =
+        List<PracticeRecentActivity>.generate(
+          21,
+          (int index) => PracticeRecentActivity(
+            type: PracticeRecentActivityType.quiz,
+            title: 'Riwayat ${index + 1}',
+            subtitle: '5 dari 5 soal',
+            scoreLabel: '80%',
+          ),
+        );
+    final int end = (offset + limit).clamp(0, allItems.length);
+    return PracticeHistoryBatch(
+      items: offset >= allItems.length
+          ? const <PracticeRecentActivity>[]
+          : allItems.sublist(offset, end),
+      limit: limit,
+      offset: offset,
+      total: allItems.length,
     );
   }
 
@@ -143,6 +240,62 @@ class _RecordingPlayerProgressRepository extends PlayerProgressRepository {
       ],
     );
   }
+}
+
+class _BumnPracticeRepository extends _SuccessPracticeRepository {
+  const _BumnPracticeRepository();
+
+  @override
+  Future<PracticeDashboard> fetchDashboard() async {
+    return const PracticeDashboard(
+      topics: <PracticeTopic>[
+        PracticeTopic(
+          id: 'TKD::Verbal',
+          category: 'tkd',
+          subcategory: 'verbal',
+          name: 'Verbal',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'TKD',
+        ),
+        PracticeTopic(
+          id: 'TKD::Numerik',
+          category: 'tkd',
+          subcategory: 'numerik',
+          name: 'Numerik',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'TKD',
+        ),
+        PracticeTopic(
+          id: 'TKD::Logika',
+          category: 'tkd',
+          subcategory: 'logika',
+          name: 'Logika',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'TKD',
+        ),
+        PracticeTopic(
+          id: 'kepribadian::adaptif',
+          category: 'kepribadian',
+          subcategory: 'adaptif',
+          name: 'Adaptif',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'KEPRIBADIAN',
+        ),
+      ],
+      overallProgressPercent: 12,
+      recentActivities: <PracticeRecentActivity>[],
+    );
+  }
+}
+
+class _NoopProfileSettingsStorage implements ProfileSettingsStorage {
+  const _NoopProfileSettingsStorage();
+
+  @override
+  Future<ProfileSettings?> load() async => null;
+
+  @override
+  Future<void> save(ProfileSettings settings) async {}
 }
 
 class _TwoQuestionPracticeRepository extends _SuccessPracticeRepository {
@@ -226,34 +379,63 @@ void main() {
     expect(find.text('LATIHAN'), findsOneWidget);
     expect(find.text('Progress CPNS'), findsOneWidget);
     expect(find.text('Latihan Interview AI'), findsOneWidget);
-    expect(find.text('TIU - INTELEGENSIA UMUM'), findsOneWidget);
-    expect(find.text('1 topik • 5 soal per sesi'), findsNWidgets(2));
-    expect(find.text('Temukan pola dan kesimpulan'), findsOneWidget);
+    expect(find.text('LATIHAN SOAL CPNS'), findsOneWidget);
+    expect(find.text('4 topik • 5 soal per sesi'), findsOneWidget);
+    expect(find.text('Verbal'), findsOneWidget);
+    expect(find.text('Numerik'), findsOneWidget);
+    expect(find.text('Logika'), findsOneWidget);
+    expect(find.text('TWK'), findsOneWidget);
+    expect(find.text('Silogisme'), findsNothing);
+    expect(find.text('Temukan pola dan tarik kesimpulan'), findsOneWidget);
     expect(find.text('12 tersedia'), findsNothing);
     expect(find.text('Mulai'), findsNothing);
     expect(find.byIcon(Icons.arrow_forward_rounded), findsNothing);
     expect(find.text('Sesi latihan dengan 5 soal.'), findsNothing);
     expect(
-      find.byKey(const ValueKey<String>('practice-topic-TIU::Logika')),
+      find.byKey(const ValueKey<String>('practice-topic-practice-verbal')),
       findsOneWidget,
     );
-    final DecoratedBox topicSurface = tester.widget<DecoratedBox>(
-      find.byKey(const ValueKey<String>('practice-topic-surface-TIU::Logika')),
-    );
-    expect(
-      (topicSurface.decoration as BoxDecoration).color,
-      const Color(0xFFE4EEFF),
-    );
-    final DecoratedBox secondCategorySurface = tester.widget<DecoratedBox>(
+    final DecoratedBox verbalSurface = tester.widget<DecoratedBox>(
       find.byKey(
-        const ValueKey<String>('practice-topic-surface-VERBAL::Sinonim'),
+        const ValueKey<String>('practice-topic-surface-practice-verbal'),
       ),
     );
     expect(
-      (secondCategorySurface.decoration as BoxDecoration).color,
+      (verbalSurface.decoration as BoxDecoration).color,
+      const Color(0xFFE4EEFF),
+    );
+    final DecoratedBox numerikSurface = tester.widget<DecoratedBox>(
+      find.byKey(
+        const ValueKey<String>('practice-topic-surface-practice-numerik'),
+      ),
+    );
+    expect(
+      (numerikSurface.decoration as BoxDecoration).color,
       const Color(0xFFE0F6FB),
     );
+    final DecoratedBox logikaSurface = tester.widget<DecoratedBox>(
+      find.byKey(
+        const ValueKey<String>('practice-topic-surface-practice-logika'),
+      ),
+    );
+    expect(
+      (logikaSurface.decoration as BoxDecoration).color,
+      const Color(0xFFEBF8DA),
+    );
+    final DecoratedBox twkSurface = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('practice-topic-surface-practice-twk')),
+    );
+    expect(
+      (twkSurface.decoration as BoxDecoration).color,
+      const Color(0xFFFDE9D6),
+    );
     expect(find.text('TANTANGAN HARIAN'), findsNothing);
+    expect(find.text('Lihat semua'), findsOneWidget);
+    expect(find.text('Riwayat 1'), findsOneWidget);
+    expect(find.text('Riwayat 2'), findsOneWidget);
+    expect(find.text('Riwayat 3'), findsOneWidget);
+    expect(find.text('Riwayat 4'), findsNothing);
+    expect(find.text('Riwayat 5'), findsNothing);
   });
 
   testWidgets('renders server session and unlocks its hint', (
@@ -303,6 +485,73 @@ void main() {
 
     expect(find.text('PETUNJUK'), findsOneWidget);
     expect(find.text('Only one number is not prime.'), findsOneWidget);
+  });
+
+  testWidgets('uses the four-topic BUMN presentation', (
+    WidgetTester tester,
+  ) async {
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        practiceRepositoryProvider.overrideWithValue(
+          const _BumnPracticeRepository(),
+        ),
+        profileSettingsStorageProvider.overrideWithValue(
+          const _NoopProfileSettingsStorage(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    container
+        .read(profileSettingsProvider.notifier)
+        .setTarget(ProfileTarget.bumn);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: PracticePage()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('LATIHAN SOAL BUMN'), findsOneWidget);
+    expect(find.text('4 topik • 5 soal per sesi'), findsOneWidget);
+    expect(find.text('Verbal'), findsOneWidget);
+    expect(find.text('Numerik'), findsOneWidget);
+    expect(find.text('Logika'), findsOneWidget);
+    expect(find.text('Kepribadian'), findsOneWidget);
+    expect(find.text('Adaptif'), findsNothing);
+    expect(find.text('Kenali karakter dan sikap kerja'), findsOneWidget);
+  });
+
+  testWidgets('loads and paginates the full practice history', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          practiceRepositoryProvider.overrideWithValue(
+            const _SuccessPracticeRepository(),
+          ),
+        ],
+        child: const MaterialApp(home: PracticeHistoryPage()),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('RIWAYAT LATIHAN'), findsOneWidget);
+    expect(find.text('Riwayat 21'), findsNothing);
+
+    await tester.scrollUntilVisible(
+      find.text('Muat lebih banyak'),
+      400,
+      scrollable: find.byType(Scrollable).last,
+    );
+
+    await tester.tap(find.text('Muat lebih banyak'));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('Riwayat 21'), findsOneWidget);
+    expect(find.text('Muat lebih banyak'), findsNothing);
   });
 
   testWidgets('refreshes player progress after completing a session', (

@@ -6,6 +6,47 @@ import 'package:http/testing.dart';
 import 'package:yudha_mobile/features/practice/data/repositories/backend_practice_repository.dart';
 
 void main() {
+  test('fetches a paginated practice history batch', () async {
+    final BackendPracticeRepository repository = BackendPracticeRepository(
+      config: const PracticeApiConfig(
+        baseUrl: 'https://api.example.com',
+        accessToken: 'token-123',
+      ),
+      client: MockClient((http.Request request) async {
+        expect(request.url.path, '/practice/history');
+        expect(request.url.queryParameters, <String, String>{
+          'limit': '20',
+          'offset': '20',
+        });
+        return http.Response(
+          jsonEncode(<String, Object?>{
+            'data': <String, Object?>{
+              'items': <Map<String, Object?>>[
+                <String, Object?>{
+                  'category': 'kepribadian',
+                  'subcategory': null,
+                  'answeredCount': 5,
+                  'totalQuestions': 5,
+                  'accuracy': 80,
+                },
+              ],
+              'limit': 20,
+              'offset': 20,
+              'total': 41,
+            },
+          }),
+          200,
+        );
+      }),
+    );
+
+    final batch = await repository.fetchHistory(limit: 20, offset: 20);
+
+    expect(batch.items.single.title, 'Kepribadian');
+    expect(batch.items.single.scoreLabel, '80%');
+    expect(batch.hasMore, isTrue);
+  });
+
   test(
     'includes idempotency keys when submitting and finishing a session',
     () async {

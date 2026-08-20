@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:yudha_mobile/app/config/app_config.dart';
 import 'package:yudha_mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_dashboard.dart';
+import 'package:yudha_mobile/features/practice/domain/entities/practice_history_batch.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_option.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_question.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_recent_activity.dart';
@@ -56,6 +57,32 @@ class BackendPracticeRepository implements PracticeRepository {
         summary['averageAccuracy'],
       ).round().clamp(0, 100),
       recentActivities: recentActivities,
+    );
+  }
+
+  @override
+  Future<PracticeHistoryBatch> fetchHistory({
+    required int limit,
+    required int offset,
+  }) async {
+    final Uri uri = Uri(
+      path: '/practice/history',
+      queryParameters: <String, String>{
+        'limit': limit.toString(),
+        'offset': offset.toString(),
+      },
+    );
+    final Map<String, dynamic> data = await _get(uri.toString());
+    final List<PracticeRecentActivity> items =
+        (data['items'] as List<dynamic>? ?? const <dynamic>[])
+            .whereType<Map<String, dynamic>>()
+            .map(_recentActivityFromJson)
+            .toList(growable: false);
+    return PracticeHistoryBatch(
+      items: items,
+      limit: _readInt(data['limit']),
+      offset: _readInt(data['offset']),
+      total: _readInt(data['total']),
     );
   }
 

@@ -5,6 +5,7 @@ import 'package:yudha_mobile/features/practice/application/practice_providers.da
 import 'package:yudha_mobile/features/practice/application/practice_state.dart';
 import 'package:yudha_mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_dashboard.dart';
+import 'package:yudha_mobile/features/practice/domain/entities/practice_history_batch.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_option.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_question.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_recent_activity.dart';
@@ -18,6 +19,8 @@ import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dar
 class _FakePracticeRepository implements PracticeRepository {
   int? lastResponseTimeMs;
   bool? lastUsedHint;
+  String? lastCategory;
+  String? lastSubcategory;
   int submitCount = 0;
   int dashboardFetchCount = 0;
 
@@ -73,10 +76,25 @@ class _FakePracticeRepository implements PracticeRepository {
   }
 
   @override
+  Future<PracticeHistoryBatch> fetchHistory({
+    required int limit,
+    required int offset,
+  }) async {
+    return PracticeHistoryBatch(
+      items: const <PracticeRecentActivity>[],
+      limit: limit,
+      offset: offset,
+      total: 0,
+    );
+  }
+
+  @override
   Future<PracticeSession> startSession({
     required String category,
     String? subcategory,
   }) async {
+    lastCategory = category;
+    lastSubcategory = subcategory;
     return const PracticeSession(
       id: 'session-1',
       category: 'TIU',
@@ -231,6 +249,33 @@ void main() {
     expect(controller.state.selectedTopicId, _FakePracticeRepository.topic.id);
     expect(controller.state.sessionId, 'session-1');
   });
+
+  test(
+    'starts and restarts a frontend aggregate with its category filter',
+    () async {
+      final _FakePracticeRepository repository = _FakePracticeRepository();
+      final PracticeController controller = PracticeController(
+        repository: repository,
+      );
+      await controller.reload();
+      const PracticeTopic aggregate = PracticeTopic(
+        id: 'practice-twk',
+        category: 'twk',
+        name: 'TWK',
+        description: 'Perkuat wawasan kebangsaan',
+        groupTitle: 'LATIHAN SOAL CPNS',
+      );
+
+      final bool started = await controller.startTopic(aggregate);
+      final bool restarted = await controller.restartSession();
+
+      expect(started, isTrue);
+      expect(restarted, isTrue);
+      expect(controller.state.selectedTopicId, aggregate.id);
+      expect(repository.lastCategory, 'twk');
+      expect(repository.lastSubcategory, isNull);
+    },
+  );
 
   test('finishes the server session after the final answer', () async {
     final _FakePracticeRepository repository = _FakePracticeRepository();
