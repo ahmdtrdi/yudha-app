@@ -1,3 +1,4 @@
+import type { RedisPrivateReservation } from '../../redis/game-coordination.types';
 import { GameEngine } from '../engine/game-engine';
 import { QuestionDealer } from '../engine/question-dealer';
 import type { InternalCard } from '../questions/question.types';
@@ -31,14 +32,102 @@ const profile = (
   },
 });
 
-describe('MatchmakingService Private rooms', () => {
+class FakePrivateCoordination {
+  available = true;
+  private readonly byCode = new Map<string, RedisPrivateReservation>();
+  private readonly byOwner = new Map<string, string>();
+
+  async createPrivateReservation(
+    owner: GamePlayerProfile,
+    socketId: string,
+    code: string,
+  ) {
+    this.purgeExpired();
+    if (!this.available) return 'unavailable' as const;
+    if (this.byOwner.has(owner.userId)) return 'conflict' as const;
+    if (this.byCode.has(code)) return 'collision' as const;
+    const now = Date.now();
+    const reservation: RedisPrivateReservation = {
+      code,
+      owner: { ...owner, socketId, instanceId: 'instance-a' },
+      target: owner.target,
+      createdAt: now,
+      expiresAt: now + MatchmakingService.PRIVATE_ROOM_TTL_MS,
+    };
+    this.byCode.set(code, reservation);
+    this.byOwner.set(owner.userId, code);
+    return 'created' as const;
+  }
+
+  async getPrivateReservation(code: string) {
+    this.purgeExpired();
+    return this.byCode.get(code);
+  }
+
+  async getPrivateReservationForOwner(userId: string) {
+    this.purgeExpired();
+    const code = this.byOwner.get(userId);
+    return code ? this.byCode.get(code) : undefined;
+  }
+
+  async consumePrivateReservation(joining: GamePlayerProfile, code: string) {
+    if (!this.available) return { type: 'unavailable' as const };
+    const reservation = await this.getPrivateReservation(code);
+    if (
+      !reservation ||
+      reservation.owner.userId === joining.userId ||
+      reservation.target !== joining.target
+    ) {
+      return { type: 'invalid' as const };
+    }
+    this.byCode.delete(code);
+    this.byOwner.delete(reservation.owner.userId);
+    return { type: 'joined' as const, reservation };
+  }
+
+  async cancelPrivateReservation(ownerUserId: string, code: string) {
+    if (!this.available) return undefined;
+    const reservation = await this.getPrivateReservation(code);
+    if (!reservation || reservation.owner.userId !== ownerUserId) {
+      return undefined;
+    }
+    this.byCode.delete(code);
+    this.byOwner.delete(ownerUserId);
+    return reservation;
+  }
+
+  async updatePrivateOwnerSocket(
+    reservation: RedisPrivateReservation,
+    socketId: string,
+  ) {
+    const updated = {
+      ...reservation,
+      owner: { ...reservation.owner, socketId },
+    };
+    this.byCode.set(reservation.code, updated);
+    return true;
+  }
+
+  private purgeExpired(): void {
+    for (const [code, reservation] of this.byCode) {
+      if (reservation.expiresAt <= Date.now()) {
+        this.byCode.delete(code);
+        this.byOwner.delete(reservation.owner.userId);
+      }
+    }
+  }
+}
+
+describe('MatchmakingService Redis-backed Private rooms', () => {
   let rooms: RoomManager;
+  let coordination: FakePrivateCoordination;
   let matchmaking: MatchmakingService;
 
   beforeEach(() => {
     jest.useFakeTimers();
     rooms = new RoomManager(new GameEngine(), new QuestionDealer());
-    matchmaking = new MatchmakingService(rooms);
+    coordination = new FakePrivateCoordination();
+    matchmaking = new MatchmakingService(rooms, coordination as never);
   });
 
   afterEach(() => {
@@ -46,8 +135,8 @@ describe('MatchmakingService Private rooms', () => {
     jest.useRealTimers();
   });
 
-  it('creates a secure-alphabet code with an exact fifteen-minute expiry', () => {
-    const result = matchmaking.createPrivateRoom(
+  it('reserves an exact six-character code for exactly fifteen minutes', async () => {
+    const result = await matchmaking.createPrivateRoom(
       profile('owner'),
       'socket-owner',
     );
@@ -63,30 +152,36 @@ describe('MatchmakingService Private rooms', () => {
     ).toBe(MatchmakingService.PRIVATE_ROOM_TTL_MS);
   });
 
-  it('retries a generated-code collision before reserving the next code', () => {
-    const codeSource = matchmaking as unknown as {
-      generateCode: () => string;
-    };
+  it('retries a code collision and prevents duplicate ownership', async () => {
+    const codeSource = matchmaking as unknown as { generateCode: () => string };
     jest
       .spyOn(codeSource, 'generateCode')
       .mockReturnValueOnce('ABC234')
       .mockReturnValueOnce('ABC234')
       .mockReturnValueOnce('DEF567');
 
-    const first = matchmaking.createPrivateRoom(profile('owner-a'), 'socket-a');
-    const second = matchmaking.createPrivateRoom(
+    const first = await matchmaking.createPrivateRoom(
+      profile('owner-a'),
+      'socket-a',
+    );
+    const second = await matchmaking.createPrivateRoom(
       profile('owner-b'),
       'socket-b',
+    );
+    const duplicate = await matchmaking.createPrivateRoom(
+      profile('owner-a'),
+      'socket-a',
     );
 
     expect(first.ok && first.reservation.code).toBe('ABC234');
     expect(second.ok && second.reservation.code).toBe('DEF567');
+    expect(duplicate).toEqual({ ok: false, reason: 'matchmaking_conflict' });
   });
 
-  it('expires an unused code and notifies the coordinator callback', () => {
+  it('expires an unused reservation and emits the local owner notification', async () => {
     const onExpiry = jest.fn();
     matchmaking.setExpiryCallback(onExpiry);
-    const created = matchmaking.createPrivateRoom(
+    const created = await matchmaking.createPrivateRoom(
       profile('owner'),
       'socket-owner',
     );
@@ -97,105 +192,71 @@ describe('MatchmakingService Private rooms', () => {
     expect(onExpiry).toHaveBeenCalledWith(
       expect.objectContaining({ code: created.reservation.code }),
     );
-    expect(matchmaking.hasPendingPrivateRoom('owner')).toBe(false);
+    await expect(matchmaking.hasPendingPrivateRoom('owner')).resolves.toBe(
+      false,
+    );
   });
 
-  it('consumes a code once and creates a Private battle with fixed roles', () => {
-    const created = matchmaking.createPrivateRoom(
+  it('validates target and consumes a reservation only once', async () => {
+    const created = await matchmaking.createPrivateRoom(
       profile('owner'),
       'socket-owner',
     );
     if (!created.ok) throw new Error('Expected room creation');
 
-    const joined = matchmaking.joinPrivateRoom(
+    await expect(
+      matchmaking.validateJoin(
+        profile('wrong-target', 'bumn'),
+        created.reservation.code,
+      ),
+    ).resolves.toEqual({ ok: false, reason: 'room_code_invalid' });
+
+    const joined = await matchmaking.joinPrivateRoom(
       profile('friend'),
       'socket-friend',
       created.reservation.code,
       cards,
     );
-
     expect(joined.ok).toBe(true);
-    if (!joined.ok) return;
-    expect(joined.match.room.mode).toBe('private');
-    expect(joined.match.room.players.playerA.userId).toBe('owner');
-    expect(joined.match.room.players.playerB.userId).toBe('friend');
-    expect(
+    if (joined.ok) {
+      expect(joined.match.room.players.playerA.userId).toBe('owner');
+      expect(joined.match.room.players.playerB.userId).toBe('friend');
+    }
+    await expect(
       matchmaking.joinPrivateRoom(
         profile('other'),
         'socket-other',
         created.reservation.code,
         cards,
       ),
-    ).toEqual({ ok: false, reason: 'room_code_invalid' });
+    ).resolves.toEqual({ ok: false, reason: 'room_code_invalid' });
   });
 
-  it('hides self-join and cross-target failures behind room_code_invalid', () => {
-    const created = matchmaking.createPrivateRoom(
-      profile('owner'),
-      'socket-owner',
-    );
-    if (!created.ok) throw new Error('Expected room creation');
-
-    expect(
-      matchmaking.validateJoin(profile('owner'), created.reservation.code),
-    ).toEqual({ ok: false, reason: 'room_code_invalid' });
-    expect(
-      matchmaking.validateJoin(
-        profile('bumn-friend', 'bumn'),
-        created.reservation.code,
-      ),
-    ).toEqual({ ok: false, reason: 'room_code_invalid' });
-  });
-
-  it('rejects creation while queued or already owning a code', () => {
-    rooms.joinQueue(profile('queued'), 'socket-queued', 'casual', cards);
-    expect(
-      matchmaking.createPrivateRoom(profile('queued'), 'socket-queued'),
-    ).toEqual({ ok: false, reason: 'matchmaking_conflict' });
-
-    expect(
-      matchmaking.createPrivateRoom(profile('owner'), 'socket-owner').ok,
-    ).toBe(true);
-    expect(
-      matchmaking.createPrivateRoom(profile('owner'), 'socket-owner'),
-    ).toEqual({ ok: false, reason: 'matchmaking_conflict' });
-
-    rooms.joinQueue(profile('active-a'), 'socket-active-a', 'ranked', cards);
-    rooms.joinQueue(profile('active-b'), 'socket-active-b', 'ranked', cards);
-    expect(
-      matchmaking.createPrivateRoom(profile('active-a'), 'socket-active-a'),
-    ).toEqual({ ok: false, reason: 'matchmaking_conflict' });
-  });
-
-  it('allows only the owner to cancel an unused code', () => {
-    const created = matchmaking.createPrivateRoom(
-      profile('owner'),
-      'socket-owner',
-    );
-    if (!created.ok) throw new Error('Expected room creation');
-
-    expect(
-      matchmaking.cancelPrivateRoom('other', created.reservation.code),
-    ).toEqual({ ok: false, reason: 'room_code_invalid' });
-    expect(
-      matchmaking.cancelPrivateRoom('owner', created.reservation.code).ok,
-    ).toBe(true);
-    expect(matchmaking.hasPendingPrivateRoom('owner')).toBe(false);
-  });
-
-  it('invalidates on the current owner socket disconnect but ignores a stale socket', () => {
-    const created = matchmaking.createPrivateRoom(
+  it('allows only the owner to cancel and cancels the current owner socket on disconnect', async () => {
+    const created = await matchmaking.createPrivateRoom(
       profile('owner'),
       'socket-old',
     );
     if (!created.ok) throw new Error('Expected room creation');
-    matchmaking.rebindOwnerSocket('owner', 'socket-current');
 
-    expect(matchmaking.disconnectOwner('owner', 'socket-old')).toBeUndefined();
-    expect(matchmaking.hasPendingPrivateRoom('owner')).toBe(true);
-    expect(matchmaking.disconnectOwner('owner', 'socket-current')).toEqual(
+    await expect(
+      matchmaking.cancelPrivateRoom('other', created.reservation.code),
+    ).resolves.toEqual({ ok: false, reason: 'room_code_invalid' });
+    await matchmaking.rebindOwnerSocket('owner', 'socket-current');
+    await expect(
+      matchmaking.disconnectOwner('owner', 'socket-old'),
+    ).resolves.toBeUndefined();
+    await expect(
+      matchmaking.disconnectOwner('owner', 'socket-current'),
+    ).resolves.toEqual(
       expect.objectContaining({ code: created.reservation.code }),
     );
-    expect(matchmaking.hasPendingPrivateRoom('owner')).toBe(false);
+  });
+
+  it('returns queue_unavailable without creating a local fallback', async () => {
+    coordination.available = false;
+    await expect(
+      matchmaking.createPrivateRoom(profile('owner'), 'socket-owner'),
+    ).resolves.toEqual({ ok: false, reason: 'queue_unavailable' });
   });
 });

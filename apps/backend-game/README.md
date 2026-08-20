@@ -25,6 +25,51 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## Upstash Redis coordination
+
+Human PvP matchmaking and cross-instance Socket.IO delivery require an Upstash
+Redis database. The game backend uses the native TLS connection through
+`ioredis`; it does not use a local Redis server or the Upstash REST API.
+
+1. Rotate any Redis credential that has been exposed in logs or chat.
+2. Copy `.env.example` to `.env` and set `REDIS_URL` to the new Upstash
+   `rediss://` connection string.
+3. Set `REDIS_KEY_PREFIX` to an environment-specific value such as
+   `yudha:game:staging`. `GAME_INSTANCE_ID` is optional and normally generated
+   from hostname, process ID, and a random suffix.
+4. Remove `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` from this
+   service if they are present; backend-game does not read them.
+5. Keep the Upstash primary region close to the deployment and keep eviction
+   disabled. Singapore is the default deployment assumption.
+
+The process stays live when Redis is unavailable so local Bot battles can still
+run, but public and Private matchmaking fail closed with `QUEUE_UNAVAILABLE`.
+Use `GET /health/live` for process liveness and `GET /health/ready` for Redis
+readiness.
+
+The standard unit and E2E suites never contact Redis. To run the opt-in Upstash
+suite, provide a test database URL and explicitly enable it:
+
+```powershell
+$env:REDIS_INTEGRATION_TEST = '1'
+$env:REDIS_URL = 'rediss://...'
+npm run test:redis:upstash
+```
+
+The suite creates a unique key prefix and deletes only keys below that prefix;
+it never runs `FLUSHDB` or `FLUSHALL`. After building the service, the
+two-instance end-to-end smoke can be run with:
+
+```bash
+npm run build
+npm run smoke:redis:two-instance
+```
+
+The smoke starts instances on ports 3101 and 3102 by default. It creates two
+temporary Supabase users, connects each player to a different instance, checks
+matchmaking, routed card commands, reconnect, single completion, persistence,
+and removal of room/user routing keys.
+
 ## Project setup
 
 ```bash

@@ -19,6 +19,16 @@ import type {
   SurrenderPayload,
 } from '../contracts/match.payloads';
 import type { MatchmakingMode } from '../contracts/battle-state';
+import { GameCoordinationService } from '../redis/game-coordination.service';
+import type {
+  RedisQueueEntry,
+  RoomRoute,
+} from '../redis/game-coordination.types';
+import { RedisService } from '../redis/redis.service';
+import {
+  RoomCommandRouterService,
+  type RoutedRoomCommand,
+} from '../redis/room-command-router.service';
 import { GameEngine } from './engine/game-engine';
 import type { InternalRoomState } from './engine/battle.types';
 import { QuestionService } from './questions/question.service';
@@ -40,6 +50,19 @@ import {
 type ServerMatchEventName =
   (typeof SERVER_MATCH_EVENTS)[keyof typeof SERVER_MATCH_EVENTS];
 
+type InternalJoinQueuePayload = Omit<JoinQueuePayload, 'commandId'> & {
+  commandId?: string;
+};
+type InternalOpenCardPayload = Omit<OpenCardPayload, 'commandId'> & {
+  commandId?: string;
+};
+type InternalPlayCardPayload = Omit<PlayCardPayload, 'commandId'> & {
+  commandId?: string;
+};
+type InternalSurrenderPayload = Omit<SurrenderPayload, 'commandId'> & {
+  commandId?: string;
+};
+
 export type MatchEmit = {
   socketId: string;
   event: ServerMatchEventName;
@@ -53,18 +76,13 @@ export type MatchServiceResult = {
 type PrivateCommandData =
   | PrivateRoomCreatedPayload
   | PrivateRoomJoinedPayload
-  | { code: string };
+  | { code: string }
+  | { accepted: true; operation: string };
 
 export type PrivateCommandResult<
   T extends PrivateCommandData = PrivateCommandData,
 > = MatchServiceResult & {
   ack: SocketCommandAck<T>;
-};
-
-type CachedPrivateCommand = {
-  fingerprint: string;
-  ack: SocketCommandAck<PrivateCommandData>;
-  timer: ReturnType<typeof setTimeout>;
 };
 
 type InFlightPrivateCommand = {
@@ -89,13 +107,18 @@ export class MatchService {
     string,
     ReturnType<typeof setTimeout>
   >();
-  private readonly privateCommandCache = new Map<
-    string,
-    CachedPrivateCommand
-  >();
   private readonly inFlightPrivateCommands = new Map<
     string,
     InFlightPrivateCommand
+  >();
+  private readonly queueLeaseTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
+  private readonly roomRoutes = new Map<string, RoomRoute>();
+  private readonly roomRouteTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
   >();
 
   constructor(
@@ -108,7 +131,12 @@ export class MatchService {
     private readonly cardTimeoutService: CardTimeoutService,
     private readonly profiles: GamePlayerProfileService,
     private readonly matchmaking: MatchmakingService,
-  ) {}
+    private readonly coordination: GameCoordinationService,
+    private readonly redis: RedisService,
+    private readonly router: RoomCommandRouterService,
+  ) {
+    this.router.setHandler((command) => this.handleRoutedCommand(command));
+  }
 
   /**
    * Set by the gateway once the Server instance is available.
@@ -124,6 +152,7 @@ export class MatchService {
       this.clearRoundTimers(room.roomId);
       this.clearDisconnectTimersForRoom(room.roomId);
       this.cardTimeoutService.cancelAllTimersForRoom(room.roomId);
+      this.scheduleRoomCleanup(room.roomId);
     });
     this.matchmaking.setExpiryCallback((reservation) => {
       if (!this.emitServer) return;
@@ -143,10 +172,25 @@ export class MatchService {
     });
   }
 
-  registerSocket(socketId: string, userId: string): MatchServiceResult {
+  async registerSocket(
+    socketId: string,
+    userId: string,
+  ): Promise<MatchServiceResult> {
     const result = this.rooms.registerSocket(socketId, userId);
-    this.matchmaking.rebindOwnerSocket(userId, socketId);
+    await this.matchmaking.rebindOwnerSocket(userId, socketId);
     if (result.type !== 'active_reconnect') {
+      const route = await this.coordination.getUserRoomRoute(userId);
+      if (route && route.instanceId !== this.redis.instanceId) {
+        try {
+          return await this.router.route<MatchServiceResult>(route.instanceId, {
+            operation: 'reconnect',
+            userId,
+            socketId,
+          });
+        } catch {
+          return { emits: [] };
+        }
+      }
       return { emits: [] };
     }
     this.clearDisconnectTimer(result.room.roomId, userId);
@@ -162,9 +206,13 @@ export class MatchService {
     return this.rooms.getUserIdForSocket(socketId);
   }
 
-  handleDisconnect(socketId: string): MatchServiceResult {
+  async handleDisconnect(socketId: string): Promise<MatchServiceResult> {
     const userId = this.rooms.getUserIdForSocket(socketId);
-    if (userId) this.matchmaking.disconnectOwner(userId, socketId);
+    if (userId) {
+      await this.matchmaking.disconnectOwner(userId, socketId);
+      this.clearQueueLease(userId);
+      await this.coordination.cancelPublicQueue(userId);
+    }
     const result = this.rooms.disconnectSocket(socketId);
     if (result.type === 'queued_removed') {
       return { emits: [] };
@@ -173,13 +221,27 @@ export class MatchService {
       this.scheduleDisconnectForfeit(result.room, result.userId);
       return this.emitPresence(result.room);
     }
+    if (userId) {
+      const route = await this.coordination.getUserRoomRoute(userId);
+      if (route && route.instanceId !== this.redis.instanceId) {
+        try {
+          return await this.router.route<MatchServiceResult>(route.instanceId, {
+            operation: 'disconnect',
+            userId,
+            socketId,
+          });
+        } catch {
+          return { emits: [] };
+        }
+      }
+    }
     return { emits: [] };
   }
 
   async handleJoinQueue(
     userId: string,
     socketId: string,
-    payload?: JoinQueuePayload,
+    payload?: InternalJoinQueuePayload,
   ): Promise<MatchServiceResult> {
     const mode = payload?.mode ?? 'casual';
     if (!this.isMatchmakingMode(mode)) {
@@ -194,7 +256,7 @@ export class MatchService {
       };
     }
 
-    if (this.matchmaking.hasPendingPrivateRoom(userId)) {
+    if (await this.matchmaking.hasPendingPrivateRoom(userId)) {
       return {
         emits: [
           {
@@ -234,10 +296,33 @@ export class MatchService {
       return this.handleBotMode(profile, socketId);
     }
 
-    const cards = await this.questions.getMatchQuestionPool(profile.target);
-    const queueResult = this.rooms.joinQueue(profile, socketId, mode, cards);
+    const matchmakingStartedAt = Date.now();
+    const queueResult = await this.coordination.joinPublicQueue(
+      profile,
+      socketId,
+      mode,
+    );
+    this.logger.log(
+      `Redis matchmaking result=${queueResult.type} target=${profile.target} mode=${mode} latencyMs=${Date.now() - matchmakingStartedAt}.`,
+    );
 
-    if (queueResult.rejected) {
+    if (queueResult.type === 'unavailable') {
+      return {
+        emits: [
+          {
+            socketId,
+            event: SERVER_MATCH_EVENTS.error,
+            payload: {
+              code: 'QUEUE_UNAVAILABLE',
+              message: 'Matchmaking sedang tidak tersedia. Coba lagi.',
+              details: { recoverable: true },
+            },
+          },
+        ],
+      };
+    }
+
+    if (queueResult.type === 'conflict') {
       return {
         emits: [
           {
@@ -249,22 +334,118 @@ export class MatchService {
       };
     }
 
+    if (queueResult.type === 'queued') {
+      this.scheduleQueueLease(queueResult.entry);
+      return {
+        emits: [
+          {
+            socketId,
+            event: SERVER_MATCH_EVENTS.queueJoined,
+            payload: {
+              position: queueResult.position,
+              queueDepth: queueResult.depth,
+              mode,
+              target: profile.target,
+            },
+          },
+        ],
+      };
+    }
+
+    this.clearQueueLease(queueResult.opponent.userId);
+    this.clearQueueLease(userId);
+    let cards: InternalCard[];
+    try {
+      cards = await this.questions.getMatchQuestionPool(profile.target);
+    } catch (error) {
+      await this.coordination.restorePublicPair([
+        queueResult.opponent,
+        queueResult.entry,
+      ]);
+      this.scheduleQueueLease(queueResult.entry);
+      this.logger.error(
+        `Failed to prepare matched question pool: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        emits: [
+          {
+            socketId,
+            event: SERVER_MATCH_EVENTS.error,
+            payload: {
+              code: 'QUEUE_UNAVAILABLE',
+              message: 'Pertandingan belum dapat dimulai. Coba lagi.',
+              details: { recoverable: true },
+            },
+          },
+        ],
+      };
+    }
+
+    const playerA = queueResult.opponent;
+    const playerB = queueResult.entry;
+    let room: InternalRoomState;
+    try {
+      room = this.rooms.createPublicRoom(playerA, playerB, mode, cards);
+    } catch (error) {
+      await this.coordination.restorePublicPair([playerA, playerB]);
+      this.scheduleQueueLease(playerB);
+      this.logger.error(
+        `Failed to create matched room: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        emits: [
+          {
+            socketId,
+            event: SERVER_MATCH_EVENTS.error,
+            payload: {
+              code: 'QUEUE_UNAVAILABLE',
+              message: 'Pertandingan belum dapat dimulai. Coba lagi.',
+              details: { recoverable: true },
+            },
+          },
+        ],
+      };
+    }
+    const route: RoomRoute = {
+      roomId: room.roomId,
+      instanceId: this.redis.instanceId,
+      mode,
+      userIds: [playerA.userId, playerB.userId],
+    };
+    if (!(await this.coordination.registerRoom(route))) {
+      this.rooms.destroyRoom(room.roomId);
+      await this.coordination.restorePublicPair([playerA, playerB]);
+      this.scheduleQueueLease(playerB);
+      return {
+        emits: [
+          {
+            socketId,
+            event: SERVER_MATCH_EVENTS.error,
+            payload: {
+              code: 'QUEUE_UNAVAILABLE',
+              message: 'Pertandingan belum dapat dimulai. Coba lagi.',
+              details: { recoverable: true },
+            },
+          },
+        ],
+      };
+    }
+    this.roomRoutes.set(room.roomId, route);
+    this.scheduleRoomRouteRefresh(route);
+
     const emits: MatchEmit[] = [
       {
         socketId,
         event: SERVER_MATCH_EVENTS.queueJoined,
         payload: {
-          position: this.rooms.queuePositionFor(userId, profile.target, mode),
-          queueDepth: queueResult.queueDepth,
+          position: 0,
+          queueDepth: 0,
           mode,
           target: profile.target,
         },
       },
     ];
 
-    if (!queueResult.match) return { emits };
-
-    const { room, playerA, playerB } = queueResult.match;
     const matchFoundA: MatchFoundPayload = {
       roomId: room.roomId,
       opponentUserId: playerB.userId,
@@ -316,7 +497,7 @@ export class MatchService {
         const profile = await this.loadPrivateProfile(userId, requestId);
         if (!profile.ok) return profile.result;
 
-        const created = this.matchmaking.createPrivateRoom(
+        const created = await this.matchmaking.createPrivateRoom(
           profile.profile,
           socketId,
         );
@@ -347,8 +528,35 @@ export class MatchService {
     userId: string,
     socketId: string,
     payload?: JoinPrivateRoomPayload,
+    routed = false,
   ): Promise<PrivateCommandResult> {
     const code = payload?.code;
+    if (!routed && this.isPrivateRoomCode(code)) {
+      const reservation = await this.coordination.getPrivateReservation(code);
+      if (
+        reservation &&
+        reservation.owner.instanceId !== this.redis.instanceId
+      ) {
+        try {
+          return await this.router.route<PrivateCommandResult>(
+            reservation.owner.instanceId,
+            {
+              operation: 'join_private_room',
+              userId,
+              socketId,
+              payload,
+            },
+          );
+        } catch {
+          return this.privateError(
+            randomUUID(),
+            'QUEUE_UNAVAILABLE',
+            'Ruang Private sedang tidak tersedia. Coba lagi.',
+            true,
+          );
+        }
+      }
+    }
     const fingerprint = `join_private_room:${typeof code === 'string' ? code : ''}`;
     return this.executePrivateCommand(
       userId,
@@ -368,7 +576,10 @@ export class MatchService {
         const profile = await this.loadPrivateProfile(userId, requestId);
         if (!profile.ok) return profile.result;
 
-        const validation = this.matchmaking.validateJoin(profile.profile, code);
+        const validation = await this.matchmaking.validateJoin(
+          profile.profile,
+          code,
+        );
         if (!validation.ok) {
           return this.privateMatchmakingFailure(validation.reason, requestId);
         }
@@ -387,7 +598,7 @@ export class MatchService {
           );
         }
 
-        const joined = this.matchmaking.joinPrivateRoom(
+        const joined = await this.matchmaking.joinPrivateRoom(
           profile.profile,
           socketId,
           code,
@@ -398,6 +609,23 @@ export class MatchService {
         }
 
         const { room, playerA, playerB } = joined.match;
+        const route: RoomRoute = {
+          roomId: room.roomId,
+          instanceId: this.redis.instanceId,
+          mode: 'private',
+          userIds: [playerA.userId, playerB.userId],
+        };
+        if (!(await this.coordination.registerRoom(route))) {
+          this.rooms.destroyRoom(room.roomId);
+          return this.privateError(
+            requestId,
+            'QUEUE_UNAVAILABLE',
+            'Pertandingan Private belum dapat dimulai. Coba lagi.',
+            true,
+          );
+        }
+        this.roomRoutes.set(room.roomId, route);
+        this.scheduleRoomRouteRefresh(route);
         const data: PrivateRoomJoinedPayload = { code, roomId: room.roomId };
         const matchFoundA: MatchFoundPayload = {
           roomId: room.roomId,
@@ -458,7 +686,7 @@ export class MatchService {
       payload?.commandId,
       fingerprint,
       'cancel_private_room',
-      (requestId) => {
+      async (requestId) => {
         if (!this.isPrivateRoomCode(code)) {
           return this.privateError(
             requestId,
@@ -467,7 +695,10 @@ export class MatchService {
             false,
           );
         }
-        const cancelled = this.matchmaking.cancelPrivateRoom(userId, code);
+        const cancelled = await this.matchmaking.cancelPrivateRoom(
+          userId,
+          code,
+        );
         if (!cancelled.ok) {
           return this.privateMatchmakingFailure(cancelled.reason, requestId);
         }
@@ -511,6 +742,18 @@ export class MatchService {
 
     const room = await this.botBattleService.createBotMatch(profile, socketId);
     const bot = room.players.playerB;
+    if (this.coordination.available) {
+      const route: RoomRoute = {
+        roomId: room.roomId,
+        instanceId: this.redis.instanceId,
+        mode: 'bot',
+        userIds: [userId],
+      };
+      if (await this.coordination.registerRoom(route)) {
+        this.roomRoutes.set(room.roomId, route);
+        this.scheduleRoomRouteRefresh(route);
+      }
+    }
     this.scheduleRoundTimeout(room);
 
     const matchFound: MatchFoundPayload = {
@@ -535,8 +778,12 @@ export class MatchService {
     };
   }
 
-  handleCancelQueue(userId: string, socketId: string): MatchServiceResult {
-    const removed = this.rooms.cancelQueue(userId);
+  async handleCancelQueue(
+    userId: string,
+    socketId: string,
+  ): Promise<MatchServiceResult> {
+    this.clearQueueLease(userId);
+    const removed = await this.coordination.cancelPublicQueue(userId);
     return {
       emits: removed
         ? [
@@ -550,11 +797,12 @@ export class MatchService {
     };
   }
 
-  handleOpenCard(
+  async handleOpenCard(
     userId: string,
     socketId: string,
-    payload?: OpenCardPayload,
-  ): MatchServiceResult {
+    payload?: InternalOpenCardPayload,
+    routed = false,
+  ): Promise<MatchServiceResult> {
     if (
       !payload ||
       typeof payload.roomId !== 'string' ||
@@ -568,6 +816,16 @@ export class MatchService {
         'roomId and cardId are required.',
         false,
       );
+    }
+    if (!routed) {
+      const remote = await this.routeRoomCommand(
+        payload.roomId,
+        'open_card',
+        userId,
+        socketId,
+        payload,
+      );
+      if (remote) return remote;
     }
     const room = this.rooms.getRoom(payload.roomId);
     if (!room)
@@ -629,7 +887,8 @@ export class MatchService {
   async handlePlayCard(
     userId: string,
     socketId: string,
-    payload?: PlayCardPayload,
+    payload?: InternalPlayCardPayload,
+    routed = false,
   ): Promise<MatchServiceResult> {
     if (
       !payload ||
@@ -645,6 +904,16 @@ export class MatchService {
         'roomId, cardId, and an integer selectedOptionIndex are required.',
         false,
       );
+    }
+    if (!routed) {
+      const remote = await this.routeRoomCommand(
+        payload.roomId,
+        'play_card',
+        userId,
+        socketId,
+        payload,
+      );
+      if (remote) return remote;
     }
     const room = this.rooms.getRoom(payload.roomId);
     if (!room)
@@ -720,7 +989,7 @@ export class MatchService {
       await this.persistAndEnrich(room);
       this.clearDisconnectTimersForRoom(room.roomId);
       emits.push(...this.matchResultEmits(room));
-      this.rooms.scheduleCleanup(room.roomId);
+      this.scheduleRoomCleanup(room.roomId);
     } else if (room.roundStatus === 'break') {
       this.botBattleService.cancelBotSchedule(room.roomId);
       this.cardTimeoutService.cancelAllTimersForRoom(room.roomId);
@@ -777,7 +1046,7 @@ export class MatchService {
       await this.persistAndEnrich(room);
       this.clearDisconnectTimersForRoom(room.roomId);
       emits.push(...this.matchResultEmits(room));
-      this.rooms.scheduleCleanup(room.roomId);
+      this.scheduleRoomCleanup(room.roomId);
     } else if (room.roundStatus === 'break') {
       this.botBattleService.cancelBotSchedule(room.roomId);
       this.cardTimeoutService.cancelAllTimersForRoom(room.roomId);
@@ -792,7 +1061,8 @@ export class MatchService {
   async handleSurrender(
     userId: string,
     socketId: string,
-    payload?: SurrenderPayload,
+    payload?: InternalSurrenderPayload,
+    routed = false,
   ): Promise<MatchServiceResult> {
     if (!payload || typeof payload.roomId !== 'string') {
       return {
@@ -804,6 +1074,16 @@ export class MatchService {
           },
         ],
       };
+    }
+    if (!routed) {
+      const remote = await this.routeRoomCommand(
+        payload.roomId,
+        'surrender',
+        userId,
+        socketId,
+        payload,
+      );
+      if (remote) return remote;
     }
     const room = this.rooms.getRoom(payload.roomId);
     if (!room) {
@@ -845,7 +1125,7 @@ export class MatchService {
     this.clearRoundTimers(room.roomId);
     await this.persistAndEnrich(room);
     this.clearDisconnectTimersForRoom(room.roomId);
-    this.rooms.scheduleCleanup(room.roomId);
+    this.scheduleRoomCleanup(room.roomId);
     return {
       emits: [...this.stateEmits(room), ...this.matchResultEmits(room)],
     };
@@ -909,7 +1189,7 @@ export class MatchService {
       this.clearDisconnectTimersForRoom(roomId);
       await this.persistAndEnrich(room);
       emits.push(...this.matchResultEmits(room));
-      this.rooms.scheduleCleanup(roomId);
+      this.scheduleRoomCleanup(roomId);
     } else {
       this.scheduleRoundTransition(room);
     }
@@ -1103,7 +1383,7 @@ export class MatchService {
     if (this.emitServer && emits.length > 0) {
       this.emitServer({ emits });
     }
-    this.rooms.scheduleCleanup(room.roomId);
+    this.scheduleRoomCleanup(room.roomId);
   }
 
   private clearDisconnectTimer(roomId: string, userId: string): void {
@@ -1150,19 +1430,6 @@ export class MatchService {
 
     const cacheKey = `${userId}:${commandId}`;
     const fullFingerprint = `${operation}:${fingerprint}`;
-    const cached = this.privateCommandCache.get(cacheKey);
-    if (cached) {
-      if (cached.fingerprint !== fullFingerprint) {
-        return this.privateError(
-          randomUUID(),
-          'IDEMPOTENCY_KEY_REUSED',
-          'Command ID sudah digunakan untuk permintaan yang berbeda.',
-          false,
-        );
-      }
-      return { ack: cached.ack, emits: [] };
-    }
-
     const inFlight = this.inFlightPrivateCommands.get(cacheKey);
     if (inFlight) {
       if (inFlight.fingerprint !== fullFingerprint) {
@@ -1177,22 +1444,79 @@ export class MatchService {
       return { ack: replay.ack, emits: [] };
     }
 
-    const resultPromise = Promise.resolve(execute(randomUUID()));
+    const claim = await this.coordination.claimCommand(
+      userId,
+      commandId,
+      fullFingerprint,
+    );
+    if (claim.type === 'unavailable') {
+      return this.privateError(
+        claim.requestId,
+        'QUEUE_UNAVAILABLE',
+        'Koordinasi command sedang tidak tersedia. Coba lagi.',
+        true,
+      );
+    }
+    if (claim.type === 'conflict') {
+      return this.privateError(
+        claim.requestId,
+        'IDEMPOTENCY_KEY_REUSED',
+        'Command ID sudah digunakan untuk permintaan yang berbeda.',
+        false,
+      );
+    }
+    if (claim.type === 'replay') {
+      return {
+        ack: claim.acknowledgement as SocketCommandAck<PrivateCommandData>,
+        emits: [],
+      };
+    }
+    if (claim.type === 'pending') {
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 50));
+        const replay = await this.coordination.claimCommand(
+          userId,
+          commandId,
+          fullFingerprint,
+        );
+        if (replay.type === 'replay') {
+          return {
+            ack: replay.acknowledgement as SocketCommandAck<PrivateCommandData>,
+            emits: [],
+          };
+        }
+        if (replay.type === 'conflict') {
+          return this.privateError(
+            replay.requestId,
+            'IDEMPOTENCY_KEY_REUSED',
+            'Command ID sudah digunakan untuk permintaan yang berbeda.',
+            false,
+          );
+        }
+        if (replay.type === 'unavailable') break;
+      }
+      return this.privateError(
+        claim.requestId,
+        'CONFLICT',
+        'Command yang sama masih diproses.',
+        true,
+      );
+    }
+
+    const resultPromise = Promise.resolve(execute(claim.requestId));
     this.inFlightPrivateCommands.set(cacheKey, {
       fingerprint: fullFingerprint,
       result: resultPromise,
     });
     try {
       const result = await resultPromise;
-      const timer = setTimeout(() => {
-        this.privateCommandCache.delete(cacheKey);
-      }, MatchmakingService.PRIVATE_ROOM_TTL_MS);
-      timer.unref?.();
-      this.privateCommandCache.set(cacheKey, {
-        fingerprint: fullFingerprint,
-        ack: result.ack,
-        timer,
-      });
+      await this.coordination.completeCommand(
+        userId,
+        commandId,
+        fullFingerprint,
+        claim.requestId,
+        result.ack,
+      );
       return result;
     } finally {
       this.inFlightPrivateCommands.delete(cacheKey);
@@ -1233,7 +1557,7 @@ export class MatchService {
         true,
       );
     }
-    if (reason === 'code_generation_failed') {
+    if (reason === 'code_generation_failed' || reason === 'queue_unavailable') {
       return this.privateError(
         requestId,
         'QUEUE_UNAVAILABLE',
@@ -1279,6 +1603,262 @@ export class MatchService {
     value: unknown,
   ): value is Exclude<MatchmakingMode, 'private'> {
     return value === 'ranked' || value === 'casual' || value === 'bot';
+  }
+
+  async handleAcknowledgedCommand(
+    userId: string,
+    commandId: unknown,
+    operation: string,
+    payload: unknown,
+    action: () => MatchServiceResult | Promise<MatchServiceResult>,
+  ): Promise<PrivateCommandResult> {
+    const fingerprint = JSON.stringify(payload ?? null);
+    return this.executePrivateCommand(
+      userId,
+      commandId,
+      fingerprint,
+      operation,
+      async (requestId) => {
+        const result = await action();
+        const failure = result.emits.find(
+          (emit) =>
+            emit.event === SERVER_MATCH_EVENTS.error ||
+            emit.event === SERVER_MATCH_EVENTS.cardActionRejected,
+        );
+        if (failure) {
+          const errorPayload = failure.payload as {
+            code?: SocketCommandErrorCode;
+            message?: string;
+            recoverable?: boolean;
+            details?: { recoverable?: boolean };
+          };
+          return {
+            ack: {
+              error: {
+                code: errorPayload.code ?? 'CONFLICT',
+                message: errorPayload.message ?? 'Command ditolak oleh server.',
+                details: {
+                  recoverable:
+                    errorPayload.details?.recoverable ??
+                    errorPayload.recoverable ??
+                    true,
+                },
+                requestId,
+              },
+            },
+            emits: result.emits,
+          };
+        }
+        return {
+          ack: {
+            data: { accepted: true, operation },
+            requestId,
+          },
+          emits: result.emits,
+        };
+      },
+    );
+  }
+
+  private async routeRoomCommand(
+    roomId: string,
+    operation: 'open_card' | 'play_card' | 'surrender',
+    userId: string,
+    socketId: string,
+    payload: unknown,
+  ): Promise<MatchServiceResult | undefined> {
+    const localRoom = this.rooms.getRoom(roomId);
+    if (localRoom?.mode === 'bot') return undefined;
+    if (!this.coordination.available) {
+      if (operation === 'open_card' || operation === 'play_card') {
+        return this.reject(
+          socketId,
+          operation,
+          roomId,
+          'queue_unavailable',
+          'Koordinasi pertandingan sedang tidak tersedia. Coba lagi.',
+          true,
+        );
+      }
+      return {
+        emits: [
+          {
+            socketId,
+            event: SERVER_MATCH_EVENTS.error,
+            payload: {
+              code: 'QUEUE_UNAVAILABLE',
+              message: 'Koordinasi pertandingan sedang tidak tersedia.',
+            },
+          },
+        ],
+      };
+    }
+    const route = await this.coordination.getRoomRoute(roomId);
+    if (!route || route.instanceId === this.redis.instanceId) return undefined;
+    try {
+      return await this.router.route<MatchServiceResult>(route.instanceId, {
+        operation,
+        userId,
+        socketId,
+        payload,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Room command routing failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      if (operation === 'open_card' || operation === 'play_card') {
+        return this.reject(
+          socketId,
+          operation,
+          roomId,
+          'queue_unavailable',
+          'Server pemilik pertandingan tidak merespons. Coba lagi.',
+          true,
+        );
+      }
+      return {
+        emits: [
+          {
+            socketId,
+            event: SERVER_MATCH_EVENTS.error,
+            payload: {
+              code: 'QUEUE_UNAVAILABLE',
+              message: 'Server pemilik pertandingan tidak merespons.',
+            },
+          },
+        ],
+      };
+    }
+  }
+
+  private async handleRoutedCommand(
+    command: RoutedRoomCommand,
+  ): Promise<MatchServiceResult | PrivateCommandResult> {
+    switch (command.operation) {
+      case 'reconnect': {
+        const result = this.rooms.reconnectUser(
+          command.userId,
+          command.socketId,
+        );
+        if (result.type !== 'active_reconnect') return { emits: [] };
+        this.clearDisconnectTimer(result.room.roomId, command.userId);
+        return {
+          emits: [
+            ...this.stateEmits(result.room),
+            ...this.emitPresence(result.room).emits,
+          ],
+        };
+      }
+      case 'disconnect': {
+        const result = this.rooms.disconnectUser(
+          command.userId,
+          command.socketId,
+        );
+        if (result.type !== 'active_presence') return { emits: [] };
+        this.scheduleDisconnectForfeit(result.room, result.userId);
+        return this.emitPresence(result.room);
+      }
+      case 'open_card':
+        return this.handleOpenCard(
+          command.userId,
+          command.socketId,
+          command.payload as OpenCardPayload,
+          true,
+        );
+      case 'play_card':
+        return this.handlePlayCard(
+          command.userId,
+          command.socketId,
+          command.payload as PlayCardPayload,
+          true,
+        );
+      case 'surrender':
+        return this.handleSurrender(
+          command.userId,
+          command.socketId,
+          command.payload as SurrenderPayload,
+          true,
+        );
+      case 'join_private_room':
+        return this.handleJoinPrivateRoom(
+          command.userId,
+          command.socketId,
+          command.payload as JoinPrivateRoomPayload,
+          true,
+        );
+    }
+  }
+
+  private scheduleQueueLease(entry: RedisQueueEntry): void {
+    this.clearQueueLease(entry.userId);
+    const timer = setTimeout(() => {
+      void this.refreshQueueLease(entry);
+    }, 10_000);
+    timer.unref?.();
+    this.queueLeaseTimers.set(entry.userId, timer);
+  }
+
+  private scheduleRoomCleanup(roomId: string): void {
+    this.clearRoomRouteRefresh(roomId);
+    const route = this.roomRoutes.get(roomId);
+    if (route) {
+      this.roomRoutes.delete(roomId);
+      void this.coordination.removeRoom(route).catch((error: unknown) => {
+        this.logger.error(
+          `Failed to remove room route: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
+    }
+    this.rooms.scheduleCleanup(roomId);
+  }
+
+  private clearQueueLease(userId: string): void {
+    const timer = this.queueLeaseTimers.get(userId);
+    if (timer) clearTimeout(timer);
+    this.queueLeaseTimers.delete(userId);
+  }
+
+  private scheduleRoomRouteRefresh(route: RoomRoute): void {
+    this.clearRoomRouteRefresh(route.roomId);
+    const timer = setTimeout(() => {
+      void this.refreshRoomRoute(route);
+    }, 60_000);
+    timer.unref?.();
+    this.roomRouteTimers.set(route.roomId, timer);
+  }
+
+  private clearRoomRouteRefresh(roomId: string): void {
+    const timer = this.roomRouteTimers.get(roomId);
+    if (timer) clearTimeout(timer);
+    this.roomRouteTimers.delete(roomId);
+  }
+
+  private async refreshQueueLease(entry: RedisQueueEntry): Promise<void> {
+    this.queueLeaseTimers.delete(entry.userId);
+    try {
+      if (await this.coordination.refreshQueue(entry)) {
+        this.scheduleQueueLease(entry);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to refresh queue lease: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  private async refreshRoomRoute(route: RoomRoute): Promise<void> {
+    this.roomRouteTimers.delete(route.roomId);
+    const room = this.rooms.getRoom(route.roomId);
+    if (!room || room.status !== 'active') return;
+    try {
+      if (await this.coordination.registerRoom(route)) {
+        this.scheduleRoomRouteRefresh(route);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Room route refresh failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   private reject(

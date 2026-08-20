@@ -1,18 +1,24 @@
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
+import Redis from 'ioredis';
 import { io } from 'socket.io-client';
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const projectDirectory = resolve(scriptDirectory, '..');
-const envFile = resolve(
-  projectDirectory,
-  process.env.GAME_SMOKE_ENV_FILE ?? '../backend-api/.env',
-);
-if (existsSync(envFile)) {
+const envFiles = [
+  resolve(
+    projectDirectory,
+    process.env.GAME_SMOKE_ENV_FILE ?? '../backend-api/.env',
+  ),
+  resolve(projectDirectory, '.env'),
+];
+for (const envFile of envFiles) {
+  if (!existsSync(envFile)) continue;
   for (const line of readFileSync(envFile, 'utf8').split(/\r?\n/)) {
     const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
     if (!match || process.env[match[1]]) continue;
@@ -25,6 +31,10 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const publicKey = process.env.SUPABASE_KEY;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const gameUrl = process.env.GAME_SMOKE_URL ?? 'http://127.0.0.1:3101';
+const twoInstance = process.env.GAME_SMOKE_TWO_INSTANCE === 'true';
+const gameUrlB = twoInstance
+  ? (process.env.GAME_SMOKE_URL_B ?? 'http://127.0.0.1:3102')
+  : gameUrl;
 
 if (!supabaseUrl || !publicKey || !serviceRoleKey) {
   throw new Error(
@@ -40,8 +50,7 @@ const password = `Smoke-${suffix}-Aa1!`;
 const users = [];
 const sockets = [];
 let roomId;
-let gameServer;
-let serverOutput = '';
+const gameServers = [];
 
 function event(socket, name, timeoutMs = 12_000) {
   return new Promise((resolve, reject) => {
@@ -101,8 +110,8 @@ async function createSmokeUser(label) {
   };
 }
 
-async function connect(token, beforeConnect) {
-  const socket = io(`${gameUrl}/match`, {
+async function connect(token, url = gameUrl, beforeConnect) {
+  const socket = io(`${url}/match`, {
     transports: ['websocket'],
     auth: { token },
     autoConnect: false,
@@ -117,6 +126,28 @@ async function connect(token, beforeConnect) {
   return { socket, pending };
 }
 
+function emitCommand(socket, name, payload, timeoutMs = 4_000) {
+  const commandId = randomUUID();
+  return new Promise((resolveCommand, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`Timed out waiting for ${name} acknowledgement.`)),
+      timeoutMs,
+    );
+    socket.emit(name, { ...payload, commandId }, (acknowledgement) => {
+      clearTimeout(timer);
+      if (acknowledgement?.error) {
+        reject(
+          new Error(
+            `${acknowledgement.error.code}: ${acknowledgement.error.message}`,
+          ),
+        );
+        return;
+      }
+      resolveCommand(acknowledgement);
+    });
+  });
+}
+
 async function cleanup() {
   for (const socket of sockets) {
     socket.disconnect();
@@ -128,7 +159,7 @@ async function cleanup() {
     await admin.from('coin_transactions').delete().eq('user_id', userId);
     await admin.auth.admin.deleteUser(userId);
   }
-  gameServer?.kill();
+  for (const gameServer of gameServers) gameServer.kill();
 }
 
 function canConnect(port) {
@@ -142,22 +173,24 @@ function canConnect(port) {
   });
 }
 
-async function startGameServer() {
+async function startGameServer(url, instanceId) {
   if (process.env.GAME_SMOKE_EXTERNAL === 'true') return;
-  const url = new URL(gameUrl);
-  const port = Number(url.port || 80);
+  const parsedUrl = new URL(url);
+  const port = Number(parsedUrl.port || 80);
   if (await canConnect(port)) {
     throw new Error(`Smoke port ${port} is already in use.`);
   }
-  gameServer = spawn(
-    process.execPath,
-    ['dist/main.js'],
-    {
-      cwd: projectDirectory,
-      env: { ...process.env, PORT: String(port) },
-      stdio: ['ignore', 'pipe', 'pipe'],
+  let serverOutput = '';
+  const gameServer = spawn(process.execPath, ['dist/main.js'], {
+    cwd: projectDirectory,
+    env: {
+      ...process.env,
+      PORT: String(port),
+      GAME_INSTANCE_ID: instanceId,
     },
-  );
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  gameServers.push(gameServer);
   const appendOutput = (chunk) => {
     serverOutput = `${serverOutput}${chunk}`.slice(-4_000);
   };
@@ -177,22 +210,25 @@ async function startGameServer() {
 }
 
 try {
-  await startGameServer();
+  await Promise.all([
+    startGameServer(gameUrl, 'smoke-instance-a'),
+    ...(twoInstance ? [startGameServer(gameUrlB, 'smoke-instance-b')] : []),
+  ]);
   const [playerA, playerB] = await Promise.all([
     createSmokeUser('a'),
     createSmokeUser('b'),
   ]);
   const [{ socket: socketA }, { socket: socketB }] = await Promise.all([
-    connect(playerA.token),
-    connect(playerB.token),
+    connect(playerA.token, gameUrl),
+    connect(playerB.token, gameUrlB),
   ]);
 
   const foundA = event(socketA, 'match_found');
   const foundB = event(socketB, 'match_found');
   const initialA = event(socketA, 'game_state_update');
   const initialB = event(socketB, 'game_state_update');
-  socketA.emit('join_queue', { mode: 'ranked' });
-  socketB.emit('join_queue', { mode: 'ranked' });
+  await emitCommand(socketA, 'join_queue', { mode: 'ranked' });
+  await emitCommand(socketB, 'join_queue', { mode: 'ranked' });
 
   const [matchA, matchB, stateA, stateB] = await Promise.all([
     foundA,
@@ -216,12 +252,12 @@ try {
   }
   const opened = event(socketA, 'open_card_accepted');
   const openedState = event(socketA, 'game_state_update');
-  socketA.emit('open_card', { roomId, cardId: card.id });
+  await emitCommand(socketA, 'open_card', { roomId, cardId: card.id });
   await Promise.all([opened, openedState]);
 
   const played = event(socketA, 'play_card_result');
   const updated = event(socketA, 'game_state_update');
-  socketA.emit('play_card', {
+  await emitCommand(socketA, 'play_card', {
     roomId,
     cardId: card.id,
     selectedOptionIndex: 0,
@@ -244,7 +280,7 @@ try {
     throw new Error('Disconnect grace metadata was not emitted.');
   }
 
-  const reconnect = await connect(playerA.token, (socket) => ({
+  const reconnect = await connect(playerA.token, gameUrl, (socket) => ({
     state: event(socket, 'game_state_update'),
     presence: event(socket, 'presence_update'),
   }));
@@ -261,7 +297,7 @@ try {
 
   const resultA = event(reconnect.socket, 'match_result');
   const resultB = event(socketB, 'match_result');
-  reconnect.socket.emit('surrender', { roomId });
+  await emitCommand(reconnect.socket, 'surrender', { roomId });
   const [finalA, finalB] = await Promise.all([resultA, resultB]);
   if (
     finalA.reason !== 'surrender' ||
@@ -297,12 +333,37 @@ try {
     throw new Error(`Match logs were not persisted: ${logError?.message}`);
   }
 
+  if (process.env.REDIS_URL) {
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 2_500));
+    const redis = new Redis(process.env.REDIS_URL, {
+      enableOfflineQueue: false,
+      maxRetriesPerRequest: 1,
+    });
+    try {
+      const prefix =
+        process.env.REDIS_KEY_PREFIX ??
+        `yudha:game:${process.env.NODE_ENV ?? 'development'}`;
+      const remaining = await redis.exists(
+        `${prefix}:room:${roomId}`,
+        `${prefix}:user-room:${playerA.userId}`,
+        `${prefix}:user-room:${playerB.userId}`,
+      );
+      if (remaining !== 0) {
+        throw new Error('Room routing records remained after match cleanup.');
+      }
+    } finally {
+      await redis.quit();
+    }
+  }
+
   console.log(
     JSON.stringify({
       ok: true,
       matchmaking: 'ranked/cpns',
       cardResolved: true,
       reconnectRestored: true,
+      instances: twoInstance ? 2 : 1,
+      routingRecordsRemoved: true,
       resultPersisted: true,
       logCount,
     }),

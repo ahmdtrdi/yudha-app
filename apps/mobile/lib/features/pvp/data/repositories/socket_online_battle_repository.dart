@@ -4,14 +4,19 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:yudha_mobile/app/config/app_config.dart';
 import 'package:yudha_mobile/core/errors/user_facing_error.dart';
 import 'package:yudha_mobile/features/pvp/data/repositories/online_battle_repository.dart';
+import 'package:yudha_mobile/features/pvp/data/repositories/socket_command_acknowledger.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_question.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_session_seed.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/online_battle_update.dart';
 
 class SocketOnlineBattleRepository extends OnlineBattleRepository {
-  SocketOnlineBattleRepository({required String? accessToken})
-    : _accessToken = accessToken;
+  SocketOnlineBattleRepository({
+    required String? accessToken,
+    SocketCommandAcknowledger? commandAcknowledger,
+  }) : _accessToken = accessToken,
+       _commandAcknowledger =
+           commandAcknowledger ?? SocketCommandAcknowledger();
 
   static const String _joinQueueEvent = 'join_queue';
   static const String _cancelQueueEvent = 'cancel_queue';
@@ -32,6 +37,7 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
   static const String _connectionSuccessEvent = 'connection_success';
 
   final String? _accessToken;
+  final SocketCommandAcknowledger _commandAcknowledger;
   final StreamController<OnlineBattleUpdate> _updatesController =
       StreamController<OnlineBattleUpdate>.broadcast();
 
@@ -84,7 +90,7 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
     try {
       await _ensureConnected();
       if (_roomId == null && !sessionCompleter.isCompleted) {
-        _socket!.emit(_joinQueueEvent, <String, Object?>{
+        await _emitAcknowledgedCommand(_joinQueueEvent, <String, Object?>{
           'mode': matchmakingMode.name,
         });
       }
@@ -107,12 +113,11 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
     final Completer<void> completer = Completer<void>();
     _openCardCompleter = completer;
     _pendingOpenCardId = cardId;
-    _socket!.emit(_openCardEvent, <String, Object?>{
-      'roomId': roomId,
-      'cardId': cardId,
-    });
-
     try {
+      await _emitAcknowledgedCommand(_openCardEvent, <String, Object?>{
+        'roomId': roomId,
+        'cardId': cardId,
+      });
       await completer.future.timeout(const Duration(seconds: 8));
     } on TimeoutException {
       throw TimeoutException('Kartu arena tidak merespons. Coba lagi.');
@@ -131,7 +136,7 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
   }) async {
     final String roomId = _requireRoomId();
     await _ensureConnected();
-    _socket!.emit(_playCardEvent, <String, Object?>{
+    await _emitAcknowledgedCommand(_playCardEvent, <String, Object?>{
       'roomId': roomId,
       'cardId': cardId,
       'selectedOptionIndex': selectedOptionIndex,
@@ -154,8 +159,10 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
     }
     final Completer<void> completer = Completer<void>();
     _surrenderCompleter = completer;
-    _socket!.emit(_surrenderEvent, <String, Object?>{'roomId': _roomId});
     try {
+      await _emitAcknowledgedCommand(_surrenderEvent, <String, Object?>{
+        'roomId': _roomId,
+      });
       await completer.future.timeout(const Duration(seconds: 8));
     } on TimeoutException {
       // The server may still finish the surrender after a transient reconnect.
@@ -616,6 +623,25 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
     if (_socket == null || !_socket!.connected) {
       return;
     }
-    _socket!.emit(_cancelQueueEvent);
+    await _emitAcknowledgedCommand(_cancelQueueEvent, <String, Object?>{});
+  }
+
+  Future<Map<String, dynamic>> _emitAcknowledgedCommand(
+    String event,
+    Map<String, Object?> payload,
+  ) {
+    return _commandAcknowledger.send(
+      event: event,
+      payload: payload,
+      emit:
+          (
+            String name,
+            Map<String, Object?> command,
+            void Function(dynamic) ack,
+          ) {
+            _socket!.emitWithAck(name, command, ack: ack);
+          },
+      reconnect: _ensureConnected,
+    );
   }
 }
