@@ -2228,3 +2228,27 @@
 
 ### The Tech Debt
 - The shield remains a generic Flutter icon until equipped profile cosmetics are connected, and Lobby-specific colors should become shared tokens only when another surface adopts the same treatment.
+
+## 2026-08-20 - Hired Pass UI Redesign
+
+### The Change
+- Rebuilt the reward track as aligned milestone, Free Pass, and Premium Pass columns with the lane labels shown once in a shared header.
+- Kept the Free lane transparent and added one continuous soft-purple background behind the Premium lane.
+- Replaced descriptive reward cards with compact clay controls that center either a Y-marked coin amount or enlarged cosmetic artwork, prioritizing the item for compound rewards.
+- Added distinct raised claimable, muted locked, and pressed claimed states with lock/check indicators and accessible state labels.
+- Increased coin-only reward marks to 38 pixels and cosmetic artwork to 46 pixels with 10-pixel rounded clipping.
+- Kept item rewards visually focused on the cosmetic while preserving all authoritative bundled coin grants during claiming.
+- Removed repeated `FREE`, `PREMIUM`, and long status copy from individual rewards.
+- Made milestone lookup tolerant of a missing Free or Premium reward so incomplete server rows render an empty cell instead of throwing.
+- Added focused widget coverage for lane structure, state geometry, tap availability, semantics, reward sizing, rounded artwork, compound rewards, and missing-reward behavior.
+
+### The Reasoning
+- Persistent column headers communicate track ownership once, allowing individual rewards to prioritize their value and interaction state.
+- Clay depth now acts as the interaction cue: claimable rewards are visibly raised, claimed rewards look pressed, and locked rewards remain visibly disabled.
+
+### Verification
+- The focused Hired Pass widget test passed at a 390x844 viewport.
+- Focused Dart analysis completed with no issues.
+
+### The Tech Debt
+- The code-native Y-Coin mark remains local to the reward track until a shared official coin asset is introduced.
