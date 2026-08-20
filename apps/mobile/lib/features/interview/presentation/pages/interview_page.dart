@@ -285,10 +285,10 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
         }
       },
       child: Scaffold(
-        backgroundColor: AppColors.scholarCream,
+        backgroundColor: const Color(0xFF0D49B5),
         appBar: AppBar(
           titleSpacing: 0,
-          backgroundColor: AppColors.warriorNavy,
+          backgroundColor: const Color(0xFF0D49B5),
           iconTheme: const IconThemeData(color: Colors.white),
           leading: IconButton(
             icon: const Icon(Icons.chevron_left),
@@ -342,125 +342,150 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
               ),
           ],
         ),
-        body: SafeArea(
-          child: state.status == InterviewViewStatus.completed
-              ? _InterviewResultView(
-                  config: widget.config,
-                  summary: state.finalSummary,
-                  latestEvaluation: state.latestEvaluation,
-                  onStartNew: () => context.go(AppRoutes.interviewSetup),
-                  onBackToPractice: () => context.go(AppRoutes.practice),
-                )
-              : Column(
-                  children: <Widget>[
-                    if (!isVoiceMode)
-                      _InterviewHeader(
-                        status: state.status,
+        body: DecoratedBox(
+          key: const ValueKey<String>('interview-page-background'),
+          decoration: BoxDecoration(
+            color: state.status == InterviewViewStatus.completed
+                ? AppColors.scholarCream
+                : null,
+            gradient: state.status == InterviewViewStatus.completed
+                ? null
+                : const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: <Color>[
+                      Color(0xFF0D49B5),
+                      Color(0xFF0875AE),
+                      Color(0xFF06AAA9),
+                    ],
+                    stops: <double>[0, 0.48, 1],
+                  ),
+          ),
+          child: SafeArea(
+            child: state.status == InterviewViewStatus.completed
+                ? _InterviewResultView(
+                    config: widget.config,
+                    summary: state.finalSummary,
+                    latestEvaluation: state.latestEvaluation,
+                    onStartNew: () => context.go(AppRoutes.interviewSetup),
+                    onBackToPractice: () => context.go(AppRoutes.practice),
+                  )
+                : Column(
+                    children: <Widget>[
+                      if (!isVoiceMode)
+                        _InterviewHeader(
+                          status: state.status,
+                          config: widget.config,
+                          currentQuestion: currentQuestion,
+                          finalSummary: state.finalSummary,
+                        ),
+                      if (state.errorMessage != null)
+                        _ErrorBanner(
+                          message: state.errorMessage!,
+                          onRetry: () => ref
+                              .read(
+                                interviewControllerProvider(
+                                  widget.config,
+                                ).notifier,
+                              )
+                              .retry(),
+                        ),
+                      Expanded(
+                        child: state.status == InterviewViewStatus.starting
+                            ? const Center(child: CircularProgressIndicator())
+                            : isVoiceMode
+                            ? Builder(
+                                builder: (BuildContext context) {
+                                  final String? token = ref.watch(
+                                    authAccessTokenProvider,
+                                  );
+                                  final controllerNotifier = ref.read(
+                                    interviewControllerProvider(
+                                      widget.config,
+                                    ).notifier,
+                                  );
+                                  final String? audioUrl =
+                                      currentQuestion == null
+                                      ? null
+                                      : controllerNotifier.getQuestionAudioUrl(
+                                          currentQuestion.id,
+                                        );
+
+                                  return _VoiceRoomPanel(
+                                    state: state,
+                                    currentQuestion: currentQuestion,
+                                    latestCandidateAnswer:
+                                        latestCandidateAnswer,
+                                    audioUrl: audioUrl,
+                                    accessToken: token,
+                                  );
+                                },
+                              )
+                            : Builder(
+                                builder: (BuildContext context) {
+                                  final String? token = ref.watch(
+                                    authAccessTokenProvider,
+                                  );
+                                  final controllerNotifier = ref.read(
+                                    interviewControllerProvider(
+                                      widget.config,
+                                    ).notifier,
+                                  );
+
+                                  return ListView.builder(
+                                    controller: _scrollController,
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      12,
+                                      16,
+                                      20,
+                                    ),
+                                    itemCount:
+                                        state.messages.length +
+                                        (isBusy ? 1 : 0),
+                                    itemBuilder:
+                                        (BuildContext context, int index) {
+                                          if (index < state.messages.length) {
+                                            final InterviewMessage msg =
+                                                state.messages[index];
+                                            final String? audioUrl =
+                                                (msg.author ==
+                                                        InterviewMessageAuthor
+                                                            .interviewer &&
+                                                    (msg.audioAvailable ||
+                                                        widget
+                                                                .config
+                                                                .responseStyle ==
+                                                            'voice'))
+                                                ? controllerNotifier
+                                                      .getQuestionAudioUrl(
+                                                        msg.id,
+                                                      )
+                                                : null;
+                                            return _ChatBubble(
+                                              message: msg,
+                                              audioUrl: audioUrl,
+                                              accessToken: token,
+                                            );
+                                          }
+                                          return const _TypingBubble();
+                                        },
+                                  );
+                                },
+                              ),
+                      ),
+                      if (state.latestEvaluation != null)
+                        _EvaluationStrip(evaluation: state.latestEvaluation!),
+                      _AnswerComposer(
+                        controller: _answerController,
+                        enabled: state.canSubmit,
+                        isBusy: isBusy,
                         config: widget.config,
-                        currentQuestion: currentQuestion,
-                        finalSummary: state.finalSummary,
+                        onSubmit: _submitAnswer,
                       ),
-                    if (state.errorMessage != null)
-                      _ErrorBanner(
-                        message: state.errorMessage!,
-                        onRetry: () => ref
-                            .read(
-                              interviewControllerProvider(
-                                widget.config,
-                              ).notifier,
-                            )
-                            .retry(),
-                      ),
-                    Expanded(
-                      child: state.status == InterviewViewStatus.starting
-                          ? const Center(child: CircularProgressIndicator())
-                          : isVoiceMode
-                          ? Builder(
-                              builder: (BuildContext context) {
-                                final String? token = ref.watch(
-                                  authAccessTokenProvider,
-                                );
-                                final controllerNotifier = ref.read(
-                                  interviewControllerProvider(
-                                    widget.config,
-                                  ).notifier,
-                                );
-                                final String? audioUrl = currentQuestion == null
-                                    ? null
-                                    : controllerNotifier.getQuestionAudioUrl(
-                                        currentQuestion.id,
-                                      );
-
-                                return _VoiceRoomPanel(
-                                  state: state,
-                                  currentQuestion: currentQuestion,
-                                  latestCandidateAnswer: latestCandidateAnswer,
-                                  audioUrl: audioUrl,
-                                  accessToken: token,
-                                );
-                              },
-                            )
-                          : Builder(
-                              builder: (BuildContext context) {
-                                final String? token = ref.watch(
-                                  authAccessTokenProvider,
-                                );
-                                final controllerNotifier = ref.read(
-                                  interviewControllerProvider(
-                                    widget.config,
-                                  ).notifier,
-                                );
-
-                                return ListView.builder(
-                                  controller: _scrollController,
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    12,
-                                    16,
-                                    20,
-                                  ),
-                                  itemCount:
-                                      state.messages.length + (isBusy ? 1 : 0),
-                                  itemBuilder:
-                                      (BuildContext context, int index) {
-                                        if (index < state.messages.length) {
-                                          final InterviewMessage msg =
-                                              state.messages[index];
-                                          final String? audioUrl =
-                                              (msg.author ==
-                                                      InterviewMessageAuthor
-                                                          .interviewer &&
-                                                  (msg.audioAvailable ||
-                                                      widget
-                                                              .config
-                                                              .responseStyle ==
-                                                          'voice'))
-                                              ? controllerNotifier
-                                                    .getQuestionAudioUrl(msg.id)
-                                              : null;
-                                          return _ChatBubble(
-                                            message: msg,
-                                            audioUrl: audioUrl,
-                                            accessToken: token,
-                                          );
-                                        }
-                                        return const _TypingBubble();
-                                      },
-                                );
-                              },
-                            ),
-                    ),
-                    if (state.latestEvaluation != null)
-                      _EvaluationStrip(evaluation: state.latestEvaluation!),
-                    _AnswerComposer(
-                      controller: _answerController,
-                      enabled: state.canSubmit,
-                      isBusy: isBusy,
-                      config: widget.config,
-                      onSubmit: _submitAnswer,
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+          ),
         ),
       ),
     );
@@ -672,80 +697,70 @@ class _VoiceRoomPanel extends StatelessWidget {
         : 'Gunakan mic atau tetap ketik jawaban di bawah.';
 
     return Container(
+      key: const ValueKey<String>('interview-voice-stage'),
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: <Color>[
-            AppColors.warriorNavy,
-            Color(0xFF123C76),
-            AppColors.levelUpTeal,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: AppColors.warriorNavy.withAlpha(35),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
       child: Column(
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(24),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withAlpha(45)),
+          Container(
+            key: const ValueKey<String>('interview-voice-mode-card'),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(22),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withAlpha(38)),
+            ),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(24),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withAlpha(45)),
+                  ),
+                  child: const Icon(
+                    Icons.record_voice_over_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.record_voice_over_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const Text(
-                      'Interview Suara',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      const Text(
+                        'Interview Suara',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                        ),
                       ),
-                    ),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withAlpha(185),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 10,
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withAlpha(185),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 10,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              if (audioUrl != null)
-                _AudioPlayButton(
-                  audioUrl: audioUrl!,
-                  accessToken: accessToken,
-                  color: Colors.white,
-                  autoPlay: true,
-                ),
-            ],
+                if (audioUrl != null)
+                  _AudioPlayButton(
+                    audioUrl: audioUrl!,
+                    accessToken: accessToken,
+                    color: Colors.white,
+                    autoPlay: true,
+                  ),
+              ],
+            ),
           ),
           const Spacer(),
           Text(
@@ -764,9 +779,20 @@ class _VoiceRoomPanel extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           Flexible(
-            child: _ScrollableInterviewQuestion(
-              text:
-                  currentQuestion?.text ?? 'Menyiapkan pertanyaan interview...',
+            child: Container(
+              key: const ValueKey<String>('interview-question-surface'),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(22),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: Colors.white.withAlpha(36)),
+              ),
+              child: _ScrollableInterviewQuestion(
+                text:
+                    currentQuestion?.text ??
+                    'Menyiapkan pertanyaan interview...',
+              ),
             ),
           ),
           if (latestCandidateAnswer != null) ...<Widget>[
@@ -928,7 +954,8 @@ class _VoiceVisualizerOrbState extends State<_VoiceVisualizerOrb>
       animation: _controller,
       builder: (BuildContext context, Widget? child) {
         return CustomPaint(
-          size: const Size.square(150),
+          key: const ValueKey<String>('interview-voice-orb'),
+          size: const Size.square(180),
           painter: _VoiceOrbPainter(
             progress: _controller.value,
             isActive: widget.isActive,
@@ -1854,12 +1881,21 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
       final String timeStr =
           '${(_recordSeconds ~/ 60).toString().padLeft(2, '0')}:${(_recordSeconds % 60).toString().padLeft(2, '0')}';
       return Container(
+        key: const ValueKey<String>('interview-recording-composer'),
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+        margin: const EdgeInsets.fromLTRB(20, 8, 20, 18),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.redAccent.withAlpha(15),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
           border: Border.all(color: Colors.redAccent.withAlpha(60)),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: AppColors.warriorNavy.withAlpha(38),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Row(
           children: <Widget>[
@@ -1902,16 +1938,18 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
     }
 
     return Container(
+      key: const ValueKey<String>('interview-floating-composer'),
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+      margin: const EdgeInsets.fromLTRB(20, 8, 20, 18),
+      padding: const EdgeInsets.fromLTRB(8, 4, 4, 4),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(26)),
+        borderRadius: BorderRadius.circular(30),
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: AppColors.warriorNavy.withAlpha(20),
-            blurRadius: 20,
-            offset: const Offset(0, -8),
+            color: AppColors.warriorNavy.withAlpha(42),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -1954,26 +1992,43 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
               if (isVoice) ...<Widget>[
                 IconButton(
                   tooltip: 'Rekam jawaban',
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints.tightFor(
+                    width: 40,
+                    height: 40,
+                  ),
                   icon: Icon(
                     Icons.mic_rounded,
+                    size: 20,
                     color: widget.enabled && !isBusy
                         ? AppColors.levelUpTeal
                         : AppColors.textMuted,
                   ),
                   onPressed: widget.enabled && !isBusy ? _startRecording : null,
                 ),
-                const SizedBox(width: 4),
               ],
               Expanded(
                 child: TextField(
+                  key: const ValueKey<String>('interview-answer-field'),
                   controller: widget.controller,
                   enabled: widget.enabled && !_isTranscribing,
                   minLines: 1,
-                  maxLines: 4,
+                  maxLines: 1,
+                  style: const TextStyle(
+                    color: AppColors.textStrong,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
                   inputFormatters: <TextInputFormatter>[
                     LengthLimitingTextInputFormatter(5000),
                   ],
-                  textInputAction: TextInputAction.newline,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) {
+                    if (widget.enabled && !isBusy) {
+                      widget.onSubmit();
+                    }
+                  },
                   decoration: InputDecoration(
                     hintText: _isTranscribing
                         ? 'Memproses transkripsi suara...'
@@ -1982,16 +2037,29 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
                               ? 'Bicara via mic atau ketik jawaban...'
                               : 'Ketik jawaban interview kamu...')
                         : 'Tunggu pewawancara AI...',
-                    filled: true,
-                    fillColor: AppColors.scholarCream,
+                    filled: false,
+                    isDense: true,
+                    hintMaxLines: 1,
+                    hintStyle: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 10,
+                    ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(24),
                       borderSide: BorderSide.none,
                     ),
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 6),
               if (_isTranscribing)
                 const SizedBox(
                   width: 24,
@@ -2005,9 +2073,10 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
                 FilledButton(
                   onPressed: widget.enabled && !isBusy ? widget.onSubmit : null,
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.warriorNavy,
+                    backgroundColor: const Color(0xFF0D49B5),
                     shape: const CircleBorder(),
-                    padding: const EdgeInsets.all(16),
+                    minimumSize: const Size.square(42),
+                    padding: const EdgeInsets.all(10),
                   ),
                   child: const Icon(Icons.send_rounded),
                 ),

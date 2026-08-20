@@ -2252,3 +2252,27 @@
 
 ### The Tech Debt
 - The code-native Y-Coin mark remains local to the reward track until a shared official coin asset is introduced.
+
+## 2026-08-20 - Interview Page Redesign
+
+### The Change
+- Replaced the inset active-interview card with a full-screen vertical blue-to-teal gradient continuous with the royal-blue app bar.
+- Restyled the voice-mode information and current-question areas as restrained translucent surfaces directly on the gradient.
+- Increased the animated voice orb from 150 to 180 pixels while preserving listening, transcription, and response-processing states.
+- Converted idle and recording answer composers from full-width bottom sheets into floating rounded white controls with safe-area margins and keyboard-aware placement.
+- Constrained the compact answer field and hint to one line, tightened the microphone and send controls, and mapped the keyboard action to Send.
+- Preserved existing voice capture, transcription, text submission, audio playback, retry, history, completion, evaluation, and exit behavior.
+- Kept the completed-results view on its existing scholar-cream background.
+- Added focused widget coverage for gradient colors, voice-stage components, orb sizing, composer styling and line behavior, keyboard action, and overflow safety at 390x844 and 390x680.
+
+### The Reasoning
+- Letting the gradient own the active room creates the immersive full-screen treatment in the reference, while floating only the interactive composer keeps the primary action visually distinct.
+- Translucent question surfaces retain readability without reintroducing another large card over the background.
+
+### Verification
+- The focused Interview widget test passed at 390x844 and 390x680 viewport sizes.
+- Focused Dart analysis completed with no issues.
+
+### The Tech Debt
+- The voice orb remains code-native and intentionally non-reactive to microphone amplitude; connecting live waveform intensity would require a separate audio-level contract.
+- Long typed answers scroll horizontally within the single-line field rather than expanding vertically.
