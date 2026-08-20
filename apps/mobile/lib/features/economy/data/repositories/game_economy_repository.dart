@@ -7,6 +7,7 @@ class AuthoritativeEconomySnapshot {
     required this.characterId,
     required this.towerId,
     required this.arenaId,
+    required this.items,
   });
 
   final int coins;
@@ -14,6 +15,7 @@ class AuthoritativeEconomySnapshot {
   final String characterId;
   final String towerId;
   final String arenaId;
+  final List<CosmeticItem> items;
 }
 
 abstract class GameEconomyRepository {

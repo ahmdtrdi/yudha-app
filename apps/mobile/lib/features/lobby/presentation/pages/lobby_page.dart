@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_providers.dart';
+import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
 import 'package:yudha_mobile/features/economy/presentation/widgets/economy_widgets.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 
@@ -14,10 +15,10 @@ class LobbyPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final progress = ref.watch(playerProgressProvider);
+    final GameEconomyState economy = ref.watch(gameEconomyProvider);
     final List<Map<String, Object?>> dailyMissions = progress.dailyMissions;
-    final Map<String, Object?>? practiceMission = dailyMissions.firstWhere(
-      (Map<String, Object?> mission) =>
-          mission['key'] == 'daily_practice',
+    final Map<String, Object?> practiceMission = dailyMissions.firstWhere(
+      (Map<String, Object?> mission) => mission['key'] == 'daily_practice',
       orElse: () => const <String, Object?>{
         'key': 'daily_practice',
         'title': 'Daily Question',
@@ -25,7 +26,7 @@ class LobbyPage extends ConsumerWidget {
         'completed': false,
       },
     );
-    final Map<String, Object?>? pvpMission = dailyMissions.firstWhere(
+    final Map<String, Object?> pvpMission = dailyMissions.firstWhere(
       (Map<String, Object?> mission) => mission['key'] == 'daily_pvp',
       orElse: () => const <String, Object?>{
         'key': 'daily_pvp',
@@ -45,10 +46,10 @@ class LobbyPage extends ConsumerWidget {
         actions: <Widget>[
           Center(
             child: YCoinBalanceChip(
-              balance: ref.watch(
-                gameEconomyProvider.select((state) => state.yCoins),
-              ),
-              onTap: () => showYCoinTopUpSheet(context),
+              balance: economy.isAuthoritative ? economy.yCoins : null,
+              onTap: economy.isAuthoritative
+                  ? () => showYCoinTopUpSheet(context)
+                  : null,
               dark: true,
             ),
           ),
@@ -362,13 +363,13 @@ class _TodayQuestsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int totalQuests = [practiceMission, pvpMission]
-        .whereType<Map<String, Object?>>()
-        .length;
+    final int totalQuests = [
+      practiceMission,
+      pvpMission,
+    ].whereType<Map<String, Object?>>().length;
     final int completedQuests = [practiceMission, pvpMission]
         .whereType<Map<String, Object?>>()
-        .where((Map<String, Object?> mission) =>
-            mission['completed'] == true)
+        .where((Map<String, Object?> mission) => mission['completed'] == true)
         .length;
 
     return Container(
@@ -416,8 +417,7 @@ class _TodayQuestsSection extends StatelessWidget {
           ),
           SizedBox(height: compact ? 8 : 10),
           _QuestTile(
-            title: (practiceMission?['title'] ?? 'Daily Question')
-                .toString(),
+            title: (practiceMission?['title'] ?? 'Daily Question').toString(),
             subtitle: practiceMission?['completed'] == true
                 ? 'Selesai hari ini'
                 : 'Practice one question',

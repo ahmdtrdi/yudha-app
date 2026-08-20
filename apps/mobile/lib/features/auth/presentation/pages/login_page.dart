@@ -59,7 +59,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       return;
     }
 
-    context.go(AppRoutes.lobby);
+    context.go(AppRoutes.postLoginDestination(GoRouterState.of(context).uri));
   }
 
   @override
@@ -106,7 +106,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     const SizedBox(height: 24),
                     if (authState.errorMessage != null) ...<Widget>[
                       _AuthErrorBanner(message: authState.errorMessage!),
-                      if (authState.errorCode == 'email_not_confirmed') ...<Widget>[
+                      if (authState.errorCode ==
+                          'email_not_confirmed') ...<Widget>[
                         const SizedBox(height: 10),
                         Align(
                           alignment: Alignment.centerLeft,

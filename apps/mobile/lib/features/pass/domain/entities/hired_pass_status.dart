@@ -3,6 +3,7 @@ class HiredPassStatus {
     required this.seasonId,
     required this.passPoints,
     required this.premiumActive,
+    required this.adFree,
     required this.expiresAt,
     required this.missions,
     required this.rewards,
@@ -12,6 +13,7 @@ class HiredPassStatus {
   final String? seasonId;
   final int passPoints;
   final bool premiumActive;
+  final bool adFree;
   final DateTime? expiresAt;
   final List<HiredPassMission> missions;
   final List<HiredPassReward> rewards;

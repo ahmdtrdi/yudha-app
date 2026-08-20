@@ -86,12 +86,13 @@ class HiredPassRepository {
       seasonId: season['id']?.toString(),
       passPoints: _int(data['passPoints']),
       premiumActive: entitlement['premiumActive'] == true,
+      adFree: data['adFree'] == true,
       expiresAt: DateTime.tryParse(entitlement['expiresAt']?.toString() ?? ''),
       missions: missions,
       rewards: rewards,
-      claimedRewardIds: _list(data['claimedRewardIds'])
-          .map((Object? value) => value.toString())
-          .toSet(),
+      claimedRewardIds: _list(
+        data['claimedRewardIds'],
+      ).map((Object? value) => value.toString()).toSet(),
     );
   }
 
@@ -111,9 +112,7 @@ class HiredPassRepository {
     final Map<String, dynamic> data = await _request(
       'POST',
       Uri.parse('$baseUrl/hired-pass/rewards/$rewardId/claim'),
-      body: <String, Object?>{
-        'idempotencyKey': _requestId('claim-$rewardId'),
-      },
+      body: <String, Object?>{'idempotencyKey': _requestId('claim-$rewardId')},
     );
     return HiredPassMutationResult.fromJson(data);
   }

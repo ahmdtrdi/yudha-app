@@ -107,10 +107,10 @@ class PlayerProgress {
   }
 
   PlayerProgress mergeSnapshot(PlayerProgressSnapshot snapshot) {
-    final int mergedStreak = snapshot.streak == 0 ? this.streak : snapshot.streak;
+    final int mergedStreak = snapshot.streak == 0 ? streak : snapshot.streak;
     final int mergedBestStreak = snapshot.streak == 0
-        ? this.bestStreak
-        : (snapshot.streak > this.bestStreak ? snapshot.streak : this.bestStreak);
+        ? bestStreak
+        : (snapshot.streak > bestStreak ? snapshot.streak : bestStreak);
 
     return copyWith(
       playerId: snapshot.playerId,

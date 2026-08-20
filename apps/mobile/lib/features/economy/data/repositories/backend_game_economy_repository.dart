@@ -25,8 +25,13 @@ class BackendGameEconomyRepository extends GameEconomyRepository {
       Uri.parse('$baseUrl/store/items'),
     );
     final Map<String, dynamic> equipped = _map(data['equipped']);
+    final List<CosmeticItem> items = _list(data['items'])
+        .whereType<Map<String, dynamic>>()
+        .map(_storeItem)
+        .whereType<CosmeticItem>()
+        .toList(growable: false);
     return AuthoritativeEconomySnapshot(
-      coins: _int(data['coins']),
+      coins: _int(data['yCoins'] ?? data['coins']),
       ownedItemIds: _list(
         data['ownedItemIds'],
       ).map((Object? value) => value.toString()).toSet(),
@@ -35,6 +40,43 @@ class BackendGameEconomyRepository extends GameEconomyRepository {
           GameEconomyCatalog.defaultCharacterId,
       towerId: _text(equipped['towerId']) ?? GameEconomyCatalog.defaultTowerId,
       arenaId: _text(equipped['arenaId']) ?? GameEconomyCatalog.defaultArenaId,
+      items: items,
+    );
+  }
+
+  CosmeticItem? _storeItem(Map<String, dynamic> data) {
+    final String id = _text(data['id']) ?? '';
+    final CosmeticType? type = switch (_text(data['type'])) {
+      'character_skin' || 'character' => CosmeticType.character,
+      'tower' => CosmeticType.tower,
+      'arena' => CosmeticType.arena,
+      _ => null,
+    };
+    if (id.isEmpty || type == null) {
+      return null;
+    }
+    final CosmeticItem? visual = switch (type) {
+      CosmeticType.character => GameEconomyCatalog.findCharacter(id),
+      CosmeticType.tower => GameEconomyCatalog.findTower(id),
+      CosmeticType.arena => GameEconomyCatalog.findArena(id),
+    };
+    final CosmeticRarity rarity = switch (_text(data['rarity'])) {
+      'rare' => CosmeticRarity.rare,
+      'epic' => CosmeticRarity.epic,
+      'legendary' || 'legend' => CosmeticRarity.legendary,
+      _ => CosmeticRarity.common,
+    };
+    return CosmeticItem(
+      id: id,
+      name: _text(data['name']) ?? visual?.name ?? id,
+      description: _text(data['description']) ?? visual?.description ?? '',
+      type: type,
+      rarity: rarity,
+      price: _int(data['coinPrice'] ?? data['price']),
+      assetPath: visual?.assetPath,
+      battleAssetPath: visual?.battleAssetPath,
+      characterVisuals: visual?.characterVisuals,
+      passExclusive: data['passExclusive'] == true,
     );
   }
 

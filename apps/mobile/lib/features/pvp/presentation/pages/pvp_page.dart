@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
+import 'package:yudha_mobile/features/ads/application/ad_placement_providers.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_controller.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_providers.dart';
 import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
@@ -49,6 +50,15 @@ String _firstName(String value, {required String fallback}) {
   return normalized.split(RegExp(r'\s+')).first;
 }
 
+bool isPublicPvpResultAdEligible({
+  required BattleMode battleMode,
+  required OnlineMatchmakingMode matchmakingMode,
+}) {
+  return battleMode == BattleMode.online &&
+      (matchmakingMode == OnlineMatchmakingMode.casual ||
+          matchmakingMode == OnlineMatchmakingMode.ranked);
+}
+
 class PvpPage extends ConsumerStatefulWidget {
   const PvpPage({super.key});
 
@@ -59,6 +69,9 @@ class PvpPage extends ConsumerStatefulWidget {
 class _PvpPageState extends ConsumerState<PvpPage> {
   _ArenaSetupStep _setupStep = _ArenaSetupStep.arena;
   String? _scheduledArenaSyncId;
+  final ResultExitAdSession _resultAdSession = ResultExitAdSession();
+  bool _allowResultPop = false;
+  bool _resultEconomyRefreshed = false;
 
   @override
   void initState() {
@@ -75,6 +88,20 @@ class _PvpPageState extends ConsumerState<PvpPage> {
   @override
   Widget build(BuildContext context) {
     final BattleState state = ref.watch(battleControllerProvider);
+    if (state.phase != BattlePhase.finished) {
+      _resultAdSession.reset();
+      _allowResultPop = false;
+      _resultEconomyRefreshed = false;
+    } else if (state.mode == BattleMode.online &&
+        state.progressionPersisted &&
+        !_resultEconomyRefreshed) {
+      _resultEconomyRefreshed = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          unawaited(ref.read(gameEconomyProvider.notifier).refresh());
+        }
+      });
+    }
     final BattleController controller = ref.read(
       battleControllerProvider.notifier,
     );
@@ -167,7 +194,7 @@ class _PvpPageState extends ConsumerState<PvpPage> {
         profileTarget: profileTarget,
         soundEnabled: soundEnabled,
       );
-      return _SystemBarStyle(
+      final Widget page = _SystemBarStyle(
         darkBackground: needsDark,
         child: Scaffold(
           backgroundColor: needsDark
@@ -193,6 +220,19 @@ class _PvpPageState extends ConsumerState<PvpPage> {
             ),
           ),
         ),
+      );
+      if (state.phase != BattlePhase.finished) return page;
+      return PopScope(
+        canPop: _allowResultPop,
+        onPopInvokedWithResult: (bool didPop, Object? result) {
+          if (didPop) return;
+          _triggerResultExitAd(state);
+          setState(() => _allowResultPop = true);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) Navigator.of(context).maybePop();
+          });
+        },
+        child: page,
       );
     }
 
@@ -281,7 +321,6 @@ class _PvpPageState extends ConsumerState<PvpPage> {
           final GameEconomyController economyController = ref.read(
             gameEconomyProvider.notifier,
           );
-          economyController.selectArena(arena);
           unawaited(economyController.selectArenaAuthoritative(arena));
         },
         onLockedArenaTap: (CosmeticItem arena) {
@@ -357,11 +396,6 @@ class _PvpPageState extends ConsumerState<PvpPage> {
           return;
         }
         if (state.mode == BattleMode.online) {
-          if (state.progressionPersisted) {
-            ref
-                .read(gameEconomyProvider.notifier)
-                .applyBattleReward(state.coinsDelta);
-          }
           unawaited(
             ref.read(playerProgressProvider.notifier).hydrateFromRepository(),
           );
@@ -373,12 +407,19 @@ class _PvpPageState extends ConsumerState<PvpPage> {
         state: state,
         onClaimReward: claimReward,
         onPractice: (String category) {
+          _triggerResultExitAd(state);
           claimReward();
           controller.resetBattle();
           context.go(AppRoutes.practice, extra: category);
         },
-        onReplay: controller.startBattle,
-        onReset: controller.resetBattle,
+        onReplay: () {
+          _triggerResultExitAd(state);
+          unawaited(controller.startBattle());
+        },
+        onReset: () {
+          _triggerResultExitAd(state);
+          controller.resetBattle();
+        },
         playerDisplayName: playerDisplayName,
       );
     }
@@ -425,6 +466,18 @@ class _PvpPageState extends ConsumerState<PvpPage> {
     );
   }
 
+  void _triggerResultExitAd(BattleState state) {
+    final bool isPublicResult = isPublicPvpResultAdEligible(
+      battleMode: state.mode,
+      matchmakingMode: state.onlineMatchmakingMode,
+    );
+    if (!isPublicResult) return;
+    _resultAdSession.triggerOnce(
+      ref.read(adPlacementGateProvider),
+      AdPlacement.publicPvpResultExit,
+    );
+  }
+
   void _ensureArenaMatchesTarget(
     ProfileTarget? target,
     GameEconomyState economy,
@@ -456,7 +509,6 @@ class _PvpPageState extends ConsumerState<PvpPage> {
       final GameEconomyController controller = ref.read(
         gameEconomyProvider.notifier,
       );
-      controller.selectArena(arena);
       unawaited(
         controller.selectArenaAuthoritative(arena).whenComplete(() {
           if (_scheduledArenaSyncId == targetArenaId) {
@@ -527,9 +579,7 @@ class _PvpPageState extends ConsumerState<PvpPage> {
     required OnlineMatchmakingMode matchmakingMode,
   }) async {
     try {
-      await ref
-          .read(gameEconomyProvider.notifier)
-          .syncAuthoritativeLoadout();
+      await ref.read(gameEconomyProvider.notifier).syncAuthoritativeLoadout();
     } catch (_) {
       // Ignored: Non-fatal loadout sync failure should not block entering battle.
     }

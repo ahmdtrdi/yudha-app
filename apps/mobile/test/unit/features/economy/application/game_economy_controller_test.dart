@@ -1,112 +1,147 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_controller.dart';
+import 'package:yudha_mobile/features/economy/application/game_economy_storage.dart';
 import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
+import 'package:yudha_mobile/features/economy/data/repositories/game_economy_repository.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
+import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
 
 void main() {
-  test('catalog exposes complete Basic, Rare, and Legend character sets', () {
-    expect(
-      GameEconomyCatalog.characters.map((character) => character.id),
-      <String>[
-        'character-basic-squire',
-        'character-basic-pip',
-        'character-rare-ignis',
-        'character-rare-brock',
-        'character-legend-drakor',
-        'character-legend-luna',
-      ],
+  test('missing repository never permits a local economy mutation', () async {
+    final _MemoryStorage storage = _MemoryStorage(
+      GameEconomyState.initial().copyWith(yCoins: 900),
     );
-    expect(
-      GameEconomyCatalog.characters.map((character) => character.rarity),
-      <CosmeticRarity>[
-        CosmeticRarity.common,
-        CosmeticRarity.common,
-        CosmeticRarity.rare,
-        CosmeticRarity.rare,
-        CosmeticRarity.legendary,
-        CosmeticRarity.legendary,
-      ],
+    final GameEconomyController controller = GameEconomyController(
+      storage: storage,
     );
-    for (final character in GameEconomyCatalog.characters) {
-      expect(character.characterVisuals, isNotNull);
-      expect(character.characterVisuals!.projectiles, hasLength(3));
-      expect(character.characterVisuals!.all, hasLength(7));
-    }
-  });
+    await pumpEventQueue();
+    final GameEconomyState before = controller.state;
 
-  test('purchasing a cosmetic deducts Y-Coin, owns, and equips it', () {
-    final GameEconomyController controller = GameEconomyController();
-    final character = GameEconomyCatalog.characters[1];
-
-    controller.topUp(GameEconomyCatalog.topUpPackages[2]);
-    final int balanceBeforePurchase = controller.state.yCoins;
-
-    final EconomyActionResult result = controller.purchase(character);
-
-    expect(result.success, isTrue);
-    expect(controller.state.yCoins, balanceBeforePurchase - character.price);
-    expect(controller.state.owns(character.id), isTrue);
-    expect(controller.state.equippedCharacterId, character.id);
-  });
-
-  test('purchase is rejected without enough Y-Coin', () {
-    final GameEconomyController controller = GameEconomyController();
-    final character = GameEconomyCatalog.characters[1];
-    final int initialBalance = controller.state.yCoins;
-
-    final EconomyActionResult result = controller.purchase(character);
+    final EconomyActionResult result = await controller.topUpAuthoritative(
+      GameEconomyCatalog.topUpPackages.first,
+    );
 
     expect(result.success, isFalse);
-    expect(controller.state.yCoins, initialBalance);
-    expect(controller.state.owns(character.id), isFalse);
+    expect(controller.state.yCoins, before.yCoins);
+    expect(controller.state.syncStatus, EconomySyncStatus.syncUnavailable);
+    expect(controller.state.yCoins, 0);
+    expect(storage.value, isNull);
   });
 
-  test(
-    'tower can be purchased and equipped, while arena is free to select',
-    () {
-      final GameEconomyController controller = GameEconomyController();
-      final tower = GameEconomyCatalog.towers[1];
-      final arena = GameEconomyCatalog.arenas[1];
+  test('failed startup sync keeps cache visibly non-authoritative', () async {
+    final GameEconomyState cached = GameEconomyState.initial().copyWith(
+      yCoins: 900,
+      dataSource: EconomyDataSource.cache,
+    );
+    final GameEconomyController controller = GameEconomyController(
+      storage: _MemoryStorage(cached),
+      repository: _FakeRepository(failFetch: true),
+    );
+    await pumpEventQueue();
 
-      controller.topUp(GameEconomyCatalog.topUpPackages[2]);
-      final int balanceBeforeTower = controller.state.yCoins;
+    expect(controller.state.yCoins, 900);
+    expect(controller.state.dataSource, EconomyDataSource.cache);
+    expect(controller.state.syncStatus, EconomySyncStatus.syncUnavailable);
 
-      final EconomyActionResult towerResult = controller.purchase(tower);
-      final EconomyActionResult arenaResult = controller.selectArena(arena);
-
-      expect(towerResult.success, isTrue);
-      expect(controller.state.yCoins, balanceBeforeTower - tower.price);
-      expect(controller.state.owns(tower.id), isTrue);
-      expect(controller.state.equippedTowerId, tower.id);
-      expect(arenaResult.success, isTrue);
-      expect(controller.state.equippedArenaId, arena.id);
-      expect(controller.state.owns(arena.id), isFalse);
-    },
-  );
-
-  test('beta +100 can be used repeatedly', () {
-    final GameEconomyController controller = GameEconomyController();
-    final betaPackage = GameEconomyCatalog.topUpPackages.first;
-    final int initialBalance = controller.state.yCoins;
-
-    controller.topUp(betaPackage);
-    controller.topUp(betaPackage);
-    controller.topUp(betaPackage);
-
-    expect(controller.state.yCoins, initialBalance + 300);
+    final EconomyActionResult result = await controller.purchaseAuthoritative(
+      GameEconomyCatalog.characters[1],
+    );
+    expect(result.success, isFalse);
+    expect(controller.state.owns(GameEconomyCatalog.characters[1].id), isFalse);
   });
 
-  test('premium pass reward grants its permanent cosmetic', () {
-    final GameEconomyController controller = GameEconomyController();
-    final reward = GameEconomyCatalog.passRewards.firstWhere(
-      (entry) => entry.id == 'premium-300-tower',
+  test('successful mutation replaces state with server snapshot', () async {
+    final _FakeRepository repository = _FakeRepository();
+    final GameEconomyController controller = GameEconomyController(
+      repository: repository,
+    );
+    await pumpEventQueue();
+
+    expect(controller.state.isAuthoritative, isTrue);
+    expect(controller.state.yCoins, 500);
+
+    final EconomyActionResult result = await controller.topUpAuthoritative(
+      GameEconomyCatalog.topUpPackages.first,
     );
 
-    controller.activatePremiumPassForBeta();
-    final EconomyActionResult result = controller.claimPassReward(reward);
-
     expect(result.success, isTrue);
-    expect(controller.state.owns('tower-benteng-bara'), isTrue);
-    expect(controller.state.hasClaimed(reward.id), isTrue);
+    expect(controller.state.yCoins, 600);
+    expect(repository.betaCreditCalls, 1);
   });
+
+  test('paid package is disabled without calling the repository', () async {
+    final _FakeRepository repository = _FakeRepository();
+    final GameEconomyController controller = GameEconomyController(
+      repository: repository,
+    );
+    await pumpEventQueue();
+
+    final EconomyActionResult result = await controller.topUpAuthoritative(
+      GameEconomyCatalog.topUpPackages[1],
+    );
+
+    expect(result.success, isFalse);
+    expect(repository.betaCreditCalls, 0);
+    expect(controller.state.yCoins, 500);
+  });
+}
+
+class _MemoryStorage implements GameEconomyStorage {
+  _MemoryStorage(this.value);
+
+  GameEconomyState? value;
+
+  @override
+  Future<GameEconomyState?> load() async => value;
+
+  @override
+  Future<void> save(GameEconomyState state) async => value = state;
+
+  @override
+  Future<void> clear() async => value = null;
+}
+
+class _FakeRepository extends GameEconomyRepository {
+  _FakeRepository({this.failFetch = false});
+
+  final bool failFetch;
+  int betaCreditCalls = 0;
+
+  AuthoritativeEconomySnapshot _snapshot(int coins) {
+    return AuthoritativeEconomySnapshot(
+      coins: coins,
+      ownedItemIds: const <String>{
+        GameEconomyCatalog.defaultCharacterId,
+        GameEconomyCatalog.defaultTowerId,
+      },
+      characterId: GameEconomyCatalog.defaultCharacterId,
+      towerId: GameEconomyCatalog.defaultTowerId,
+      arenaId: GameEconomyCatalog.defaultArenaId,
+      items: GameEconomyCatalog.cosmetics,
+    );
+  }
+
+  @override
+  Future<AuthoritativeEconomySnapshot> fetch() async {
+    if (failFetch) throw StateError('offline');
+    return _snapshot(500);
+  }
+
+  @override
+  Future<AuthoritativeEconomySnapshot> grantBetaCredit() async {
+    betaCreditCalls += 1;
+    return _snapshot(600);
+  }
+
+  @override
+  Future<AuthoritativeEconomySnapshot> purchaseAndEquip(
+    CosmeticItem item,
+  ) async => _snapshot(100);
+
+  @override
+  Future<AuthoritativeEconomySnapshot> setLoadout({
+    String? characterId,
+    String? towerId,
+    String? arenaId,
+  }) async => _snapshot(500);
 }

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/core/theme/app_typography.dart';
+import 'package:yudha_mobile/features/ads/application/ad_placement_providers.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/practice/application/practice_providers.dart';
 import 'package:yudha_mobile/features/practice/application/practice_state.dart';
@@ -11,11 +12,34 @@ import 'package:yudha_mobile/features/practice/domain/entities/practice_hint_sta
 import 'package:yudha_mobile/features/practice/domain/entities/practice_option.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_session.dart';
 
-class PracticeQuizPage extends ConsumerWidget {
+class PracticeQuizPage extends ConsumerStatefulWidget {
   const PracticeQuizPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PracticeQuizPage> createState() => _PracticeQuizPageState();
+}
+
+class _PracticeQuizPageState extends ConsumerState<PracticeQuizPage> {
+  final ResultExitAdSession _adSession = ResultExitAdSession();
+  bool _allowCompletedPop = false;
+
+  void _exitCompletedResult() {
+    final PracticeState state = ref.read(practiceControllerProvider);
+    if (state.status == PracticeViewStatus.completed &&
+        state.questions.length == 5) {
+      _adSession.triggerOnce(
+        ref.read(adPlacementGateProvider),
+        AdPlacement.practiceResultExit,
+      );
+    }
+    setState(() => _allowCompletedPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.pop();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(practiceControllerProvider);
     final controller = ref.read(practiceControllerProvider.notifier);
     final question = state.currentQuestion;
@@ -39,357 +63,367 @@ class PracticeQuizPage extends ConsumerWidget {
         ? _QuizActionKind.complete
         : _QuizActionKind.next;
 
-    return Scaffold(
-      backgroundColor: AppColors.scholarCream,
-      appBar: AppBar(
-        backgroundColor: AppColors.warriorNavy,
-        iconTheme: const IconThemeData(color: Colors.white),
-        titleSpacing: 0,
-        title: Padding(
-          padding: const EdgeInsets.only(right: 16.0),
-          child: Row(
-            children: <Widget>[
-              Expanded(
-                child: Center(
-                  child: Text(
-                    '${index + 1} / $total   ${question.topicName.toUpperCase()}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
+    return PopScope(
+      canPop: !isCompleted || _allowCompletedPop,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (!didPop && isCompleted) _exitCompletedResult();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.scholarCream,
+        appBar: AppBar(
+          backgroundColor: AppColors.warriorNavy,
+          iconTheme: const IconThemeData(color: Colors.white),
+          titleSpacing: 0,
+          title: Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      '${index + 1} / $total   ${question.topicName.toUpperCase()}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              Text(
-                question.timeLimitSeconds > 0
-                    ? '${question.timeLimitSeconds}s'
-                    : '--',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14,
+                Text(
+                  question.timeLimitSeconds > 0
+                      ? '${question.timeLimitSeconds}s'
+                      : '--',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
+          ),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(4.0),
+            child: LinearProgressIndicator(
+              value: total > 0 ? (index + 1) / total : 0.0,
+              color: AppColors.fireGold,
+              backgroundColor: Colors.white.withAlpha(50),
+              minHeight: 4,
+            ),
           ),
         ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(4.0),
-          child: LinearProgressIndicator(
-            value: total > 0 ? (index + 1) / total : 0.0,
-            color: AppColors.fireGold,
-            backgroundColor: Colors.white.withAlpha(50),
-            minHeight: 4,
-          ),
-        ),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    if (isCompleted && state.summary != null) ...<Widget>[
-                      _SessionSummaryCard(summary: state.summary!),
-                      const SizedBox(height: 16),
-                    ],
-                    // Question Card
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: <BoxShadow>[
-                          BoxShadow(
-                            color: AppColors.warriorNavy.withAlpha(10),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            question.prompt,
-                            style: const TextStyle(
-                              color: AppColors.textStrong,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                              height: 1.4,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            // Extract a pseudo-subtitle if available, else generic. For prototype, we'll map description if present.
-                            question.topicName,
-                            style: const TextStyle(
-                              color: AppColors.textMuted,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Hint Section
-                    if (state.hintState == PracticeHintState.unlocked)
+        body: SafeArea(
+          child: Column(
+            children: <Widget>[
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      if (isCompleted && state.summary != null) ...<Widget>[
+                        _SessionSummaryCard(summary: state.summary!),
+                        const SizedBox(height: 16),
+                      ],
+                      // Question Card
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFDF7E7), // Solid cream
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.fireGold),
+                          boxShadow: <BoxShadow>[
+                            BoxShadow(
+                              color: AppColors.warriorNavy.withAlpha(10),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                            Row(
-                              children: <Widget>[
-                                const Icon(
-                                  Icons.info_outline,
-                                  color: AppColors.fireGold,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'PETUNJUK',
-                                  style: GoogleFonts.dmSans(
-                                    color: AppColors.fireGold,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
                             Text(
-                              question.hint,
+                              question.prompt,
                               style: const TextStyle(
                                 color: AppColors.textStrong,
-                                fontWeight: FontWeight.w500,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                height: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              // Extract a pseudo-subtitle if available, else generic. For prototype, we'll map description if present.
+                              question.topicName,
+                              style: const TextStyle(
+                                color: AppColors.textMuted,
                                 fontSize: 13,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
                         ),
-                      )
-                    else
-                      InkWell(
-                        onTap: () {
-                          controller.unlockHint();
-                        },
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 14,
-                          ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Hint Section
+                      if (state.hintState == PracticeHintState.unlocked)
+                        Container(
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFDF7E7).withAlpha(150),
+                            color: const Color(0xFFFDF7E7), // Solid cream
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: AppColors.fireGold.withAlpha(150),
-                              strokeAlign: BorderSide.strokeAlignInside,
-                            ), // We could use a CustomPainter for dashed, but solid thin border simulates it well enough for native standard UI
+                            border: Border.all(color: AppColors.fireGold),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
                               Row(
                                 children: <Widget>[
                                   const Icon(
-                                    Icons.help_outline,
+                                    Icons.info_outline,
                                     color: AppColors.fireGold,
-                                    size: 18,
+                                    size: 16,
                                   ),
                                   const SizedBox(width: 8),
-                                  const Text(
-                                    'Lihat petunjuk',
-                                    style: TextStyle(
+                                  Text(
+                                    'PETUNJUK',
+                                    style: GoogleFonts.dmSans(
                                       color: AppColors.fireGold,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ],
                               ),
-                              const Text(
-                                'Opsional',
-                                style: TextStyle(
-                                  color: AppColors.textMuted,
-                                  fontWeight: FontWeight.w600,
+                              const SizedBox(height: 6),
+                              Text(
+                                question.hint,
+                                style: const TextStyle(
+                                  color: AppColors.textStrong,
+                                  fontWeight: FontWeight.w500,
                                   fontSize: 13,
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                      ),
-                    const SizedBox(height: 24),
-
-                    // Options List
-                    ...List<Widget>.generate(question.options.length, (i) {
-                      final PracticeOption option = question.options[i];
-                      final bool isSelected =
-                          state.selectedOptionId == option.id;
-                      final bool isCorrectOption =
-                          isSubmitted &&
-                          state.correctOptionIndex == option.index;
-                      final bool isWrongSelection =
-                          isSubmitted && isSelected && !isCorrectOption;
-                      final String letter = String.fromCharCode(
-                        65 + i,
-                      ); // A, B, C...
-
-                      // State colors
-                      final Color borderColor = isCorrectOption
-                          ? AppColors.levelUpTeal
-                          : isWrongSelection
-                          ? Colors.redAccent
-                          : isSelected
-                          ? AppColors.warriorNavy
-                          : AppColors.warriorNavy.withAlpha(20);
-                      final Color bgColor =
-                          isSelected || isCorrectOption || isWrongSelection
-                          ? borderColor.withAlpha(18)
-                          : Colors.white;
-                      final Color letterBgColor = isSelected || isCorrectOption
-                          ? borderColor
-                          : AppColors.surfaceLight;
-                      final Color letterColor = isSelected || isCorrectOption
-                          ? Colors.white
-                          : AppColors.textMuted;
-                      final FontWeight textWeight = isSelected
-                          ? FontWeight.w800
-                          : FontWeight.w600;
-
-                      // Note: We don't render "showCorrect" during selection in the exact exact Figma reference, it just highlights the selected option for KONFIRMASI.
-                      // We will keep it simple and just show selected state until submitted.
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: InkWell(
-                          onTap: isSubmitted
-                              ? null
-                              : () => controller.selectOption(option.id),
+                        )
+                      else
+                        InkWell(
+                          onTap: () {
+                            controller.unlockHint();
+                          },
                           borderRadius: BorderRadius.circular(16),
-                          child: Ink(
+                          child: Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 16,
+                              horizontal: 20,
+                              vertical: 14,
                             ),
                             decoration: BoxDecoration(
-                              color: bgColor,
+                              color: const Color(0xFFFDF7E7).withAlpha(150),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: borderColor,
-                                width: isSelected ? 2 : 1,
-                              ),
+                                color: AppColors.fireGold.withAlpha(150),
+                                strokeAlign: BorderSide.strokeAlignInside,
+                              ), // We could use a CustomPainter for dashed, but solid thin border simulates it well enough for native standard UI
                             ),
                             child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: <Widget>[
-                                Container(
-                                  width: 32,
-                                  height: 32,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color: letterBgColor,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    letter,
-                                    style: GoogleFonts.jetBrainsMono(
-                                      color: letterColor,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
+                                Row(
+                                  children: <Widget>[
+                                    const Icon(
+                                      Icons.help_outline,
+                                      color: AppColors.fireGold,
+                                      size: 18,
                                     ),
-                                  ),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'Lihat petunjuk',
+                                      style: TextStyle(
+                                        color: AppColors.fireGold,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Text(
-                                    option.label,
-                                    style: TextStyle(
-                                      color: AppColors.textStrong,
-                                      fontWeight: textWeight,
-                                      fontSize: 15,
-                                    ),
+                                const Text(
+                                  'Opsional',
+                                  style: TextStyle(
+                                    color: AppColors.textMuted,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ),
-                      );
-                    }),
-                    if (isSubmitted &&
-                        (state.answerExplanation ?? '').isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 4),
-                      _AnswerExplanation(explanation: state.answerExplanation!),
-                    ],
-                  ],
-                ),
-              ),
-            ),
+                      const SizedBox(height: 24),
 
-            // Bottom Action Bar
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.scholarCream,
-                border: Border(
-                  top: BorderSide(color: AppColors.warriorNavy.withAlpha(10)),
+                      // Options List
+                      ...List<Widget>.generate(question.options.length, (i) {
+                        final PracticeOption option = question.options[i];
+                        final bool isSelected =
+                            state.selectedOptionId == option.id;
+                        final bool isCorrectOption =
+                            isSubmitted &&
+                            state.correctOptionIndex == option.index;
+                        final bool isWrongSelection =
+                            isSubmitted && isSelected && !isCorrectOption;
+                        final String letter = String.fromCharCode(
+                          65 + i,
+                        ); // A, B, C...
+
+                        // State colors
+                        final Color borderColor = isCorrectOption
+                            ? AppColors.levelUpTeal
+                            : isWrongSelection
+                            ? Colors.redAccent
+                            : isSelected
+                            ? AppColors.warriorNavy
+                            : AppColors.warriorNavy.withAlpha(20);
+                        final Color bgColor =
+                            isSelected || isCorrectOption || isWrongSelection
+                            ? borderColor.withAlpha(18)
+                            : Colors.white;
+                        final Color letterBgColor =
+                            isSelected || isCorrectOption
+                            ? borderColor
+                            : AppColors.surfaceLight;
+                        final Color letterColor = isSelected || isCorrectOption
+                            ? Colors.white
+                            : AppColors.textMuted;
+                        final FontWeight textWeight = isSelected
+                            ? FontWeight.w800
+                            : FontWeight.w600;
+
+                        // Note: We don't render "showCorrect" during selection in the exact exact Figma reference, it just highlights the selected option for KONFIRMASI.
+                        // We will keep it simple and just show selected state until submitted.
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: InkWell(
+                            onTap: isSubmitted
+                                ? null
+                                : () => controller.selectOption(option.id),
+                            borderRadius: BorderRadius.circular(16),
+                            child: Ink(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
+                              decoration: BoxDecoration(
+                                color: bgColor,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: borderColor,
+                                  width: isSelected ? 2 : 1,
+                                ),
+                              ),
+                              child: Row(
+                                children: <Widget>[
+                                  Container(
+                                    width: 32,
+                                    height: 32,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: letterBgColor,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      letter,
+                                      style: GoogleFonts.jetBrainsMono(
+                                        color: letterColor,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Text(
+                                      option.label,
+                                      style: TextStyle(
+                                        color: AppColors.textStrong,
+                                        fontWeight: textWeight,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                      if (isSubmitted &&
+                          (state.answerExplanation ?? '')
+                              .isNotEmpty) ...<Widget>[
+                        const SizedBox(height: 4),
+                        _AnswerExplanation(
+                          explanation: state.answerExplanation!,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
-              child: SizedBox(
-                width: double.infinity,
-                height: 62,
-                child: _ClayQuizActionButton(
-                  kind: actionKind,
-                  isLoading: isSubmitting,
-                  onPressed: hasSelection && !isSubmitting
-                      ? () async {
-                          if (!isSubmitted) {
-                            final bool submitted = await controller
-                                .submitCurrentAnswer();
-                            if (submitted &&
-                                ref.read(practiceControllerProvider).status ==
-                                    PracticeViewStatus.completed) {
-                              await ref
-                                  .read(playerProgressProvider.notifier)
-                                  .hydrateFromRepository();
-                            }
-                            if (!submitted && context.mounted) {
-                              final String message =
-                                  ref
-                                      .read(practiceControllerProvider)
-                                      .errorMessage ??
-                                  'Jawaban gagal dikirim.';
-                              ScaffoldMessenger.of(
-                                context,
-                              ).showSnackBar(SnackBar(content: Text(message)));
-                            }
-                          } else {
-                            if (isCompleted) {
-                              context.pop(); // Return to dashboard
+
+              // Bottom Action Bar
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.scholarCream,
+                  border: Border(
+                    top: BorderSide(color: AppColors.warriorNavy.withAlpha(10)),
+                  ),
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 62,
+                  child: _ClayQuizActionButton(
+                    kind: actionKind,
+                    isLoading: isSubmitting,
+                    onPressed: hasSelection && !isSubmitting
+                        ? () async {
+                            if (!isSubmitted) {
+                              final bool submitted = await controller
+                                  .submitCurrentAnswer();
+                              if (submitted &&
+                                  ref.read(practiceControllerProvider).status ==
+                                      PracticeViewStatus.completed) {
+                                await ref
+                                    .read(playerProgressProvider.notifier)
+                                    .hydrateFromRepository();
+                              }
+                              if (!submitted && context.mounted) {
+                                final String message =
+                                    ref
+                                        .read(practiceControllerProvider)
+                                        .errorMessage ??
+                                    'Jawaban gagal dikirim.';
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(message)),
+                                );
+                              }
                             } else {
-                              controller.nextQuestion();
+                              if (isCompleted) {
+                                _exitCompletedResult();
+                              } else {
+                                controller.nextQuestion();
+                              }
                             }
                           }
-                        }
-                      : null,
+                        : null,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

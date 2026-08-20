@@ -21,6 +21,9 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       overrides: <Override>[
         gameEconomyStorageProvider.overrideWithValue(_MemoryEconomyStorage()),
+        gameEconomyRepositoryProvider.overrideWithValue(
+          _ImmediateEconomyRepository(),
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -33,15 +36,15 @@ void main() {
     );
     await tester.pump();
 
-    expect(container.read(gameEconomyProvider).yCoins, 300);
+    expect(container.read(gameEconomyProvider).yCoins, 3000);
 
     await tester.tap(find.byKey(const ValueKey<String>('y-coin-balance')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey<String>('top-up-beta-100')));
     await tester.pump();
 
-    expect(container.read(gameEconomyProvider).yCoins, 400);
-    expect(find.text('400'), findsNWidgets(2));
+    expect(container.read(gameEconomyProvider).yCoins, 3100);
+    expect(find.text('3.100'), findsNWidgets(2));
   });
 
   testWidgets('shows a blocking progress overlay while purchase is pending', (
@@ -92,6 +95,37 @@ void main() {
       isTrue,
     );
   });
+
+  testWidgets('marks cached Store data unavailable when server sync fails', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(411, 914));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        gameEconomyStorageProvider.overrideWithValue(_MemoryEconomyStorage()),
+        gameEconomyRepositoryProvider.overrideWithValue(
+          _FailingEconomyRepository(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: StorePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('store-economy-sync-banner')),
+      findsOneWidget,
+    );
+    expect(find.text('Sinkronisasi diperlukan'), findsWidgets);
+    expect(container.read(gameEconomyProvider).isAuthoritative, isFalse);
+  });
 }
 
 class _MemoryEconomyStorage implements GameEconomyStorage {
@@ -104,29 +138,35 @@ class _MemoryEconomyStorage implements GameEconomyStorage {
   Future<void> save(GameEconomyState state) async {
     saved = state;
   }
+
+  @override
+  Future<void> clear() async {
+    saved = null;
+  }
 }
 
 class _DelayedEconomyRepository extends GameEconomyRepository {
   final Completer<AuthoritativeEconomySnapshot> _purchaseCompleter =
       Completer<AuthoritativeEconomySnapshot>();
 
-  AuthoritativeEconomySnapshot get _initial =>
-      const AuthoritativeEconomySnapshot(
-        coins: 3000,
-        ownedItemIds: <String>{
-          GameEconomyCatalog.defaultCharacterId,
-          GameEconomyCatalog.defaultTowerId,
-        },
-        characterId: GameEconomyCatalog.defaultCharacterId,
-        towerId: GameEconomyCatalog.defaultTowerId,
-        arenaId: GameEconomyCatalog.defaultArenaId,
-      );
+  AuthoritativeEconomySnapshot get _initial => AuthoritativeEconomySnapshot(
+    coins: 3000,
+    ownedItemIds: <String>{
+      GameEconomyCatalog.defaultCharacterId,
+      GameEconomyCatalog.defaultTowerId,
+    },
+    characterId: GameEconomyCatalog.defaultCharacterId,
+    towerId: GameEconomyCatalog.defaultTowerId,
+    arenaId: GameEconomyCatalog.defaultArenaId,
+    items: GameEconomyCatalog.cosmetics,
+  );
 
   @override
   Future<AuthoritativeEconomySnapshot> fetch() async => _initial;
 
   @override
-  Future<AuthoritativeEconomySnapshot> grantBetaCredit() async => _initial;
+  Future<AuthoritativeEconomySnapshot> grantBetaCredit() async =>
+      _snapshot(coins: 3100);
 
   @override
   Future<AuthoritativeEconomySnapshot> purchaseAndEquip(CosmeticItem item) {
@@ -144,7 +184,7 @@ class _DelayedEconomyRepository extends GameEconomyRepository {
 
   void completePurchase() {
     _purchaseCompleter.complete(
-      const AuthoritativeEconomySnapshot(
+      AuthoritativeEconomySnapshot(
         coins: 2500,
         ownedItemIds: <String>{
           GameEconomyCatalog.defaultCharacterId,
@@ -154,7 +194,47 @@ class _DelayedEconomyRepository extends GameEconomyRepository {
         characterId: 'character-basic-pip',
         towerId: GameEconomyCatalog.defaultTowerId,
         arenaId: GameEconomyCatalog.defaultArenaId,
+        items: GameEconomyCatalog.cosmetics,
       ),
     );
   }
+
+  AuthoritativeEconomySnapshot _snapshot({required int coins}) {
+    return AuthoritativeEconomySnapshot(
+      coins: coins,
+      ownedItemIds: _initial.ownedItemIds,
+      characterId: _initial.characterId,
+      towerId: _initial.towerId,
+      arenaId: _initial.arenaId,
+      items: GameEconomyCatalog.cosmetics,
+    );
+  }
+}
+
+class _ImmediateEconomyRepository extends _DelayedEconomyRepository {
+  @override
+  Future<AuthoritativeEconomySnapshot> purchaseAndEquip(CosmeticItem item) {
+    return Future<AuthoritativeEconomySnapshot>.value(_initial);
+  }
+}
+
+class _FailingEconomyRepository extends GameEconomyRepository {
+  @override
+  Future<AuthoritativeEconomySnapshot> fetch() {
+    return Future<AuthoritativeEconomySnapshot>.error(StateError('offline'));
+  }
+
+  @override
+  Future<AuthoritativeEconomySnapshot> grantBetaCredit() => fetch();
+
+  @override
+  Future<AuthoritativeEconomySnapshot> purchaseAndEquip(CosmeticItem item) =>
+      fetch();
+
+  @override
+  Future<AuthoritativeEconomySnapshot> setLoadout({
+    String? characterId,
+    String? towerId,
+    String? arenaId,
+  }) => fetch();
 }

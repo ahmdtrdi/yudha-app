@@ -20,6 +20,22 @@ import 'package:yudha_mobile/features/profile/presentation/pages/profile_page.da
 import 'package:yudha_mobile/features/pvp/presentation/pages/pvp_page.dart';
 import 'package:yudha_mobile/features/store/presentation/pages/store_page.dart';
 
+String? appRedirect({required bool isAuthenticated, required Uri uri}) {
+  final String location = uri.path;
+  if (!isAuthenticated && AppRoutes.isPrivate(uri)) {
+    return AppRoutes.loginFor(uri);
+  }
+  if (isAuthenticated && location == AppRoutes.login) {
+    return AppRoutes.postLoginDestination(uri);
+  }
+  if (isAuthenticated &&
+      (location == AppRoutes.profileSetup ||
+          location == AppRoutes.confirmEmail)) {
+    return AppRoutes.lobby;
+  }
+  return null;
+}
+
 final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
   final ValueNotifier<AppAuthState> authRefresh = ValueNotifier<AppAuthState>(
     ref.read(authProvider),
@@ -33,13 +49,10 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
     initialLocation: AppRoutes.splash,
     refreshListenable: authRefresh,
     redirect: (context, state) {
-      final String location = state.uri.path;
-      final bool isAuthEntry =
-          location == AppRoutes.login || location == AppRoutes.confirmEmail;
-      if (authRefresh.value.isAuthenticated && isAuthEntry) {
-        return AppRoutes.lobby;
-      }
-      return null;
+      return appRedirect(
+        isAuthenticated: authRefresh.value.isAuthenticated,
+        uri: state.uri,
+      );
     },
     routes: <RouteBase>[
       GoRoute(

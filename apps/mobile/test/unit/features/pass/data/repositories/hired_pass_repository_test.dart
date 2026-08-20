@@ -18,6 +18,7 @@ void main() {
           jsonEncode(<String, Object?>{
             'data': <String, Object?>{
               'passPoints': 100,
+              'adFree': true,
               'missions': <Map<String, Object?>>[
                 <String, Object?>{
                   'id': '2026-07-practice-daily',
@@ -52,6 +53,7 @@ void main() {
     final status = await repository.fetchStatus();
 
     expect(status.passPoints, 100);
+    expect(status.adFree, isTrue);
     expect(status.missions, hasLength(2));
     expect(status.missions.first.passPointsReward, 50);
     expect(status.missions.first.completed, isTrue);

@@ -6,6 +6,8 @@ abstract class GameEconomyStorage {
   Future<GameEconomyState?> load();
 
   Future<void> save(GameEconomyState state);
+
+  Future<void> clear();
 }
 
 class SharedPreferencesGameEconomyStorage implements GameEconomyStorage {
@@ -16,9 +18,6 @@ class SharedPreferencesGameEconomyStorage implements GameEconomyStorage {
   static const String _equippedCharacterKey = 'economy.equippedCharacter';
   static const String _equippedTowerKey = 'economy.equippedTower';
   static const String _equippedArenaKey = 'economy.equippedArena';
-  static const String _passPointsKey = 'economy.passPoints';
-  static const String _premiumPassKey = 'economy.premiumPass';
-  static const String _claimedRewardsKey = 'economy.claimedRewards';
 
   @override
   Future<GameEconomyState?> load() async {
@@ -60,13 +59,9 @@ class SharedPreferencesGameEconomyStorage implements GameEconomyStorage {
       equippedArenaId: GameEconomyCatalog.findArena(savedArena) != null
           ? savedArena
           : GameEconomyCatalog.defaultArenaId,
-      passPoints: (preferences.getInt(_passPointsKey) ?? fallback.passPoints)
-          .clamp(0, 999999),
-      premiumPassActive:
-          preferences.getBool(_premiumPassKey) ?? fallback.premiumPassActive,
-      claimedRewardIds: <String>{
-        ...preferences.getStringList(_claimedRewardsKey) ?? <String>[],
-      },
+      items: GameEconomyCatalog.cosmetics,
+      syncStatus: EconomySyncStatus.loading,
+      dataSource: EconomyDataSource.cache,
     );
   }
 
@@ -84,11 +79,17 @@ class SharedPreferencesGameEconomyStorage implements GameEconomyStorage {
     );
     await preferences.setString(_equippedTowerKey, state.equippedTowerId);
     await preferences.setString(_equippedArenaKey, state.equippedArenaId);
-    await preferences.setInt(_passPointsKey, state.passPoints);
-    await preferences.setBool(_premiumPassKey, state.premiumPassActive);
-    await preferences.setStringList(
-      _claimedRewardsKey,
-      state.claimedRewardIds.toList()..sort(),
-    );
+  }
+
+  @override
+  Future<void> clear() async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    await Future.wait(<Future<bool>>[
+      preferences.remove(_coinsKey),
+      preferences.remove(_ownedItemsKey),
+      preferences.remove(_equippedCharacterKey),
+      preferences.remove(_equippedTowerKey),
+      preferences.remove(_equippedArenaKey),
+    ]);
   }
 }
