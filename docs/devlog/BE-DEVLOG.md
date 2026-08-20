@@ -510,3 +510,31 @@
 **The Tech Debt:**
 - The Railway deployment inspected during testing was stale and returned `404 Cannot POST /hired-pass/beta-activate`; it must be redeployed from current backend source.
 - The full content sync still reports one unrelated duplicate question after catalog and season synchronization complete.
+
+## 2026-08-20 - Upstash Redis coordination for Game Backend
+
+**The Change:**
+- Added a global Upstash Redis layer to `apps/backend-game` using only the native TLS `REDIS_URL`, four bounded/fail-fast `ioredis` clients, and the Socket.IO Redis adapter.
+- Replaced process-local public matchmaking and Private reservations with atomic Redis Lua operations for exact target/mode FIFO pairing, duplicate/conflict prevention, lease cleanup, six-character code reservation, owner cancellation, single-use joining, and command replay/fingerprint checks.
+- Added instance heartbeats, queue leases, room/user ownership routes, instance-scoped Pub/Sub command routing, route refresh and cleanup, graceful draining, and instance-owned lease/route registries for shutdown cleanup.
+- Generalized Socket.IO acknowledgements and command IDs across public queue, cancel, open-card, play-card, surrender, and the existing Private mutations. Acknowledgements are delivered before domain events.
+- Updated Flutter PvP commands to generate UUID command IDs, use `emitWithAck`, retry once with the same ID after timeout, and surface stable backend error metadata without applying guessed local state.
+- Added liveness/readiness endpoints, Redis lifecycle and coordination tests, a safely opt-in Upstash suite with prefix-only cleanup, and a two-instance smoke flow.
+- Updated `.env.example` and backend documentation for Upstash-only setup; local Redis and Upstash REST credentials are not used.
+
+**The Reasoning:**
+- Redis owns only coordination and delivery metadata while the owning NestJS process remains authoritative for active battle state. This keeps the existing engine simple while making queueing, Private codes, retries, reconnect routing, and Socket.IO delivery safe across replicas.
+- Decision-critical transitions use Lua because pairing, reservation consumption, and idempotency cannot tolerate read-then-write races between instances.
+- Bot mode remains process-local and available during a Redis outage; human PvP fails closed so an unavailable coordination layer can never split room ownership or mutate the wrong process.
+- Separate Redis clients prevent Pub/Sub mode from blocking commands and allow readiness to reflect the command, adapter publisher/subscriber, and routing subscriber connections together.
+
+**Verification:**
+- Backend Game TypeScript check and production build passed.
+- Backend Game unit suite passed: 15 suites, 149 tests.
+- Backend Game E2E suite passed; the three live Upstash cases remain skipped unless `REDIS_INTEGRATION_TEST=1` is explicitly set.
+- Flutter analysis passed with no issues, and the full Flutter suite passed: 114 tests.
+- The two-instance smoke script passed syntax validation but was not executed because it creates temporary remote Supabase users and writes to the configured Upstash database.
+
+**The Tech Debt:**
+- Active battle state is still process-local. Redis can route commands and reconnects to the owner, but an owner-process crash cannot reconstruct or fail over an in-progress room; durable room snapshots or deterministic event replay are required for that capability.
+- Private-room UI remains outside this delivery; only its backend contract and distributed coordination are implemented.

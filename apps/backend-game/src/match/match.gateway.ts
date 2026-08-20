@@ -13,6 +13,7 @@ import { Server, Socket } from 'socket.io';
 import { CLIENT_MATCH_EVENTS } from '../contracts/match.events';
 import type {
   CancelPrivateRoomPayload,
+  CancelQueuePayload,
   CreatePrivateRoomPayload,
   JoinQueuePayload,
   JoinPrivateRoomPayload,
@@ -65,7 +66,7 @@ export class MatchGateway
 
       if (error || !user) throw new Error('Invalid token');
 
-      this.emitAll(this.matchService.registerSocket(client.id, user.id));
+      this.emitAll(await this.matchService.registerSocket(client.id, user.id));
       client.emit('connection_success', { message: 'Welcome to the Arena!' });
     } catch (error) {
       const message =
@@ -75,8 +76,8 @@ export class MatchGateway
     }
   }
 
-  handleDisconnect(client: Socket) {
-    this.emitAll(this.matchService.handleDisconnect(client.id));
+  async handleDisconnect(client: Socket) {
+    this.emitAll(await this.matchService.handleDisconnect(client.id));
   }
 
   @SubscribeMessage('ping_server')
@@ -95,19 +96,40 @@ export class MatchGateway
   async handleJoinQueue(
     @ConnectedSocket() client: Socket,
     @MessageBody() payload?: JoinQueuePayload,
+    @Ack() acknowledgement?: (payload: unknown) => void,
   ) {
     const userId = this.requireUser(client);
     if (!userId) return;
-    this.emitAll(
-      await this.matchService.handleJoinQueue(userId, client.id, payload),
+    this.deliverPrivateResult(
+      await this.matchService.handleAcknowledgedCommand(
+        userId,
+        payload?.commandId,
+        CLIENT_MATCH_EVENTS.joinQueue,
+        payload,
+        () => this.matchService.handleJoinQueue(userId, client.id, payload),
+      ),
+      acknowledgement,
     );
   }
 
   @SubscribeMessage(CLIENT_MATCH_EVENTS.cancelQueue)
-  handleCancelQueue(@ConnectedSocket() client: Socket) {
+  async handleCancelQueue(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload?: CancelQueuePayload,
+    @Ack() acknowledgement?: (payload: unknown) => void,
+  ) {
     const userId = this.requireUser(client);
     if (!userId) return;
-    this.emitAll(this.matchService.handleCancelQueue(userId, client.id));
+    this.deliverPrivateResult(
+      await this.matchService.handleAcknowledgedCommand(
+        userId,
+        payload?.commandId,
+        CLIENT_MATCH_EVENTS.cancelQueue,
+        payload,
+        () => this.matchService.handleCancelQueue(userId, client.id),
+      ),
+      acknowledgement,
+    );
   }
 
   @SubscribeMessage(CLIENT_MATCH_EVENTS.createPrivateRoom)
@@ -161,24 +183,42 @@ export class MatchGateway
   }
 
   @SubscribeMessage(CLIENT_MATCH_EVENTS.openCard)
-  handleOpenCard(
+  async handleOpenCard(
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: OpenCardPayload,
+    @Ack() acknowledgement?: (payload: unknown) => void,
   ) {
     const userId = this.requireUser(client);
     if (!userId) return;
-    this.emitAll(this.matchService.handleOpenCard(userId, client.id, payload));
+    this.deliverPrivateResult(
+      await this.matchService.handleAcknowledgedCommand(
+        userId,
+        payload?.commandId,
+        CLIENT_MATCH_EVENTS.openCard,
+        payload,
+        () => this.matchService.handleOpenCard(userId, client.id, payload),
+      ),
+      acknowledgement,
+    );
   }
 
   @SubscribeMessage(CLIENT_MATCH_EVENTS.playCard)
   async handlePlayCard(
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: PlayCardPayload,
+    @Ack() acknowledgement?: (payload: unknown) => void,
   ) {
     const userId = this.requireUser(client);
     if (!userId) return;
-    this.emitAll(
-      await this.matchService.handlePlayCard(userId, client.id, payload),
+    this.deliverPrivateResult(
+      await this.matchService.handleAcknowledgedCommand(
+        userId,
+        payload?.commandId,
+        CLIENT_MATCH_EVENTS.playCard,
+        payload,
+        () => this.matchService.handlePlayCard(userId, client.id, payload),
+      ),
+      acknowledgement,
     );
   }
 
@@ -186,11 +226,19 @@ export class MatchGateway
   async handleSurrender(
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: SurrenderPayload,
+    @Ack() acknowledgement?: (payload: unknown) => void,
   ) {
     const userId = this.requireUser(client);
     if (!userId) return;
-    this.emitAll(
-      await this.matchService.handleSurrender(userId, client.id, payload),
+    this.deliverPrivateResult(
+      await this.matchService.handleAcknowledgedCommand(
+        userId,
+        payload?.commandId,
+        CLIENT_MATCH_EVENTS.surrender,
+        payload,
+        () => this.matchService.handleSurrender(userId, client.id, payload),
+      ),
+      acknowledgement,
     );
   }
 

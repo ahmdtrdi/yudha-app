@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { randomInt } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import type { BattleTarget } from '../../contracts/battle-state';
+import { GameCoordinationService } from '../../redis/game-coordination.service';
+import type { RedisPrivateReservation } from '../../redis/game-coordination.types';
 import type { InternalRoomState } from '../engine/battle.types';
 import type { InternalCard } from '../questions/question.types';
 import type { GamePlayerProfile } from '../profiles/game-player-profile.service';
@@ -13,7 +15,7 @@ const MAX_CODE_GENERATION_ATTEMPTS = 10;
 
 export type PrivateReservation = {
   code: string;
-  owner: RoomParticipant;
+  owner: RoomParticipant & { instanceId: string };
   target: BattleTarget;
   createdAt: Date;
   expiresAt: Date;
@@ -24,76 +26,88 @@ export type PrivateMatchCreated = {
   room: InternalRoomState;
   playerA: RoomParticipant;
   playerB: RoomParticipant;
+  ownerInstanceId: string;
 };
 
 export type PrivateMatchmakingFailure =
   | 'matchmaking_conflict'
   | 'room_code_invalid'
-  | 'code_generation_failed';
-
-type ReservationRecord = PrivateReservation & {
-  timer: ReturnType<typeof setTimeout>;
-};
+  | 'code_generation_failed'
+  | 'queue_unavailable';
 
 @Injectable()
 export class MatchmakingService {
   static readonly PRIVATE_ROOM_TTL_MS = 15 * 60 * 1000;
 
-  private readonly reservations = new Map<string, ReservationRecord>();
-  private readonly ownerCodes = new Map<string, string>();
   private expiryCallback: ((reservation: PrivateReservation) => void) | null =
     null;
+  private readonly expiryTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
 
-  constructor(readonly rooms: RoomManager) {}
+  constructor(
+    readonly rooms: RoomManager,
+    private readonly coordination: GameCoordinationService,
+  ) {}
 
   setExpiryCallback(callback: (reservation: PrivateReservation) => void): void {
     this.expiryCallback = callback;
   }
 
-  hasPendingPrivateRoom(userId: string): boolean {
-    return this.ownerCodes.has(userId);
+  async hasPendingPrivateRoom(userId: string): Promise<boolean> {
+    return Boolean(
+      await this.coordination.getPrivateReservationForOwner(userId),
+    );
   }
 
-  createPrivateRoom(
+  async createPrivateRoom(
     profile: GamePlayerProfile,
     socketId: string,
-  ):
+  ): Promise<
     | { ok: true; reservation: PrivateReservation }
-    | { ok: false; reason: PrivateMatchmakingFailure } {
-    if (this.hasMatchmakingConflict(profile.userId)) {
+    | { ok: false; reason: PrivateMatchmakingFailure }
+  > {
+    if (this.rooms.getRoomForUser(profile.userId)?.status === 'active') {
       return { ok: false, reason: 'matchmaking_conflict' };
     }
 
-    const code = this.generateUniqueCode();
-    if (!code) return { ok: false, reason: 'code_generation_failed' };
+    for (
+      let attempt = 0;
+      attempt < MAX_CODE_GENERATION_ATTEMPTS;
+      attempt += 1
+    ) {
+      const code = this.generateCode();
+      const result = await this.coordination.createPrivateReservation(
+        profile,
+        socketId,
+        code,
+      );
+      if (result === 'unavailable') {
+        return { ok: false, reason: 'queue_unavailable' };
+      }
+      if (result === 'conflict') {
+        return { ok: false, reason: 'matchmaking_conflict' };
+      }
+      if (result === 'collision') continue;
 
-    const createdAt = new Date();
-    const expiresAt = new Date(
-      createdAt.getTime() + MatchmakingService.PRIVATE_ROOM_TTL_MS,
-    );
-    const reservation: PrivateReservation = {
-      code,
-      owner: { ...profile, socketId },
-      target: profile.target,
-      createdAt,
-      expiresAt,
-    };
-    const timer = setTimeout(
-      () => this.expire(code),
-      Math.max(0, expiresAt.getTime() - Date.now()),
-    );
-    timer.unref?.();
-
-    this.reservations.set(code, { ...reservation, timer });
-    this.ownerCodes.set(profile.userId, code);
-    return { ok: true, reservation };
+      const stored = await this.coordination.getPrivateReservation(code);
+      if (!stored) return { ok: false, reason: 'queue_unavailable' };
+      const reservation = this.fromRedis(stored);
+      this.scheduleExpiry(reservation);
+      return { ok: true, reservation };
+    }
+    return { ok: false, reason: 'code_generation_failed' };
   }
 
-  validateJoin(
+  async validateJoin(
     profile: GamePlayerProfile,
     code: string,
-  ): { ok: true } | { ok: false; reason: PrivateMatchmakingFailure } {
-    const reservation = this.getUsableReservation(code);
+  ): Promise<
+    | { ok: true; reservation: PrivateReservation }
+    | { ok: false; reason: PrivateMatchmakingFailure }
+  > {
+    const reservation = await this.coordination.getPrivateReservation(code);
     if (
       !reservation ||
       reservation.owner.userId === profile.userId ||
@@ -101,27 +115,43 @@ export class MatchmakingService {
     ) {
       return { ok: false, reason: 'room_code_invalid' };
     }
-    if (this.hasMatchmakingConflict(profile.userId)) {
+    if (this.rooms.getRoomForUser(profile.userId)?.status === 'active') {
       return { ok: false, reason: 'matchmaking_conflict' };
     }
-    return { ok: true };
+    return { ok: true, reservation: this.fromRedis(reservation) };
   }
 
-  joinPrivateRoom(
+  async joinPrivateRoom(
     profile: GamePlayerProfile,
     socketId: string,
     code: string,
     cards: InternalCard[],
-  ):
+  ): Promise<
     | { ok: true; match: PrivateMatchCreated }
-    | { ok: false; reason: PrivateMatchmakingFailure } {
-    const validation = this.validateJoin(profile, code);
+    | { ok: false; reason: PrivateMatchmakingFailure }
+  > {
+    const validation = await this.validateJoin(profile, code);
     if (!validation.ok) return validation;
 
-    const reservation = this.getUsableReservation(code);
-    if (!reservation) return { ok: false, reason: 'room_code_invalid' };
+    const consumed = await this.coordination.consumePrivateReservation(
+      profile,
+      code,
+      randomUUID(),
+      validation.reservation.owner.userId,
+      validation.reservation.owner.instanceId,
+    );
+    if (consumed.type === 'unavailable') {
+      return { ok: false, reason: 'queue_unavailable' };
+    }
+    if (consumed.type === 'conflict') {
+      return { ok: false, reason: 'matchmaking_conflict' };
+    }
+    if (consumed.type !== 'joined') {
+      return { ok: false, reason: 'room_code_invalid' };
+    }
 
-    this.deleteReservation(reservation);
+    this.clearExpiry(code);
+    const reservation = this.fromRedis(consumed.reservation);
     const playerB: RoomParticipant = { ...profile, socketId };
     const room = this.rooms.createPrivateRoom(
       reservation.owner,
@@ -135,84 +165,80 @@ export class MatchmakingService {
         room,
         playerA: reservation.owner,
         playerB,
+        ownerInstanceId: reservation.owner.instanceId,
       },
     };
   }
 
-  cancelPrivateRoom(
+  async cancelPrivateRoom(
     ownerUserId: string,
     code: string,
-  ):
+  ): Promise<
     | { ok: true; reservation: PrivateReservation }
-    | { ok: false; reason: 'room_code_invalid' } {
-    const reservation = this.getUsableReservation(code);
-    if (!reservation || reservation.owner.userId !== ownerUserId) {
-      return { ok: false, reason: 'room_code_invalid' };
+    | { ok: false; reason: 'room_code_invalid' | 'queue_unavailable' }
+  > {
+    if (!this.coordination.available) {
+      return { ok: false, reason: 'queue_unavailable' };
     }
-    this.deleteReservation(reservation);
-    return { ok: true, reservation };
+    const reservation = await this.coordination.cancelPrivateReservation(
+      ownerUserId,
+      code,
+    );
+    if (!reservation) return { ok: false, reason: 'room_code_invalid' };
+    this.clearExpiry(code);
+    return { ok: true, reservation: this.fromRedis(reservation) };
   }
 
-  rebindOwnerSocket(userId: string, socketId: string): void {
-    const code = this.ownerCodes.get(userId);
-    const reservation = code ? this.reservations.get(code) : undefined;
-    if (reservation) reservation.owner.socketId = socketId;
+  async rebindOwnerSocket(userId: string, socketId: string): Promise<void> {
+    const reservation =
+      await this.coordination.getPrivateReservationForOwner(userId);
+    if (reservation) {
+      await this.coordination.updatePrivateOwnerSocket(reservation, socketId);
+    }
   }
 
-  disconnectOwner(
+  async disconnectOwner(
     userId: string,
     socketId: string,
-  ): PrivateReservation | undefined {
-    const code = this.ownerCodes.get(userId);
-    const reservation = code ? this.reservations.get(code) : undefined;
-    if (!reservation || reservation.owner.socketId !== socketId) {
+  ): Promise<PrivateReservation | undefined> {
+    const reservation =
+      await this.coordination.getPrivateReservationForOwner(userId);
+    if (!reservation || reservation.owner.socketId !== socketId)
       return undefined;
-    }
-    this.deleteReservation(reservation);
-    return reservation;
-  }
-
-  private hasMatchmakingConflict(userId: string): boolean {
-    return (
-      this.ownerCodes.has(userId) ||
-      this.rooms.isQueued(userId) ||
-      this.rooms.getRoomForUser(userId)?.status === 'active'
+    const cancelled = await this.coordination.cancelPrivateReservation(
+      userId,
+      reservation.code,
     );
+    if (!cancelled) return undefined;
+    this.clearExpiry(reservation.code);
+    return this.fromRedis(cancelled);
   }
 
-  private getUsableReservation(code: string): ReservationRecord | undefined {
-    const reservation = this.reservations.get(code);
-    if (!reservation) return undefined;
-    if (reservation.expiresAt.getTime() <= Date.now()) {
-      this.expire(code);
-      return undefined;
-    }
-    return reservation;
+  private scheduleExpiry(reservation: PrivateReservation): void {
+    this.clearExpiry(reservation.code);
+    const timer = setTimeout(
+      () => {
+        this.expiryTimers.delete(reservation.code);
+        this.expiryCallback?.(reservation);
+      },
+      Math.max(0, reservation.expiresAt.getTime() - Date.now()),
+    );
+    timer.unref?.();
+    this.expiryTimers.set(reservation.code, timer);
   }
 
-  private expire(code: string): void {
-    const reservation = this.reservations.get(code);
-    if (!reservation) return;
-    this.deleteReservation(reservation);
-    this.expiryCallback?.(reservation);
+  private clearExpiry(code: string): void {
+    const timer = this.expiryTimers.get(code);
+    if (timer) clearTimeout(timer);
+    this.expiryTimers.delete(code);
   }
 
-  private deleteReservation(reservation: ReservationRecord): void {
-    clearTimeout(reservation.timer);
-    this.reservations.delete(reservation.code);
-    this.ownerCodes.delete(reservation.owner.userId);
-  }
-
-  private generateUniqueCode(): string | undefined {
-    for (
-      let attempt = 0;
-      attempt < MAX_CODE_GENERATION_ATTEMPTS;
-      attempt += 1
-    ) {
-      const code = this.generateCode();
-      if (!this.reservations.has(code)) return code;
-    }
-    return undefined;
+  private fromRedis(reservation: RedisPrivateReservation): PrivateReservation {
+    return {
+      ...reservation,
+      createdAt: new Date(reservation.createdAt),
+      expiresAt: new Date(reservation.expiresAt),
+    };
   }
 
   private generateCode(): string {

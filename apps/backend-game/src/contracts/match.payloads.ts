@@ -8,7 +8,12 @@ import type {
 import type { CardEffect } from './question-card';
 
 export type JoinQueuePayload = {
+  commandId: string;
   mode?: MatchmakingMode;
+};
+
+export type CancelQueuePayload = {
+  commandId: string;
 };
 
 export type QueueJoinedPayload = {
@@ -81,6 +86,7 @@ export type MatchFoundPayload = {
 };
 
 export type OpenCardPayload = {
+  commandId: string;
   roomId: string;
   cardId: string;
 };
@@ -91,6 +97,7 @@ export type OpenCardAcceptedPayload = {
 };
 
 export type PlayCardPayload = {
+  commandId: string;
   roomId: string;
   cardId: string;
   selectedOptionIndex: number;
@@ -116,6 +123,7 @@ export type CardActionRejectedPayload = {
 };
 
 export type SurrenderPayload = {
+  commandId: string;
   roomId: string;
 };
 
