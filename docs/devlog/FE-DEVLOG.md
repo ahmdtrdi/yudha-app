@@ -2170,3 +2170,61 @@
 - Both dashboard `recentSessions` and `/practice/history` currently include unfinished sessions. The backend should distinguish completed history from the single resumable active session so empty abandoned sessions do not dominate either feed.
 - History rows reuse the current summary contract, which has timestamps but the mobile activity model does not yet expose them. Adding a human-readable completion date would make repeated category attempts easier to distinguish.
 
+## 2026-08-20 - Lobby Navbar
+
+### The Change
+- Redesigned the shared five-tab navigation as an icon-only floating white capsule on the scholar-cream shell background while preserving route order, nested Practice selection, and in-battle hiding.
+- Added a gray attached clay layer above the white face and a full-height tapered active indicator that fades from translucent Yudha blue to transparent, ending in a solid blue underline.
+- Reused the existing SVG icons with a muted blue-gray inactive color and retained hidden labels through semantics and tooltips for accessibility.
+
+### The Reasoning
+- The icon-only rail gives the Lobby more visual space and matches the lightweight game-component reference without changing navigation behavior.
+- The restrained gradient and underline communicate selection without making the active tab look like a raised button.
+
+### Verification
+- Focused shared-navigation widget tests passed for all five icons, active-state geometry, nested route selection, clay layering, and accessibility semantics.
+- Focused Dart analysis completed with no issues.
+- `git diff --check` completed without whitespace errors.
+
+### The Tech Debt
+- Icon recognition should be validated with target users before visible tab labels are considered permanently unnecessary.
+
+## 2026-08-20 - Lobby Mission
+
+### The Change
+- Established the lower 60% of the Lobby as a scholar-cream mission stage and vertically centered a floating white mission board with a neutral-gray clay base and shared 26-pixel radius.
+- Rebuilt the two daily missions as large connected roadmap checkpoints while preserving titles, completion states, rewards, and Practice/PvP navigation callbacks.
+- Kept the peach clay `START BATTLE` action inside the board as the roadmap destination, with responsive padding, checkpoint sizing, connector length, and action spacing for regular and compact screens.
+
+### The Reasoning
+- Separating the mission stage from the blue player stage creates a clear task area, while the roadmap gives the fixed two-mission contract more game-like structure than a flat list.
+- A content-sized board uses the available space deliberately without stretching rows or inventing backend content.
+
+### Verification
+- Focused Lobby widget tests passed at 390x844 and 390x680 viewport sizes, covering board centering, clay layers, checkpoint geometry, navigation callbacks, CTA placement, and overflow safety.
+- Focused Dart analysis completed with no issues.
+- `git diff --check` completed without whitespace errors.
+
+### The Tech Debt
+- The roadmap is tuned for the current two-mission contract. A dynamic mission count will require a generated or scrollable path.
+
+## 2026-08-20 - Lobby Profile
+
+### The Change
+- Established the upper 40% of the Lobby as a unified royal-blue profile stage continuous with the left-aligned `YUDHA` app bar, with rounded lower corners and an attached 8-pixel deep-blue clay edge.
+- Matched the profile face and clay edge to the mission board's 26-pixel radius so the full-width section retains depth without becoming a floating card.
+- Reorganized the player information into a shield identity row, subtle 5% white name-and-tier panel, primary rank points, secondary win-rate and streak metrics, and tier progress.
+- Removed the profile composition's top inset to raise the content while retaining responsive bottom padding and internal spacing.
+- Added the crossed-swords SVG watermark and restrained background geometry to make the open blue area intentional without requiring complex assets.
+
+### The Reasoning
+- Treating the top bar and profile as one blue environment avoids the fragmented prototype-card appearance and gives identity, performance, and progression a clearer hierarchy.
+- Read-only metrics remain visually passive, while clay depth is reserved for the section boundary and actionable controls.
+
+### Verification
+- Focused Lobby widget tests passed at 390x844 and 390x680 viewport sizes, covering the 40/60 stage split, unified colors, profile positioning, shared radii, attached clay geometry, and responsive overflow safety.
+- Focused Dart analysis completed with no issues.
+- `git diff --check` completed without whitespace errors.
+
+### The Tech Debt
+- The shield remains a generic Flutter icon until equipped profile cosmetics are connected, and Lobby-specific colors should become shared tokens only when another surface adopts the same treatment.

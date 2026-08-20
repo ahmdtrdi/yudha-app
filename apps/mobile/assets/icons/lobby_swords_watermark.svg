@@ -1,0 +1,15 @@
+<svg width="260" height="260" viewBox="0 0 260 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="130" cy="130" r="104" fill="white" fill-opacity="0.18"/>
+  <g transform="rotate(-45 130 130)">
+    <path d="M120 24H140L137 150L130 174L123 150L120 24Z" fill="white"/>
+    <path d="M92 148H168V166H92V148Z" fill="white"/>
+    <path d="M121 164H139V218H121V164Z" fill="white"/>
+    <circle cx="130" cy="224" r="14" fill="white"/>
+  </g>
+  <g transform="rotate(45 130 130)">
+    <path d="M120 24H140L137 150L130 174L123 150L120 24Z" fill="white"/>
+    <path d="M92 148H168V166H92V148Z" fill="white"/>
+    <path d="M121 164H139V218H121V164Z" fill="white"/>
+    <circle cx="130" cy="224" r="14" fill="white"/>
+  </g>
+</svg>
