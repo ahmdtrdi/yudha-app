@@ -27,395 +27,217 @@ class GameEconomyController extends StateNotifier<GameEconomyState> {
 
   final GameEconomyStorage? _storage;
   final GameEconomyRepository? _repository;
-  bool _hasLocalMutation = false;
+  Future<void>? _refreshInFlight;
 
   Future<void> _loadInitialState() async {
-    final GameEconomyState? saved = await _storage?.load();
-    if (saved != null && !_hasLocalMutation) {
-      state = saved;
-    }
-    final GameEconomyRepository? repository = _repository;
-    if (repository == null) {
+    if (_repository == null) {
+      await clearSession();
       return;
     }
-    try {
-      final AuthoritativeEconomySnapshot snapshot = await repository.fetch();
-      if (!_hasLocalMutation) {
-        _applyAuthoritativeSnapshot(snapshot);
+    final GameEconomyState? cached = await _storage?.load();
+    if (cached != null && state.syncStatus != EconomySyncStatus.synced) {
+      state = cached.copyWith(
+        syncStatus: EconomySyncStatus.loading,
+        dataSource: EconomyDataSource.cache,
+        clearSyncError: true,
+      );
+    }
+    await refresh();
+  }
+
+  Future<void> clearSession() async {
+    state = GameEconomyState.initial().copyWith(
+      syncStatus: EconomySyncStatus.syncUnavailable,
+      syncErrorMessage: 'Silakan masuk untuk menyinkronkan ekonomi.',
+    );
+    await _storage?.clear();
+  }
+
+  Future<void> refresh() {
+    final Future<void>? existing = _refreshInFlight;
+    if (existing != null) {
+      return existing;
+    }
+    final Future<void> operation = _refresh();
+    _refreshInFlight = operation;
+    return operation.whenComplete(() {
+      if (identical(_refreshInFlight, operation)) {
+        _refreshInFlight = null;
       }
-    } catch (_) {
-      // Keep the last local projection while the API is temporarily offline.
+    });
+  }
+
+  Future<void> _refresh() async {
+    final GameEconomyRepository? repository = _repository;
+    if (repository == null) {
+      _markUnavailable('Silakan masuk untuk menyinkronkan ekonomi.');
+      return;
+    }
+    state = state.copyWith(
+      syncStatus: EconomySyncStatus.loading,
+      clearSyncError: true,
+    );
+    try {
+      _applyAuthoritativeSnapshot(await repository.fetch());
+    } catch (error) {
+      _markUnavailable(_economyError(error, syncing: true));
     }
   }
 
   Future<EconomyActionResult> purchaseAuthoritative(CosmeticItem item) async {
-    final GameEconomyRepository? repository = _repository;
-    if (repository == null) {
-      return purchase(item);
-    }
+    final EconomyActionResult? unavailable = _mutationUnavailable();
+    if (unavailable != null) return unavailable;
     if (item.type == CosmeticType.arena) {
       return const EconomyActionResult(
         success: false,
-        message: 'Arena tidak dijual. Pilih arena langsung dari menu PvP.',
+        message: 'Arena tidak dijual. Arena mengikuti target belajar.',
       );
     }
-    if (state.owns(item.id)) {
-      return equipAuthoritative(item);
-    }
+    if (state.owns(item.id)) return equipAuthoritative(item);
     if (item.passExclusive) {
       return const EconomyActionResult(
         success: false,
         message: 'Item ini hanya tersedia dari Hired Pass.',
       );
     }
-    try {
-      final AuthoritativeEconomySnapshot snapshot = await repository
-          .purchaseAndEquip(item);
-      _applyAuthoritativeSnapshot(snapshot);
-      return EconomyActionResult(
-        success: true,
-        message: '${item.name} dibeli dan langsung dipakai.',
-      );
-    } catch (error) {
-      return EconomyActionResult(success: false, message: _economyError(error));
-    }
+    return _runMutation(
+      () => _repository!.purchaseAndEquip(item),
+      successMessage: '${item.name} dibeli dan langsung dipakai.',
+    );
   }
 
   Future<EconomyActionResult> equipAuthoritative(CosmeticItem item) async {
     if (item.type == CosmeticType.arena) {
       return selectArenaAuthoritative(item);
     }
-    final GameEconomyRepository? repository = _repository;
-    if (repository == null) {
-      return equip(item);
-    }
+    final EconomyActionResult? unavailable = _mutationUnavailable();
+    if (unavailable != null) return unavailable;
     if (!state.owns(item.id)) {
       return const EconomyActionResult(
         success: false,
         message: 'Beli atau klaim item ini terlebih dahulu.',
       );
     }
-    try {
-      final AuthoritativeEconomySnapshot snapshot = await repository.setLoadout(
+    return _runMutation(
+      () => _repository!.setLoadout(
         characterId: item.type == CosmeticType.character ? item.id : null,
         towerId: item.type == CosmeticType.tower ? item.id : null,
-      );
-      _applyAuthoritativeSnapshot(snapshot);
-      return EconomyActionResult(
-        success: true,
-        message: '${item.name} siap dipakai di PvP.',
-      );
-    } catch (error) {
-      return EconomyActionResult(success: false, message: _economyError(error));
-    }
+      ),
+      successMessage: '${item.name} siap dipakai di PvP.',
+    );
   }
 
   Future<EconomyActionResult> selectArenaAuthoritative(
     CosmeticItem arena,
   ) async {
-    final GameEconomyRepository? repository = _repository;
-    if (repository == null) {
-      return selectArena(arena);
-    }
-    try {
-      final AuthoritativeEconomySnapshot snapshot = await repository.setLoadout(
-        arenaId: arena.id,
+    final EconomyActionResult? unavailable = _mutationUnavailable();
+    if (unavailable != null) return unavailable;
+    if (arena.type != CosmeticType.arena) {
+      return const EconomyActionResult(
+        success: false,
+        message: 'Arena tidak tersedia.',
       );
-      _applyAuthoritativeSnapshot(snapshot);
-      return EconomyActionResult(
-        success: true,
-        message: '${arena.name} dipilih.',
-      );
-    } catch (error) {
-      return EconomyActionResult(success: false, message: _economyError(error));
     }
+    return _runMutation(
+      () => _repository!.setLoadout(arenaId: arena.id),
+      successMessage: '${arena.name} dipilih.',
+    );
   }
 
   Future<EconomyActionResult> syncAuthoritativeLoadout() async {
-    final GameEconomyRepository? repository = _repository;
-    if (repository == null) {
-      return const EconomyActionResult(
-        success: true,
-        message: 'Loadout lokal siap.',
-      );
-    }
-    try {
-      final AuthoritativeEconomySnapshot snapshot = await repository.setLoadout(
+    final EconomyActionResult? unavailable = _mutationUnavailable();
+    if (unavailable != null) return unavailable;
+    return _runMutation(
+      () => _repository!.setLoadout(
         characterId: state.equippedCharacterId,
         towerId: state.equippedTowerId,
         arenaId: state.equippedArenaId,
-      );
-      _applyAuthoritativeSnapshot(snapshot);
-      return const EconomyActionResult(
-        success: true,
-        message: 'Loadout tersinkron.',
-      );
-    } catch (error) {
-      return EconomyActionResult(success: false, message: _economyError(error));
-    }
+      ),
+      successMessage: 'Loadout tersinkron.',
+    );
   }
 
   Future<EconomyActionResult> topUpAuthoritative(
     YCoinTopUpPackage package,
   ) async {
-    final GameEconomyRepository? repository = _repository;
-    if (repository == null) {
-      return topUp(package);
-    }
+    final EconomyActionResult? unavailable = _mutationUnavailable();
+    if (unavailable != null) return unavailable;
     if (!package.isBetaCredit) {
       return const EconomyActionResult(
         success: false,
         message: 'Pembayaran paket Y-Coin belum tersedia di versi beta.',
       );
     }
+    return _runMutation(
+      _repository!.grantBetaCredit,
+      successMessage: 'Beta credit +${package.totalCoins} Y-Coin berhasil.',
+    );
+  }
+
+  Future<EconomyActionResult> _runMutation(
+    Future<AuthoritativeEconomySnapshot> Function() mutation, {
+    required String successMessage,
+  }) async {
     try {
-      final AuthoritativeEconomySnapshot snapshot = await repository
-          .grantBetaCredit();
-      _applyAuthoritativeSnapshot(snapshot);
-      return EconomyActionResult(
-        success: true,
-        message: 'Beta credit +${package.totalCoins} Y-Coin berhasil.',
-      );
+      _applyAuthoritativeSnapshot(await mutation());
+      return EconomyActionResult(success: true, message: successMessage);
     } catch (error) {
-      return EconomyActionResult(success: false, message: _economyError(error));
-    }
-  }
-
-  EconomyActionResult purchase(CosmeticItem item) {
-    if (item.type == CosmeticType.arena) {
-      return const EconomyActionResult(
-        success: false,
-        message: 'Arena tidak dijual. Pilih arena langsung dari menu PvP.',
-      );
-    }
-    if (state.owns(item.id)) {
-      return equip(item);
-    }
-    if (item.passExclusive) {
-      return const EconomyActionResult(
-        success: false,
-        message: 'Item ini hanya tersedia dari Hired Pass.',
-      );
-    }
-    if (state.yCoins < item.price) {
-      return const EconomyActionResult(
-        success: false,
-        message: 'Y-Coin belum cukup. Tambah saldo lalu coba lagi.',
-      );
-    }
-
-    final Set<String> owned = <String>{...state.ownedItemIds, item.id};
-    _setState(
-      state.copyWith(
-        yCoins: state.yCoins - item.price,
-        ownedItemIds: owned,
-        equippedCharacterId: item.type == CosmeticType.character
-            ? item.id
-            : state.equippedCharacterId,
-        equippedTowerId: item.type == CosmeticType.tower
-            ? item.id
-            : state.equippedTowerId,
-      ),
-    );
-    return EconomyActionResult(
-      success: true,
-      message: '${item.name} dibeli dan langsung dipakai.',
-    );
-  }
-
-  EconomyActionResult equip(CosmeticItem item) {
-    if (item.type == CosmeticType.arena) {
-      return selectArena(item);
-    }
-    if (!state.owns(item.id)) {
-      return const EconomyActionResult(
-        success: false,
-        message: 'Beli atau klaim item ini terlebih dahulu.',
-      );
-    }
-
-    final bool alreadyEquipped = switch (item.type) {
-      CosmeticType.character => state.equippedCharacterId == item.id,
-      CosmeticType.tower => state.equippedTowerId == item.id,
-      CosmeticType.arena => state.equippedArenaId == item.id,
-    };
-    if (alreadyEquipped) {
-      return EconomyActionResult(
-        success: true,
-        message: '${item.name} sedang dipakai.',
-      );
-    }
-
-    _setState(
-      state.copyWith(
-        equippedCharacterId: item.type == CosmeticType.character
-            ? item.id
-            : state.equippedCharacterId,
-        equippedTowerId: item.type == CosmeticType.tower
-            ? item.id
-            : state.equippedTowerId,
-      ),
-    );
-    return EconomyActionResult(
-      success: true,
-      message: '${item.name} siap dipakai di PvP.',
-    );
-  }
-
-  EconomyActionResult selectArena(CosmeticItem arena) {
-    if (arena.type != CosmeticType.arena ||
-        GameEconomyCatalog.findArena(arena.id) == null) {
-      return const EconomyActionResult(
-        success: false,
-        message: 'Arena tidak tersedia.',
-      );
-    }
-    if (state.equippedArenaId == arena.id) {
-      return EconomyActionResult(
-        success: true,
-        message: '${arena.name} sudah dipilih.',
-      );
-    }
-    _setState(state.copyWith(equippedArenaId: arena.id));
-    return EconomyActionResult(
-      success: true,
-      message: '${arena.name} dipilih.',
-    );
-  }
-
-  EconomyActionResult topUp(YCoinTopUpPackage package) {
-    final int updatedCoins = (state.yCoins + package.totalCoins).clamp(
-      0,
-      999999999,
-    );
-    _setState(state.copyWith(yCoins: updatedCoins));
-    final String prefix = package.isBetaCredit
-        ? 'Beta credit'
-        : 'Simulasi top-up';
-    return EconomyActionResult(
-      success: true,
-      message: '$prefix +${package.totalCoins} Y-Coin berhasil.',
-    );
-  }
-
-  void applyBattleReward(int coinsDelta) {
-    if (coinsDelta == 0) {
-      return;
-    }
-    _setState(
-      state.copyWith(yCoins: (state.yCoins + coinsDelta).clamp(0, 999999999)),
-    );
-  }
-
-  EconomyActionResult activatePremiumPassForBeta() {
-    if (state.premiumPassActive) {
-      return const EconomyActionResult(
-        success: true,
-        message: 'Hired Pass Premium sudah aktif.',
-      );
-    }
-    _setState(state.copyWith(premiumPassActive: true));
-    return const EconomyActionResult(
-      success: true,
-      message: 'Hired Pass Premium aktif untuk beta testing.',
-    );
-  }
-
-  void applyHiredPassActivation() {
-    _setState(state.copyWith(premiumPassActive: true));
-  }
-
-  void applyHiredPassClaim({
-    required String rewardId,
-    required int? coins,
-    String? itemId,
-  }) {
-    final Set<String> owned = <String>{...state.ownedItemIds};
-    if (itemId != null && itemId.isNotEmpty) {
-      owned.add(itemId);
-    }
-    _setState(
-      state.copyWith(
-        yCoins: coins ?? state.yCoins,
-        ownedItemIds: owned,
-        claimedRewardIds: <String>{...state.claimedRewardIds, rewardId},
-      ),
-    );
-  }
-
-  EconomyActionResult claimPassReward(PassReward reward) {
-    if (state.hasClaimed(reward.id)) {
-      return const EconomyActionResult(
-        success: false,
-        message: 'Reward ini sudah diklaim.',
-      );
-    }
-    if (state.passPoints < reward.pointsRequired) {
+      await refresh();
       return EconomyActionResult(
         success: false,
-        message: 'Butuh ${reward.pointsRequired} Pass Points.',
+        message: state.syncStatus == EconomySyncStatus.syncUnavailable
+            ? state.syncErrorMessage ?? _economyError(error)
+            : _economyError(error),
       );
     }
-    if (reward.track == PassTrack.premium && !state.premiumPassActive) {
+  }
+
+  EconomyActionResult? _mutationUnavailable() {
+    if (_repository == null) {
       return const EconomyActionResult(
         success: false,
-        message: 'Aktifkan Hired Pass Premium untuk klaim reward ini.',
+        message: 'Silakan masuk untuk melanjutkan.',
       );
     }
-
-    final Set<String> owned = <String>{...state.ownedItemIds};
-    final String? cosmeticItemId = reward.cosmeticItemId;
-    if (cosmeticItemId != null) {
-      owned.add(cosmeticItemId);
+    if (!state.isAuthoritative) {
+      return const EconomyActionResult(
+        success: false,
+        message:
+            'Sinkronisasi ekonomi belum tersedia. Muat ulang lalu coba lagi.',
+      );
     }
-    final Set<String> claimed = <String>{...state.claimedRewardIds, reward.id};
-    _setState(
-      state.copyWith(
-        yCoins: (state.yCoins + reward.yCoins).clamp(0, 999999999),
-        ownedItemIds: owned,
-        claimedRewardIds: claimed,
-      ),
-    );
-    return EconomyActionResult(
-      success: true,
-      message: '${reward.label} berhasil diklaim.',
-    );
-  }
-
-  void addPassPointsForTesting([int amount = 100]) {
-    if (amount <= 0) {
-      return;
-    }
-    _setState(
-      state.copyWith(passPoints: (state.passPoints + amount).clamp(0, 999999)),
-    );
-  }
-
-  void _setState(GameEconomyState nextState) {
-    _hasLocalMutation = true;
-    state = nextState;
-    final GameEconomyStorage? storage = _storage;
-    if (storage != null) {
-      unawaited(storage.save(nextState));
-    }
+    return null;
   }
 
   void _applyAuthoritativeSnapshot(AuthoritativeEconomySnapshot snapshot) {
-    _setState(
-      state.copyWith(
-        yCoins: snapshot.coins,
-        ownedItemIds: snapshot.ownedItemIds,
-        equippedCharacterId: snapshot.characterId,
-        equippedTowerId: snapshot.towerId,
-        equippedArenaId: snapshot.arenaId,
-      ),
+    state = state.copyWith(
+      yCoins: snapshot.coins,
+      ownedItemIds: snapshot.ownedItemIds,
+      equippedCharacterId: snapshot.characterId,
+      equippedTowerId: snapshot.towerId,
+      equippedArenaId: snapshot.arenaId,
+      items: snapshot.items,
+      syncStatus: EconomySyncStatus.synced,
+      dataSource: EconomyDataSource.server,
+      clearSyncError: true,
+    );
+    final GameEconomyStorage? storage = _storage;
+    if (storage != null) unawaited(storage.save(state));
+  }
+
+  void _markUnavailable(String message) {
+    state = state.copyWith(
+      syncStatus: EconomySyncStatus.syncUnavailable,
+      syncErrorMessage: message,
     );
   }
 
-  String _economyError(Object error) {
+  String _economyError(Object error, {bool syncing = false}) {
     return UserFacingError.describe(
       error,
-      fallback: 'Gagal menyinkronkan loadout. Coba lagi.',
+      fallback: syncing
+          ? 'Sinkronisasi ekonomi tidak tersedia. Coba muat ulang.'
+          : 'Aksi ekonomi gagal. Coba lagi.',
       preserveDetails: true,
     );
   }

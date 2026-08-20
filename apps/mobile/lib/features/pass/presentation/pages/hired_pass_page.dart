@@ -6,7 +6,6 @@ import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_providers.dart';
 import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
-import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
 import 'package:yudha_mobile/features/economy/presentation/widgets/economy_widgets.dart';
 import 'package:yudha_mobile/features/pass/application/hired_pass_providers.dart';
 import 'package:yudha_mobile/features/pass/data/repositories/hired_pass_repository.dart';
@@ -19,28 +18,27 @@ class HiredPassPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final GameEconomyState economy = ref.watch(gameEconomyProvider);
+    final economy = ref.watch(gameEconomyProvider);
     final AsyncValue<HiredPassStatus> status = ref.watch(
       hiredPassStatusProvider,
     );
     final HiredPassStatus? serverStatus = status.asData?.value;
-    final GameEconomyState displayedEconomy = serverStatus == null
-        ? economy
-        : economy.copyWith(
-            passPoints: serverStatus.passPoints,
-            premiumPassActive: serverStatus.premiumActive,
-            claimedRewardIds: serverStatus.claimedRewardIds,
-          );
+    final _PassAccessState passAccess = serverStatus == null
+        ? const _PassAccessState.unavailable()
+        : _PassAccessState.fromStatus(serverStatus);
     final List<PassReward> passRewards = serverStatus == null
-        ? GameEconomyCatalog.passRewards
+        ? const <PassReward>[]
         : serverStatus.rewards.map(_toPassReward).toList(growable: false);
-    final List<int> milestones = passRewards
-        .map((PassReward reward) => reward.pointsRequired)
-        .toSet()
-        .toList()
-      ..sort();
-    final double progress = (displayedEconomy.passPoints / _seasonMaxPoints)
-        .clamp(0, 1);
+    final List<int> milestones =
+        passRewards
+            .map((PassReward reward) => reward.pointsRequired)
+            .toSet()
+            .toList()
+          ..sort();
+    final double progress = (passAccess.passPoints / _seasonMaxPoints).clamp(
+      0,
+      1,
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F0FA),
@@ -55,8 +53,10 @@ class HiredPassPage extends ConsumerWidget {
             padding: const EdgeInsets.only(right: 12),
             child: Center(
               child: YCoinBalanceChip(
-                balance: economy.yCoins,
-                onTap: () => showYCoinTopUpSheet(context),
+                balance: economy.isAuthoritative ? economy.yCoins : null,
+                onTap: economy.isAuthoritative
+                    ? () => showYCoinTopUpSheet(context)
+                    : null,
                 dark: true,
               ),
             ),
@@ -69,9 +69,11 @@ class HiredPassPage extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
           children: <Widget>[
             _PassHeroCard(
-              economy: displayedEconomy,
+              access: passAccess,
               progress: progress,
-              onActivate: () => _activateBeta(context, ref, serverStatus),
+              onActivate: serverStatus == null
+                  ? null
+                  : () => _activateBeta(context, ref, serverStatus),
             ),
             const SizedBox(height: 16),
             _SectionTitle(
@@ -99,13 +101,10 @@ class HiredPassPage extends ConsumerWidget {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _RewardMilestone(
                   milestone: milestone,
-                  economy: displayedEconomy,
+                  access: passAccess,
                   rewards: passRewards,
-                  onClaim: (PassReward reward) => _claimReward(
-                    context,
-                    ref,
-                    reward,
-                  ),
+                  onClaim: (PassReward reward) =>
+                      _claimReward(context, ref, reward),
                 ),
               ),
             ),
@@ -169,8 +168,8 @@ class HiredPassPage extends ConsumerWidget {
       final HiredPassMutationResult result = await ref
           .read(hiredPassRepositoryProvider)
           .activateBeta(seasonId);
-      ref.read(gameEconomyProvider.notifier).applyHiredPassActivation();
       ref.invalidate(hiredPassStatusProvider);
+      await ref.read(gameEconomyProvider.notifier).refresh();
       _showMessage(
         messenger,
         'Hired Pass Premium aktif sampai ${result.expiresAt ?? 'akhir musim'}.',
@@ -188,15 +187,9 @@ class HiredPassPage extends ConsumerWidget {
   ) async {
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     try {
-      final HiredPassMutationResult result = await ref
-          .read(hiredPassRepositoryProvider)
-          .claimReward(reward.id);
-      ref.read(gameEconomyProvider.notifier).applyHiredPassClaim(
-        rewardId: reward.id,
-        coins: result.coins,
-        itemId: result.itemId,
-      );
+      await ref.read(hiredPassRepositoryProvider).claimReward(reward.id);
       ref.invalidate(hiredPassStatusProvider);
+      await ref.read(gameEconomyProvider.notifier).refresh();
       _showMessage(messenger, '${reward.label} berhasil diklaim.', true);
     } catch (error) {
       _showMessage(messenger, error.toString(), false);
@@ -274,19 +267,49 @@ class HiredPassPage extends ConsumerWidget {
     }
     return const Color(0xFF8B6FE8);
   }
+}
 
+class _PassAccessState {
+  const _PassAccessState({
+    required this.available,
+    required this.passPoints,
+    required this.premiumActive,
+    required this.claimedRewardIds,
+  });
+
+  const _PassAccessState.unavailable()
+    : available = false,
+      passPoints = 0,
+      premiumActive = false,
+      claimedRewardIds = const <String>{};
+
+  factory _PassAccessState.fromStatus(HiredPassStatus status) {
+    return _PassAccessState(
+      available: true,
+      passPoints: status.passPoints,
+      premiumActive: status.premiumActive,
+      claimedRewardIds: status.claimedRewardIds,
+    );
+  }
+
+  final bool available;
+  final int passPoints;
+  final bool premiumActive;
+  final Set<String> claimedRewardIds;
+
+  bool hasClaimed(String rewardId) => claimedRewardIds.contains(rewardId);
 }
 
 class _PassHeroCard extends StatelessWidget {
   const _PassHeroCard({
-    required this.economy,
+    required this.access,
     required this.progress,
     required this.onActivate,
   });
 
-  final GameEconomyState economy;
+  final _PassAccessState access;
   final double progress;
-  final VoidCallback onActivate;
+  final VoidCallback? onActivate;
 
   @override
   Widget build(BuildContext context) {
@@ -379,7 +402,7 @@ class _PassHeroCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
                     Text(
-                      '${economy.passPoints} PASS POINTS',
+                      '${access.passPoints} PASS POINTS',
                       style: GoogleFonts.jetBrainsMono(
                         color: const Color(0xFFFFC857),
                         fontSize: 12,
@@ -407,7 +430,7 @@ class _PassHeroCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                if (economy.premiumPassActive)
+                if (access.premiumActive)
                   Container(
                     height: 46,
                     alignment: Alignment.center,
@@ -429,7 +452,7 @@ class _PassHeroCard extends StatelessWidget {
                 else
                   FilledButton.icon(
                     key: const ValueKey<String>('activate-premium-pass'),
-                    onPressed: onActivate,
+                    onPressed: access.available ? onActivate : null,
                     icon: const Icon(Icons.workspace_premium_rounded),
                     style: FilledButton.styleFrom(
                       minimumSize: const Size.fromHeight(48),
@@ -594,13 +617,13 @@ class _MissionCard extends StatelessWidget {
 class _RewardMilestone extends StatelessWidget {
   const _RewardMilestone({
     required this.milestone,
-    required this.economy,
+    required this.access,
     required this.rewards,
     required this.onClaim,
   });
 
   final int milestone;
-  final GameEconomyState economy;
+  final _PassAccessState access;
   final List<PassReward> rewards;
   final ValueChanged<PassReward> onClaim;
 
@@ -628,7 +651,7 @@ class _RewardMilestone extends StatelessWidget {
                 height: 40,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: economy.passPoints >= milestone
+                  color: access.passPoints >= milestone
                       ? AppColors.warriorNavy
                       : const Color(0xFFD9D4E2),
                   shape: BoxShape.circle,
@@ -636,7 +659,7 @@ class _RewardMilestone extends StatelessWidget {
                 child: Text(
                   '$milestone',
                   style: GoogleFonts.jetBrainsMono(
-                    color: economy.passPoints >= milestone
+                    color: access.passPoints >= milestone
                         ? Colors.white
                         : AppColors.textMuted,
                     fontSize: milestone >= 1000 ? 9 : 10,
@@ -654,7 +677,7 @@ class _RewardMilestone extends StatelessWidget {
               Expanded(
                 child: _RewardTile(
                   reward: freeReward,
-                  economy: economy,
+                  access: access,
                   onTap: () => onClaim(freeReward),
                 ),
               ),
@@ -662,7 +685,7 @@ class _RewardMilestone extends StatelessWidget {
               Expanded(
                 child: _RewardTile(
                   reward: premiumReward,
-                  economy: economy,
+                  access: access,
                   onTap: () => onClaim(premiumReward),
                 ),
               ),
@@ -677,21 +700,22 @@ class _RewardMilestone extends StatelessWidget {
 class _RewardTile extends StatelessWidget {
   const _RewardTile({
     required this.reward,
-    required this.economy,
+    required this.access,
     required this.onTap,
   });
 
   final PassReward reward;
-  final GameEconomyState economy;
+  final _PassAccessState access;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final bool premium = reward.track == PassTrack.premium;
-    final bool claimed = economy.hasClaimed(reward.id);
+    final bool claimed = access.hasClaimed(reward.id);
     final bool unlocked =
-        economy.passPoints >= reward.pointsRequired &&
-        (!premium || economy.premiumPassActive);
+        access.available &&
+        access.passPoints >= reward.pointsRequired &&
+        (!premium || access.premiumActive);
     final CosmeticItem? cosmetic = reward.cosmeticItemId == null
         ? null
         : GameEconomyCatalog.findCosmetic(reward.cosmeticItemId!);
@@ -759,7 +783,7 @@ class _RewardTile extends StatelessWidget {
                     ? 'SUDAH DIKLAIM'
                     : unlocked
                     ? 'TAP UNTUK KLAIM'
-                    : premium && !economy.premiumPassActive
+                    : premium && !access.premiumActive
                     ? 'KUNCI PREMIUM'
                     : 'BELUM TERBUKA',
                 style: GoogleFonts.dmSans(

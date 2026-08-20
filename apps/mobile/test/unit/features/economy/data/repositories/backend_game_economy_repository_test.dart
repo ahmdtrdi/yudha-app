@@ -25,6 +25,17 @@ void main() {
                     'character-basic-pip',
                     'tower-garda-biru',
                   ],
+                  'items': <Map<String, Object?>>[
+                    <String, Object?>{
+                      'id': 'character-basic-pip',
+                      'type': 'character_skin',
+                      'name': 'Pip Server',
+                      'description': 'Authoritative description',
+                      'rarity': 'rare',
+                      'coinPrice': 777,
+                      'passExclusive': true,
+                    },
+                  ],
                   'equipped': <String, Object?>{
                     'characterId': 'character-basic-pip',
                     'towerId': 'tower-garda-biru',
@@ -44,6 +55,10 @@ void main() {
     expect(snapshot.characterId, 'character-basic-pip');
     expect(snapshot.towerId, 'tower-garda-biru');
     expect(snapshot.ownedItemIds, contains('character-basic-pip'));
+    expect(snapshot.items.single.name, 'Pip Server');
+    expect(snapshot.items.single.price, 777);
+    expect(snapshot.items.single.passExclusive, isTrue);
+    expect(snapshot.items.single.assetPath, isNotNull);
   });
 
   test('purchase persists the selected cosmetic before refreshing', () async {

@@ -2083,3 +2083,26 @@
 ### The Tech Debt
 - The CTA palette is local to the Practice quiz. It should become a shared semantic action component only after the same confirm/continue/complete pattern appears in at least two additional flows.
 
+## 2026-08-20 - Mobile Freemium, Entitlement, Economy, and Auth Enforcement
+
+### The Change
+- Protected every feature route behind authentication while keeping Splash, Login, profile setup, and email confirmation public. Private deep links now round-trip through Login with a validated internal return destination, and session loss immediately returns the user to Login.
+- Added explicit `loading`, `synced`, and `syncUnavailable` economy states. Cached cosmetics can render while reconnecting, but balances and all purchase, equip, arena/loadout, and credit mutations stay disabled until a successful Store snapshot is received.
+- Removed local-success economy mutations and fallbacks. Store catalog fields and mutation results now come from the backend, successful changes reconcile through a fresh snapshot, and Hired Pass claims plus finalized public PvP rewards trigger authoritative economy refreshes.
+- Made Hired Pass status the sole authority for premium reward access and the explicit `adFree` entitlement. Loading and failed Pass requests disable activation and claims and expose retry UI.
+- Added an injectable non-blocking ad placement service for completed five-question Practice exits and finalized Casual/Ranked PvP result exits. Exit paths share a once-per-result gate, Bot results and incomplete/excluded flows do not trigger, and ads are suppressed only by an authoritative `adFree: true` response.
+- Added router, economy, Store, Hired Pass, and ad-placement coverage for the new enforcement behavior.
+
+### The Reasoning
+- Authentication, ownership, pricing, entitlement, and currency must fail closed because client cache and bundled assets are presentation data, not security or economy authority.
+- Keeping stale cosmetics visible avoids unnecessary visual churn while making the unavailable balance and disabled actions explicit enough that cached data cannot be mistaken for current state.
+- A shared once-per-result placement gate covers buttons and back gestures consistently without introducing an ad SDK or blocking modal before the post-MVP integration is selected.
+
+### Verification
+- `flutter analyze --no-pub` completed with no issues.
+- The full `flutter test --no-pub` suite passed all 111 tests.
+
+### The Tech Debt
+- The MVP ad service intentionally records non-blocking placements only. A production ad SDK, consent flow, failure policy, and telemetry still need product and platform integration.
+- Mobile currently exposes Bot, Casual, and Ranked matchmaking. If a distinct Private mode is added, it must remain explicitly excluded from result-exit placements and receive focused coverage.
+

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,7 +8,6 @@ import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_controller.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_providers.dart';
-import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
 import 'package:yudha_mobile/features/economy/presentation/widgets/economy_widgets.dart';
@@ -22,6 +23,16 @@ class _StorePageState extends ConsumerState<StorePage> {
   String? _pendingMessage;
 
   bool get _isTransactionPending => _pendingMessage != null;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(ref.read(gameEconomyProvider.notifier).refresh());
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,8 +55,8 @@ class _StorePageState extends ConsumerState<StorePage> {
                 padding: const EdgeInsets.only(right: 12),
                 child: Center(
                   child: YCoinBalanceChip(
-                    balance: economy.yCoins,
-                    onTap: _isTransactionPending
+                    balance: economy.isAuthoritative ? economy.yCoins : null,
+                    onTap: _isTransactionPending || !economy.isAuthoritative
                         ? null
                         : () => showYCoinTopUpSheet(context),
                     dark: true,
@@ -71,6 +82,12 @@ class _StorePageState extends ConsumerState<StorePage> {
                 absorbing: _isTransactionPending,
                 child: Column(
                   children: <Widget>[
+                    if (!economy.isAuthoritative)
+                      _EconomySyncBanner(
+                        economy: economy,
+                        onRetry: () =>
+                            ref.read(gameEconomyProvider.notifier).refresh(),
+                      ),
                     _StoreIntro(
                       onPassTap: () => context.push(AppRoutes.hiredPass),
                       onTopUpTap: () => showYCoinTopUpSheet(context),
@@ -79,14 +96,16 @@ class _StorePageState extends ConsumerState<StorePage> {
                       child: TabBarView(
                         children: <Widget>[
                           _CosmeticGrid(
-                            items: GameEconomyCatalog.characters,
+                            items: economy.characters,
                             economy: economy,
+                            authoritative: economy.isAuthoritative,
                             onItemTap: (CosmeticItem item) =>
                                 _handleItemTap(item, economy),
                           ),
                           _CosmeticGrid(
-                            items: GameEconomyCatalog.towers,
+                            items: economy.towers,
                             economy: economy,
+                            authoritative: economy.isAuthoritative,
                             onItemTap: (CosmeticItem item) =>
                                 _handleItemTap(item, economy),
                           ),
@@ -167,6 +186,17 @@ class _StorePageState extends ConsumerState<StorePage> {
     GameEconomyState economy,
   ) async {
     if (_isTransactionPending) {
+      return;
+    }
+    if (!economy.isAuthoritative) {
+      _showResult(
+        context,
+        const EconomyActionResult(
+          success: false,
+          message:
+              'Sinkronisasi ekonomi belum tersedia. Muat ulang lalu coba lagi.',
+        ),
+      );
       return;
     }
     if (item.passExclusive && !economy.owns(item.id)) {
@@ -279,6 +309,50 @@ class _StorePageState extends ConsumerState<StorePage> {
   }
 }
 
+class _EconomySyncBanner extends StatelessWidget {
+  const _EconomySyncBanner({required this.economy, required this.onRetry});
+
+  final GameEconomyState economy;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool loading = economy.syncStatus == EconomySyncStatus.loading;
+    return Container(
+      key: const ValueKey<String>('store-economy-sync-banner'),
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: loading ? const Color(0xFFE8F2FF) : const Color(0xFFFFECE8),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: <Widget>[
+          if (loading)
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            const Icon(Icons.cloud_off_rounded, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              loading
+                  ? 'Menyinkronkan Store…'
+                  : economy.syncErrorMessage ??
+                        'Sinkronisasi Store tidak tersedia.',
+            ),
+          ),
+          if (!loading)
+            TextButton(onPressed: onRetry, child: const Text('Coba lagi')),
+        ],
+      ),
+    );
+  }
+}
+
 class _StoreIntro extends StatelessWidget {
   const _StoreIntro({required this.onPassTap, required this.onTopUpTap});
 
@@ -366,11 +440,13 @@ class _CosmeticGrid extends StatelessWidget {
   const _CosmeticGrid({
     required this.items,
     required this.economy,
+    required this.authoritative,
     required this.onItemTap,
   });
 
   final List<CosmeticItem> items;
   final GameEconomyState economy;
+  final bool authoritative;
   final ValueChanged<CosmeticItem> onItemTap;
 
   @override
@@ -399,6 +475,7 @@ class _CosmeticGrid extends StatelessWidget {
               item: item,
               owned: owned,
               equipped: equipped,
+              authoritative: authoritative,
               onTap: () => onItemTap(item),
             );
           },
@@ -413,12 +490,14 @@ class _CosmeticCard extends StatelessWidget {
     required this.item,
     required this.owned,
     required this.equipped,
+    required this.authoritative,
     required this.onTap,
   });
 
   final CosmeticItem item;
   final bool owned;
   final bool equipped;
+  final bool authoritative;
   final VoidCallback onTap;
 
   @override
@@ -512,6 +591,7 @@ class _CosmeticCard extends StatelessWidget {
                       item: item,
                       owned: owned,
                       equipped: equipped,
+                      authoritative: authoritative,
                     ),
                   ],
                 ),
@@ -529,14 +609,23 @@ class _StoreItemAction extends StatelessWidget {
     required this.item,
     required this.owned,
     required this.equipped,
+    required this.authoritative,
   });
 
   final CosmeticItem item;
   final bool owned;
   final bool equipped;
+  final bool authoritative;
 
   @override
   Widget build(BuildContext context) {
+    if (!authoritative) {
+      return _actionLine(
+        'Sinkronisasi diperlukan',
+        AppColors.textMuted,
+        Icons.sync_problem_rounded,
+      );
+    }
     if (equipped) {
       return _actionLine('Dipakai', AppColors.levelUpTeal, Icons.check_rounded);
     }
@@ -573,16 +662,19 @@ class _StoreItemAction extends StatelessWidget {
 
   Widget _actionLine(String label, Color color, IconData icon) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Icon(icon, color: color, size: 14),
         const SizedBox(width: 5),
-        Text(
-          label,
-          style: GoogleFonts.dmSans(
-            color: color,
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.dmSans(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
       ],

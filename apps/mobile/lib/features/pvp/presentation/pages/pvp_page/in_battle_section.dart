@@ -2742,4 +2742,3 @@ class _LowHpVignetteOverlay extends StatelessWidget {
     );
   }
 }
-

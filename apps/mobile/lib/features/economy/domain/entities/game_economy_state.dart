@@ -1,4 +1,9 @@
 import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
+import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
+
+enum EconomySyncStatus { loading, synced, syncUnavailable }
+
+enum EconomyDataSource { bundled, cache, server }
 
 class GameEconomyState {
   const GameEconomyState({
@@ -7,24 +12,25 @@ class GameEconomyState {
     required this.equippedCharacterId,
     required this.equippedTowerId,
     required this.equippedArenaId,
-    required this.passPoints,
-    required this.premiumPassActive,
-    required this.claimedRewardIds,
+    required this.items,
+    required this.syncStatus,
+    required this.dataSource,
+    this.syncErrorMessage,
   });
 
   factory GameEconomyState.initial() {
-    return const GameEconomyState(
-      yCoins: 300,
-      ownedItemIds: <String>{
+    return GameEconomyState(
+      yCoins: 0,
+      ownedItemIds: const <String>{
         GameEconomyCatalog.defaultCharacterId,
         GameEconomyCatalog.defaultTowerId,
       },
       equippedCharacterId: GameEconomyCatalog.defaultCharacterId,
       equippedTowerId: GameEconomyCatalog.defaultTowerId,
       equippedArenaId: GameEconomyCatalog.defaultArenaId,
-      passPoints: 340,
-      premiumPassActive: false,
-      claimedRewardIds: <String>{},
+      items: GameEconomyCatalog.cosmetics,
+      syncStatus: EconomySyncStatus.loading,
+      dataSource: EconomyDataSource.bundled,
     );
   }
 
@@ -33,13 +39,22 @@ class GameEconomyState {
   final String equippedCharacterId;
   final String equippedTowerId;
   final String equippedArenaId;
-  final int passPoints;
-  final bool premiumPassActive;
-  final Set<String> claimedRewardIds;
+  final List<CosmeticItem> items;
+  final EconomySyncStatus syncStatus;
+  final EconomyDataSource dataSource;
+  final String? syncErrorMessage;
+
+  bool get isAuthoritative => syncStatus == EconomySyncStatus.synced;
 
   bool owns(String itemId) => ownedItemIds.contains(itemId);
 
-  bool hasClaimed(String rewardId) => claimedRewardIds.contains(rewardId);
+  List<CosmeticItem> get characters => items
+      .where((CosmeticItem item) => item.type == CosmeticType.character)
+      .toList(growable: false);
+
+  List<CosmeticItem> get towers => items
+      .where((CosmeticItem item) => item.type == CosmeticType.tower)
+      .toList(growable: false);
 
   GameEconomyState copyWith({
     int? yCoins,
@@ -47,9 +62,11 @@ class GameEconomyState {
     String? equippedCharacterId,
     String? equippedTowerId,
     String? equippedArenaId,
-    int? passPoints,
-    bool? premiumPassActive,
-    Set<String>? claimedRewardIds,
+    List<CosmeticItem>? items,
+    EconomySyncStatus? syncStatus,
+    EconomyDataSource? dataSource,
+    String? syncErrorMessage,
+    bool clearSyncError = false,
   }) {
     return GameEconomyState(
       yCoins: yCoins ?? this.yCoins,
@@ -57,9 +74,12 @@ class GameEconomyState {
       equippedCharacterId: equippedCharacterId ?? this.equippedCharacterId,
       equippedTowerId: equippedTowerId ?? this.equippedTowerId,
       equippedArenaId: equippedArenaId ?? this.equippedArenaId,
-      passPoints: passPoints ?? this.passPoints,
-      premiumPassActive: premiumPassActive ?? this.premiumPassActive,
-      claimedRewardIds: claimedRewardIds ?? this.claimedRewardIds,
+      items: items ?? this.items,
+      syncStatus: syncStatus ?? this.syncStatus,
+      dataSource: dataSource ?? this.dataSource,
+      syncErrorMessage: clearSyncError
+          ? null
+          : syncErrorMessage ?? this.syncErrorMessage,
     );
   }
 }

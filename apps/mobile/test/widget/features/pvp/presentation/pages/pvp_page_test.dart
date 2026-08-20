@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_providers.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_storage.dart';
 import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
+import 'package:yudha_mobile/features/economy/data/repositories/game_economy_repository.dart';
+import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_storage.dart';
@@ -18,41 +20,6 @@ import 'package:yudha_mobile/features/pvp/domain/entities/battle_question.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_session_seed.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/online_battle_update.dart';
 import 'package:yudha_mobile/features/pvp/presentation/pages/pvp_page.dart';
-
-class _FakeBattleRepository extends OnlineBattleRepository {
-  const _FakeBattleRepository(this.seed);
-
-  final BattleSessionSeed seed;
-
-  @override
-  Stream<OnlineBattleUpdate> get updates =>
-      const Stream<OnlineBattleUpdate>.empty();
-
-  @override
-  Future<BattleSessionSeed> createSession({
-    OnlineMatchmakingMode matchmakingMode = OnlineMatchmakingMode.casual,
-  }) async {
-    return seed;
-  }
-
-  @override
-  Future<void> cancelQueue() async {}
-
-  @override
-  void dispose() {}
-
-  @override
-  Future<void> openCard({required String cardId}) async {}
-
-  @override
-  Future<void> submitAnswer({
-    required String cardId,
-    required int selectedOptionIndex,
-  }) async {}
-
-  @override
-  Future<void> surrender() async {}
-}
 
 class _LiveOnlineBattleRepository extends OnlineBattleRepository {
   final StreamController<OnlineBattleUpdate> _updates =
@@ -115,6 +82,9 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       overrides: <Override>[
         gameEconomyStorageProvider.overrideWithValue(_MemoryEconomyStorage()),
+        gameEconomyRepositoryProvider.overrideWithValue(
+          _PvpEconomyRepository(),
+        ),
         profileSettingsStorageProvider.overrideWithValue(
           _MemoryProfileSettingsStorage(),
         ),
@@ -191,14 +161,12 @@ void main() {
     final ProviderContainer container = ProviderContainer(
       overrides: <Override>[
         gameEconomyStorageProvider.overrideWithValue(_MemoryEconomyStorage()),
+        gameEconomyRepositoryProvider.overrideWithValue(
+          _PvpEconomyRepository(),
+        ),
       ],
     );
     addTearDown(container.dispose);
-
-    final economy = container.read(gameEconomyProvider.notifier);
-    economy.topUp(GameEconomyCatalog.topUpPackages[2]);
-    economy.purchase(GameEconomyCatalog.characters[1]);
-    economy.purchase(GameEconomyCatalog.towers[1]);
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -408,158 +376,170 @@ void main() {
     );
   });
 
-  testWidgets('clicking Lawan Bot starts session with OnlineMatchmakingMode.bot', (
-    WidgetTester tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(411, 914));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets(
+    'clicking Lawan Bot starts session with OnlineMatchmakingMode.bot',
+    (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(411, 914));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    final _LiveOnlineBattleRepository online = _LiveOnlineBattleRepository();
-    final ProviderContainer container = ProviderContainer(
-      overrides: <Override>[
-        onlineBattleRepositoryProvider.overrideWithValue(online),
-      ],
-    );
-    addTearDown(container.dispose);
-
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: PvpPage()),
-      ),
-    );
-    await tester.pump();
-
-    // Navigate from arena selection -> loadout -> mode selection
-    await tester.tap(find.byKey(const ValueKey<String>('continue-to-loadout')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey<String>('continue-to-mode')));
-    await tester.pumpAndSettle();
-
-    // Tap Lawan Bot
-    await tester.tap(find.byKey(const ValueKey<String>('mode-bot')));
-    await tester.pump();
-
-    expect(online.lastMatchmakingMode, OnlineMatchmakingMode.bot);
-  });
-
-  testWidgets('renders in-battle view and responds to server game_state_update and match_result', (
-    WidgetTester tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(411, 914));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    final _LiveOnlineBattleRepository online = _LiveOnlineBattleRepository();
-    final ProviderContainer container = ProviderContainer(
-      overrides: <Override>[
-        onlineBattleRepositoryProvider.overrideWithValue(online),
-      ],
-    );
-    addTearDown(container.dispose);
-
-    final battleController = container.read(battleControllerProvider.notifier);
-    battleController.enterArena();
-    battleController.setOnlineMatchmakingMode(OnlineMatchmakingMode.bot);
-    await battleController.startBattle();
-
-    online.emit(
-      const GameStateUpdated(
-        roomId: 'room-bot-1',
-        phase: 'active',
-        playerHp: 100,
-        opponentHp: 100,
-        playerPoints: 0,
-        opponentPoints: 0,
-        playerComboLevel: 1,
-        currentRound: 1,
-        roundSecondsRemaining: 180,
-        playerRoundWins: 0,
-        opponentRoundWins: 0,
-        lastRoundOutcome: null,
-        availableQuestions: <BattleQuestion>[
-          BattleQuestion(
-            id: 'q1',
-            prompt: '2 + 2 = ?',
-            options: <String>['4', '5'],
-            correctOptionIndex: 0,
-            weight: 4,
-            effect: QuestionEffect.damage,
-            category: 'numerik',
-          ),
-          BattleQuestion(
-            id: 'q2',
-            prompt: 'Sinonim cepat?',
-            options: <String>['Lekas', 'Lambat'],
-            correctOptionIndex: 0,
-            weight: 4,
-            effect: QuestionEffect.damage,
-            category: 'verbal',
-          ),
+      final _LiveOnlineBattleRepository online = _LiveOnlineBattleRepository();
+      final ProviderContainer container = ProviderContainer(
+        overrides: <Override>[
+          onlineBattleRepositoryProvider.overrideWithValue(online),
         ],
-        answeredQuestionIds: <String>[],
-        playerDisplayName: 'Kamu',
-        opponentDisplayName: 'BOT YUDHA',
-      ),
-    );
+      );
+      addTearDown(container.dispose);
 
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: const MaterialApp(home: PvpPage()),
-      ),
-    );
-    await tester.pump();
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: PvpPage()),
+        ),
+      );
+      await tester.pump();
 
-    expect(find.byKey(const ValueKey<String>('question-card-q1')), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('question-card-q2')), findsOneWidget);
-    expect(find.text('BOT'), findsWidgets);
-    expect(find.text('Kamu'), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('combo-meter')), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('round-clock')), findsOneWidget);
+      // Navigate from arena selection -> loadout -> mode selection
+      await tester.tap(
+        find.byKey(const ValueKey<String>('continue-to-loadout')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey<String>('continue-to-mode')));
+      await tester.pumpAndSettle();
 
-    // Answer a question to generate answer history for performance insight
-    await battleController.prepareQuestion(
-      const BattleQuestion(
-        id: 'q1',
-        prompt: '2 + 2 = ?',
-        options: <String>['4', '5'],
-        correctOptionIndex: 0,
-        weight: 4,
-        effect: QuestionEffect.damage,
-        category: 'numerik',
-      ),
-    );
-    online.emit(
-      const CardPlayedUpdate(
-        cardId: 'q1',
-        correct: true,
-        effect: QuestionEffect.damage,
-        effectValue: 4,
-        projectileLevel: 1,
-        isSelfAction: true,
-        category: 'numerik',
-      ),
-    );
+      // Tap Lawan Bot
+      await tester.tap(find.byKey(const ValueKey<String>('mode-bot')));
+      await tester.pump();
 
-    // Emit match finished
-    online.emit(
-      const MatchResultUpdate(
-        outcome: BattleOutcome.win,
-        reason: 'opponent_hp_zero',
-        ratingDelta: 20,
-        coinsDelta: 50,
-        progressionPersisted: true,
-        matchmakingMode: OnlineMatchmakingMode.bot,
-      ),
-    );
-    await tester.pump();
+      expect(online.lastMatchmakingMode, OnlineMatchmakingMode.bot);
+    },
+  );
 
-    expect(find.text('VICTORY!'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey<String>('battle-performance-insight')),
-      findsOneWidget,
-    );
-  });
+  testWidgets(
+    'renders in-battle view and responds to server game_state_update and match_result',
+    (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(411, 914));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final _LiveOnlineBattleRepository online = _LiveOnlineBattleRepository();
+      final ProviderContainer container = ProviderContainer(
+        overrides: <Override>[
+          onlineBattleRepositoryProvider.overrideWithValue(online),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final battleController = container.read(
+        battleControllerProvider.notifier,
+      );
+      battleController.enterArena();
+      battleController.setOnlineMatchmakingMode(OnlineMatchmakingMode.bot);
+      await battleController.startBattle();
+
+      online.emit(
+        const GameStateUpdated(
+          roomId: 'room-bot-1',
+          phase: 'active',
+          playerHp: 100,
+          opponentHp: 100,
+          playerPoints: 0,
+          opponentPoints: 0,
+          playerComboLevel: 1,
+          currentRound: 1,
+          roundSecondsRemaining: 180,
+          playerRoundWins: 0,
+          opponentRoundWins: 0,
+          lastRoundOutcome: null,
+          availableQuestions: <BattleQuestion>[
+            BattleQuestion(
+              id: 'q1',
+              prompt: '2 + 2 = ?',
+              options: <String>['4', '5'],
+              correctOptionIndex: 0,
+              weight: 4,
+              effect: QuestionEffect.damage,
+              category: 'numerik',
+            ),
+            BattleQuestion(
+              id: 'q2',
+              prompt: 'Sinonim cepat?',
+              options: <String>['Lekas', 'Lambat'],
+              correctOptionIndex: 0,
+              weight: 4,
+              effect: QuestionEffect.damage,
+              category: 'verbal',
+            ),
+          ],
+          answeredQuestionIds: <String>[],
+          playerDisplayName: 'Kamu',
+          opponentDisplayName: 'BOT YUDHA',
+        ),
+      );
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: PvpPage()),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('question-card-q1')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('question-card-q2')),
+        findsOneWidget,
+      );
+      expect(find.text('BOT'), findsWidgets);
+      expect(find.text('Kamu'), findsOneWidget);
+      expect(find.byKey(const ValueKey<String>('combo-meter')), findsOneWidget);
+      expect(find.byKey(const ValueKey<String>('round-clock')), findsOneWidget);
+
+      // Answer a question to generate answer history for performance insight
+      await battleController.prepareQuestion(
+        const BattleQuestion(
+          id: 'q1',
+          prompt: '2 + 2 = ?',
+          options: <String>['4', '5'],
+          correctOptionIndex: 0,
+          weight: 4,
+          effect: QuestionEffect.damage,
+          category: 'numerik',
+        ),
+      );
+      online.emit(
+        const CardPlayedUpdate(
+          cardId: 'q1',
+          correct: true,
+          effect: QuestionEffect.damage,
+          effectValue: 4,
+          projectileLevel: 1,
+          isSelfAction: true,
+          category: 'numerik',
+        ),
+      );
+
+      // Emit match finished
+      online.emit(
+        const MatchResultUpdate(
+          outcome: BattleOutcome.win,
+          reason: 'opponent_hp_zero',
+          ratingDelta: 20,
+          coinsDelta: 50,
+          progressionPersisted: true,
+          matchmakingMode: OnlineMatchmakingMode.bot,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('VICTORY!'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('battle-performance-insight')),
+        findsOneWidget,
+      );
+    },
+  );
 }
 
 class _MemoryEconomyStorage implements GameEconomyStorage {
@@ -568,6 +548,52 @@ class _MemoryEconomyStorage implements GameEconomyStorage {
 
   @override
   Future<void> save(GameEconomyState state) async {}
+
+  @override
+  Future<void> clear() async {}
+}
+
+class _PvpEconomyRepository extends GameEconomyRepository {
+  String characterId = 'character-basic-pip';
+  String towerId = 'tower-benteng-bara';
+  String arenaId = GameEconomyCatalog.defaultArenaId;
+
+  AuthoritativeEconomySnapshot get snapshot => AuthoritativeEconomySnapshot(
+    coins: 3000,
+    ownedItemIds: const <String>{
+      GameEconomyCatalog.defaultCharacterId,
+      GameEconomyCatalog.defaultTowerId,
+      'character-basic-pip',
+      'tower-benteng-bara',
+    },
+    characterId: characterId,
+    towerId: towerId,
+    arenaId: arenaId,
+    items: GameEconomyCatalog.cosmetics,
+  );
+
+  @override
+  Future<AuthoritativeEconomySnapshot> fetch() async => snapshot;
+
+  @override
+  Future<AuthoritativeEconomySnapshot> grantBetaCredit() async => snapshot;
+
+  @override
+  Future<AuthoritativeEconomySnapshot> purchaseAndEquip(
+    CosmeticItem item,
+  ) async => snapshot;
+
+  @override
+  Future<AuthoritativeEconomySnapshot> setLoadout({
+    String? characterId,
+    String? towerId,
+    String? arenaId,
+  }) async {
+    this.characterId = characterId ?? this.characterId;
+    this.towerId = towerId ?? this.towerId;
+    this.arenaId = arenaId ?? this.arenaId;
+    return snapshot;
+  }
 }
 
 class _MemoryProfileSettingsStorage implements ProfileSettingsStorage {

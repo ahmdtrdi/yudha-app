@@ -7,6 +7,7 @@ import 'package:yudha_mobile/features/economy/application/game_economy_providers
 import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/arena_visual_theme.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
+import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
 
 String formatYCoins(int value) {
   final String digits = value.toString();
@@ -65,7 +66,7 @@ class YCoinBalanceChip extends StatelessWidget {
     super.key,
   });
 
-  final int balance;
+  final int? balance;
   final VoidCallback? onTap;
   final bool dark;
 
@@ -94,7 +95,7 @@ class YCoinBalanceChip extends StatelessWidget {
               const YCoinMark(size: 22),
               const SizedBox(width: 6),
               Text(
-                formatYCoins(balance),
+                balance == null ? '—' : formatYCoins(balance!),
                 style: GoogleFonts.jetBrainsMono(
                   color: dark ? Colors.white : AppColors.textStrong,
                   fontSize: 12,
@@ -272,9 +273,8 @@ class _YCoinTopUpSheetState extends ConsumerState<_YCoinTopUpSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final int balance = ref.watch(
-      gameEconomyProvider.select((state) => state.yCoins),
-    );
+    final GameEconomyState economy = ref.watch(gameEconomyProvider);
+    final int? balance = economy.isAuthoritative ? economy.yCoins : null;
     final double bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Container(
@@ -329,6 +329,30 @@ class _YCoinTopUpSheetState extends ConsumerState<_YCoinTopUpSheet> {
               ],
             ),
             const SizedBox(height: 14),
+            if (!economy.isAuthoritative) ...<Widget>[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFECE8),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: <Widget>[
+                    const Expanded(
+                      child: Text(
+                        'Sinkronisasi ekonomi belum tersedia. Saldo dan transaksi dinonaktifkan.',
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () =>
+                          ref.read(gameEconomyProvider.notifier).refresh(),
+                      child: const Text('Coba lagi'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -342,7 +366,7 @@ class _YCoinTopUpSheetState extends ConsumerState<_YCoinTopUpSheet> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Beta sandbox: belum ada pembayaran nyata. Semua paket langsung menambah saldo uji.',
+                      'Beta sandbox: belum ada pembayaran nyata. Hanya paket GRATIS yang aktif.',
                       style: GoogleFonts.dmSans(
                         color: const Color(0xFF6E4B12),
                         fontSize: 11.5,
@@ -365,7 +389,9 @@ class _YCoinTopUpSheetState extends ConsumerState<_YCoinTopUpSheet> {
                           child: _TopUpPackageTile(
                             package: package,
                             isLoading: _pendingPackageId == package.id,
-                            onTap: _pendingPackageId == null
+                            onTap:
+                                economy.isAuthoritative &&
+                                    _pendingPackageId == null
                                 ? () => _topUp(package)
                                 : null,
                           ),

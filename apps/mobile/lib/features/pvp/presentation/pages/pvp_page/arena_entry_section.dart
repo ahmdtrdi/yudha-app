@@ -45,7 +45,7 @@ class _ArenaEntrySection extends StatelessWidget {
           children: <Widget>[
             _SetupHeader(
               step: step,
-              balance: economy.yCoins,
+              balance: economy.isAuthoritative ? economy.yCoins : null,
               onBack: onBack,
               onTopUp: onTopUp,
               onOpenStore: onOpenStore,
@@ -141,7 +141,7 @@ class _SetupHeader extends StatelessWidget {
   });
 
   final _ArenaSetupStep step;
-  final int balance;
+  final int? balance;
   final VoidCallback onBack;
   final VoidCallback onTopUp;
   final VoidCallback onOpenStore;
@@ -191,7 +191,7 @@ class _SetupHeader extends StatelessWidget {
                 ),
               ),
               InkWell(
-                onTap: onTopUp,
+                onTap: balance == null ? null : onTopUp,
                 borderRadius: BorderRadius.circular(11),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -203,7 +203,7 @@ class _SetupHeader extends StatelessWidget {
                       const YCoinMark(size: 20),
                       const SizedBox(width: 5),
                       Text(
-                        formatYCoins(balance),
+                        balance == null ? '—' : formatYCoins(balance!),
                         style: GoogleFonts.jetBrainsMono(
                           color: AppColors.textStrong,
                           fontSize: 11,
@@ -605,7 +605,7 @@ class _LoadoutPickerView extends StatelessWidget {
           _LoadoutRail(
             title: 'Karakter',
             hint: 'Geser untuk melihat',
-            items: GameEconomyCatalog.characters,
+            items: economy.characters,
             selectedId: selectedCharacter.id,
             economy: economy,
             compact: compact,
@@ -616,7 +616,7 @@ class _LoadoutPickerView extends StatelessWidget {
           _LoadoutRail(
             title: 'Tower',
             hint: 'Tower lain tersedia di Store',
-            items: GameEconomyCatalog.towers,
+            items: economy.towers,
             selectedId: selectedTower.id,
             economy: economy,
             compact: compact,
