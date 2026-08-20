@@ -93,21 +93,17 @@ class HiredPassPage extends ConsumerWidget {
             const SizedBox(height: 22),
             const _SectionTitle(
               title: 'Reward track',
-              subtitle: 'Free untuk semua, Premium memberi bonus kosmetik.',
+              subtitle: 'Capai milestone dan klaim hadiahmu.',
             ),
             const SizedBox(height: 10),
-            ...milestones.map(
-              (int milestone) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _RewardMilestone(
-                  milestone: milestone,
-                  access: passAccess,
-                  rewards: passRewards,
-                  onClaim: (PassReward reward) =>
-                      _claimReward(context, ref, reward),
-                ),
+            if (milestones.isNotEmpty)
+              _RewardTrackTable(
+                milestones: milestones,
+                access: passAccess,
+                rewards: passRewards,
+                onClaim: (PassReward reward) =>
+                    _claimReward(context, ref, reward),
               ),
-            ),
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -614,82 +610,502 @@ class _MissionCard extends StatelessWidget {
   }
 }
 
-class _RewardMilestone extends StatelessWidget {
-  const _RewardMilestone({
-    required this.milestone,
+class _RewardTrackTable extends StatelessWidget {
+  const _RewardTrackTable({
+    required this.milestones,
     required this.access,
     required this.rewards,
     required this.onClaim,
   });
 
-  final int milestone;
+  static const double _milestoneWidth = 52;
+  static const double _laneGap = 8;
+
+  final List<int> milestones;
   final _PassAccessState access;
   final List<PassReward> rewards;
   final ValueChanged<PassReward> onClaim;
 
   @override
   Widget build(BuildContext context) {
-    final PassReward freeReward = rewards.firstWhere(
-      (PassReward reward) =>
-          reward.pointsRequired == milestone && reward.track == PassTrack.free,
-    );
-    final PassReward premiumReward = rewards.firstWhere(
-      (PassReward reward) =>
-          reward.pointsRequired == milestone &&
-          reward.track == PassTrack.premium,
-    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          final double laneWidth =
+              (constraints.maxWidth - _milestoneWidth - _laneGap) / 2;
+          final double premiumLaneLeft = _milestoneWidth + laneWidth + _laneGap;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        SizedBox(
-          width: 52,
-          child: Column(
+          return Stack(
+            key: const ValueKey<String>('reward-track-table'),
             children: <Widget>[
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: access.passPoints >= milestone
-                      ? AppColors.warriorNavy
-                      : const Color(0xFFD9D4E2),
-                  shape: BoxShape.circle,
-                ),
-                child: Text(
-                  '$milestone',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: access.passPoints >= milestone
-                        ? Colors.white
-                        : AppColors.textMuted,
-                    fontSize: milestone >= 1000 ? 9 : 10,
-                    fontWeight: FontWeight.w800,
+              Positioned(
+                key: const ValueKey<String>('premium-reward-lane'),
+                top: 0,
+                bottom: 0,
+                left: premiumLaneLeft,
+                width: laneWidth,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECE5FA),
+                    borderRadius: BorderRadius.circular(22),
                   ),
                 ),
               ),
-              Container(width: 3, height: 86, color: const Color(0xFFD9D4E2)),
+              Column(
+                children: <Widget>[
+                  const _RewardTrackHeader(),
+                  for (int index = 0; index < milestones.length; index++)
+                    _RewardMilestone(
+                      milestone: milestones[index],
+                      access: access,
+                      freeReward: _rewardFor(milestones[index], PassTrack.free),
+                      premiumReward: _rewardFor(
+                        milestones[index],
+                        PassTrack.premium,
+                      ),
+                      showConnector: index < milestones.length - 1,
+                      onClaim: onClaim,
+                    ),
+                ],
+              ),
             ],
+          );
+        },
+      ),
+    );
+  }
+
+  PassReward? _rewardFor(int milestone, PassTrack track) {
+    for (final PassReward reward in rewards) {
+      if (reward.pointsRequired == milestone && reward.track == track) {
+        return reward;
+      }
+    }
+    return null;
+  }
+}
+
+class _RewardTrackHeader extends StatelessWidget {
+  const _RewardTrackHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 54,
+      child: Row(
+        children: <Widget>[
+          const SizedBox(width: _RewardTrackTable._milestoneWidth),
+          Expanded(
+            child: Center(
+              child: Text(
+                'FREE PASS',
+                key: const ValueKey<String>('free-pass-header'),
+                style: GoogleFonts.dmSans(
+                  color: AppColors.warriorNavy,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
           ),
+          const SizedBox(width: _RewardTrackTable._laneGap),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                const Icon(
+                  Icons.workspace_premium_rounded,
+                  color: Color(0xFF7957C8),
+                  size: 17,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  'PREMIUM PASS',
+                  key: const ValueKey<String>('premium-pass-header'),
+                  style: GoogleFonts.dmSans(
+                    color: const Color(0xFF6545B0),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RewardMilestone extends StatelessWidget {
+  const _RewardMilestone({
+    required this.milestone,
+    required this.access,
+    required this.freeReward,
+    required this.premiumReward,
+    required this.showConnector,
+    required this.onClaim,
+  });
+
+  final int milestone;
+  final _PassAccessState access;
+  final PassReward? freeReward;
+  final PassReward? premiumReward;
+  final bool showConnector;
+  final ValueChanged<PassReward> onClaim;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 112,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          SizedBox(
+            width: _RewardTrackTable._milestoneWidth,
+            child: Stack(
+              alignment: Alignment.topCenter,
+              children: <Widget>[
+                if (showConnector)
+                  Positioned(
+                    top: 38,
+                    bottom: 0,
+                    child: Container(
+                      key: ValueKey<String>('reward-connector-$milestone'),
+                      width: 3,
+                      color: const Color(0xFFC9D3E3),
+                    ),
+                  ),
+                Container(
+                  key: ValueKey<String>('reward-milestone-$milestone'),
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: access.passPoints >= milestone
+                        ? const Color(0xFF2878F0)
+                        : const Color(0xFFD7DCE5),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: Text(
+                    '$milestone',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: access.passPoints >= milestone
+                          ? Colors.white
+                          : AppColors.textMuted,
+                      fontSize: milestone >= 1000 ? 9 : 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: _RewardTile(
+                reward: freeReward,
+                premium: false,
+                slotId: 'free-$milestone',
+                access: access,
+                onTap: freeReward == null ? null : () => onClaim(freeReward!),
+              ),
+            ),
+          ),
+          const SizedBox(width: _RewardTrackTable._laneGap),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: _RewardTile(
+                reward: premiumReward,
+                premium: true,
+                slotId: 'premium-$milestone',
+                access: access,
+                onTap: premiumReward == null
+                    ? null
+                    : () => onClaim(premiumReward!),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _RewardTileState { claimable, locked, claimed }
+
+class _RewardTile extends StatelessWidget {
+  const _RewardTile({
+    required this.reward,
+    required this.premium,
+    required this.slotId,
+    required this.access,
+    required this.onTap,
+  });
+
+  final PassReward? reward;
+  final bool premium;
+  final String slotId;
+  final _PassAccessState access;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final PassReward? currentReward = reward;
+    if (currentReward == null) {
+      return SizedBox(
+        key: ValueKey<String>('pass-reward-empty-$slotId'),
+        height: 92,
+      );
+    }
+
+    final bool claimed = access.hasClaimed(currentReward.id);
+    final bool unlocked =
+        access.available &&
+        access.passPoints >= currentReward.pointsRequired &&
+        (!premium || access.premiumActive);
+    final _RewardTileState state = claimed
+        ? _RewardTileState.claimed
+        : unlocked
+        ? _RewardTileState.claimable
+        : _RewardTileState.locked;
+    final CosmeticItem? cosmetic = currentReward.cosmeticItemId == null
+        ? null
+        : GameEconomyCatalog.findCosmetic(currentReward.cosmeticItemId!);
+    final double faceTop = switch (state) {
+      _RewardTileState.claimable => 0,
+      _RewardTileState.locked => 2,
+      _RewardTileState.claimed => 7,
+    };
+    final double faceBottom = switch (state) {
+      _RewardTileState.claimable => 7,
+      _RewardTileState.locked => 4,
+      _RewardTileState.claimed => 0,
+    };
+    final Color faceColor = switch ((premium, state)) {
+      (false, _RewardTileState.claimable) => Colors.white,
+      (false, _RewardTileState.locked) => const Color(0xFFF0F1F3),
+      (false, _RewardTileState.claimed) => const Color(0xFFE5E8EC),
+      (true, _RewardTileState.claimable) => const Color(0xFFDCCEFF),
+      (true, _RewardTileState.locked) => const Color(0xFFDCD6E8),
+      (true, _RewardTileState.claimed) => const Color(0xFFCFC5E3),
+    };
+    final Color baseColor = switch ((premium, state)) {
+      (false, _RewardTileState.claimable) => const Color(0xFFBBC2CD),
+      (false, _) => const Color(0xFFD0D4DA),
+      (true, _RewardTileState.claimable) => const Color(0xFF8E6BCC),
+      (true, _) => const Color(0xFFB6AACB),
+    };
+
+    return Semantics(
+      button: state == _RewardTileState.claimable,
+      enabled: state == _RewardTileState.claimable,
+      label: _semanticsLabel(currentReward, cosmetic, state),
+      child: SizedBox(
+        key: ValueKey<String>('pass-reward-${currentReward.id}'),
+        height: 92,
+        child: Stack(
+          children: <Widget>[
+            Positioned.fill(
+              child: DecoratedBox(
+                key: ValueKey<String>('pass-reward-base-${currentReward.id}'),
+                decoration: BoxDecoration(
+                  color: baseColor,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+            ),
+            Positioned(
+              top: faceTop,
+              bottom: faceBottom,
+              left: 0,
+              right: 0,
+              child: Material(
+                color: faceColor,
+                borderRadius: BorderRadius.circular(18),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: state == _RewardTileState.claimable ? onTap : null,
+                  child: Stack(
+                    children: <Widget>[
+                      Center(
+                        child: _RewardContent(
+                          reward: currentReward,
+                          cosmetic: cosmetic,
+                          premium: premium,
+                          muted: state != _RewardTileState.claimable,
+                        ),
+                      ),
+                      if (state != _RewardTileState.claimable)
+                        Positioned(
+                          top: 7,
+                          right: 7,
+                          child: Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              color: state == _RewardTileState.claimed
+                                  ? const Color(0xFF47B99A)
+                                  : const Color(0xFF8C929D),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              state == _RewardTileState.claimed
+                                  ? Icons.check_rounded
+                                  : Icons.lock_rounded,
+                              color: Colors.white,
+                              size: 14,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-        Expanded(
-          child: Row(
-            children: <Widget>[
-              Expanded(
-                child: _RewardTile(
-                  reward: freeReward,
-                  access: access,
-                  onTap: () => onClaim(freeReward),
+      ),
+    );
+  }
+
+  String _semanticsLabel(
+    PassReward reward,
+    CosmeticItem? cosmetic,
+    _RewardTileState state,
+  ) {
+    final String label = cosmetic?.name ?? reward.label;
+    final String status = switch (state) {
+      _RewardTileState.claimable => 'dapat diklaim',
+      _RewardTileState.locked => 'terkunci',
+      _RewardTileState.claimed => 'sudah diklaim',
+    };
+    return '$label, $status';
+  }
+}
+
+class _RewardContent extends StatelessWidget {
+  const _RewardContent({
+    required this.reward,
+    required this.cosmetic,
+    required this.premium,
+    required this.muted,
+  });
+
+  final PassReward reward;
+  final CosmeticItem? cosmetic;
+  final bool premium;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color foreground = muted
+        ? const Color(0xFF858B96)
+        : premium
+        ? const Color(0xFF6242AA)
+        : AppColors.warriorNavy;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          if (cosmetic != null) ...<Widget>[
+            if (cosmetic?.assetPath != null)
+              ClipRRect(
+                key: ValueKey<String>('reward-item-clip-${reward.id}'),
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  width: 46,
+                  height: 46,
+                  child: Image.asset(
+                    cosmetic!.assetPath!,
+                    fit: BoxFit.contain,
+                    color: muted ? const Color(0xFF999DA6) : null,
+                    colorBlendMode: muted ? BlendMode.saturation : null,
+                  ),
                 ),
+              )
+            else
+              Icon(Icons.redeem_rounded, color: foreground, size: 40),
+            const SizedBox(height: 3),
+            Text(
+              cosmetic!.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.dmSans(
+                color: foreground,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w900,
+                height: 1,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _RewardTile(
-                  reward: premiumReward,
-                  access: access,
-                  onTap: () => onClaim(premiumReward),
-                ),
+            ),
+          ] else if (reward.yCoins > 0)
+            _CoinAmount(
+              rewardId: reward.id,
+              amount: reward.yCoins,
+              muted: muted,
+            )
+          else ...<Widget>[
+            Icon(Icons.redeem_rounded, color: foreground, size: 40),
+            const SizedBox(height: 4),
+            Text(
+              reward.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.dmSans(
+                color: foreground,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                height: 1,
               ),
-            ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CoinAmount extends StatelessWidget {
+  const _CoinAmount({
+    required this.rewardId,
+    required this.amount,
+    required this.muted,
+  });
+
+  final String rewardId;
+  final int amount;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color textColor = muted
+        ? const Color(0xFF858B96)
+        : AppColors.warriorNavy;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        _YCoinMark(
+          key: ValueKey<String>('y-coin-$rewardId'),
+          muted: muted,
+          size: 38,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '$amount',
+          style: GoogleFonts.dmSans(
+            color: textColor,
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+            height: 1,
           ),
         ),
       ],
@@ -697,108 +1113,33 @@ class _RewardMilestone extends StatelessWidget {
   }
 }
 
-class _RewardTile extends StatelessWidget {
-  const _RewardTile({
-    required this.reward,
-    required this.access,
-    required this.onTap,
-  });
+class _YCoinMark extends StatelessWidget {
+  const _YCoinMark({required this.muted, required this.size, super.key});
 
-  final PassReward reward;
-  final _PassAccessState access;
-  final VoidCallback onTap;
+  final bool muted;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    final bool premium = reward.track == PassTrack.premium;
-    final bool claimed = access.hasClaimed(reward.id);
-    final bool unlocked =
-        access.available &&
-        access.passPoints >= reward.pointsRequired &&
-        (!premium || access.premiumActive);
-    final CosmeticItem? cosmetic = reward.cosmeticItemId == null
-        ? null
-        : GameEconomyCatalog.findCosmetic(reward.cosmeticItemId!);
-
-    return Material(
-      color: premium ? const Color(0xFFF2ECFF) : Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        key: ValueKey<String>('pass-reward-${reward.id}'),
-        onTap: unlocked && !claimed ? onTap : null,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          height: 118,
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: premium
-                  ? const Color(0xFFBDA8EC)
-                  : AppColors.warriorNavy.withAlpha(20),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Icon(
-                    premium
-                        ? Icons.workspace_premium_rounded
-                        : Icons.redeem_rounded,
-                    color: premium
-                        ? const Color(0xFF8B6FE8)
-                        : AppColors.levelUpTeal,
-                    size: 18,
-                  ),
-                  const Spacer(),
-                  Text(
-                    premium ? 'PREMIUM' : 'FREE',
-                    style: GoogleFonts.dmSans(
-                      color: premium
-                          ? const Color(0xFF7258BF)
-                          : AppColors.levelUpTeal,
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              Text(
-                cosmetic?.name ?? reward.label,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.dmSans(
-                  color: AppColors.textStrong,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  height: 1.15,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                claimed
-                    ? 'SUDAH DIKLAIM'
-                    : unlocked
-                    ? 'TAP UNTUK KLAIM'
-                    : premium && !access.premiumActive
-                    ? 'KUNCI PREMIUM'
-                    : 'BELUM TERBUKA',
-                style: GoogleFonts.dmSans(
-                  color: claimed
-                      ? AppColors.levelUpTeal
-                      : unlocked
-                      ? AppColors.warriorNavy
-                      : AppColors.textMuted,
-                  fontSize: 8.5,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0,
-                ),
-              ),
-            ],
-          ),
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: muted ? const Color(0xFFC5C8CE) : const Color(0xFFFFC928),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: muted ? const Color(0xFFAEB2BA) : const Color(0xFFFFA800),
+          width: 1.5,
+        ),
+      ),
+      child: Text(
+        'Y',
+        style: GoogleFonts.fredoka(
+          color: muted ? const Color(0xFF777D87) : const Color(0xFF7B5200),
+          fontSize: size * 0.52,
+          fontWeight: FontWeight.w700,
+          height: 1,
         ),
       ),
     );
