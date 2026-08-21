@@ -27,6 +27,24 @@ class _SuccessLeaderboardRepository extends LeaderboardRepository {
           isCurrentUser: false,
         ),
         LeaderboardEntry(
+          rank: 2,
+          playerId: 'silver',
+          playerName: 'Silver',
+          points: 920,
+          winRate: 0.7,
+          totalMatches: 12,
+          isCurrentUser: false,
+        ),
+        LeaderboardEntry(
+          rank: 3,
+          playerId: 'bronze',
+          playerName: 'Bronze',
+          points: 860,
+          winRate: 0.6,
+          totalMatches: 10,
+          isCurrentUser: false,
+        ),
+        LeaderboardEntry(
           rank: 4,
           playerId: 'beta',
           playerName: 'Beta',
@@ -91,6 +109,11 @@ void main() {
   testWidgets('renders success state with ranking items', (
     WidgetTester tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 1000);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: <Override>[
@@ -108,6 +131,41 @@ void main() {
     expect(find.text('LEADERBOARD'), findsOneWidget);
     expect(find.text('Kamu'), findsWidgets);
     expect(find.textContaining('14 pertandingan'), findsOneWidget);
+    expect(find.text('PAPAN ATAS'), findsNothing);
+    expect(find.text('PERINGKAT LAINNYA'), findsOneWidget);
+    expect(find.text('POSISIMU'), findsOneWidget);
+    expect(find.text('Menuju tier Warrior'), findsOneWidget);
+    expect(find.text('XP ke peringkat berikutnya'), findsNothing);
+
+    final Container stageSurface = tester.widget<Container>(
+      find.byKey(const ValueKey<String>('leaderboard-stage-surface')),
+    );
+    final BoxDecoration stageDecoration =
+        stageSurface.decoration! as BoxDecoration;
+    expect(stageDecoration.color, const Color(0xFF0D49B5));
+    expect(
+      stageDecoration.borderRadius,
+      const BorderRadius.vertical(bottom: Radius.circular(26)),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('leaderboard-podium-surface')),
+      findsOneWidget,
+    );
+    final Container rankMedallion = tester.widget<Container>(
+      find.byKey(const ValueKey<String>('leaderboard-rank-medallion')),
+    );
+    expect(
+      (rankMedallion.decoration! as BoxDecoration).color,
+      const Color(0xFFE4EEFF),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('leaderboard-ranks-surface')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('leaderboard-current-user-surface')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('renders empty state for leaderboard', (
