@@ -17,7 +17,8 @@ class LeaderboardPage extends ConsumerWidget {
       leaderboardControllerProvider.notifier,
     );
     final progress = ref.watch(playerProgressProvider);
-    final int? userRank = leaderboardState.currentUserEntry?.rank ??
+    final int? userRank =
+        leaderboardState.currentUserEntry?.rank ??
         leaderboardState.currentUserRank;
     final LeaderboardEntry currentUserEntry =
         leaderboardState.currentUserEntry ??
@@ -55,7 +56,7 @@ class LeaderboardPage extends ConsumerWidget {
             color: Colors.white,
           ),
         ),
-        backgroundColor: AppColors.warriorNavy,
+        backgroundColor: const Color(0xFF0D49B5),
         centerTitle: true,
         elevation: 0,
       ),
@@ -74,39 +75,35 @@ class LeaderboardPage extends ConsumerWidget {
           child: CustomScrollView(
             slivers: [
               SliverToBoxAdapter(
-                child: Container(
-                  color: AppColors.warriorNavy,
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                  child: _HeroRankCard(
-                    rank: userRank,
-                    name: currentUserEntry.playerName,
-                    tierLabel: progress.tier.label.toUpperCase(),
-                    totalPoints: currentUserEntry.points,
-                    totalMatches: currentUserEntry.totalMatches,
-                    winRate: currentUserEntry.winRate,
-                    currentXp:
-                        progress.totalPoints - progress.currentTierBasePoints,
-                    targetXp:
-                        progress.nextTierPoints -
-                        progress.currentTierBasePoints,
-                  ),
+                child: _LeaderboardPlayerStage(
+                  rank: userRank,
+                  name: currentUserEntry.playerName,
+                  tierLabel: progress.tier.label.toUpperCase(),
+                  totalPoints: currentUserEntry.points,
+                  totalMatches: currentUserEntry.totalMatches,
+                  winRate: currentUserEntry.winRate,
+                  tierProgress: progress.tierProgress,
+                  pointsUntilNextTier: progress.pointsUntilNextTier,
+                  nextTierLabel: progress.nextTier?.label,
                 ),
               ),
               if (leaderboardState.errorMessage != null)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                     child: _InlineInfoBanner(
                       text: leaderboardState.errorMessage!,
                       isError: true,
                     ),
                   ),
                 ),
-              SliverToBoxAdapter(child: _TopThreePodium(entries: topThree)),
+              SliverToBoxAdapter(
+                child: _TopThreePodiumBoard(entries: topThree),
+              ),
               if (otherRanks.isNotEmpty)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.only(left: 20, bottom: 8, top: 8),
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
                     child: Text(
                       'PERINGKAT LAINNYA',
                       style: GoogleFonts.fredoka(
@@ -120,14 +117,16 @@ class LeaderboardPage extends ConsumerWidget {
                 ),
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final entry = otherRanks[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: _LeaderboardTile(entry: entry),
-                    );
-                  }, childCount: otherRanks.length),
+                sliver: SliverToBoxAdapter(
+                  child: _LeaderboardTable(
+                    entries: otherRanks,
+                    surfaceKey: const ValueKey<String>(
+                      'leaderboard-ranks-surface',
+                    ),
+                    baseKey: const ValueKey<String>(
+                      'leaderboard-ranks-clay-base',
+                    ),
+                  ),
                 ),
               ),
               if (!isUserInLoadedList &&
@@ -135,17 +134,30 @@ class LeaderboardPage extends ConsumerWidget {
                   leaderboardState.status == LeaderboardViewStatus.success)
                 SliverToBoxAdapter(
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Icon(
-                          Icons.more_vert,
-                          color: AppColors.warriorNavy.withAlpha(80),
+                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+                        child: Text(
+                          'POSISIMU',
+                          style: GoogleFonts.fredoka(
+                            color: AppColors.warriorNavy.withAlpha(150),
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: _LeaderboardTile(entry: currentUserEntry),
+                        child: _LeaderboardTable(
+                          entries: <LeaderboardEntry>[currentUserEntry],
+                          surfaceKey: const ValueKey<String>(
+                            'leaderboard-current-user-surface',
+                          ),
+                          baseKey: const ValueKey<String>(
+                            'leaderboard-current-user-clay-base',
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -185,16 +197,17 @@ class LeaderboardPage extends ConsumerWidget {
   }
 }
 
-class _HeroRankCard extends StatelessWidget {
-  const _HeroRankCard({
+class _LeaderboardPlayerStage extends StatelessWidget {
+  const _LeaderboardPlayerStage({
     required this.rank,
     required this.name,
     required this.tierLabel,
     required this.totalPoints,
     required this.totalMatches,
     required this.winRate,
-    required this.currentXp,
-    required this.targetXp,
+    required this.tierProgress,
+    required this.pointsUntilNextTier,
+    required this.nextTierLabel,
   });
 
   final int? rank;
@@ -203,52 +216,74 @@ class _HeroRankCard extends StatelessWidget {
   final int totalPoints;
   final int totalMatches;
   final double winRate;
-  final int currentXp;
-  final int targetXp;
+  final double tierProgress;
+  final int pointsUntilNextTier;
+  final String? nextTierLabel;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F4194),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withAlpha(50), width: 1),
-      ),
+    final _RankVisual rankVisual = _RankVisual.forRank(rank);
+    final String progressLabel = nextTierLabel == null
+        ? 'Tier maksimal sudah tercapai'
+        : 'Menuju tier $nextTierLabel';
+    final String progressValue = nextTierLabel == null
+        ? 'MAKSIMAL'
+        : '$pointsUntilNextTier poin lagi';
+
+    return ColoredBox(
+      color: AppColors.scholarCream,
       child: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
+        children: <Widget>[
+          const Positioned.fill(
+            child: DecoratedBox(
+              key: ValueKey<String>('leaderboard-stage-clay-base'),
+              decoration: BoxDecoration(
+                color: Color(0xFF06378F),
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(26),
+                ),
+              ),
+            ),
+          ),
+          Container(
+            key: const ValueKey<String>('leaderboard-stage-surface'),
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            decoration: const BoxDecoration(
+              color: Color(0xFF0D49B5),
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(26)),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+              children: <Widget>[
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                  children: <Widget>[
                     Container(
-                      height: 54,
-                      width: 54,
+                      height: 58,
+                      width: 58,
                       decoration: BoxDecoration(
-                        shape: BoxShape.circle,
+                        color: const Color(0xFF087C9E),
+                        borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: AppColors.levelUpTeal.withAlpha(180),
-                          width: 1.5,
+                          color: const Color(0xFF75E0E8),
+                          width: 2,
                         ),
                       ),
                       child: const Center(
                         child: Icon(
-                          Icons.shield_outlined,
-                          color: AppColors.levelUpTeal,
-                          size: 28,
+                          Icons.shield_rounded,
+                          color: Colors.white,
+                          size: 29,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 2),
+                        children: <Widget>[
                           Text(
                             name,
                             style: GoogleFonts.dmSans(
@@ -259,120 +294,137 @@ class _HeroRankCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.military_tech,
+                          const SizedBox(height: 7),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.white24),
+                            ),
+                            child: Text(
+                              tierLabel,
+                              style: GoogleFonts.dmSans(
                                 color: AppColors.fireGold,
-                                size: 14,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                tierLabel,
-                                style: GoogleFonts.dmSans(
-                                  color: AppColors.fireGold,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      key: const ValueKey<String>('leaderboard-rank-medallion'),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: rankVisual.fill,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: rankVisual.accent),
+                      ),
+                      child: Column(
+                        children: <Widget>[
+                          Text(
+                            rank != null && rank! > 0 ? '#$rank' : '-',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: rankVisual.accent,
+                              fontSize: 19,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          Text(
+                            'GLOBAL',
+                            style: TextStyle(
+                              color: rankVisual.accent,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 22),
                 Row(
-                  children: [
-                    _StatColumn(label: 'POIN', value: '$totalPoints'),
-                    const SizedBox(width: 24),
-                    _StatColumn(
-                      label: 'WINRATE',
-                      value: '${(winRate * 100).toStringAsFixed(0)}%',
-                    ),
-                    const SizedBox(width: 24),
-                    _StatColumn(label: 'LAGA', value: '$totalMatches'),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'XP ke peringkat berikutnya',
-                      style: GoogleFonts.dmSans(
-                        color: Colors.white.withAlpha(150),
-                        fontSize: 11,
+                  children: <Widget>[
+                    Expanded(
+                      child: _StageStat(
+                        label: 'RANK POINTS',
+                        value: '$totalPoints',
                       ),
                     ),
+                    const _StageStatDivider(),
+                    Expanded(
+                      child: _StageStat(
+                        label: 'WIN RATE',
+                        value: '${(winRate * 100).toStringAsFixed(0)}%',
+                      ),
+                    ),
+                    const _StageStatDivider(),
+                    Expanded(
+                      child: _StageStat(
+                        label: 'PERTANDINGAN',
+                        value: '$totalMatches',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        progressLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          color: const Color(0xFFC7D9FF),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
                     Text(
-                      '$currentXp / $targetXp',
+                      progressValue,
                       style: GoogleFonts.dmSans(
-                        color: Colors.white.withAlpha(150),
+                        color: Colors.white,
                         fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  height: 6,
+                  height: 8,
                   decoration: BoxDecoration(
-                    color: Colors.black.withAlpha(60),
-                    borderRadius: BorderRadius.circular(3),
+                    color: const Color(0xFF07368D),
+                    borderRadius: BorderRadius.circular(5),
                   ),
                   alignment: Alignment.centerLeft,
                   child: FractionallySizedBox(
-                    widthFactor: (currentXp / targetXp).clamp(0.0, 1.0),
+                    widthFactor: tierProgress.clamp(0.0, 1.0),
                     child: Container(
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [AppColors.levelUpTeal, AppColors.fireGold],
                         ),
-                        borderRadius: BorderRadius.circular(3),
+                        borderRadius: BorderRadius.circular(5),
                       ),
                     ),
                   ),
                 ),
               ],
-            ),
-          ),
-          Positioned(
-            top: 20,
-            right: 20,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: AppColors.fireGold.withAlpha(120),
-                  width: 1.5,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                color: Colors.white.withAlpha(10),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    rank != null && rank! > 0 ? '#$rank' : '-',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: AppColors.fireGold,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  Text(
-                    'PERINGKAT',
-                    style: GoogleFonts.dmSans(
-                      color: AppColors.fireGold.withAlpha(200),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
         ],
@@ -381,16 +433,16 @@ class _HeroRankCard extends StatelessWidget {
   }
 }
 
-class _StatColumn extends StatelessWidget {
-  const _StatColumn({required this.label, required this.value});
+class _StageStat extends StatelessWidget {
+  const _StageStat({required this.label, required this.value});
+
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+      children: <Widget>[
         Text(
           value,
           style: GoogleFonts.dmSans(
@@ -402,10 +454,195 @@ class _StatColumn extends StatelessWidget {
         Text(
           label,
           style: GoogleFonts.dmSans(
-            color: Colors.white.withAlpha(160),
-            fontSize: 10,
+            color: const Color(0xFFC7D9FF),
+            fontSize: 9,
             letterSpacing: 0,
+            fontWeight: FontWeight.w700,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+}
+
+class _StageStatDivider extends StatelessWidget {
+  const _StageStatDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 28,
+      color: Colors.white.withValues(alpha: 0.14),
+    );
+  }
+}
+
+class _TopThreePodiumBoard extends StatelessWidget {
+  const _TopThreePodiumBoard({required this.entries});
+
+  final List<LeaderboardEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    LeaderboardEntry? entryForRank(int rank) {
+      for (final LeaderboardEntry entry in entries) {
+        if (entry.rank == rank) return entry;
+      }
+      return null;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+      child: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            top: 7,
+            child: DecoratedBox(
+              key: const ValueKey<String>('leaderboard-podium-clay-base'),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD1D5DC),
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+          ),
+          Container(
+            key: const ValueKey<String>('leaderboard-podium-surface'),
+            margin: const EdgeInsets.only(bottom: 7),
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFE7E9ED)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: <Widget>[
+                    Expanded(
+                      child: _PodiumPlace(entry: entryForRank(2), rank: 2),
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: _PodiumPlace(
+                        entry: entryForRank(1),
+                        rank: 1,
+                        isFirst: true,
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: _PodiumPlace(entry: entryForRank(3), rank: 3),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PodiumPlace extends StatelessWidget {
+  const _PodiumPlace({
+    required this.entry,
+    required this.rank,
+    this.isFirst = false,
+  });
+
+  final LeaderboardEntry? entry;
+  final int rank;
+  final bool isFirst;
+
+  @override
+  Widget build(BuildContext context) {
+    final _RankVisual visual = _RankVisual.forRank(rank);
+    final Color accent = visual.accent;
+    final Color fill = visual.fill;
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: <Widget>[
+        if (isFirst)
+          Icon(Icons.workspace_premium_rounded, color: accent, size: 22)
+        else
+          const SizedBox(height: 22),
+        const SizedBox(height: 3),
+        Container(
+          width: isFirst ? 46 : 40,
+          height: isFirst ? 46 : 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: fill,
+            shape: BoxShape.circle,
+            border: Border.all(color: accent, width: 2),
+          ),
+          child: Text(
+            '$rank',
+            style: GoogleFonts.dmSans(
+              color: accent,
+              fontSize: isFirst ? 18 : 15,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          entry?.playerName ?? '-',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: GoogleFonts.dmSans(
+            color: AppColors.warriorNavy,
+            fontSize: isFirst ? 14 : 12,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          entry == null ? '-' : '${entry!.points} pts',
+          style: GoogleFonts.dmSans(
+            color: accent,
+            fontSize: isFirst ? 14 : 12,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          entry == null
+              ? 'Belum tersedia'
+              : 'WR ${(entry!.winRate * 100).toStringAsFixed(0)}%',
+          style: GoogleFonts.dmSans(
+            color: AppColors.textMuted,
+            fontSize: 9,
             fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          height: isFirst ? 58 : 42,
+          width: double.infinity,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: fill,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+            border: Border(top: BorderSide(color: accent, width: 2)),
+          ),
+          child: Text(
+            '#$rank',
+            style: GoogleFonts.jetBrainsMono(
+              color: accent,
+              fontSize: isFirst ? 18 : 15,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ),
       ],
@@ -413,251 +650,213 @@ class _StatColumn extends StatelessWidget {
   }
 }
 
-class _TopThreePodium extends StatelessWidget {
-  const _TopThreePodium({required this.entries});
+class _RankVisual {
+  const _RankVisual({required this.fill, required this.accent});
+
+  final Color fill;
+  final Color accent;
+
+  factory _RankVisual.forRank(int? rank) {
+    return switch (rank) {
+      1 => const _RankVisual(
+        fill: Color(0xFFFFE7C7),
+        accent: Color(0xFFE89A4F),
+      ),
+      2 => const _RankVisual(
+        fill: Color(0xFFE8EDF2),
+        accent: Color(0xFF73879B),
+      ),
+      3 => const _RankVisual(
+        fill: Color(0xFFF1E5D8),
+        accent: Color(0xFFC49A70),
+      ),
+      final int value when value > 3 => const _RankVisual(
+        fill: Color(0xFFE4EEFF),
+        accent: Color(0xFF315A9B),
+      ),
+      _ => const _RankVisual(
+        fill: Color(0xFFF0F2F6),
+        accent: Color(0xFF7C8797),
+      ),
+    };
+  }
+}
+
+class _LeaderboardTable extends StatelessWidget {
+  const _LeaderboardTable({
+    required this.entries,
+    required this.surfaceKey,
+    required this.baseKey,
+  });
+
   final List<LeaderboardEntry> entries;
+  final Key surfaceKey;
+  final Key baseKey;
 
   @override
   Widget build(BuildContext context) {
     if (entries.isEmpty) return const SizedBox.shrink();
 
-    final hasTwo = entries.length >= 2;
-    final hasThree = entries.length >= 3;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (hasTwo) Expanded(child: _PodiumCard(entry: entries[1])),
-          if (hasTwo) const SizedBox(width: 10),
-          Expanded(
-            child: _PodiumCard(entry: entries[0], isFirst: true),
-          ),
-          if (hasThree) const SizedBox(width: 10),
-          if (hasThree)
-            Expanded(child: _PodiumCard(entry: entries[2])),
-          if (!hasThree && hasTwo) const Expanded(child: SizedBox()),
-        ],
-      ),
-    );
-  }
-}
-
-class _PodiumCard extends StatelessWidget {
-  const _PodiumCard({
-    required this.entry,
-    this.isFirst = false,
-  });
-
-  final LeaderboardEntry entry;
-  final bool isFirst;
-
-  @override
-  Widget build(BuildContext context) {
-    final int rank = entry.rank;
-    Color bgColor;
-    Color circleBorder;
-    Color circleBg;
-    Color textColor;
-
-    if (rank == 1) {
-      bgColor = const Color(0xFFFDECDA);
-      circleBorder = const Color(0xFFE89A4F);
-      circleBg = const Color(0xFFFDECDA);
-      textColor = const Color(0xFFE89A4F);
-    } else if (rank == 2) {
-      bgColor = const Color(0xFFE8EDF2);
-      circleBorder = const Color(0xFFA5B4C2);
-      circleBg = const Color(0xFFE8EDF2);
-      textColor = AppColors.warriorNavy;
-    } else {
-      bgColor = const Color(0xFFF3EBE1);
-      circleBorder = const Color(0xFFD6BEA0);
-      circleBg = const Color(0xFFF3EBE1);
-      textColor = const Color(0xFFC4A27B);
-    }
-
-    return Container(
-      padding: EdgeInsets.only(
-        top: isFirst ? 18 : 14,
-        bottom: 14,
-        left: 4,
-        right: 4,
-      ),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: circleBorder.withAlpha(100), width: 1),
-      ),
-      child: Column(
-        children: [
-          Container(
-            height: isFirst ? 36 : 30,
-            width: isFirst ? 36 : 30,
+    return Stack(
+      children: <Widget>[
+        Positioned.fill(
+          top: 7,
+          child: DecoratedBox(
+            key: baseKey,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: circleBg,
-              border: Border.all(color: circleBorder, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: circleBorder.withAlpha(80),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Center(
-              child: Text(
-                '$rank',
-                style: GoogleFonts.dmSans(
-                  color: isFirst ? AppColors.fireGold : textColor,
-                  fontSize: isFirst ? 16 : 14,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
+              color: const Color(0xFFD1D5DC),
+              borderRadius: BorderRadius.circular(22),
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            entry.playerName,
-            style: GoogleFonts.dmSans(
-              color: AppColors.warriorNavy,
-              fontSize: isFirst ? 16 : 14,
-              fontWeight: FontWeight.w800,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '${entry.points}',
-            style: GoogleFonts.dmSans(
-              color: isFirst ? AppColors.fireGold : AppColors.warriorNavy,
-              fontSize: isFirst ? 16 : 14,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            'WR ${(entry.winRate * 100).toStringAsFixed(0)}%',
-            style: GoogleFonts.dmSans(
-              color: AppColors.warriorNavy.withAlpha(140),
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LeaderboardTile extends StatelessWidget {
-  const _LeaderboardTile({required this.entry});
-
-  final LeaderboardEntry entry;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool isKamu = entry.isCurrentUser;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: isKamu ? const Color(0xFFEAF8FA) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isKamu
-              ? AppColors.levelUpTeal.withAlpha(180)
-              : AppColors.warriorNavy.withAlpha(30),
-          width: isKamu ? 1.5 : 1,
         ),
-      ),
+        Container(
+          key: surfaceKey,
+          margin: const EdgeInsets.only(bottom: 7),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFE7E9ED)),
+          ),
+          child: Column(
+            children: <Widget>[
+              for (int index = 0; index < entries.length; index++) ...<Widget>[
+                _LeaderboardRow(entry: entries[index]),
+                if (index < entries.length - 1)
+                  const Divider(
+                    height: 1,
+                    indent: 58,
+                    endIndent: 14,
+                    color: Color(0xFFE7E9ED),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LeaderboardRow extends StatelessWidget {
+  const _LeaderboardRow({required this.entry});
+
+  final LeaderboardEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isCurrentUser = entry.isCurrentUser;
+
+    return ColoredBox(
+      color: isCurrentUser ? const Color(0xFFE7F5F8) : Colors.white,
       child: Row(
-        children: [
+        children: <Widget>[
+          const SizedBox(width: 14),
           Container(
-            height: 32,
-            width: 32,
+            height: 34,
+            width: 34,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isKamu
-                  ? AppColors.levelUpTeal.withAlpha(40)
-                  : AppColors.warriorNavy.withAlpha(20),
+              color: isCurrentUser
+                  ? const Color(0xFFBFEFF4)
+                  : const Color(0xFFF0F2F6),
             ),
-            child: Center(
-              child: Text(
-                '${entry.rank}',
-                style: GoogleFonts.dmSans(
-                  color: isKamu
-                      ? AppColors.levelUpTeal
-                      : AppColors.warriorNavy.withAlpha(180),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                ),
+            child: Text(
+              '${entry.rank}',
+              style: GoogleFonts.dmSans(
+                color: isCurrentUser
+                    ? const Color(0xFF087C9E)
+                    : AppColors.warriorNavy,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      entry.playerName,
-                      style: GoogleFonts.dmSans(
-                        color: AppColors.warriorNavy,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (isKamu) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.levelUpTeal.withAlpha(40),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppColors.levelUpTeal),
-                        ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Flexible(
                         child: Text(
-                          'KAMU',
+                          entry.playerName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.dmSans(
-                            color: AppColors.levelUpTeal,
-                            fontSize: 8,
-                            fontWeight: FontWeight.w900,
+                            color: AppColors.warriorNavy,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ),
+                      if (isCurrentUser) ...<Widget>[
+                        const SizedBox(width: 7),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFBFEFF4),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            'KAMU',
+                            style: TextStyle(
+                              color: Color(0xFF087C9E),
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
-                ),
-                Text(
-                  'WR ${(entry.winRate * 100).toStringAsFixed(0)}%  |  ${entry.totalMatches} pertandingan',
-                  style: GoogleFonts.dmSans(
-                    color: AppColors.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
                   ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'WR ${(entry.winRate * 100).toStringAsFixed(0)}%  •  ${entry.totalMatches} pertandingan',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.dmSans(
+                      color: AppColors.textMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              Text(
+                '${entry.points}',
+                style: GoogleFonts.jetBrainsMono(
+                  color: isCurrentUser
+                      ? const Color(0xFF087C9E)
+                      : AppColors.warriorNavy,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
                 ),
-              ],
-            ),
+              ),
+              const Text(
+                'PTS',
+                style: TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
-          Text(
-            '${entry.points}',
-            style: GoogleFonts.dmSans(
-              color: isKamu ? AppColors.levelUpTeal : AppColors.warriorNavy,
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
+          const SizedBox(width: 14),
         ],
       ),
     );

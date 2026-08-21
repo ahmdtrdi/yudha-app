@@ -2319,3 +2319,28 @@
 
 ### The Tech Debt
 - The progress hero currently uses the backend's single aggregate percentage; richer per-category progress would require an expanded dashboard contract.
+
+## 2026-08-21 - Leaderboard Redesign
+
+### The Change
+- Connected the Leaderboard app bar to a full-width royal-blue competitive stage with shared 26-pixel lower rounding and an attached deep-blue clay edge.
+- Removed the nested profile card and placed player identity, global-rank medallion, rank points, win rate, match count, and tier progress directly on the blue stage.
+- Corrected the progress copy from leaderboard-rank XP to tier progression and handled the maximum tier without dividing by a zero-length tier range.
+- Replaced the three independent winner cards with one unlabeled white-and-gray clay podium board containing a taller first-place pedestal and code-native gold, silver, and bronze treatments.
+- Unified the profile-stage rank medallion with podium semantics: gold for first, silver for second, bronze for third, soft blue for rank four and below, and muted gray only for an unavailable rank.
+- Consolidated ranks below the podium into one compact white clay table with dividers, aligned point values, and a soft-cyan current-user state.
+- Preserved refresh, pagination, partial-load messaging, and the separated `POSISIMU` fallback when the current user is outside the loaded ranking page.
+
+### The Reasoning
+- A continuous blue stage makes the page consistent with Lobby and Practice while keeping its purpose specific to global competitive position.
+- A shared podium reads as one result hierarchy, while a continuous table makes lower positions easier to compare and avoids making passive rows resemble buttons.
+- The global-rank medallion remains visually passive; clay depth is used for section structure rather than suggesting that rank data is interactive.
+
+### Verification
+- Focused Dart analysis completed with no issues.
+- All four focused Leaderboard widget tests passed, covering loading, success, empty, and error states plus stage geometry, podium structure, ranking table, current-user fallback, and corrected tier copy.
+- The success layout was verified at a 390-pixel phone width, including an explicit narrow-screen overflow check.
+- `git diff --check` completed without whitespace errors.
+
+### The Tech Debt
+- The podium renders restrained placeholders if the backend returns an incomplete top-three set; a dedicated top-three contract could distinguish missing data from an unoccupied rank.
