@@ -377,8 +377,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('LATIHAN'), findsOneWidget);
-    expect(find.text('Progress CPNS'), findsOneWidget);
-    expect(find.text('Latihan Interview AI'), findsOneWidget);
+    expect(find.text('CPNS'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('practice-target-badge')),
+      findsOneWidget,
+    );
+    expect(find.text('Progress latihan'), findsOneWidget);
+    expect(find.text('28%'), findsOneWidget);
+    expect(find.text('Simulasi Wawancara AI'), findsOneWidget);
     expect(find.text('LATIHAN SOAL CPNS'), findsOneWidget);
     expect(find.text('4 topik • 5 soal per sesi'), findsOneWidget);
     expect(find.text('Verbal'), findsOneWidget);
@@ -436,6 +442,28 @@ void main() {
     expect(find.text('Riwayat 3'), findsOneWidget);
     expect(find.text('Riwayat 4'), findsNothing);
     expect(find.text('Riwayat 5'), findsNothing);
+
+    final Container progressSurface = tester.widget<Container>(
+      find.byKey(const ValueKey<String>('practice-progress-surface')),
+    );
+    final BoxDecoration progressDecoration =
+        progressSurface.decoration! as BoxDecoration;
+    expect(progressDecoration.color, const Color(0xFF0D49B5));
+    expect(
+      progressDecoration.borderRadius,
+      const BorderRadius.vertical(bottom: Radius.circular(26)),
+    );
+    final DecoratedBox progressBase = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('practice-progress-clay-base')),
+    );
+    expect(
+      (progressBase.decoration as BoxDecoration).color,
+      const Color(0xFF06378F),
+    );
+    final Container interviewSurface = tester.widget<Container>(
+      find.byKey(const ValueKey<String>('practice-interview-surface')),
+    );
+    expect((interviewSurface.decoration! as BoxDecoration).color, Colors.white);
   });
 
   testWidgets('renders server session and unlocks its hint', (
@@ -513,6 +541,7 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 500));
 
+    expect(find.text('BUMN'), findsOneWidget);
     expect(find.text('LATIHAN SOAL BUMN'), findsOneWidget);
     expect(find.text('4 topik • 5 soal per sesi'), findsOneWidget);
     expect(find.text('Verbal'), findsOneWidget);

@@ -2299,3 +2299,23 @@
 ### The Tech Debt
 - The avatar remains initial-based until the backend exposes a dedicated profile-avatar contract or approved artwork is added.
 - The profile response and lobby summary overlap in ranked data; the profile page currently prefers `/profile` and falls back to lobby progress for backward compatibility.
+
+## 2026-08-21 - Practice Progress Stage
+
+### The Change
+- Connected the Practice app bar to a full-width royal-blue progress stage with rounded lower corners and an attached deep-blue clay edge matching the Lobby's visual language.
+- Blended a compact CPNS/BUMN badge directly into the `Progress latihan` title row and kept the header focused on authoritative overall practice progress.
+- Kept AI Interview outside the header as the first training action, restyling it as a white-and-gray clay card so it remains prominent without competing with the blue progress area.
+- Preserved the four equal question-category cards and recent-practice history beneath the featured interview action.
+
+### The Reasoning
+- The shared rounded stage creates continuity between primary tabs while allowing each page to communicate page-specific status: player rank in Lobby and learning progress in Practice.
+- Interview is a selectable training mode rather than progress metadata, so separating it from the header makes the information architecture clearer.
+
+### Verification
+- Focused Dart analysis completed with no issues.
+- All seven focused Practice widget tests passed, including CPNS/BUMN context, progress-stage geometry, Interview presentation, question categories, history, quiz actions, and recommended-session navigation.
+- `git diff --check` completed without whitespace errors.
+
+### The Tech Debt
+- The progress hero currently uses the backend's single aggregate percentage; richer per-category progress would require an expanded dashboard contract.
