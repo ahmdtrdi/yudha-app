@@ -2276,3 +2276,26 @@
 ### The Tech Debt
 - The voice orb remains code-native and intentionally non-reactive to microphone amplitude; connecting live waveform intensity would require a separate audio-level contract.
 - Long typed answers scroll horizontally within the single-line field rather than expanding vertically.
+
+## 2026-08-21 - Profile Page Redesign
+
+### The Change
+- Rebuilt the profile identity card as a royal-blue clay surface with a layered initial avatar, username, tier and target badges, Y-Coin balance, and authoritative tier progress.
+- Added an asset-free PvP overview with a painted win/loss/draw donut, match totals, and separate current/best streak tiles.
+- Separated practice analytics from PvP, promoted practice accuracy into a clear summary card, and softened the supporting metric and category panels.
+- Extended the profile entity to map rank points, tier, ranked stats, Y-Coins, equipped IDs, and streak data from the backend profile response while retaining lobby-progress fallbacks for older payloads.
+- Restyled the profile settings surface with the same restrained white-and-gray clay depth used elsewhere in the app.
+
+### The Reasoning
+- Profile identity, ranked performance, practice performance, and preferences now have distinct visual hierarchy instead of appearing as equally weighted prototype cards.
+- The redesign uses only Flutter painting, Material icons, and existing catalog metadata, so it does not depend on unavailable character artwork or fabricate a time-series trend the backend does not provide.
+- Passive statistics use soft fills and shallow depth, reserving stronger button-like clay treatment for actual actions.
+- Character and tower selection remains in the game lobby, avoiding a duplicate loadout summary on the personal profile.
+
+### Verification
+- Focused profile entity and widget tests passed, covering the complete backend payload, normalized win rate, redesigned sections, readable analytics, scrolling, and edit behavior.
+- Focused Dart analysis completed with no issues.
+
+### The Tech Debt
+- The avatar remains initial-based until the backend exposes a dedicated profile-avatar contract or approved artwork is added.
+- The profile response and lobby summary overlap in ranked data; the profile page currently prefers `/profile` and falls back to lobby progress for backward compatibility.

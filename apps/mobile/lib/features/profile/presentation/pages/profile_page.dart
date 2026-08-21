@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +10,7 @@ import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/gamification/domain/entities/player_progress.dart';
+import 'package:yudha_mobile/features/gamification/domain/entities/progress_tier.dart';
 import 'package:yudha_mobile/features/profile/application/performance_analytics_providers.dart';
 import 'package:yudha_mobile/features/profile/application/performance_analytics_state.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
@@ -63,6 +65,21 @@ class ProfilePage extends ConsumerWidget {
     final UserProfile? profile = profileState.profile;
     final String displayName = profile?.displayName ?? progress.displayName;
     final ProfileTarget? target = profile?.target ?? profileSettings.target;
+    final int rankPoints = profile?.rankPoints ?? progress.totalPoints;
+    final ProgressTier derivedTier = ProgressTier.fromPoints(rankPoints);
+    final String tierLabel = profile?.tier == null
+        ? derivedTier.label
+        : _humanizeIdentifier(profile!.tier!);
+    final ProfileRankedStats rankedStats =
+        profile?.rankedStats ??
+        ProfileRankedStats(
+          wins: progress.wins,
+          losses: progress.losses,
+          draws: progress.draws,
+          winRate: progress.winRate,
+        );
+    final int currentStreak = profile?.streak?.current ?? progress.streak;
+    final int bestStreak = profile?.streak?.best ?? progress.bestStreak;
 
     return Scaffold(
       backgroundColor: AppColors.scholarCream,
@@ -95,12 +112,16 @@ class ProfilePage extends ConsumerWidget {
         onRefresh: () => _refresh(ref),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
           children: <Widget>[
             _ProfileHeaderCard(
-              progress: progress,
               displayName: displayName,
+              username: profile?.username,
               targetLabel: target?.label,
+              rankPoints: rankPoints,
+              tier: derivedTier,
+              tierLabel: tierLabel,
+              yCoins: profile?.yCoins,
               onEdit: profile == null
                   ? null
                   : () => _openEditor(context, ref, profile),
@@ -122,7 +143,19 @@ class ProfilePage extends ConsumerWidget {
             const SizedBox(height: 20),
             const _SectionTitle(
               icon: Icons.bar_chart_rounded,
-              title: 'Analisis Performa',
+              title: 'Performa PvP',
+            ),
+            const SizedBox(height: 10),
+            _RankedOverviewCard(stats: rankedStats),
+            const SizedBox(height: 10),
+            _StreakOverview(
+              currentStreak: currentStreak,
+              bestStreak: bestStreak,
+            ),
+            const SizedBox(height: 24),
+            const _SectionTitle(
+              icon: Icons.insights_rounded,
+              title: 'Analisis Latihan',
             ),
             const SizedBox(height: 10),
             _PerformanceSection(
@@ -140,15 +173,15 @@ class ProfilePage extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                   color: AppColors.warriorNavy.withValues(alpha: 0.06),
                 ),
                 boxShadow: <BoxShadow>[
                   BoxShadow(
-                    color: AppColors.warriorNavy.withValues(alpha: 0.02),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+                    color: const Color(0xFFD1D5DC),
+                    blurRadius: 0,
+                    offset: const Offset(0, 7),
                   ),
                 ],
               ),
@@ -686,15 +719,23 @@ Future<bool?> _showLogoutDialog(BuildContext context) {
 
 class _ProfileHeaderCard extends StatelessWidget {
   const _ProfileHeaderCard({
-    required this.progress,
     required this.displayName,
+    required this.username,
     required this.targetLabel,
+    required this.rankPoints,
+    required this.tier,
+    required this.tierLabel,
+    required this.yCoins,
     required this.onEdit,
   });
 
-  final PlayerProgress progress;
   final String displayName;
+  final String? username;
   final String? targetLabel;
+  final int rankPoints;
+  final ProgressTier tier;
+  final String tierLabel;
+  final int? yCoins;
   final VoidCallback? onEdit;
 
   @override
@@ -703,187 +744,554 @@ class _ProfileHeaderCard extends StatelessWidget {
         ? '?'
         : displayName.substring(0, 1).toUpperCase();
 
-    final String progressText = progress.nextTier == null
-        ? 'Tier Maksimal'
-        : 'Sisa ${progress.pointsUntilNextTier} poin menuju ${progress.nextTier!.label}';
+    final ProgressTier? nextTier = tier.nextTier;
+    final int tierSpan = nextTier == null
+        ? 0
+        : nextTier.minPoints - tier.minPoints;
+    final double tierProgress = nextTier == null
+        ? 1
+        : ((rankPoints - tier.minPoints) / tierSpan).clamp(0, 1).toDouble();
+    final int pointsUntilNextTier = nextTier == null
+        ? 0
+        : (nextTier.minPoints - rankPoints).clamp(0, nextTier.minPoints);
+    final String progressText = nextTier == null
+        ? 'Tier maksimal sudah tercapai'
+        : '$pointsUntilNextTier poin lagi menuju ${nextTier.label}';
+    final String normalizedUsername = username?.trim() ?? '';
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: <Color>[AppColors.warriorNavy, Color(0xFF0C3D9C)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: AppColors.warriorNavy.withValues(alpha: 0.2),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+    return Stack(
+      children: <Widget>[
+        Positioned.fill(
+          top: 8,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xFF072C78),
+              borderRadius: BorderRadius.circular(26),
+            ),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
+        ),
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D49B5),
+            borderRadius: BorderRadius.circular(26),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Stack(
+              Row(
                 children: <Widget>[
-                  Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.fireGold.withValues(alpha: 0.85),
-                        width: 2.5,
-                      ),
-                    ),
-                    child: CircleAvatar(
-                      radius: 32,
-                      backgroundColor: AppColors.scholarCream.withAlpha(40),
-                      child: Text(
-                        avatarInitial,
-                        style: const TextStyle(
-                          color: AppColors.scholarCream,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
+                  Stack(
+                    children: <Widget>[
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFF75E0E8),
+                            width: 3,
+                          ),
                         ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Material(
-                      color: AppColors.fireGold,
-                      shape: const CircleBorder(),
-                      child: InkWell(
-                        onTap: onEdit,
-                        customBorder: const CircleBorder(),
-                        child: const Padding(
-                          padding: EdgeInsets.all(5),
-                          child: Icon(
-                            Icons.edit_outlined,
-                            size: 14,
-                            color: AppColors.warriorNavy,
+                        child: CircleAvatar(
+                          radius: 31,
+                          backgroundColor: const Color(0xFF087C9E),
+                          child: Text(
+                            avatarInitial,
+                            style: const TextStyle(
+                              color: AppColors.scholarCream,
+                              fontSize: 28,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ),
                       ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Material(
+                          color: AppColors.fireGold,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            onTap: onEdit,
+                            customBorder: const CircleBorder(),
+                            child: const Padding(
+                              padding: EdgeInsets.all(5),
+                              child: Icon(
+                                Icons.edit_outlined,
+                                size: 14,
+                                color: AppColors.warriorNavy,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          displayName,
+                          style: const TextStyle(
+                            color: AppColors.scholarCream,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        if (normalizedUsername.isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 2),
+                          Text(
+                            '@$normalizedUsername',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.68),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        Row(
+                          children: <Widget>[
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.levelUpTeal,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                tierLabel,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            if (targetLabel != null) ...<Widget>[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.scholarCream.withValues(
+                                    alpha: 0.15,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  targetLabel!,
+                                  style: const TextStyle(
+                                    color: AppColors.scholarCream,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (yCoins != null) ...<Widget>[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Container(
+                            width: 19,
+                            height: 19,
+                            alignment: Alignment.center,
+                            decoration: const BoxDecoration(
+                              color: AppColors.fireGold,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Text(
+                              'Y',
+                              style: TextStyle(
+                                color: AppColors.warriorNavy,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            '$yCoins',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Divider(color: Colors.white24, height: 1),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: <Widget>[
+                  const Text(
+                    'Progress Tier',
+                    style: TextStyle(
+                      color: AppColors.scholarCream,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  Text(
+                    '$rankPoints Poin',
+                    style: const TextStyle(
+                      color: AppColors.fireGold,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(width: 16),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: tierProgress,
+                  minHeight: 8,
+                  backgroundColor: Colors.white12,
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    AppColors.fireGold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                progressText,
+                style: TextStyle(
+                  color: AppColors.scholarCream.withValues(alpha: 0.7),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RankedOverviewCard extends StatelessWidget {
+  const _RankedOverviewCard({required this.stats});
+
+  final ProfileRankedStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: <Widget>[
+        Positioned.fill(
+          top: 7,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xFFD3D8E2),
+              borderRadius: BorderRadius.circular(24),
+            ),
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.only(bottom: 7),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Row(
+            children: <Widget>[
+              SizedBox.square(
+                dimension: 122,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: <Widget>[
+                    CustomPaint(
+                      size: const Size.square(122),
+                      painter: _RankedDonutPainter(stats),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text(
+                          _formatWinRate(stats.winRate),
+                          style: const TextStyle(
+                            color: AppColors.warriorNavy,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const Text(
+                          'WIN RATE',
+                          style: TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.7,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 18),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Text(
-                      displayName,
-                      style: const TextStyle(
-                        color: AppColors.scholarCream,
-                        fontSize: 22,
+                    const Text(
+                      'Ringkasan Ranked',
+                      style: TextStyle(
+                        color: AppColors.textStrong,
+                        fontSize: 15,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 0,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: <Widget>[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.levelUpTeal,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            progress.tier.label,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        if (targetLabel != null) ...<Widget>[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.scholarCream.withValues(
-                                alpha: 0.15,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              targetLabel!,
-                              style: const TextStyle(
-                                color: AppColors.scholarCream,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+                    const SizedBox(height: 2),
+                    Text(
+                      '${stats.totalMatches} pertandingan',
+                      style: const TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _RankLegend(
+                      color: const Color(0xFF16A7B7),
+                      label: 'Menang',
+                      value: stats.wins,
+                    ),
+                    const SizedBox(height: 8),
+                    _RankLegend(
+                      color: const Color(0xFFFFA15A),
+                      label: 'Kalah',
+                      value: stats.losses,
+                    ),
+                    const SizedBox(height: 8),
+                    _RankLegend(
+                      color: const Color(0xFFAAB3C2),
+                      label: 'Seri',
+                      value: stats.draws,
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          const Divider(color: Colors.white24, height: 1),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: <Widget>[
-              const Text(
-                'Progress Tier',
-                style: TextStyle(
-                  color: AppColors.scholarCream,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
-              Text(
-                '${progress.totalPoints} Poin',
-                style: const TextStyle(
-                  color: AppColors.fireGold,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: progress.tierProgress,
-              minHeight: 8,
-              backgroundColor: Colors.white12,
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                AppColors.fireGold,
-              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RankLegend extends StatelessWidget {
+  const _RankLegend({
+    required this.color,
+    required this.label,
+    required this.value,
+  });
+
+  final Color color;
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Container(
+          width: 9,
+          height: 9,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            progressText,
-            style: TextStyle(
-              color: AppColors.scholarCream.withValues(alpha: 0.7),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+        ),
+        Text(
+          '$value',
+          style: const TextStyle(
+            color: AppColors.textStrong,
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RankedDonutPainter extends CustomPainter {
+  const _RankedDonutPainter(this.stats);
+
+  final ProfileRankedStats stats;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Rect rect = Offset.zero & size;
+    final Paint paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 15
+      ..strokeCap = StrokeCap.round;
+    final int total = stats.totalMatches;
+    if (total == 0) {
+      canvas.drawArc(
+        rect.deflate(10),
+        0,
+        math.pi * 2,
+        false,
+        paint..color = const Color(0xFFE3E6EC),
+      );
+      return;
+    }
+    double start = -math.pi / 2;
+    final List<(int, Color)> segments = <(int, Color)>[
+      (stats.wins, const Color(0xFF16A7B7)),
+      (stats.losses, const Color(0xFFFFA15A)),
+      (stats.draws, const Color(0xFFAAB3C2)),
+    ];
+    for (final (int amount, Color color) in segments) {
+      if (amount == 0) continue;
+      final double sweep = math.pi * 2 * amount / total;
+      canvas.drawArc(
+        rect.deflate(10),
+        start + 0.035,
+        math.max(0, sweep - 0.07),
+        false,
+        paint..color = color,
+      );
+      start += sweep;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RankedDonutPainter oldDelegate) =>
+      oldDelegate.stats != stats;
+}
+
+class _StreakOverview extends StatelessWidget {
+  const _StreakOverview({
+    required this.currentStreak,
+    required this.bestStreak,
+  });
+
+  final int currentStreak;
+  final int bestStreak;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: _PassiveStatTile(
+            icon: Icons.local_fire_department_rounded,
+            label: 'Streak saat ini',
+            value: '$currentStreak hari',
+            fill: const Color(0xFFFFE8D6),
+            accent: const Color(0xFFD76B21),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _PassiveStatTile(
+            icon: Icons.workspace_premium_rounded,
+            label: 'Streak terbaik',
+            value: '$bestStreak hari',
+            fill: const Color(0xFFEDE7F7),
+            accent: const Color(0xFF7450A8),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PassiveStatTile extends StatelessWidget {
+  const _PassiveStatTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.fill,
+    required this.accent,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color fill;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(icon, color: accent, size: 25),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -962,9 +1370,7 @@ class _PerformanceSection extends StatelessWidget {
     }
 
     final PracticePerformance practice = analytics.practice;
-    final BattlePerformance battle = analytics.battle;
     final bool hasPractice = practice.totalAnswered > 0;
-    final bool hasBattle = battle.totalMatches > 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -981,19 +1387,10 @@ class _PerformanceSection extends StatelessWidget {
           _ProfileErrorBanner(message: state.errorMessage!, onRetry: onRetry),
           const SizedBox(height: 10),
         ],
+        _PracticeOverviewCard(practice: practice, hasPractice: hasPractice),
+        const SizedBox(height: 10),
         _MetricGrid(
           children: <Widget>[
-            _MetricCard(
-              label: 'Akurasi latihan',
-              value: hasPractice
-                  ? _formatPercent(practice.overallAccuracy)
-                  : '-',
-              detail: hasPractice
-                  ? '${practice.totalAnswered} soal dinilai'
-                  : 'Belum ada latihan',
-              icon: Icons.track_changes_rounded,
-              iconColor: AppColors.levelUpTeal,
-            ),
             _MetricCard(
               label: 'Waktu respons',
               value: hasPractice
@@ -1002,15 +1399,6 @@ class _PerformanceSection extends StatelessWidget {
               detail: 'Rata-rata per jawaban',
               icon: Icons.timer_outlined,
               iconColor: AppColors.warriorNavy,
-            ),
-            _MetricCard(
-              label: 'Winrate PvP',
-              value: hasBattle ? _formatWinRate(battle.winRate) : '-',
-              detail: hasBattle
-                  ? '${battle.wins} menang, ${battle.losses} kalah'
-                  : 'Belum ada pertandingan',
-              icon: Icons.emoji_events_rounded,
-              iconColor: AppColors.fireGold,
             ),
             _MetricCard(
               label: 'Soal dijawab',
@@ -1057,7 +1445,7 @@ class _PerformanceMessage extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: AppColors.warriorNavy.withValues(alpha: 0.08),
         ),
@@ -1197,7 +1585,7 @@ class _PerformancePanel extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: AppColors.warriorNavy.withValues(alpha: 0.08),
         ),
@@ -1386,8 +1774,8 @@ class _MetricCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        color: const Color(0xFFF5F6F8),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: AppColors.warriorNavy.withValues(alpha: 0.06),
         ),
@@ -1445,6 +1833,106 @@ class _MetricCard extends StatelessWidget {
                     ),
                   ),
                 ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PracticeOverviewCard extends StatelessWidget {
+  const _PracticeOverviewCard({
+    required this.practice,
+    required this.hasPractice,
+  });
+
+  final PracticePerformance practice;
+  final bool hasPractice;
+
+  @override
+  Widget build(BuildContext context) {
+    final double progress = (practice.overallAccuracy / 100)
+        .clamp(0, 1)
+        .toDouble();
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE7F5F8),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: const Color(0xFF83E7FF).withValues(alpha: 0.65),
+        ),
+      ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 60,
+            height: 60,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: Color(0xFFBFEFF4),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.track_changes_rounded,
+              color: Color(0xFF087C9E),
+              size: 30,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Akurasi latihan',
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: <Widget>[
+                    Text(
+                      hasPractice
+                          ? _formatPercent(practice.overallAccuracy)
+                          : '-',
+                      style: const TextStyle(
+                        color: AppColors.warriorNavy,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        hasPractice
+                            ? '${practice.totalAnswered} soal dinilai'
+                            : 'Belum ada latihan',
+                        style: const TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 7),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(5),
+                  child: LinearProgressIndicator(
+                    value: hasPractice ? progress : 0,
+                    minHeight: 7,
+                    backgroundColor: Colors.white,
+                    color: const Color(0xFF16A7B7),
+                  ),
+                ),
               ],
             ),
           ),
