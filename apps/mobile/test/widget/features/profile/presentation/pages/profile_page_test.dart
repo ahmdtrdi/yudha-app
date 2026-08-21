@@ -23,7 +23,13 @@ void main() {
 
     expect(find.text('Profil Personal'), findsOneWidget);
     expect(find.text('Raka Saputra'), findsOneWidget);
-    expect(find.text('Analisis Performa'), findsOneWidget);
+    expect(find.text('Performa PvP'), findsOneWidget);
+    expect(find.text('Analisis Latihan'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Pengaturan Profil'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Pengaturan Profil'), findsOneWidget);
   });
 
@@ -37,7 +43,8 @@ void main() {
     expect(find.text('Akurasi latihan'), findsOneWidget);
     expect(find.text('73%'), findsOneWidget);
     expect(find.text('2,5 dtk'), findsOneWidget);
-    expect(find.text('60%'), findsOneWidget);
+    expect(find.text('75%'), findsOneWidget);
+    expect(find.text('4 pertandingan'), findsOneWidget);
     expect(find.text('Akurasi per kategori'), findsOneWidget);
     expect(find.text('TIU'), findsOneWidget);
     expect(find.text('Fokus latihan berikutnya'), findsOneWidget);
@@ -161,6 +168,18 @@ class _FakeUserProfileRepository implements UserProfileRepository {
       username: 'raka',
       fullName: 'Raka Saputra',
       target: ProfileTarget.cpns,
+      rankPoints: 1178,
+      tier: 'elite',
+      rankedStats: ProfileRankedStats(
+        wins: 3,
+        losses: 1,
+        draws: 0,
+        winRate: 0.75,
+      ),
+      yCoins: 783,
+      characterId: 'character-legend-drakor',
+      towerId: 'tower-garda-biru',
+      streak: ProfileStreak(current: 2, best: 2),
     );
   }
 
@@ -172,6 +191,18 @@ class _FakeUserProfileRepository implements UserProfileRepository {
       username: update.username,
       fullName: update.fullName,
       target: update.target,
+      rankPoints: 1178,
+      tier: 'elite',
+      rankedStats: const ProfileRankedStats(
+        wins: 3,
+        losses: 1,
+        draws: 0,
+        winRate: 0.75,
+      ),
+      yCoins: 783,
+      characterId: 'character-legend-drakor',
+      towerId: 'tower-garda-biru',
+      streak: const ProfileStreak(current: 2, best: 2),
     );
   }
 }
