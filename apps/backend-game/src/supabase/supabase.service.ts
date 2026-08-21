@@ -20,13 +20,15 @@ export class SupabaseService {
     this.supabase = createClient(supabaseUrl, supabaseKey);
     this.logger.log('Supabase client successfully initialized 🚀');
 
-    // Initialize admin client if service role key is available
-    const serviceRoleKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
-    if (serviceRoleKey) {
-      this.supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+    // Initialize admin client if a server-only key is available.
+    const secretKey =
+      this.configService.get<string>('SUPABASE_SECRET_KEY') ??
+      this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
+    if (secretKey) {
+      this.supabaseAdmin = createClient(supabaseUrl, secretKey, {
         auth: { autoRefreshToken: false, persistSession: false },
       });
-      this.logger.log('Supabase admin client initialized (service role) 🔑');
+        this.logger.log('Supabase admin client initialized (secret key) 🔑');
     }
   }
 
@@ -39,9 +41,9 @@ export class SupabaseService {
   getAdminClient(): SupabaseClient {
     if (!this.supabaseAdmin) {
       throw new Error(
-        'SUPABASE_SERVICE_ROLE_KEY is not configured. Cannot use admin client.',
+        'SUPABASE_SECRET_KEY is not configured. Cannot use admin client.',
       );
     }
     return this.supabaseAdmin;
   }
-}
+}
