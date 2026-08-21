@@ -87,7 +87,8 @@ class _PracticePageState extends ConsumerState<PracticePage> {
     return Scaffold(
       backgroundColor: AppColors.scholarCream,
       appBar: AppBar(
-        backgroundColor: AppColors.warriorNavy,
+        backgroundColor: const Color(0xFF0D49B5),
+        elevation: 0,
         title: Text(
           'LATIHAN',
           style: GoogleFonts.fredoka(
@@ -98,27 +99,6 @@ class _PracticePageState extends ConsumerState<PracticePage> {
           ),
         ),
         centerTitle: true,
-        actions: <Widget>[
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(20),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withAlpha(40)),
-              ),
-              child: Text(
-                isCpns ? 'CPNS' : 'BUMN',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11,
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
       body: switch (state.status) {
         PracticeViewStatus.loading => const Center(
@@ -134,19 +114,17 @@ class _PracticePageState extends ConsumerState<PracticePage> {
           child: CustomScrollView(
             slivers: <Widget>[
               SliverToBoxAdapter(
+                child: _PracticeProgressHero(
+                  targetLabel: isCpns ? 'CPNS' : 'BUMN',
+                  progressPercent: state.overallProgressPercent,
+                ),
+              ),
+              SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      _OverallProgress(
-                        label: isCpns ? 'Progress CPNS' : 'Progress BUMN',
-                        progressPercent: state.overallProgressPercent,
-                        color: isCpns
-                            ? AppColors.warriorNavy
-                            : AppColors.levelUpTeal,
-                      ),
-                      const SizedBox(height: 24),
                       _InterviewPracticeCard(
                         config: interviewConfig,
                         onTap: openInterviewPractice,
@@ -405,54 +383,130 @@ class _PracticeErrorView extends StatelessWidget {
   }
 }
 
-class _OverallProgress extends StatelessWidget {
-  const _OverallProgress({
-    required this.label,
+class _PracticeProgressHero extends StatelessWidget {
+  const _PracticeProgressHero({
+    required this.targetLabel,
     required this.progressPercent,
-    required this.color,
   });
 
-  final String label;
+  final String targetLabel;
   final int progressPercent;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: <Widget>[
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.warriorNavy,
-                fontWeight: FontWeight.w800,
-                fontSize: 15,
+    final double progress = (progressPercent / 100).clamp(0, 1).toDouble();
+
+    return ColoredBox(
+      color: AppColors.scholarCream,
+      child: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            child: DecoratedBox(
+              key: const ValueKey<String>('practice-progress-clay-base'),
+              decoration: const BoxDecoration(
+                color: Color(0xFF06378F),
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(26),
+                ),
               ),
             ),
-            Text(
-              '$progressPercent%',
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: LinearProgressIndicator(
-            value: progressPercent / 100,
-            backgroundColor: AppColors.warriorNavy.withAlpha(20),
-            color: color,
-            minHeight: 6,
           ),
-        ),
-      ],
+          Container(
+            key: const ValueKey<String>('practice-progress-surface'),
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+            decoration: const BoxDecoration(
+              color: Color(0xFF0D49B5),
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(26)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Row(
+                            children: <Widget>[
+                              const Text(
+                                'Progress latihan',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                key: const ValueKey<String>(
+                                  'practice-target-badge',
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.white24),
+                                ),
+                                child: Text(
+                                  targetLabel,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          const Text(
+                            'Lanjutkan satu sesi untuk menjaga ritmemu',
+                            style: TextStyle(
+                              color: Color(0xFFC7D9FF),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      '$progressPercent%',
+                      style: const TextStyle(
+                        color: AppColors.fireGold,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    key: const ValueKey<String>('practice-progress-bar'),
+                    value: progress,
+                    backgroundColor: const Color(0xFF07368D),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.fireGold,
+                    ),
+                    minHeight: 8,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -465,73 +519,84 @@ class _InterviewPracticeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: <Color>[AppColors.warriorNavy, Color(0xFF0E4AAE)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: <BoxShadow>[
-            BoxShadow(
-              color: AppColors.warriorNavy.withAlpha(35),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Stack(
           children: <Widget>[
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(28),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withAlpha(45)),
-              ),
-              child: const Icon(
-                Icons.record_voice_over_rounded,
-                color: AppColors.fireGold,
+            Positioned.fill(
+              top: 7,
+              child: DecoratedBox(
+                key: const ValueKey<String>('practice-interview-clay-base'),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD1D5DC),
+                  borderRadius: BorderRadius.circular(22),
+                ),
               ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            Container(
+              key: const ValueKey<String>('practice-interview-surface'),
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 7),
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: const Color(0xFFE7E9ED)),
+              ),
+              child: Row(
                 children: <Widget>[
-                  Text(
-                    'Latihan Interview AI',
-                    style: GoogleFonts.fredoka(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0,
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE0F6FB),
+                      borderRadius: BorderRadius.circular(17),
+                    ),
+                    child: const Icon(
+                      Icons.record_voice_over_rounded,
+                      color: Color(0xFF087C9E),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${config.companyName} - ${config.targetRole}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white.withAlpha(210),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      height: 1.3,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'Simulasi Wawancara AI',
+                          style: GoogleFonts.fredoka(
+                            color: AppColors.warriorNavy,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          '${config.companyName} - ${config.targetRole}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.warriorNavy,
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 12),
-            const Icon(Icons.chevron_right_rounded, color: Colors.white),
           ],
         ),
       ),
