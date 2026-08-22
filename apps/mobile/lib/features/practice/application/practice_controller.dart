@@ -315,7 +315,11 @@ class PracticeController extends StateNotifier<PracticeState> {
   }
 
   String _normalizeTopicValue(String value) {
-    return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]'), '')
+        .replaceAll('logis', 'logika');
   }
 
   String _messageFor(Object error, String fallback) {

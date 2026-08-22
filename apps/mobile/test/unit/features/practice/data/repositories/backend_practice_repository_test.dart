@@ -115,7 +115,7 @@ void main() {
     },
   );
 
-  test('humanizes practice labels while preserving API identifiers', () async {
+  test('humanizes subcategory identifiers and preserves acronyms', () async {
     final BackendPracticeRepository repository = BackendPracticeRepository(
       config: const PracticeApiConfig(
         baseUrl: 'https://api.example.com',
@@ -129,12 +129,16 @@ void main() {
                 'summary': <String, Object?>{'averageAccuracy': 75},
                 'categories': <Map<String, Object?>>[
                   <String, Object?>{
-                    'category': 'kepribadian',
-                    'label': 'kepribadian',
+                    'category': 'wawasan_kebangsaan',
+                    'label': 'Wawasan Kebangsaan',
                     'availableQuestions': 12,
                     'subcategories': <Map<String, Object?>>[
                       <String, Object?>{
-                        'subcategory': 'pelayanan_publik',
+                        'subcategory': 'uud_1945',
+                        'availableQuestions': 6,
+                      },
+                      <String, Object?>{
+                        'subcategory': 'nkri',
                         'availableQuestions': 6,
                       },
                     ],
@@ -148,8 +152,8 @@ void main() {
                 ],
                 'recentSessions': <Map<String, Object?>>[
                   <String, Object?>{
-                    'category': 'kepribadian',
-                    'subcategory': 'pelayanan_publik',
+                    'category': 'wawasan_kebangsaan',
+                    'subcategory': 'uud_1945',
                     'answeredCount': 5,
                     'totalQuestions': 5,
                     'accuracy': 80,
@@ -163,23 +167,23 @@ void main() {
 
         expect(request.url.path, '/practice/sessions');
         expect(jsonDecode(request.body), <String, Object?>{
-          'category': 'kepribadian',
-          'subcategory': 'pelayanan_publik',
+          'category': 'wawasan_kebangsaan',
+          'subcategory': 'uud_1945',
         });
         return http.Response(
           jsonEncode(<String, Object?>{
             'data': <String, Object?>{
               'sessionId': 'session-1',
-              'category': 'kepribadian',
-              'subcategory': 'pelayanan_publik',
+              'category': 'wawasan_kebangsaan',
+              'subcategory': 'uud_1945',
               'totalQuestions': 1,
               'questions': <Map<String, Object?>>[
                 <String, Object?>{
                   'questionId': 'question-1',
                   'sessionQuestionId': 'session-question-1',
                   'questionOrder': 1,
-                  'category': 'kepribadian',
-                  'subcategory': 'pelayanan_publik',
+                  'category': 'wawasan_kebangsaan',
+                  'subcategory': 'uud_1945',
                   'prompt': 'Contoh soal',
                   'options': <String>['Satu', 'Dua'],
                   'hint': 'Contoh petunjuk',
@@ -199,14 +203,15 @@ void main() {
       subcategory: dashboard.topics.first.subcategory,
     );
 
-    expect(dashboard.topics.first.groupTitle, 'KEPRIBADIAN');
-    expect(dashboard.topics.first.badgeLabel, 'Kepribadian');
-    expect(dashboard.topics.first.name, 'Pelayanan Publik');
+    expect(dashboard.topics.first.groupTitle, 'WAWASAN KEBANGSAAN');
+    expect(dashboard.topics.first.badgeLabel, 'Wawasan Kebangsaan');
+    expect(dashboard.topics.first.name, 'UUD 1945');
+    expect(dashboard.topics[1].name, 'NKRI');
     expect(dashboard.topics.last.name, 'TIU');
     expect(
       dashboard.recentActivities.first.title,
-      'Kepribadian - Pelayanan Publik',
+      'Wawasan Kebangsaan - UUD 1945',
     );
-    expect(session.questions.single.topicName, 'Pelayanan Publik');
+    expect(session.questions.single.topicName, 'UUD 1945');
   });
 }
