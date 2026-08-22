@@ -113,11 +113,16 @@ class BackendGameEconomyRepository extends GameEconomyRepository {
   }
 
   @override
-  Future<AuthoritativeEconomySnapshot> grantBetaCredit() async {
+  Future<AuthoritativeEconomySnapshot> grantBetaCredit({
+    int coins = 100,
+  }) async {
     await _request(
       'POST',
       Uri.parse('$baseUrl/store/beta-credits'),
-      body: <String, Object?>{'idempotencyKey': _requestId('beta-credit')},
+      body: <String, Object?>{
+        'coins': coins,
+        'idempotencyKey': _requestId('beta-credit'),
+      },
     );
     return fetch();
   }

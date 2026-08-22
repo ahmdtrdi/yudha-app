@@ -69,7 +69,7 @@ void main() {
     expect(repository.betaCreditCalls, 1);
   });
 
-  test('paid package is disabled without calling the repository', () async {
+  test('all top-up packages grant beta credit in beta mode', () async {
     final _FakeRepository repository = _FakeRepository();
     final GameEconomyController controller = GameEconomyController(
       repository: repository,
@@ -80,9 +80,9 @@ void main() {
       GameEconomyCatalog.topUpPackages[1],
     );
 
-    expect(result.success, isFalse);
-    expect(repository.betaCreditCalls, 0);
-    expect(controller.state.yCoins, 500);
+    expect(result.success, isTrue);
+    expect(repository.betaCreditCalls, 1);
+    expect(controller.state.yCoins, 1000);
   });
 }
 
@@ -128,9 +128,11 @@ class _FakeRepository extends GameEconomyRepository {
   }
 
   @override
-  Future<AuthoritativeEconomySnapshot> grantBetaCredit() async {
+  Future<AuthoritativeEconomySnapshot> grantBetaCredit({
+    int coins = 100,
+  }) async {
     betaCreditCalls += 1;
-    return _snapshot(600);
+    return _snapshot(500 + coins);
   }
 
   @override

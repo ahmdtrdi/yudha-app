@@ -162,15 +162,10 @@ class GameEconomyController extends StateNotifier<GameEconomyState> {
   ) async {
     final EconomyActionResult? unavailable = _mutationUnavailable();
     if (unavailable != null) return unavailable;
-    if (!package.isBetaCredit) {
-      return const EconomyActionResult(
-        success: false,
-        message: 'Pembayaran paket Y-Coin belum tersedia di versi beta.',
-      );
-    }
     return _runMutation(
-      _repository!.grantBetaCredit,
-      successMessage: 'Beta credit +${package.totalCoins} Y-Coin berhasil.',
+      () => _repository!.grantBetaCredit(coins: package.totalCoins),
+      successMessage:
+          'Beta credit +${package.totalCoins} Y-Coin berhasil (${package.priceLabel}).',
     );
   }
 

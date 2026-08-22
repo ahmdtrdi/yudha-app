@@ -151,18 +151,32 @@ export class StoreService {
       'idempotencyKey',
       160,
     );
-    const { data, error } = await this.supabaseService
-      .getClient()
-      .rpc('grant_beta_credit', {
-        p_user_id: userId,
-        p_idempotency_key: idempotencyKey,
-      });
 
-    if (error) {
-      this.throwEconomyError(error.message);
+    const requestedCoins =
+      typeof payload.coins === 'number' && payload.coins > 0
+        ? Math.floor(payload.coins)
+        : typeof payload.coins === 'string' && parseInt(payload.coins, 10) > 0
+        ? parseInt(payload.coins, 10)
+        : 100;
+    const iterations = Math.max(1, Math.round(requestedCoins / 100));
+
+    let lastResult: Json | null = null;
+    for (let i = 0; i < iterations; i++) {
+      const subKey = iterations === 1 ? idempotencyKey : `${idempotencyKey}-${i}`;
+      const { data, error } = await this.supabaseService
+        .getClient()
+        .rpc('grant_beta_credit', {
+          p_user_id: userId,
+          p_idempotency_key: subKey,
+        });
+
+      if (error) {
+        this.throwEconomyError(error.message);
+      }
+      lastResult = data;
     }
 
-    return { data: this.requireObject(data, 'grant_beta_credit') };
+    return { data: this.requireObject(lastResult, 'grant_beta_credit') };
   }
 
   private optionalItemType(value: string | undefined): string | undefined {

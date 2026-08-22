@@ -538,3 +538,19 @@
 **The Tech Debt:**
 - Active battle state is still process-local. Redis can route commands and reconnects to the owner, but an owner-process crash cannot reconstruct or fail over an in-progress room; durable room snapshots or deterministic event replay are required for that capability.
 - Private-room UI remains outside this delivery; only its backend contract and distributed coordination are implemented.
+
+## 2026-08-22 - Package-based Beta Credit Top Up
+
+**The Change:**
+- Updated `GrantBetaCreditPayload` in `apps/backend-api/src/store/store.types.ts` to support an optional `coins` numeric field.
+- Updated `StoreService.grantBetaCredit` in `apps/backend-api/src/store/store.service.ts` to parse requested coin amounts (defaulting to 100). When custom package amounts are passed (e.g., 1.200 Y-Coin), it iterates the database RPC `grant_beta_credit` with sub-idempotency keys to award the full target credit to the user profile and record coin transaction logs.
+
+**The Reasoning:**
+- Rather than modifying the underlying Supabase database function `grant_beta_credit` (which is hardcoded to +100 per database transaction in migration schema), iterating the RPC from the NestJS service layer ensures backward-compatible idempotency while allowing any package tier (+500, +1.200, +2.800, +6.800 Y-Coin) to accurately credit player accounts during Beta testing.
+
+**Verification:**
+- All 17 NestJS backend-api test suites (56 tests) passed, including store service purchasing, idempotency, and loadout specs.
+
+**The Tech Debt:**
+- For production, a dedicated database function or payment webhook RPC (`grant_purchased_coins`) should accept amount and transaction references directly instead of iterating base credit increments.
+

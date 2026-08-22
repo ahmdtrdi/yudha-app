@@ -2344,3 +2344,26 @@
 
 ### The Tech Debt
 - The podium renders restrained placeholders if the backend returns an incomplete top-three set; a dedicated top-three contract could distinguish missing data from an unoccupied rank.
+
+## 2026-08-22 - Dummy Payment Confirmation Modal & Y-Coin Beta Top Up
+
+### The Change
+- Created `payment_confirmation_modal.dart` (`showDummyPaymentConfirmation`), a reusable bottom sheet dialog for confirming purchases with:
+  - Product summary card displaying item title, price label, and `BETA ACCESS AVAILABLE` / `PREMIUM PASS` pill badges.
+  - Selectable Sandbox payment methods: QRIS Instant Sandbox, Yudha Pay (Beta) (Saldo Sandbox: Rp500.000), Google Play Billing Sandbox, and Virtual Account Bank (BCA, Mandiri, BNI, BRI).
+  - Detailed price breakdown showing original package price, handling fee (`GRATIS Beta`), and total payment.
+  - Action buttons for cancellation and confirmation with interactive processing feedback.
+- Updated `hired_pass_page.dart` so tapping "Aktifkan Premium • Rp29.000 (Beta)" triggers the dummy payment confirmation modal before executing Hired Pass activation.
+- Updated `economy_widgets.dart` so tapping any Y-Coin top-up package tile opens the dummy payment confirmation modal, with all packages labeled with "Beta Access Available".
+- Updated `game_economy_controller.dart` and `backend_game_economy_repository.dart` to send `coins: package.totalCoins` when executing top-ups so custom packages (+1.200 Y-Coin, +500 Y-Coin, +2.800 Y-Coin, +6.800 Y-Coin) award their full coin total to the player balance.
+
+### The Reasoning
+- Adding an explicit dummy payment confirmation step provides a realistic checkout flow and eliminates accidental instant purchases while keeping payment gateway integration out of scope for Beta Access.
+- Forwarding `package.totalCoins` ensures user expectations match package selection: choosing +1.200 Y-Coin adds 1.200 coins rather than defaulting to the base credit amount.
+
+### Verification
+- All 123 mobile unit and widget tests passed, including store top-up flow, payment confirmation dialog interactions, and economy balance state mutations.
+
+### The Tech Debt
+- Payment methods remain static UI choices for Beta sandbox simulation; integration with actual payment gateways (e.g. Midtrans, Xendit, Google Play Billing API) will be required for production release.
+
