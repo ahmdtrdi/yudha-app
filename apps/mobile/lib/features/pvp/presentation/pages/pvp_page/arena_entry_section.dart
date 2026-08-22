@@ -1,6 +1,6 @@
 part of '../pvp_page.dart';
 
-enum _ArenaSetupStep { arena, loadout }
+enum _ArenaSetupStep { arena, loadout, mode }
 
 class _ArenaEntrySection extends StatelessWidget {
   const _ArenaEntrySection({
@@ -86,47 +86,76 @@ class _ArenaEntrySection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              height: 54,
-              child: FilledButton(
-                key: ValueKey<String>(
-                  step == _ArenaSetupStep.arena
-                      ? 'continue-to-loadout'
-                      : 'continue-to-mode',
-                ),
-                onPressed: onContinue,
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF173A67),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    Flexible(
-                      child: Text(
-                        step == _ArenaSetupStep.arena
-                            ? 'Pilih karakter & tower'
-                            : 'Lanjut pilih mode',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.dmSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 9),
-                    const Icon(Icons.arrow_forward_rounded, size: 19),
-                  ],
-                ),
+            _ClaySetupButton(
+              buttonKey: ValueKey<String>(
+                step == _ArenaSetupStep.arena
+                    ? 'continue-to-loadout'
+                    : 'continue-to-mode',
               ),
+              label: step == _ArenaSetupStep.arena
+                  ? 'PILIH KARAKTER & TOWER'
+                  : 'LANJUT PILIH MODE',
+              onPressed: onContinue,
             ),
           ],
         );
       },
+    );
+  }
+}
+
+class _ClaySetupButton extends StatelessWidget {
+  const _ClaySetupButton({
+    required this.buttonKey,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final Key buttonKey;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 58,
+      child: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            top: 7,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0A35F),
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            bottom: 7,
+            child: Material(
+              color: const Color(0xFFFFD7A3),
+              borderRadius: BorderRadius.circular(20),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                key: buttonKey,
+                onTap: onPressed,
+                child: Center(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.fredoka(
+                      color: const Color(0xFFC66B24),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -148,16 +177,29 @@ class _SetupHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int activeStep = step == _ArenaSetupStep.arena ? 1 : 2;
+    final int activeStep = switch (step) {
+      _ArenaSetupStep.arena => 1,
+      _ArenaSetupStep.loadout => 2,
+      _ArenaSetupStep.mode => 3,
+    };
+    final String title = switch (step) {
+      _ArenaSetupStep.arena => 'Pilih arena',
+      _ArenaSetupStep.loadout => 'Siapkan loadout',
+      _ArenaSetupStep.mode => 'Pilih mode',
+    };
     return Column(
       children: <Widget>[
         SizedBox(
           height: 40,
           child: Row(
             children: <Widget>[
-              if (step == _ArenaSetupStep.loadout)
+              if (step != _ArenaSetupStep.arena)
                 IconButton(
-                  key: const ValueKey<String>('back-to-arena'),
+                  key: ValueKey<String>(
+                    step == _ArenaSetupStep.loadout
+                        ? 'back-to-arena'
+                        : 'back-to-loadout',
+                  ),
                   onPressed: onBack,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints.tightFor(
@@ -177,9 +219,7 @@ class _SetupHeader extends StatelessWidget {
                 const SizedBox(width: 40),
               Expanded(
                 child: Text(
-                  step == _ArenaSetupStep.arena
-                      ? 'Pilih arena'
-                      : 'Siapkan loadout',
+                  title,
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -242,6 +282,7 @@ class _SetupHeader extends StatelessWidget {
             final bool active = index < activeStep;
             return Expanded(
               child: Container(
+                key: ValueKey<String>('setup-progress-step-${index + 1}'),
                 height: 3,
                 margin: EdgeInsets.only(right: index == 2 ? 0 : 7),
                 color: active
@@ -274,13 +315,15 @@ class _ArenaPickerView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final List<CosmeticItem> arenas = GameEconomyCatalog.arenas;
     return SingleChildScrollView(
       physics: const ClampingScrollPhysics(),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Text(
             '01  PILIH ARENA',
+            textAlign: TextAlign.center,
             style: GoogleFonts.dmSans(
               color: const Color(0xFF8B6B39),
               fontSize: 10,
@@ -291,6 +334,7 @@ class _ArenaPickerView extends StatelessWidget {
           const SizedBox(height: 5),
           Text(
             'Mau bertanding di mana?',
+            textAlign: TextAlign.center,
             style: GoogleFonts.fredoka(
               color: const Color(0xFF17233F),
               fontSize: compact ? 27 : 31,
@@ -304,6 +348,7 @@ class _ArenaPickerView extends StatelessWidget {
                 ? 'Setiap arena memiliki kelompok soal yang berbeda.'
                 : 'Tujuan ${profileTarget!.label} aktif. Arena lain terkunci '
                       'agar materi dan lawan tetap sesuai tujuan belajarmu.',
+            textAlign: TextAlign.center,
             style: GoogleFonts.dmSans(
               color: const Color(0xFF667085),
               fontSize: 12.5,
@@ -311,38 +356,110 @@ class _ArenaPickerView extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          SizedBox(height: compact ? 13 : 18),
-          SizedBox(
-            height: compact ? 330 : 380,
-            child: LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) {
-                final double cardWidth = min<double>(
-                  MediaQuery.sizeOf(context).width - 58,
-                  334,
-                );
-                return ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.only(right: 20),
-                  itemCount: GameEconomyCatalog.arenas.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 13),
-                  itemBuilder: (BuildContext context, int index) {
-                    final CosmeticItem arena = GameEconomyCatalog.arenas[index];
-                    final bool locked =
+          SizedBox(height: compact ? 12 : 18),
+          _ArenaShowcase(arena: selectedArena, compact: compact),
+          SizedBox(height: compact ? 12 : 16),
+          Row(
+            children: <Widget>[
+              for (int index = 0; index < arenas.length; index++) ...<Widget>[
+                Expanded(
+                  child: _ArenaOptionTile(
+                    arena: arenas[index],
+                    selected: arenas[index].id == selectedArena.id,
+                    locked:
                         profileTarget != null &&
-                        !profileTarget!.allowsArena(arena.id);
-                    return _ArenaChoiceCard(
-                      arena: arena,
-                      selected: arena.id == selectedArena.id,
-                      locked: locked,
-                      width: cardWidth,
-                      compact: compact,
-                      onTap: () =>
-                          locked ? onLockedTap(arena) : onSelect(arena),
-                    );
-                  },
-                );
-              },
+                        !profileTarget!.allowsArena(arenas[index].id),
+                    onTap: () {
+                      final CosmeticItem arena = arenas[index];
+                      final bool locked =
+                          profileTarget != null &&
+                          !profileTarget!.allowsArena(arena.id);
+                      locked ? onLockedTap(arena) : onSelect(arena);
+                    },
+                  ),
+                ),
+                if (index < arenas.length - 1) const SizedBox(width: 10),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ArenaShowcase extends StatelessWidget {
+  const _ArenaShowcase({required this.arena, required this.compact});
+
+  final CosmeticItem arena;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey<String>('arena-selected-showcase'),
+      height: compact ? 270 : 310,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D49B5),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFF0A3D98), width: 2),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x33063A91),
+            blurRadius: 0,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          Image.asset(
+            arena.assetPath!,
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            cacheWidth: 1024,
+            filterQuality: FilterQuality.low,
+          ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: <Color>[Color(0x0017233F), Color(0xCC101B35)],
+                stops: <double>[0.45, 1],
+              ),
+            ),
+          ),
+          Positioned(
+            right: 18,
+            bottom: 18,
+            left: 18,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  arena.name,
+                  style: GoogleFonts.fredoka(
+                    color: Colors.white,
+                    fontSize: compact ? 24 : 27,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  arena.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.dmSans(
+                    color: const Color(0xFFDCE8FF),
+                    fontSize: 11,
+                    height: 1.25,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -351,188 +468,128 @@ class _ArenaPickerView extends StatelessWidget {
   }
 }
 
-class _ArenaChoiceCard extends StatelessWidget {
-  const _ArenaChoiceCard({
+class _ArenaOptionTile extends StatelessWidget {
+  const _ArenaOptionTile({
     required this.arena,
     required this.selected,
     required this.locked,
-    required this.width,
-    required this.compact,
     required this.onTap,
   });
 
   final CosmeticItem arena;
   final bool selected;
   final bool locked;
-  final double width;
-  final bool compact;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final Widget arenaImage = Image.asset(
-      arena.assetPath!,
-      fit: BoxFit.cover,
-      alignment: Alignment.center,
-      cacheWidth: 1024,
-      filterQuality: FilterQuality.low,
-    );
-
     return Semantics(
       button: true,
       enabled: !locked,
       label: locked ? '${arena.name}, terkunci' : arena.name,
-      child: Material(
-        color: locked ? const Color(0xFFE5E7EB) : Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          key: ValueKey<String>('arena-choice-${arena.id}'),
-          onTap: onTap,
-          child: Ink(
-            width: width,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(
-                color: selected
-                    ? const Color(0xFF2878F0)
-                    : locked
-                    ? const Color(0xFF9CA3AF)
-                    : const Color(0xFFE0D9CC),
-                width: selected ? 2.5 : 1,
+      child: SizedBox(
+        height: 78,
+        child: Stack(
+          children: <Widget>[
+            Positioned.fill(
+              top: 5,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: selected
+                      ? const Color(0xFF91AFE4)
+                      : const Color(0xFFD4D7DD),
+                  borderRadius: BorderRadius.circular(17),
+                ),
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Expanded(
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: <Widget>[
-                      if (locked)
-                        ColorFiltered(
-                          colorFilter: const ColorFilter.matrix(<double>[
-                            0.2126,
-                            0.7152,
-                            0.0722,
-                            0,
-                            0,
-                            0.2126,
-                            0.7152,
-                            0.0722,
-                            0,
-                            0,
-                            0.2126,
-                            0.7152,
-                            0.0722,
-                            0,
-                            0,
-                            0,
-                            0,
-                            0,
-                            0.62,
-                            0,
-                          ]),
-                          child: arenaImage,
-                        )
-                      else
-                        arenaImage,
-                      if (selected)
-                        const Positioned(
-                          top: 13,
-                          right: 13,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Color(0xFF2878F0),
-                              shape: BoxShape.circle,
+            Positioned.fill(
+              bottom: 5,
+              child: Material(
+                color: selected
+                    ? const Color(0xFFE4EEFF)
+                    : const Color(0xFFF4F5F7),
+                borderRadius: BorderRadius.circular(17),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  key: ValueKey<String>('arena-choice-${arena.id}'),
+                  onTap: onTap,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Row(
+                      children: <Widget>[
+                        Container(
+                          width: 42,
+                          height: 42,
+                          clipBehavior: Clip.antiAlias,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Opacity(
+                            opacity: locked ? 0.42 : 1,
+                            child: Image.asset(
+                              arena.assetPath!,
+                              fit: BoxFit.cover,
+                              cacheWidth: 180,
                             ),
-                            child: SizedBox(
-                              width: 30,
-                              height: 30,
-                              child: Icon(
-                                Icons.check_rounded,
-                                color: Colors.white,
-                                size: 19,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                arena.name.replaceFirst('Arena ', ''),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.fredoka(
+                                  color: locked
+                                      ? const Color(0xFF7E8490)
+                                      : const Color(0xFF173A67),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
-                            ),
+                              Text(
+                                locked
+                                    ? 'Terkunci'
+                                    : selected
+                                    ? 'Terpilih'
+                                    : 'Pilih',
+                                style: GoogleFonts.dmSans(
+                                  color: locked
+                                      ? const Color(0xFF9A6A50)
+                                      : selected
+                                      ? const Color(0xFF2878F0)
+                                      : const Color(0xFF7A8290),
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      if (locked)
-                        Center(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 9,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xDD374151),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                Icon(
-                                  Icons.lock_rounded,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
-                                SizedBox(width: 6),
-                                Text(
-                                  'TERKUNCI',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.8,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                        Icon(
+                          locked
+                              ? Icons.lock_rounded
+                              : selected
+                              ? Icons.check_circle_rounded
+                              : Icons.radio_button_unchecked_rounded,
+                          color: locked
+                              ? const Color(0xFF8A8F9C)
+                              : selected
+                              ? const Color(0xFF2878F0)
+                              : const Color(0xFF9AA1AD),
+                          size: 18,
                         ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-                Padding(
-                  padding: EdgeInsets.fromLTRB(15, compact ? 11 : 14, 15, 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        arena.name,
-                        style: GoogleFonts.fredoka(
-                          color: locked
-                              ? const Color(0xFF6B7280)
-                              : const Color(0xFF17233F),
-                          fontSize: compact ? 20 : 22,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        locked
-                            ? 'Pindah tujuan Anda di Pengaturan jika ingin '
-                                  'bermain di ${arena.name}.'
-                            : arena.description,
-                        maxLines: locked ? 3 : 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.dmSans(
-                          color: locked
-                              ? const Color(0xFF6B7280)
-                              : const Color(0xFF667085),
-                          fontSize: locked ? 10.5 : 11.5,
-                          height: 1.3,
-                          fontWeight: locked
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -568,64 +625,60 @@ class _LoadoutPickerView extends StatelessWidget {
         ? 'Kamu'
         : trimmedName.split(RegExp(r'\s+')).first;
 
-    return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            '02  SIAPKAN LOADOUT',
-            style: GoogleFonts.dmSans(
-              color: const Color(0xFF8B6B39),
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.3,
-            ),
+    return Column(
+      key: const ValueKey<String>('loadout-fixed-layout'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          '02  SIAPKAN LOADOUT',
+          style: GoogleFonts.dmSans(
+            color: const Color(0xFF8B6B39),
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.3,
           ),
-          const SizedBox(height: 5),
-          Text(
-            'Pilih jagoanmu, $firstName',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.fredoka(
-              color: const Color(0xFF17233F),
-              fontSize: compact ? 27 : 31,
-              height: 1.05,
-              fontWeight: FontWeight.w700,
-            ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          'Pilih jagoanmu, $firstName',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.fredoka(
+            color: const Color(0xFF17233F),
+            fontSize: compact ? 27 : 31,
+            height: 1.05,
+            fontWeight: FontWeight.w700,
           ),
-          SizedBox(height: compact ? 12 : 16),
-          _LoadoutDiorama(
-            selectedArena: selectedArena,
-            selectedCharacter: selectedCharacter,
-            selectedTower: selectedTower,
-            compact: compact,
-          ),
-          SizedBox(height: compact ? 14 : 18),
-          _LoadoutRail(
-            title: 'Karakter',
-            hint: 'Geser untuk melihat',
-            items: economy.characters,
-            selectedId: selectedCharacter.id,
-            economy: economy,
-            compact: compact,
-            onSelect: onSelect,
-            onLockedTap: onLockedTap,
-          ),
-          SizedBox(height: compact ? 12 : 16),
-          _LoadoutRail(
-            title: 'Tower',
-            hint: 'Tower lain tersedia di Store',
-            items: economy.towers,
-            selectedId: selectedTower.id,
-            economy: economy,
-            compact: compact,
-            onSelect: onSelect,
-            onLockedTap: onLockedTap,
-          ),
-          const SizedBox(height: 4),
-        ],
-      ),
+        ),
+        SizedBox(height: compact ? 12 : 16),
+        _LoadoutDiorama(
+          selectedArena: selectedArena,
+          selectedCharacter: selectedCharacter,
+          selectedTower: selectedTower,
+          compact: compact,
+        ),
+        SizedBox(height: compact ? 10 : 14),
+        _LoadoutCardCarousel(
+          title: 'Karakter',
+          items: economy.characters,
+          selectedId: selectedCharacter.id,
+          economy: economy,
+          compact: compact,
+          onSelect: onSelect,
+          onLockedTap: onLockedTap,
+        ),
+        SizedBox(height: compact ? 9 : 12),
+        _LoadoutCardCarousel(
+          title: 'Tower',
+          items: economy.towers,
+          selectedId: selectedTower.id,
+          economy: economy,
+          compact: compact,
+          onSelect: onSelect,
+          onLockedTap: onLockedTap,
+        ),
+        const SizedBox(height: 2),
+      ],
     );
   }
 }
@@ -646,7 +699,7 @@ class _LoadoutDiorama extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: compact ? 204 : 228,
+      height: compact ? 180 : 208,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
@@ -816,10 +869,9 @@ class _LoadoutPreviewSlot extends StatelessWidget {
   }
 }
 
-class _LoadoutRail extends StatelessWidget {
-  const _LoadoutRail({
+class _LoadoutCardCarousel extends StatefulWidget {
+  const _LoadoutCardCarousel({
     required this.title,
-    required this.hint,
     required this.items,
     required this.selectedId,
     required this.economy,
@@ -829,7 +881,6 @@ class _LoadoutRail extends StatelessWidget {
   });
 
   final String title;
-  final String hint;
   final List<CosmeticItem> items;
   final String selectedId;
   final GameEconomyState economy;
@@ -838,15 +889,87 @@ class _LoadoutRail extends StatelessWidget {
   final VoidCallback onLockedTap;
 
   @override
+  State<_LoadoutCardCarousel> createState() => _LoadoutCardCarouselState();
+}
+
+class _LoadoutCardCarouselState extends State<_LoadoutCardCarousel> {
+  static const double _cardWidth = 94;
+  static const double _cardSpacing = 10;
+
+  final ScrollController _scrollController = ScrollController();
+  late int _focusedIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusedIndex = _selectedIndex();
+    _scheduleScrollToFocus(jump: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant _LoadoutCardCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedId != widget.selectedId &&
+        widget.items[_focusedIndex].id != widget.selectedId) {
+      _focusedIndex = _selectedIndex();
+      _scheduleScrollToFocus();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  int _selectedIndex() {
+    final int index = widget.items.indexWhere(
+      (CosmeticItem item) => item.id == widget.selectedId,
+    );
+    return index < 0 ? 0 : index;
+  }
+
+  void _focusItem(int index) {
+    setState(() => _focusedIndex = index);
+    _scheduleScrollToFocus();
+    final CosmeticItem item = widget.items[index];
+    if (widget.economy.owns(item.id)) {
+      widget.onSelect(item);
+    } else {
+      widget.onLockedTap();
+    }
+  }
+
+  void _scheduleScrollToFocus({bool jump = false}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final double target = (_focusedIndex * (_cardWidth + _cardSpacing))
+          .clamp(0, _scrollController.position.maxScrollExtent)
+          .toDouble();
+      if (jump) {
+        _scrollController.jumpTo(target);
+        return;
+      }
+      _scrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final bool characters = items.first.type == CosmeticType.character;
+    final int ownedCount = widget.items
+        .where((CosmeticItem item) => widget.economy.owns(item.id))
+        .length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Row(
           children: <Widget>[
             Text(
-              title,
+              widget.title,
               style: GoogleFonts.dmSans(
                 color: const Color(0xFF17233F),
                 fontSize: 13,
@@ -854,35 +977,52 @@ class _LoadoutRail extends StatelessWidget {
               ),
             ),
             const Spacer(),
-            Text(
-              hint,
-              style: GoogleFonts.dmSans(
-                color: const Color(0xFF8A8F9C),
-                fontSize: 9.5,
-                fontWeight: FontWeight.w500,
+            InkWell(
+              onTap: widget.onLockedTap,
+              borderRadius: BorderRadius.circular(10),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                child: Text(
+                  '$ownedCount dimiliki \u2022 Lihat Store',
+                  style: GoogleFonts.dmSans(
+                    color: const Color(0xFF6E7F9E),
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 7),
         SizedBox(
-          height: compact ? 108 : 118,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: items.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 9),
-            itemBuilder: (BuildContext context, int index) {
-              final CosmeticItem item = items[index];
-              final bool owned = economy.owns(item.id);
-              return _LoadoutChoiceCard(
-                item: item,
-                selected: item.id == selectedId,
-                owned: owned,
-                character: characters,
-                onTap: owned ? () => onSelect(item) : onLockedTap,
-              );
-            },
+          height: widget.compact ? 108 : 120,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: ListView.separated(
+              key: ValueKey<String>(
+                'loadout-${widget.title.toLowerCase()}-carousel',
+              ),
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              clipBehavior: Clip.hardEdge,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              itemCount: widget.items.length,
+              separatorBuilder: (_, _) => const SizedBox(width: _cardSpacing),
+              itemBuilder: (BuildContext context, int index) {
+                final CosmeticItem item = widget.items[index];
+                return _LoadoutPortraitCard(
+                  cardKey: ValueKey<String>('loadout-${item.id}'),
+                  item: item,
+                  selected: item.id == widget.selectedId,
+                  focused: index == _focusedIndex,
+                  owned: widget.economy.owns(item.id),
+                  compact: widget.compact,
+                  onTap: () => _focusItem(index),
+                );
+              },
+            ),
           ),
         ),
       ],
@@ -890,115 +1030,134 @@ class _LoadoutRail extends StatelessWidget {
   }
 }
 
-class _LoadoutChoiceCard extends StatelessWidget {
-  const _LoadoutChoiceCard({
+class _LoadoutPortraitCard extends StatelessWidget {
+  const _LoadoutPortraitCard({
+    required this.cardKey,
     required this.item,
     required this.selected,
+    required this.focused,
     required this.owned,
-    required this.character,
+    required this.compact,
     required this.onTap,
   });
 
+  final Key cardKey;
   final CosmeticItem item;
   final bool selected;
+  final bool focused;
   final bool owned;
-  final bool character;
+  final bool compact;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? const Color(0xFFEAF2FC) : Colors.white,
-      borderRadius: BorderRadius.circular(15),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        key: ValueKey<String>('loadout-${item.id}'),
-        onTap: onTap,
-        child: Ink(
-          width: 108,
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(
-              color: selected
-                  ? const Color(0xFF2878F0)
-                  : const Color(0xFFE2DDD3),
-              width: 2,
+    final bool character = item.type == CosmeticType.character;
+    return SizedBox(
+      width: _LoadoutCardCarouselState._cardWidth,
+      child: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            top: 4,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: selected
+                    ? const Color(0xFF91AFE4)
+                    : const Color(0xFFD1D5DC),
+                borderRadius: BorderRadius.circular(17),
+              ),
             ),
           ),
-          child: Stack(
-            children: <Widget>[
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  Expanded(
-                    child: ClipRRect(
-                      key: ValueKey<String>('loadout-preview-${item.id}'),
-                      borderRadius: BorderRadius.circular(10),
-                      child: ColoredBox(
-                        color: selected
-                            ? const Color(0xFFDCE9FA)
-                            : const Color(0xFFF4F0E8),
-                        child: Opacity(
-                          opacity: owned ? 1 : 0.56,
-                          child: Transform.scale(
-                            scale: character
-                                ? _characterPreviewScale(item)
-                                : 0.84,
-                            child: Image.asset(
-                              item.assetPath!,
-                              fit: BoxFit.contain,
-                              alignment: Alignment.center,
-                              cacheWidth: character ? 320 : 240,
-                              filterQuality: FilterQuality.low,
+          Positioned.fill(
+            bottom: 4,
+            child: Material(
+              color: selected
+                  ? const Color(0xFFE4EEFF)
+                  : owned
+                  ? Colors.white
+                  : const Color(0xFFF0F1F3),
+              borderRadius: BorderRadius.circular(17),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                key: cardKey,
+                onTap: onTap,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(17),
+                    border: Border.all(
+                      color: focused
+                          ? const Color(0xFF2878F0)
+                          : const Color(0xFFE1DDD5),
+                      width: focused ? 2 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    children: <Widget>[
+                      Expanded(
+                        child: SizedBox(
+                          key: ValueKey<String>('loadout-preview-${item.id}'),
+                          width: double.infinity,
+                          child: Opacity(
+                            opacity: owned ? 1 : 0.48,
+                            child: Transform.scale(
+                              scale: character
+                                  ? 0.88 * _characterPreviewScale(item)
+                                  : 0.72,
+                              child: Image.asset(
+                                item.assetPath!,
+                                fit: BoxFit.contain,
+                                cacheWidth: character ? 300 : 220,
+                                filterQuality: FilterQuality.low,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    item.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.dmSans(
-                      color: const Color(0xFF17233F),
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-              Positioned(
-                top: 4,
-                right: 4,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? const Color(0xFF2878F0)
-                        : const Color(0xD9FFFFFF),
-                    shape: BoxShape.circle,
-                  ),
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: Icon(
-                      selected
-                          ? Icons.check_rounded
-                          : owned
-                          ? Icons.inventory_2_outlined
-                          : Icons.lock_outline_rounded,
-                      color: selected ? Colors.white : const Color(0xFF5F6673),
-                      size: 13,
-                    ),
+                      const SizedBox(height: 2),
+                      Text(
+                        item.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.dmSans(
+                          color: owned
+                              ? const Color(0xFF173A67)
+                              : const Color(0xFF858B96),
+                          fontSize: compact ? 8 : 9,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+          Positioned(
+            top: 5,
+            right: 5,
+            child: Container(
+              key: owned ? null : ValueKey<String>('loadout-lock-${item.id}'),
+              width: 19,
+              height: 19,
+              decoration: BoxDecoration(
+                color: selected
+                    ? const Color(0xFF2878F0)
+                    : const Color(0xE6FFFFFF),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                selected
+                    ? Icons.check_rounded
+                    : owned
+                    ? Icons.inventory_2_outlined
+                    : Icons.lock_rounded,
+                color: selected ? Colors.white : const Color(0xFF747B87),
+                size: 12,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

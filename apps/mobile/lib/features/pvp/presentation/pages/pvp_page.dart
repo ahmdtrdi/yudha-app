@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
@@ -356,13 +357,15 @@ class _PvpPageState extends ConsumerState<PvpPage> {
       return _ArenaMenuSection(
         playerDisplayName: playerDisplayName,
         playerAvatarAsset: selectedCharacter.characterVisuals!.idle,
-        opponentAvatarAsset: opponentCharacter.characterVisuals!.idle,
         selectedArena: selectedArena,
         selectedTower: selectedTower,
-        onBackHome: () {
+        balance: economy.isAuthoritative ? economy.yCoins : null,
+        onBackLoadout: () {
           controller.exitArena();
           setState(() => _setupStep = _ArenaSetupStep.loadout);
         },
+        onTopUp: () => showYCoinTopUpSheet(context),
+        onOpenStore: () => context.push(AppRoutes.store),
         onStartBot: () async {
           await _startOnlineBattle(
             context: context,
