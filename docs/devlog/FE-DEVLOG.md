@@ -2405,3 +2405,49 @@
 ### The Tech Debt
 - The empty state is text-only; no illustration was added because the current design does not require a new asset.
 
+## 2026-08-22 - Game Setup View 1: Arena
+
+### The Change
+- Replaced the arena carousel with a centered selected-arena showcase and two compact CPNS/BUMN choice tiles.
+- Preserved target-aware locking and added the shared three-step header with the first segment active.
+
+### The Reasoning
+- Two target-bound arenas are easier to compare directly than through a carousel, while the large showcase gives the setup flow a clear focal point.
+
+### Verification
+- Focused PvP analysis and widget tests passed, including target locks and arena selection.
+
+### The Tech Debt
+- Arena artwork still uses the existing catalog assets without directional transition animation.
+
+## 2026-08-22 - Game Setup View 2: Loadout
+
+### The Change
+- Kept the selected arena, character, and tower together in a compact diorama and added horizontally scrollable portrait-card collections for characters and towers.
+- Made the stage vertically fixed, kept locked cosmetics visible with Store routing, and used the shared header with two segments active.
+
+### The Reasoning
+- Direct horizontal browsing exposes the full collection while keeping the bounded setup stage and its clay CTA visible without vertical scrolling.
+
+### Verification
+- Focused PvP analysis and widget tests passed at 390 x 700, covering horizontal swiping, locked cards, equipment updates, and overflow safety.
+
+### The Tech Debt
+- The two-item tower catalog naturally leaves more horizontal space than the character catalog; no duplicate placeholders are fabricated.
+
+## 2026-08-22 - Game Setup View 3: Mode
+
+### The Change
+- Standardized the shared header and padding with all three progress segments active.
+- Kept the equipped arena, character, and tower fixed in the showcase while its accent changes between Bot, Casual, and Ranked.
+- Replaced arrow navigation with three direct blue, purple, and orange portrait cards, added mode-specific SVG illustrations, and retained the contextual clay start CTA.
+
+### The Reasoning
+- Three modes are few enough to compare at once; persistent loadout artwork maintains continuity while color and SVG cues make each choice easy to scan.
+
+### Verification
+- Focused Dart analysis completed with no issues, and all five PvP widget tests passed at 390 x 700 across the complete three-view setup and battle regressions.
+
+### The Tech Debt
+- The lightweight SVGs can be replaced with final art-direction assets without changing the card layout.
+

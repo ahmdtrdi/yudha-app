@@ -110,16 +110,10 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('TERKUNCI'), findsOneWidget);
-    expect(
-      find.text(
-        'Pindah tujuan Anda di Pengaturan jika ingin bermain di Arena BUMN.',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('Terkunci'), findsOneWidget);
+    expect(find.text('Arena CPNS'), findsOneWidget);
+    expect(find.text('BUMN'), findsOneWidget);
 
-    await tester.drag(find.byType(ListView), const Offset(-280, 0));
-    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey<String>('arena-choice-arena-bumn')),
     );
@@ -144,18 +138,15 @@ void main() {
     await tester.pump();
 
     expect(container.read(gameEconomyProvider).equippedArenaId, 'arena-bumn');
-    expect(
-      find.text(
-        'Pindah tujuan Anda di Pengaturan jika ingin bermain di Arena CPNS.',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('Arena BUMN'), findsOneWidget);
+    expect(find.text('CPNS'), findsOneWidget);
+    expect(find.text('Terkunci'), findsOneWidget);
   });
 
   testWidgets('follows arena, loadout, and mode setup flow', (
     WidgetTester tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(411, 914));
+    await tester.binding.setSurfaceSize(const Size(390, 700));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final ProviderContainer container = ProviderContainer(
@@ -178,11 +169,21 @@ void main() {
 
     expect(find.text('Mau bertanding di mana?'), findsOneWidget);
     expect(find.text('Arena CPNS'), findsOneWidget);
-    expect(find.text('Arena BUMN'), findsOneWidget);
+    expect(find.text('BUMN'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('arena-selected-showcase')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<Container>(
+            find.byKey(const ValueKey<String>('setup-progress-step-3')),
+          )
+          .color,
+      const Color(0xFFD8D3C8),
+    );
     expect(tester.getTopLeft(find.text('01  PILIH ARENA')).dy, lessThan(100));
 
-    await tester.drag(find.byType(ListView), const Offset(-280, 0));
-    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey<String>('arena-choice-arena-bumn')),
     );
@@ -197,12 +198,39 @@ void main() {
     expect(find.text('Karakter'), findsOneWidget);
     expect(find.text('Tower'), findsOneWidget);
     expect(
+      find.byKey(const ValueKey<String>('loadout-fixed-layout')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('loadout-fixed-layout')),
+        matching: find.byType(SingleChildScrollView),
+      ),
+      findsNothing,
+    );
+    expect(
       tester.getTopLeft(find.text('02  SIAPKAN LOADOUT')).dy,
       lessThan(100),
     );
     expect(
       find.byKey(const ValueKey<String>('loadout-arena-blur')),
       findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<Container>(
+            find.byKey(const ValueKey<String>('setup-progress-step-2')),
+          )
+          .color,
+      const Color(0xFF173A67),
+    );
+    expect(
+      tester
+          .widget<Container>(
+            find.byKey(const ValueKey<String>('setup-progress-step-3')),
+          )
+          .color,
+      const Color(0xFFD8D3C8),
     );
     expect(
       tester.getSize(
@@ -241,21 +269,59 @@ void main() {
       ),
     );
     expect(
-      tester.getSize(
-        find.byKey(
-          const ValueKey<String>('loadout-preview-character-basic-squire'),
-        ),
-      ),
-      tester.getSize(
-        find.byKey(
-          const ValueKey<String>('loadout-preview-character-basic-pip'),
-        ),
-      ),
+      find.byKey(const ValueKey<String>('loadout-karakter-previous')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('loadout-karakter-next')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('loadout-tower-next')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('loadout-karakter-carousel')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('loadout-tower-carousel')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('loadout-character-rare-ignis')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('loadout-lock-character-rare-ignis')),
+      findsOneWidget,
     );
 
+    final Finder characterCarousel = find.byKey(
+      const ValueKey<String>('loadout-karakter-carousel'),
+    );
+    final double ignisBeforeDrag = tester
+        .getTopLeft(
+          find.byKey(const ValueKey<String>('loadout-character-rare-ignis')),
+        )
+        .dx;
+    await tester.drag(characterCarousel, const Offset(-120, 0));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .getTopLeft(
+            find.byKey(const ValueKey<String>('loadout-character-rare-ignis')),
+          )
+          .dx,
+      lessThan(ignisBeforeDrag),
+    );
+
+    await tester.drag(characterCarousel, const Offset(260, 0));
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey<String>('loadout-character-basic-squire')),
     );
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey<String>('loadout-tower-garda-biru')),
     );
@@ -269,22 +335,179 @@ void main() {
       container.read(gameEconomyProvider).equippedTowerId,
       GameEconomyCatalog.defaultTowerId,
     );
+    final double loadoutHeaderTop = tester
+        .getTopLeft(find.text('Siapkan loadout'))
+        .dy;
 
     await tester.tap(find.byKey(const ValueKey<String>('continue-to-mode')));
     await tester.pumpAndSettle();
 
+    expect(find.text('Pilih mode'), findsOneWidget);
+    expect(find.text('03  PILIH MODE'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Pilih mode')).dy,
+      closeTo(loadoutHeaderTop, 1),
+    );
+    expect(
+      tester
+          .widget<Container>(
+            find.byKey(const ValueKey<String>('setup-progress-step-3')),
+          )
+          .color,
+      const Color(0xFF173A67),
+    );
+
     expect(find.text('Siap bertanding, Kamu?'), findsOneWidget);
     expect(find.text('Lawan Bot'), findsOneWidget);
     expect(find.text('Lawan Player'), findsOneWidget);
+    expect(find.text('Ranked Match'), findsOneWidget);
     expect(
-      tester.getSize(
-        find.byKey(const ValueKey<String>('online-player-avatar')),
-      ),
-      tester.getSize(find.byKey(const ValueKey<String>('bot-opponent-avatar'))),
+      find.byKey(const ValueKey<String>('mode-selected-showcase')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey<String>('mode-bot')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('mode-choice-bot')),
+      findsOneWidget,
     );
     expect(
-      tester.getSize(find.byKey(const ValueKey<String>('online-mode-visual'))),
-      tester.getSize(find.byKey(const ValueKey<String>('bot-mode-visual'))),
+      find.byKey(const ValueKey<String>('mode-choice-online')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('mode-choice-ranked')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('mode-illustration-bot')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('mode-illustration-online')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('mode-illustration-ranked')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('mode-selected-arena')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('mode-selected-character-image')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('mode-selected-tower')),
+      findsOneWidget,
+    );
+    expect(
+      ((tester
+                          .widget<AnimatedContainer>(
+                            find.byKey(
+                              const ValueKey<String>('mode-selected-showcase'),
+                            ),
+                          )
+                          .decoration!
+                      as BoxDecoration)
+                  .border!
+              as Border)
+          .top
+          .color,
+      const Color(0x822878F0),
+    );
+
+    final String? arenaAsset = _assetName(
+      tester
+          .widget<Image>(
+            find.byKey(const ValueKey<String>('mode-selected-arena')),
+          )
+          .image,
+    );
+    final String? characterAsset = _assetName(
+      tester
+          .widget<Image>(
+            find.byKey(const ValueKey<String>('mode-selected-character-image')),
+          )
+          .image,
+    );
+    final String? towerAsset = _assetName(
+      tester
+          .widget<Image>(
+            find.byKey(const ValueKey<String>('mode-selected-tower')),
+          )
+          .image,
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('mode-choice-online')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('mode-online')), findsOneWidget);
+    expect(
+      ((tester
+                          .widget<AnimatedContainer>(
+                            find.byKey(
+                              const ValueKey<String>('mode-selected-showcase'),
+                            ),
+                          )
+                          .decoration!
+                      as BoxDecoration)
+                  .border!
+              as Border)
+          .top
+          .color,
+      const Color(0x827559D4),
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('mode-choice-ranked')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('mode-ranked')), findsOneWidget);
+    expect(
+      ((tester
+                          .widget<AnimatedContainer>(
+                            find.byKey(
+                              const ValueKey<String>('mode-selected-showcase'),
+                            ),
+                          )
+                          .decoration!
+                      as BoxDecoration)
+                  .border!
+              as Border)
+          .top
+          .color,
+      const Color(0x82E0922F),
+    );
+    expect(
+      _assetName(
+        tester
+            .widget<Image>(
+              find.byKey(const ValueKey<String>('mode-selected-arena')),
+            )
+            .image,
+      ),
+      arenaAsset,
+    );
+    expect(
+      _assetName(
+        tester
+            .widget<Image>(
+              find.byKey(
+                const ValueKey<String>('mode-selected-character-image'),
+              ),
+            )
+            .image,
+      ),
+      characterAsset,
+    );
+    expect(
+      _assetName(
+        tester
+            .widget<Image>(
+              find.byKey(const ValueKey<String>('mode-selected-tower')),
+            )
+            .image,
+      ),
+      towerAsset,
     );
   });
 
@@ -576,7 +799,9 @@ class _PvpEconomyRepository extends GameEconomyRepository {
   Future<AuthoritativeEconomySnapshot> fetch() async => snapshot;
 
   @override
-  Future<AuthoritativeEconomySnapshot> grantBetaCredit() async => snapshot;
+  Future<AuthoritativeEconomySnapshot> grantBetaCredit({
+    int coins = 100,
+  }) async => snapshot;
 
   @override
   Future<AuthoritativeEconomySnapshot> purchaseAndEquip(
