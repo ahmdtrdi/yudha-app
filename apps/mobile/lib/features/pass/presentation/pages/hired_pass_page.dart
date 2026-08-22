@@ -7,6 +7,7 @@ import 'package:yudha_mobile/features/economy/application/game_economy_providers
 import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
 import 'package:yudha_mobile/features/economy/presentation/widgets/economy_widgets.dart';
+import 'package:yudha_mobile/features/economy/presentation/widgets/payment_confirmation_modal.dart';
 import 'package:yudha_mobile/features/pass/application/hired_pass_providers.dart';
 import 'package:yudha_mobile/features/pass/data/repositories/hired_pass_repository.dart';
 import 'package:yudha_mobile/features/pass/domain/entities/hired_pass_status.dart';
@@ -160,6 +161,20 @@ class HiredPassPage extends ConsumerWidget {
       _showMessage(messenger, 'Belum ada musim Hired Pass aktif.', false);
       return;
     }
+
+    final bool? confirmed = await showDummyPaymentConfirmation(
+      context: context,
+      title: 'Hired Pass Premium',
+      subtitle: 'Season 01: Jalur Sang Juara • Akses Reward Track Premium',
+      priceLabel: 'Rp29.000 (Beta)',
+      badgeText: 'PREMIUM PASS',
+      icon: Icons.workspace_premium_rounded,
+      themeColor: const Color(0xFF7957C8),
+    );
+    if (confirmed != true) {
+      return;
+    }
+
     try {
       final HiredPassMutationResult result = await ref
           .read(hiredPassRepositoryProvider)

@@ -41,7 +41,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey<String>('y-coin-balance')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey<String>('top-up-beta-100')));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('confirm-dummy-payment-button')));
+    await tester.pumpAndSettle();
 
     expect(container.read(gameEconomyProvider).yCoins, 3100);
     expect(find.text('3.100'), findsNWidgets(2));
@@ -165,8 +167,9 @@ class _DelayedEconomyRepository extends GameEconomyRepository {
   Future<AuthoritativeEconomySnapshot> fetch() async => _initial;
 
   @override
-  Future<AuthoritativeEconomySnapshot> grantBetaCredit() async =>
-      _snapshot(coins: 3100);
+  Future<AuthoritativeEconomySnapshot> grantBetaCredit({
+    int coins = 100,
+  }) async => _snapshot(coins: 3000 + coins);
 
   @override
   Future<AuthoritativeEconomySnapshot> purchaseAndEquip(CosmeticItem item) {
@@ -225,7 +228,8 @@ class _FailingEconomyRepository extends GameEconomyRepository {
   }
 
   @override
-  Future<AuthoritativeEconomySnapshot> grantBetaCredit() => fetch();
+  Future<AuthoritativeEconomySnapshot> grantBetaCredit({int coins = 100}) =>
+      fetch();
 
   @override
   Future<AuthoritativeEconomySnapshot> purchaseAndEquip(CosmeticItem item) =>

@@ -8,6 +8,7 @@ import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/arena_visual_theme.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
+import 'package:yudha_mobile/features/economy/presentation/widgets/payment_confirmation_modal.dart';
 
 String formatYCoins(int value) {
   final String digits = value.toString();
@@ -245,6 +246,27 @@ class _YCoinTopUpSheet extends ConsumerStatefulWidget {
 class _YCoinTopUpSheetState extends ConsumerState<_YCoinTopUpSheet> {
   String? _pendingPackageId;
 
+  Future<void> _handlePackageTap(YCoinTopUpPackage package) async {
+    if (_pendingPackageId != null) {
+      return;
+    }
+    final bool? confirmed = await showDummyPaymentConfirmation(
+      context: context,
+      title: '+${formatYCoins(package.totalCoins)} Y-Coin',
+      subtitle: package.bonusCoins > 0
+          ? 'Termasuk bonus +${package.bonusCoins} Y-Coin (Paket Beta)'
+          : 'Paket Y-Coin Top Up (Beta Access Available)',
+      priceLabel: '${package.priceLabel} (Beta)',
+      badgeText: 'BETA ACCESS AVAILABLE',
+      icon: Icons.monetization_on_rounded,
+      themeColor: AppColors.levelUpTeal,
+    );
+
+    if (confirmed == true && mounted) {
+      await _topUp(package);
+    }
+  }
+
   Future<void> _topUp(YCoinTopUpPackage package) async {
     if (_pendingPackageId != null) {
       return;
@@ -366,7 +388,7 @@ class _YCoinTopUpSheetState extends ConsumerState<_YCoinTopUpSheet> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Beta sandbox: belum ada pembayaran nyata. Hanya paket GRATIS yang aktif.',
+                      'Beta sandbox: konfirmasi pembayaran simulasi. Semua paket aktif (Beta Access Available).',
                       style: GoogleFonts.dmSans(
                         color: const Color(0xFF6E4B12),
                         fontSize: 11.5,
@@ -392,7 +414,7 @@ class _YCoinTopUpSheetState extends ConsumerState<_YCoinTopUpSheet> {
                             onTap:
                                 economy.isAuthoritative &&
                                     _pendingPackageId == null
-                                ? () => _topUp(package)
+                                ? () => _handlePackageTap(package)
                                 : null,
                           ),
                         ),
@@ -421,9 +443,8 @@ class _TopUpPackageTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool beta = package.isBetaCredit;
     return Material(
-      color: beta ? const Color(0xFFE8F7F1) : Colors.white,
+      color: Colors.white,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         key: ValueKey<String>('top-up-${package.id}'),
@@ -434,9 +455,7 @@ class _TopUpPackageTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: beta
-                  ? AppColors.levelUpTeal.withAlpha(80)
-                  : AppColors.warriorNavy.withAlpha(22),
+              color: AppColors.levelUpTeal.withAlpha(80),
             ),
           ),
           child: Row(
@@ -447,32 +466,47 @@ class _TopUpPackageTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Text(
+                          '+${formatYCoins(package.totalCoins)} Y-Coin',
+                          style: GoogleFonts.dmSans(
+                            color: AppColors.textStrong,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.levelUpTeal.withAlpha(22),
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Text(
+                            'BETA',
+                            style: GoogleFonts.dmSans(
+                              color: AppColors.levelUpTeal,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     Text(
-                      '+${formatYCoins(package.totalCoins)} Y-Coin',
+                      package.bonusCoins > 0
+                          ? 'Bonus +${package.bonusCoins} • Beta Access Available'
+                          : 'Beta Access Available',
                       style: GoogleFonts.dmSans(
-                        color: AppColors.textStrong,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
+                        color: AppColors.levelUpTeal,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    if (package.bonusCoins > 0)
-                      Text(
-                        'Termasuk bonus +${package.bonusCoins}',
-                        style: GoogleFonts.dmSans(
-                          color: AppColors.levelUpTeal,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      )
-                    else if (beta)
-                      Text(
-                        'Bisa ditekan sepuasnya selama beta',
-                        style: GoogleFonts.dmSans(
-                          color: AppColors.levelUpTeal,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -495,9 +529,7 @@ class _TopUpPackageTile extends StatelessWidget {
                           vertical: 7,
                         ),
                         decoration: BoxDecoration(
-                          color: beta
-                              ? AppColors.levelUpTeal
-                              : AppColors.warriorNavy,
+                          color: AppColors.levelUpTeal,
                           borderRadius: BorderRadius.circular(11),
                         ),
                         child: Text(

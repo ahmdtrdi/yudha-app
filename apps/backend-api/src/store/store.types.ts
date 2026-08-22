@@ -9,6 +9,7 @@ export interface PurchaseStoreItemPayload {
 
 export interface GrantBetaCreditPayload {
   idempotencyKey?: unknown;
+  coins?: unknown;
 }
 
 export interface SetStoreLoadoutPayload {

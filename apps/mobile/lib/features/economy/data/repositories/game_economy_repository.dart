@@ -31,7 +31,7 @@ abstract class GameEconomyRepository {
     String? arenaId,
   });
 
-  Future<AuthoritativeEconomySnapshot> grantBetaCredit();
+  Future<AuthoritativeEconomySnapshot> grantBetaCredit({int coins = 100});
 
   void dispose() {}
 }
