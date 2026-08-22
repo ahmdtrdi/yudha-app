@@ -28,10 +28,10 @@ class _SuccessPracticeRepository implements PracticeRepository {
   const _SuccessPracticeRepository();
 
   static const PracticeTopic topic = PracticeTopic(
-    id: 'TIU::Logika',
-    category: 'TIU',
-    subcategory: 'Logika',
-    name: 'Logika',
+    id: 'tiu::kemampuan_logis',
+    category: 'tiu',
+    subcategory: 'kemampuan_logis',
+    name: 'Kemampuan Logis',
     description: 'Sesi latihan dengan 5 soal.',
     groupTitle: 'TIU - INTELEGENSIA UMUM',
     badgeLabel: 'TIU',
@@ -39,32 +39,33 @@ class _SuccessPracticeRepository implements PracticeRepository {
   );
 
   static const PracticeTopic verbalTopic = PracticeTopic(
-    id: 'TIU::Verbal',
-    category: 'TIU',
-    subcategory: 'Verbal',
-    name: 'Verbal',
+    id: 'tiu::kemampuan_verbal',
+    category: 'tiu',
+    subcategory: 'kemampuan_verbal',
+    name: 'Kemampuan Verbal',
     description: 'Sesi latihan dengan 5 soal.',
     groupTitle: 'TIU - INTELEGENSIA UMUM',
     questionCount: 8,
   );
 
   static const PracticeTopic numerikTopic = PracticeTopic(
-    id: 'TIU::Numerik',
-    category: 'TIU',
-    subcategory: 'Numerik',
-    name: 'Numerik',
+    id: 'tiu::kemampuan_numerik',
+    category: 'tiu',
+    subcategory: 'kemampuan_numerik',
+    name: 'Kemampuan Numerik',
     description: 'Sesi latihan dengan 5 soal.',
     groupTitle: 'TIU - INTELEGENSIA UMUM',
     questionCount: 10,
   );
 
-  static const PracticeTopic twkTopic = PracticeTopic(
-    id: 'TWK',
-    category: 'TWK',
-    name: 'TWK',
+  static const PracticeTopic figuralTopic = PracticeTopic(
+    id: 'tiu::kemampuan_figural',
+    category: 'tiu',
+    subcategory: 'kemampuan_figural',
+    name: 'Kemampuan Figural',
     description: 'Sesi latihan dengan 5 soal.',
-    groupTitle: 'KATEGORI LATIHAN',
-    questionCount: 20,
+    groupTitle: 'TIU',
+    questionCount: 9,
   );
 
   static const PracticeTopic staleTopic = PracticeTopic(
@@ -80,8 +81,8 @@ class _SuccessPracticeRepository implements PracticeRepository {
   static const PracticeQuestion question = PracticeQuestion(
     id: 'q1',
     sessionQuestionId: 'sq1',
-    topicId: 'TIU::Logika',
-    topicName: 'Logika',
+    topicId: 'tiu::kemampuan_logis',
+    topicName: 'Kemampuan Logis',
     prompt: 'Find the odd one out: 2, 3, 5, 9, 11',
     hint: 'Only one number is not prime.',
     options: <PracticeOption>[
@@ -98,10 +99,74 @@ class _SuccessPracticeRepository implements PracticeRepository {
   Future<PracticeDashboard> fetchDashboard() async {
     return const PracticeDashboard(
       topics: <PracticeTopic>[
+        PracticeTopic(
+          id: 'twk::pancasila_ideologi',
+          category: 'twk',
+          subcategory: 'pancasila_ideologi',
+          name: 'Pancasila & Ideologi',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'TWK',
+        ),
+        PracticeTopic(
+          id: 'twk::konstitusi_negara',
+          category: 'twk',
+          subcategory: 'konstitusi_negara',
+          name: 'Konstitusi & Negara',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'TWK',
+        ),
+        PracticeTopic(
+          id: 'twk::sejarah_kebangsaan',
+          category: 'twk',
+          subcategory: 'sejarah_kebangsaan',
+          name: 'Sejarah & Kebangsaan',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'TWK',
+        ),
+        PracticeTopic(
+          id: 'twk::bhinneka_tunggal_ika',
+          category: 'twk',
+          subcategory: 'bhinneka_tunggal_ika',
+          name: 'Bhinneka Tunggal Ika',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'TWK',
+        ),
         topic,
         verbalTopic,
         numerikTopic,
-        twkTopic,
+        figuralTopic,
+        PracticeTopic(
+          id: 'tkp::pelayanan_integritas',
+          category: 'tkp',
+          subcategory: 'pelayanan_integritas',
+          name: 'Pelayanan & Integritas',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'TKP',
+        ),
+        PracticeTopic(
+          id: 'tkp::kerja_sama_komunikasi',
+          category: 'tkp',
+          subcategory: 'kerja_sama_komunikasi',
+          name: 'Kerja Sama & Komunikasi',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'TKP',
+        ),
+        PracticeTopic(
+          id: 'tkp::adaptasi_pengembangan_diri',
+          category: 'tkp',
+          subcategory: 'adaptasi_pengembangan_diri',
+          name: 'Adaptasi & Pengembangan Diri',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'TKP',
+        ),
+        PracticeTopic(
+          id: 'tkp::pengambilan_keputusan_kinerja',
+          category: 'tkp',
+          subcategory: 'pengambilan_keputusan_kinerja',
+          name: 'Pengambilan Keputusan & Kinerja',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'TKP',
+        ),
         staleTopic,
       ],
       overallProgressPercent: 28,
@@ -173,8 +238,8 @@ class _SuccessPracticeRepository implements PracticeRepository {
   }) async {
     return const PracticeSession(
       id: 'session-1',
-      category: 'TIU',
-      subcategory: 'Logika',
+      category: 'tiu',
+      subcategory: 'kemampuan_logis',
       totalQuestions: 1,
       questions: <PracticeQuestion>[question],
     );
@@ -250,36 +315,100 @@ class _BumnPracticeRepository extends _SuccessPracticeRepository {
     return const PracticeDashboard(
       topics: <PracticeTopic>[
         PracticeTopic(
-          id: 'TKD::Verbal',
+          id: 'tkd::kemampuan_verbal',
           category: 'tkd',
-          subcategory: 'verbal',
-          name: 'Verbal',
+          subcategory: 'kemampuan_verbal',
+          name: 'Kemampuan Verbal',
           description: 'Sesi latihan dengan 5 soal.',
           groupTitle: 'TKD',
         ),
         PracticeTopic(
-          id: 'TKD::Numerik',
+          id: 'tkd::kemampuan_numerik',
           category: 'tkd',
-          subcategory: 'numerik',
-          name: 'Numerik',
+          subcategory: 'kemampuan_numerik',
+          name: 'Kemampuan Numerik',
           description: 'Sesi latihan dengan 5 soal.',
           groupTitle: 'TKD',
         ),
         PracticeTopic(
-          id: 'TKD::Logika',
+          id: 'tkd::kemampuan_logis',
           category: 'tkd',
-          subcategory: 'logika',
-          name: 'Logika',
+          subcategory: 'kemampuan_logis',
+          name: 'Kemampuan Logis',
           description: 'Sesi latihan dengan 5 soal.',
           groupTitle: 'TKD',
         ),
         PracticeTopic(
-          id: 'kepribadian::adaptif',
-          category: 'kepribadian',
-          subcategory: 'adaptif',
-          name: 'Adaptif',
+          id: 'tkd::kemampuan_figural',
+          category: 'tkd',
+          subcategory: 'kemampuan_figural',
+          name: 'Kemampuan Figural',
           description: 'Sesi latihan dengan 5 soal.',
-          groupTitle: 'KEPRIBADIAN',
+          groupTitle: 'TKD',
+        ),
+        PracticeTopic(
+          id: 'akhlak::amanah',
+          category: 'akhlak',
+          subcategory: 'amanah',
+          name: 'Amanah',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'AKHLAK',
+        ),
+        PracticeTopic(
+          id: 'akhlak::kompeten',
+          category: 'akhlak',
+          subcategory: 'kompeten',
+          name: 'Kompeten',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'AKHLAK',
+        ),
+        PracticeTopic(
+          id: 'akhlak::harmonis',
+          category: 'akhlak',
+          subcategory: 'harmonis',
+          name: 'Harmonis',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'AKHLAK',
+        ),
+        PracticeTopic(
+          id: 'akhlak::loyal',
+          category: 'akhlak',
+          subcategory: 'loyal',
+          name: 'Loyal',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'AKHLAK',
+        ),
+        PracticeTopic(
+          id: 'wawasan_kebangsaan::pancasila',
+          category: 'wawasan_kebangsaan',
+          subcategory: 'pancasila',
+          name: 'Pancasila',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'WAWASAN KEBANGSAAN',
+        ),
+        PracticeTopic(
+          id: 'wawasan_kebangsaan::uud_1945',
+          category: 'wawasan_kebangsaan',
+          subcategory: 'uud_1945',
+          name: 'UUD 1945',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'WAWASAN KEBANGSAAN',
+        ),
+        PracticeTopic(
+          id: 'wawasan_kebangsaan::nkri',
+          category: 'wawasan_kebangsaan',
+          subcategory: 'nkri',
+          name: 'NKRI',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'WAWASAN KEBANGSAAN',
+        ),
+        PracticeTopic(
+          id: 'wawasan_kebangsaan::bhinneka_tunggal_ika',
+          category: 'wawasan_kebangsaan',
+          subcategory: 'bhinneka_tunggal_ika',
+          name: 'Bhinneka Tunggal Ika',
+          description: 'Sesi latihan dengan 5 soal.',
+          groupTitle: 'WAWASAN KEBANGSAAN',
         ),
       ],
       overallProgressPercent: 12,
@@ -304,8 +433,8 @@ class _TwoQuestionPracticeRepository extends _SuccessPracticeRepository {
   static const PracticeQuestion secondQuestion = PracticeQuestion(
     id: 'q2',
     sessionQuestionId: 'sq2',
-    topicId: 'TIU::Logika',
-    topicName: 'Logika',
+    topicId: 'tiu::kemampuan_logis',
+    topicName: 'Kemampuan Logis',
     prompt: 'What comes next: 2, 4, 8, 16?',
     hint: 'Each number doubles.',
     options: <PracticeOption>[
@@ -325,8 +454,8 @@ class _TwoQuestionPracticeRepository extends _SuccessPracticeRepository {
   }) async {
     return const PracticeSession(
       id: 'session-2',
-      category: 'TIU',
-      subcategory: 'Logika',
+      category: 'tiu',
+      subcategory: 'kemampuan_logis',
       totalQuestions: 2,
       questions: <PracticeQuestion>[
         _SuccessPracticeRepository.question,
@@ -363,6 +492,11 @@ void main() {
   testWidgets('renders practice dashboard from repository data', (
     WidgetTester tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 1800);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: <Override>[
@@ -386,54 +520,56 @@ void main() {
     expect(find.text('28%'), findsOneWidget);
     expect(find.text('Simulasi Wawancara AI'), findsOneWidget);
     expect(find.text('LATIHAN SOAL CPNS'), findsOneWidget);
-    expect(find.text('4 topik • 5 soal per sesi'), findsOneWidget);
-    expect(find.text('Verbal'), findsOneWidget);
-    expect(find.text('Numerik'), findsOneWidget);
-    expect(find.text('Logika'), findsOneWidget);
+    expect(find.text('4 subkategori • 5 soal per sesi'), findsNWidgets(3));
     expect(find.text('TWK'), findsOneWidget);
+    expect(find.text('TIU'), findsOneWidget);
+    expect(find.text('TKP'), findsOneWidget);
+    expect(find.text('Pancasila & Ideologi'), findsOneWidget);
+    expect(find.text('Kemampuan Verbal'), findsOneWidget);
+    expect(find.text('Kemampuan Logis'), findsOneWidget);
+    expect(find.text('Pelayanan & Integritas'), findsOneWidget);
+    expect(find.text('Pengambilan Keputusan & Kinerja'), findsOneWidget);
     expect(find.text('Silogisme'), findsNothing);
-    expect(find.text('Temukan pola dan tarik kesimpulan'), findsOneWidget);
     expect(find.text('12 tersedia'), findsNothing);
     expect(find.text('Mulai'), findsNothing);
     expect(find.byIcon(Icons.arrow_forward_rounded), findsNothing);
     expect(find.text('Sesi latihan dengan 5 soal.'), findsNothing);
     expect(
-      find.byKey(const ValueKey<String>('practice-topic-practice-verbal')),
+      find.byKey(
+        const ValueKey<String>('practice-topic-tiu::kemampuan_verbal'),
+      ),
       findsOneWidget,
     );
-    final DecoratedBox verbalSurface = tester.widget<DecoratedBox>(
-      find.byKey(
-        const ValueKey<String>('practice-topic-surface-practice-verbal'),
-      ),
-    );
-    expect(
-      (verbalSurface.decoration as BoxDecoration).color,
-      const Color(0xFFE4EEFF),
-    );
-    final DecoratedBox numerikSurface = tester.widget<DecoratedBox>(
-      find.byKey(
-        const ValueKey<String>('practice-topic-surface-practice-numerik'),
-      ),
-    );
-    expect(
-      (numerikSurface.decoration as BoxDecoration).color,
-      const Color(0xFFE0F6FB),
-    );
-    final DecoratedBox logikaSurface = tester.widget<DecoratedBox>(
-      find.byKey(
-        const ValueKey<String>('practice-topic-surface-practice-logika'),
-      ),
-    );
-    expect(
-      (logikaSurface.decoration as BoxDecoration).color,
-      const Color(0xFFEBF8DA),
-    );
     final DecoratedBox twkSurface = tester.widget<DecoratedBox>(
-      find.byKey(const ValueKey<String>('practice-topic-surface-practice-twk')),
+      find.byKey(
+        const ValueKey<String>(
+          'practice-topic-surface-twk::pancasila_ideologi',
+        ),
+      ),
     );
     expect(
       (twkSurface.decoration as BoxDecoration).color,
       const Color(0xFFFDE9D6),
+    );
+    final DecoratedBox tiuSurface = tester.widget<DecoratedBox>(
+      find.byKey(
+        const ValueKey<String>('practice-topic-surface-tiu::kemampuan_verbal'),
+      ),
+    );
+    expect(
+      (tiuSurface.decoration as BoxDecoration).color,
+      const Color(0xFFE0F6FB),
+    );
+    final DecoratedBox tkpSurface = tester.widget<DecoratedBox>(
+      find.byKey(
+        const ValueKey<String>(
+          'practice-topic-surface-tkp::pelayanan_integritas',
+        ),
+      ),
+    );
+    expect(
+      (tkpSurface.decoration as BoxDecoration).color,
+      const Color(0xFFEBF8DA),
     );
     expect(find.text('TANTANGAN HARIAN'), findsNothing);
     expect(find.text('Lihat semua'), findsOneWidget);
@@ -515,9 +651,14 @@ void main() {
     expect(find.text('Only one number is not prime.'), findsOneWidget);
   });
 
-  testWidgets('uses the four-topic BUMN presentation', (
+  testWidgets('groups the canonical BUMN taxonomy by category', (
     WidgetTester tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 1800);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
     final ProviderContainer container = ProviderContainer(
       overrides: <Override>[
         practiceRepositoryProvider.overrideWithValue(
@@ -543,13 +684,54 @@ void main() {
 
     expect(find.text('BUMN'), findsOneWidget);
     expect(find.text('LATIHAN SOAL BUMN'), findsOneWidget);
-    expect(find.text('4 topik • 5 soal per sesi'), findsOneWidget);
-    expect(find.text('Verbal'), findsOneWidget);
-    expect(find.text('Numerik'), findsOneWidget);
-    expect(find.text('Logika'), findsOneWidget);
-    expect(find.text('Kepribadian'), findsOneWidget);
+    expect(find.text('4 subkategori • 5 soal per sesi'), findsNWidgets(3));
+    expect(find.text('TKD'), findsOneWidget);
+    expect(find.text('AKHLAK'), findsOneWidget);
+    expect(find.text('WAWASAN KEBANGSAAN'), findsOneWidget);
+    expect(find.text('Kemampuan Verbal'), findsOneWidget);
+    expect(find.text('Kemampuan Figural'), findsOneWidget);
+    expect(find.text('Amanah'), findsOneWidget);
+    expect(find.text('Loyal'), findsOneWidget);
+    expect(find.text('Pancasila'), findsOneWidget);
+    expect(find.text('Bhinneka Tunggal Ika'), findsOneWidget);
+    expect(find.text('Kepribadian'), findsNothing);
     expect(find.text('Adaptif'), findsNothing);
-    expect(find.text('Kenali karakter dan sikap kerja'), findsOneWidget);
+    expect(find.text('TERAKHIR DIKERJAKAN'), findsOneWidget);
+    expect(find.text('Belum ada latihan yang dikerjakan'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('practice-history-empty')),
+      findsOneWidget,
+    );
+    expect(find.text('Lihat semua'), findsNothing);
+    final DecoratedBox tkdSurface = tester.widget<DecoratedBox>(
+      find.byKey(
+        const ValueKey<String>('practice-topic-surface-tkd::kemampuan_verbal'),
+      ),
+    );
+    expect(
+      (tkdSurface.decoration as BoxDecoration).color,
+      const Color(0xFFE0F6FB),
+    );
+    final DecoratedBox akhlakSurface = tester.widget<DecoratedBox>(
+      find.byKey(
+        const ValueKey<String>('practice-topic-surface-akhlak::amanah'),
+      ),
+    );
+    expect(
+      (akhlakSurface.decoration as BoxDecoration).color,
+      const Color(0xFFEBF8DA),
+    );
+    final DecoratedBox wawasanSurface = tester.widget<DecoratedBox>(
+      find.byKey(
+        const ValueKey<String>(
+          'practice-topic-surface-wawasan_kebangsaan::pancasila',
+        ),
+      ),
+    );
+    expect(
+      (wawasanSurface.decoration as BoxDecoration).color,
+      const Color(0xFFFDE9D6),
+    );
   });
 
   testWidgets('loads and paginates the full practice history', (

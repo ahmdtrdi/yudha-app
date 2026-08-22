@@ -329,9 +329,11 @@ class BackendPracticeRepository implements PracticeRepository {
       'akhlak',
       'bumn',
       'cpns',
+      'nkri',
       'tiu',
       'tkp',
       'twk',
+      'uud',
     };
     return value
         .trim()

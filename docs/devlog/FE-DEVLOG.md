@@ -2367,3 +2367,41 @@
 ### The Tech Debt
 - Payment methods remain static UI choices for Beta sandbox simulation; integration with actual payment gateways (e.g. Midtrans, Xendit, Google Play Billing API) will be required for production release.
 
+## 2026-08-22 - Practice Subcategories
+
+### The Change
+- Replaced the synthetic four-card menu with the dashboard's final category-subcategory taxonomy: CPNS uses `TWK`, `TIU`, and `TKP`; BUMN uses `TKD`, `AKHLAK`, and `Wawasan Kebangsaan`.
+- Rendered each category's four subcategories in a compact two-column grid with one shared soft clay color and one `4 subkategori • 5 soal per sesi` label per group.
+- Preserved canonical session identifiers, including `akhlak`, while formatting snake-case labels for display and retaining the `UUD` and `NKRI` acronyms.
+- Kept post-battle `logika` recommendations compatible with the new `Kemampuan Logis` label and made the progress-title row resilient at narrow phone widths.
+
+### The Reasoning
+- The database taxonomy created on 2026-08-21 is the current source of truth, so the frontend groups returned topics instead of inventing flattened launch cards.
+- Identifier humanization keeps API values stable for requests while producing readable labels without losing institutional acronym casing.
+
+### Verification
+- Focused Dart analysis completed with no issues.
+- All 10 focused Practice repository and widget tests passed, covering grouping, colors, canonical identifiers, acronym formatting, quiz actions, and recommended-session navigation.
+- The taxonomy layouts were exercised at a 390-pixel phone width.
+
+### The Tech Debt
+- `docs/PRD.md` still describes the older taxonomy and should be updated once the newly built database contract is formally documented.
+- The frontend currently owns the expected category ordering and semantic color mapping; backend-provided ordering metadata would remove that duplication.
+- The mobile formatter maintains a small acronym allowlist until the API exposes separate stable identifiers and display labels.
+
+## 2026-08-22 - Practice Null History State
+
+### The Change
+- Kept `TERAKHIR DIKERJAKAN` visible when the selected CPNS/BUMN target has no practice history and added a compact white empty-state panel with `Belum ada latihan yang dikerjakan`.
+- Hid `Lihat semua` when there are no history entries while preserving the existing three-entry preview and full-history action for populated states.
+
+### The Reasoning
+- A target with no sessions should communicate an intentional empty result rather than making the history section disappear and appear broken.
+
+### Verification
+- Focused Dart analysis completed with no issues.
+- All seven focused Practice widget tests passed, including explicit empty-history coverage.
+
+### The Tech Debt
+- The empty state is text-only; no illustration was added because the current design does not require a new asset.
+
