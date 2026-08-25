@@ -2106,180 +2106,303 @@ class _InterviewResultView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final InterviewFinalSummary? result = summary;
-    final double? score = result?.overallScore;
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+      key: const ValueKey<String>('interview-result-view'),
+      padding: const EdgeInsets.only(bottom: 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              color: AppColors.warriorNavy,
-              borderRadius: BorderRadius.circular(8),
-            ),
+          _ResultHero(config: config, result: result),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 26, 16, 0),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: AppColors.levelUpTeal.withAlpha(24),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.task_alt_rounded,
-                    color: AppColors.levelUpTeal,
-                    size: 25,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'INTERVIEW SELESAI',
-                  style: GoogleFonts.fredoka(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  config.companyName,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white.withAlpha(210),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                const Text(
-                  'Skor Keseluruhan',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  score == null ? '--' : score.toStringAsFixed(0),
-                  style: TextStyle(
-                    color: score == null
-                        ? AppColors.fireGold
-                        : _resultScoreColor(score),
-                    fontSize: 48,
-                    fontWeight: FontWeight.w900,
-                    height: 1.05,
-                  ),
-                ),
-                if (score != null) ...<Widget>[
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
+                if (result != null) ...<Widget>[
+                  if (result.dimensions.hasScores) ...<Widget>[
+                    const _ResultSectionTitle(
+                      icon: Icons.analytics_outlined,
+                      title: 'Performa jawaban',
                     ),
-                    decoration: BoxDecoration(
-                      color: _resultScoreColor(score).withAlpha(28),
-                      borderRadius: BorderRadius.circular(6),
+                    const SizedBox(height: 10),
+                    _ResultPanel(
+                      panelKey: const ValueKey<String>('result-dimensions'),
+                      child: _DimensionGrid(dimensions: result.dimensions),
                     ),
-                    child: Text(
-                      _resultScoreLabel(score),
-                      style: TextStyle(
-                        color: _resultScoreColor(score),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
+                  ],
+                  if (result.strengths.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 18),
+                    _ResultPanel(
+                      panelKey: const ValueKey<String>('result-strengths'),
+                      accentColor: AppColors.levelUpTeal,
+                      accentFill: const Color(0xFFE2F7F6),
+                      child: _FeedbackList(
+                        title: 'Yang sudah kuat',
+                        icon: Icons.check_circle_outline_rounded,
+                        color: AppColors.levelUpTeal,
+                        items: result.strengths,
                       ),
                     ),
+                  ],
+                  if (result.improvements.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 14),
+                    _ResultPanel(
+                      panelKey: const ValueKey<String>('result-improvements'),
+                      accentColor: AppColors.fireGold,
+                      accentFill: const Color(0xFFFFEEDB),
+                      child: _FeedbackList(
+                        title: 'Fokus perbaikan',
+                        icon: Icons.trending_up_rounded,
+                        color: AppColors.fireGold,
+                        items: result.improvements,
+                      ),
+                    ),
+                  ],
+                ],
+                if ((latestEvaluation?.suggestedRewrite ?? '')
+                    .trim()
+                    .isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 18),
+                  _SuggestedRewrite(
+                    key: const ValueKey<String>('result-suggested-rewrite'),
+                    text: latestEvaluation!.suggestedRewrite!.trim(),
+                    title: 'Contoh jawaban yang lebih kuat',
                   ),
                 ],
-                const SizedBox(height: 8),
-                Text(
-                  result == null
-                      ? 'Ringkasan belum tersedia'
-                      : '${result.answerCount} jawaban dinilai',
-                  style: TextStyle(
-                    color: Colors.white.withAlpha(190),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+                const SizedBox(height: 24),
+                _ResultPrimaryButton(
+                  buttonKey: const ValueKey<String>('result-start-new'),
+                  icon: Icons.replay_rounded,
+                  label: 'MULAI INTERVIEW BARU',
+                  onPressed: onStartNew,
+                ),
+                const SizedBox(height: 10),
+                _ResultSecondaryButton(
+                  buttonKey: const ValueKey<String>('result-back-practice'),
+                  icon: Icons.arrow_back_rounded,
+                  label: 'KEMBALI KE LATIHAN',
+                  onPressed: onBackToPractice,
                 ),
               ],
             ),
           ),
-          if (result != null) ...<Widget>[
-            if (result.dimensions.hasScores) ...<Widget>[
-              const SizedBox(height: 24),
-              const _ResultSectionTitle(
-                icon: Icons.analytics_outlined,
-                title: 'Rincian Penilaian',
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultHero extends StatelessWidget {
+  const _ResultHero({required this.config, required this.result});
+
+  final InterviewLaunchConfig config;
+  final InterviewFinalSummary? result;
+
+  @override
+  Widget build(BuildContext context) {
+    final double? score = result?.overallScore;
+    final Color scoreColor = score == null
+        ? AppColors.fireGold
+        : _resultScoreColor(score);
+    final Color badgeColor = score == null
+        ? const Color(0xFFFFF1DF)
+        : _resultScoreBadgeColor(score);
+    final Color badgeTextColor = score == null
+        ? const Color(0xFF8A4A12)
+        : _resultScoreBadgeTextColor(score);
+    return Container(
+      key: const ValueKey<String>('interview-result-hero'),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      decoration: const BoxDecoration(
+        color: Color(0xFF0D49B5),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Color(0xFF00266F),
+            blurRadius: 0,
+            offset: Offset(0, 7),
+          ),
+        ],
+      ),
+      child: Column(
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppColors.levelUpTeal.withAlpha(40),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.levelUpTeal),
+                ),
+                child: const Icon(
+                  Icons.task_alt_rounded,
+                  color: Colors.white,
+                  size: 21,
+                ),
               ),
-              const SizedBox(height: 12),
-              _ResultPanel(
-                child: _DimensionGrid(dimensions: result.dimensions),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'INTERVIEW SELESAI',
+                      style: GoogleFonts.dmSans(
+                        color: const Color(0xFFFFC477),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.7,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      config.companyName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ],
-            if (result.strengths.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 16),
-              _ResultPanel(
-                accentColor: AppColors.levelUpTeal,
-                child: _FeedbackList(
-                  title: 'Yang Sudah Kuat',
-                  icon: Icons.check_circle_outline_rounded,
-                  color: AppColors.levelUpTeal,
-                  items: result.strengths,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(24),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white.withAlpha(42)),
+                ),
+                child: Text(
+                  _humanizeInterviewMode(config.mode).toUpperCase(),
+                  style: const TextStyle(
+                    color: Color(0xFFDCE8FF),
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
             ],
-            if (result.improvements.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 12),
-              _ResultPanel(
-                accentColor: AppColors.fireGold,
-                child: _FeedbackList(
-                  title: 'Fokus Perbaikan',
-                  icon: Icons.trending_up_rounded,
-                  color: AppColors.fireGold,
-                  items: result.improvements,
-                ),
-              ),
-            ],
-          ],
-          if ((latestEvaluation?.suggestedRewrite ?? '')
-              .trim()
-              .isNotEmpty) ...<Widget>[
-            const SizedBox(height: 20),
-            _SuggestedRewrite(
-              text: latestEvaluation!.suggestedRewrite!.trim(),
-              title: 'Contoh Perbaikan Jawaban Terakhir',
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Hasil interviewmu',
+            style: GoogleFonts.fredoka(
+              color: Colors.white,
+              fontSize: 23,
+              fontWeight: FontWeight.w700,
             ),
-          ],
-          const SizedBox(height: 28),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: onStartNew,
-              icon: const Icon(Icons.replay_rounded),
-              label: const Text('Mulai Interview Baru'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.warriorNavy,
-                padding: const EdgeInsets.symmetric(vertical: 15),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            config.targetRole,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white.withAlpha(190),
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 18),
+          _ResultScoreRing(score: score, color: scoreColor),
+          const SizedBox(height: 12),
+          Container(
+            key: const ValueKey<String>('interview-result-status'),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+            decoration: BoxDecoration(
+              color: badgeColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: badgeTextColor.withAlpha(80)),
+            ),
+            child: Text(
+              score == null
+                  ? 'Ringkasan belum tersedia'
+                  : _resultScoreLabel(score),
+              style: TextStyle(
+                color: badgeTextColor,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: onBackToPractice,
-              icon: const Icon(Icons.arrow_back_rounded),
-              label: const Text('Kembali ke Latihan'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.warriorNavy,
-                padding: const EdgeInsets.symmetric(vertical: 15),
-              ),
+          const SizedBox(height: 7),
+          Text(
+            result == null
+                ? 'Hasil akan tampil setelah evaluasi selesai.'
+                : '${result!.answerCount} jawaban telah dinilai',
+            style: TextStyle(
+              color: Colors.white.withAlpha(180),
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultScoreRing extends StatelessWidget {
+  const _ResultScoreRing({required this.score, required this.color});
+
+  final double? score;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final double progress = ((score ?? 0) / 100).clamp(0, 1);
+    return SizedBox.square(
+      key: const ValueKey<String>('interview-result-score'),
+      dimension: 126,
+      child: Stack(
+        alignment: Alignment.center,
+        children: <Widget>[
+          SizedBox.square(
+            dimension: 126,
+            child: CircularProgressIndicator(
+              value: 1,
+              strokeWidth: 10,
+              color: Colors.white.withAlpha(28),
+            ),
+          ),
+          SizedBox.square(
+            dimension: 126,
+            child: CircularProgressIndicator(
+              value: progress,
+              strokeWidth: 10,
+              strokeCap: StrokeCap.round,
+              color: color,
+              backgroundColor: Colors.transparent,
+            ),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                score == null ? '--' : score!.toStringAsFixed(0),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 38,
+                  height: 1,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                'DARI 100',
+                style: TextStyle(
+                  color: Colors.white.withAlpha(165),
+                  fontSize: 8,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -2313,22 +2436,37 @@ class _ResultSectionTitle extends StatelessWidget {
 }
 
 class _ResultPanel extends StatelessWidget {
-  const _ResultPanel({required this.child, this.accentColor});
+  const _ResultPanel({
+    required this.child,
+    this.panelKey,
+    this.accentColor,
+    this.accentFill,
+  });
 
   final Widget child;
+  final Key? panelKey;
   final Color? accentColor;
+  final Color? accentFill;
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      key: panelKey,
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        color: accentFill ?? Colors.white,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: (accentColor ?? AppColors.warriorNavy).withAlpha(38),
+          color: (accentColor ?? AppColors.warriorNavy).withAlpha(48),
         ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: accentColor?.withAlpha(80) ?? const Color(0xFFD7DAE0),
+            blurRadius: 0,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: child,
     );
@@ -2356,36 +2494,17 @@ class _FeedbackList extends StatelessWidget {
         _ResultSectionTitle(icon: icon, title: title),
         const SizedBox(height: 10),
         for (int index = 0; index < items.length; index++) ...<Widget>[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  items[index],
-                  style: const TextStyle(
-                    color: AppColors.textStrong,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    height: 1.45,
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            items[index],
+            style: const TextStyle(
+              color: AppColors.textStrong,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              height: 1.45,
+            ),
           ),
           if (index < items.length - 1)
-            const Divider(height: 18, color: Colors.black12),
+            Divider(height: 18, color: color.withAlpha(34)),
         ],
       ],
     );
@@ -2393,7 +2512,7 @@ class _FeedbackList extends StatelessWidget {
 }
 
 class _SuggestedRewrite extends StatelessWidget {
-  const _SuggestedRewrite({required this.text, required this.title});
+  const _SuggestedRewrite({required this.text, required this.title, super.key});
 
   final String text;
   final String title;
@@ -2404,9 +2523,16 @@ class _SuggestedRewrite extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.levelUpTeal.withAlpha(70)),
+        color: const Color(0xFFF0EBFF),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF7559D4).withAlpha(65)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0xFFB9A9E8),
+            blurRadius: 0,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2415,7 +2541,7 @@ class _SuggestedRewrite extends StatelessWidget {
             children: <Widget>[
               const Icon(
                 Icons.auto_awesome_outlined,
-                color: AppColors.levelUpTeal,
+                color: Color(0xFF7559D4),
                 size: 18,
               ),
               const SizedBox(width: 8),
@@ -2424,8 +2550,8 @@ class _SuggestedRewrite extends StatelessWidget {
                   title,
                   style: const TextStyle(
                     color: AppColors.warriorNavy,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
@@ -2447,6 +2573,130 @@ class _SuggestedRewrite extends StatelessWidget {
   }
 }
 
+class _ResultPrimaryButton extends StatelessWidget {
+  const _ResultPrimaryButton({
+    required this.buttonKey,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final Key buttonKey;
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 60,
+      child: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            top: 8,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0A35F),
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            bottom: 8,
+            child: Material(
+              color: const Color(0xFFFFD7A3),
+              borderRadius: BorderRadius.circular(20),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                key: buttonKey,
+                onTap: onPressed,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Icon(icon, color: const Color(0xFFC66B24), size: 19),
+                    const SizedBox(width: 8),
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: Color(0xFFC66B24),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultSecondaryButton extends StatelessWidget {
+  const _ResultSecondaryButton({
+    required this.buttonKey,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final Key buttonKey;
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            top: 6,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFFD7DAE0),
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            bottom: 6,
+            child: Material(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                key: buttonKey,
+                onTap: onPressed,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Icon(icon, color: AppColors.warriorNavy, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: AppColors.warriorNavy,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 Color _resultScoreColor(double score) {
   if (score >= 75) {
     return AppColors.levelUpTeal;
@@ -2455,6 +2705,26 @@ Color _resultScoreColor(double score) {
     return AppColors.fireGold;
   }
   return const Color(0xFFFF8A4C);
+}
+
+Color _resultScoreBadgeColor(double score) {
+  if (score >= 75) {
+    return const Color(0xFFDDF7F3);
+  }
+  if (score >= 55) {
+    return const Color(0xFFFFF0D8);
+  }
+  return const Color(0xFFFFE5D8);
+}
+
+Color _resultScoreBadgeTextColor(double score) {
+  if (score >= 75) {
+    return const Color(0xFF006A70);
+  }
+  if (score >= 55) {
+    return const Color(0xFF8B5200);
+  }
+  return const Color(0xFFA33B16);
 }
 
 String _resultScoreLabel(double score) {

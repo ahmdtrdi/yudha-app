@@ -2486,3 +2486,22 @@
 ### The Tech Debt
 - Company options remain frontend constants and should eventually come from backend-provided interview configuration metadata.
 
+## 2026-08-25 - Interview Result Redesign
+
+### The Change
+- Rebuilt the completed Interview view around a continuous royal-blue app bar and result stage with a circular overall-score indicator, target context, and evaluated-answer count.
+- Added score-aware, high-contrast readiness badges while preserving the existing score thresholds and labels.
+- Restyled dimension scores, strengths, improvements, and the suggested answer rewrite as distinct clay surfaces with semantic teal, orange, and purple treatments.
+- Kept one semantic heading icon for each feedback section instead of repeating it beside every feedback item.
+- Replaced standard result actions with primary orange and secondary white clay buttons while preserving their existing destinations.
+
+### The Reasoning
+- The result now prioritizes the overall outcome before progressively revealing diagnostic detail. The continuous header, readable readiness badge, and reduced icon repetition improve hierarchy and contrast while staying consistent with the app's redesigned visual language.
+
+### Verification
+- Focused Dart analysis completed with no issues.
+- Focused Interview widget tests passed, covering the completed-result rendering, score-aware status badge, both result actions, and active voice-room regression.
+
+### The Tech Debt
+- Result dimensions are limited to the six scores currently returned by the backend; richer trend comparisons require historical result data.
+
