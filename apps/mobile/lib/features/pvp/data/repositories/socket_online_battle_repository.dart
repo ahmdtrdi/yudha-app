@@ -9,6 +9,7 @@ import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_question.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_session_seed.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/online_battle_update.dart';
+import 'package:yudha_mobile/features/pvp/domain/entities/private_room_reservation.dart';
 
 class SocketOnlineBattleRepository extends OnlineBattleRepository {
   SocketOnlineBattleRepository({
@@ -20,6 +21,9 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
 
   static const String _joinQueueEvent = 'join_queue';
   static const String _cancelQueueEvent = 'cancel_queue';
+  static const String _createPrivateRoomEvent = 'create_private_room';
+  static const String _joinPrivateRoomEvent = 'join_private_room';
+  static const String _cancelPrivateRoomEvent = 'cancel_private_room';
   static const String _openCardEvent = 'open_card';
   static const String _playCardEvent = 'play_card';
   static const String _surrenderEvent = 'surrender';
@@ -27,6 +31,9 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
   static const String _queueJoinedEvent = 'queue_joined';
   static const String _queueCancelledEvent = 'queue_cancelled';
   static const String _matchFoundEvent = 'match_found';
+  static const String _privateRoomCreatedEvent = 'private_room_created';
+  static const String _privateRoomJoinedEvent = 'private_room_joined';
+  static const String _privateRoomCancelledEvent = 'private_room_cancelled';
   static const String _gameStateUpdateEvent = 'game_state_update';
   static const String _openCardAcceptedEvent = 'open_card_accepted';
   static const String _cardActionRejectedEvent = 'card_action_rejected';
@@ -150,6 +157,57 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
       completer.completeError(StateError('Matchmaking dibatalkan.'));
     }
     await _emitCancelQueue();
+  }
+
+  @override
+  Future<PrivateRoomReservation> createPrivateRoom() async {
+    final String? accessToken = _accessToken;
+    if (accessToken == null || accessToken.trim().isEmpty) {
+      throw StateError('Sesi login sudah berakhir. Silakan masuk ulang.');
+    }
+    await _ensureConnected();
+    final Map<String, dynamic> ack = await _emitAcknowledgedCommand(
+      _createPrivateRoomEvent,
+      <String, Object?>{},
+    );
+    final Map<String, dynamic> data = _asMap(ack['data']);
+    final String code = (data['code'] as String? ?? '').trim();
+    if (code.isEmpty) {
+      throw StateError('Gagal membuat room privat. Coba lagi.');
+    }
+    return PrivateRoomReservation(
+      code: code,
+      target: _parseTarget(data['target']),
+      expiresAt:
+          DateTime.tryParse(data['expiresAt']?.toString() ?? '') ??
+          DateTime.now().add(const Duration(minutes: 15)),
+    );
+  }
+
+  @override
+  Future<void> joinPrivateRoom({required String code}) async {
+    final String? accessToken = _accessToken;
+    if (accessToken == null || accessToken.trim().isEmpty) {
+      throw StateError('Sesi login sudah berakhir. Silakan masuk ulang.');
+    }
+    await _ensureConnected();
+    await _emitAcknowledgedCommand(_joinPrivateRoomEvent, <String, Object?>{
+      'code': code.trim().toUpperCase(),
+    });
+  }
+
+  @override
+  Future<void> cancelPrivateRoom({required String code}) async {
+    if (_socket == null || !_socket!.connected) {
+      return;
+    }
+    try {
+      await _emitAcknowledgedCommand(_cancelPrivateRoomEvent, <String, Object?>{
+        'code': code.trim().toUpperCase(),
+      });
+    } catch (_) {
+      // The room expires server-side anyway; cancellation is best-effort.
+    }
   }
 
   @override
@@ -291,6 +349,34 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
           opponentTowerId: loadout['towerId'] as String?,
           matchmakingMode: _currentMatchmakingMode,
           target: _parseTarget(data['target']),
+        ),
+      );
+    });
+
+    socket.on(_privateRoomCreatedEvent, (dynamic payload) {
+      final Map<String, dynamic> data = _asMap(payload);
+      _updatesController.add(
+        PrivateRoomCreatedUpdate(
+          code: data['code'] as String? ?? '',
+          target: _parseTarget(data['target']),
+          expiresAt:
+              DateTime.tryParse(data['expiresAt']?.toString() ?? '') ??
+              DateTime.now().add(const Duration(minutes: 15)),
+        ),
+      );
+    });
+
+    socket.on(_privateRoomJoinedEvent, (_) {
+      // The follow-up match_found + game_state_update events drive the UI;
+      // this acknowledgement only confirms the room consumed its code.
+    });
+
+    socket.on(_privateRoomCancelledEvent, (dynamic payload) {
+      final Map<String, dynamic> data = _asMap(payload);
+      _updatesController.add(
+        PrivateRoomCancelledUpdate(
+          code: data['code'] as String? ?? '',
+          reason: data['reason'] as String? ?? 'cancelled',
         ),
       );
     });
@@ -611,6 +697,7 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
     return switch (value?.toString().toLowerCase()) {
       'ranked' => OnlineMatchmakingMode.ranked,
       'bot' => OnlineMatchmakingMode.bot,
+      'private' || 'privateroom' => OnlineMatchmakingMode.privateRoom,
       _ => OnlineMatchmakingMode.casual,
     };
   }

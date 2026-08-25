@@ -36,6 +36,7 @@ class BattleState {
     this.opponentCharacterId,
     this.opponentTowerId,
     this.opponentReconnectDeadline,
+    this.privateRoomCode,
     this.statusMessage,
     this.errorMessage,
     this.lastActor,
@@ -107,6 +108,7 @@ class BattleState {
   final String? opponentCharacterId;
   final String? opponentTowerId;
   final DateTime? opponentReconnectDeadline;
+  final String? privateRoomCode;
   final String? statusMessage;
   final String? errorMessage;
   final BattleActor? lastActor;
@@ -152,6 +154,7 @@ class BattleState {
     String? opponentCharacterId,
     String? opponentTowerId,
     DateTime? opponentReconnectDeadline,
+    String? privateRoomCode,
     String? statusMessage,
     String? errorMessage,
     BattleActor? lastActor,
@@ -166,6 +169,7 @@ class BattleState {
     bool clearPlayerLoadout = false,
     bool clearOpponentLoadout = false,
     bool clearReconnectDeadline = false,
+    bool clearPrivateRoomCode = false,
   }) {
     return BattleState(
       mode: mode ?? this.mode,
@@ -215,6 +219,9 @@ class BattleState {
       opponentReconnectDeadline: clearReconnectDeadline
           ? null
           : opponentReconnectDeadline ?? this.opponentReconnectDeadline,
+      privateRoomCode: clearPrivateRoomCode
+          ? null
+          : privateRoomCode ?? this.privateRoomCode,
       statusMessage: clearStatusMessage
           ? null
           : statusMessage ?? this.statusMessage,

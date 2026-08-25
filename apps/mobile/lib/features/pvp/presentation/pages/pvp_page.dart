@@ -376,10 +376,13 @@ class _PvpPageState extends ConsumerState<PvpPage> {
       return _ArenaLoadingView(
         mode: state.mode,
         message: state.statusMessage,
+        roomCode: state.privateRoomCode,
         playerAvatarAsset: selectedCharacter.characterVisuals!.idle,
         opponentAvatarAsset: opponentCharacter.characterVisuals!.idle,
         onCancel: state.mode == BattleMode.online
-            ? controller.cancelMatchmaking
+            ? (state.privateRoomCode != null
+                  ? controller.cancelPrivateRoom
+                  : controller.cancelMatchmaking)
             : null,
       );
     }
@@ -469,6 +472,9 @@ class _PvpPageState extends ConsumerState<PvpPage> {
             controller: controller,
             matchmakingMode: OnlineMatchmakingMode.ranked,
           );
+        },
+        onStartPrivateRoom: () async {
+          await _showPrivateRoomDialog(context: context, controller: controller);
         },
       );
     }
@@ -679,6 +685,47 @@ class _PvpPageState extends ConsumerState<PvpPage> {
     controller.setMode(BattleMode.online);
     controller.setOnlineMatchmakingMode(matchmakingMode);
     await controller.startBattle();
+  }
+
+  Future<void> _showPrivateRoomDialog({
+    required BuildContext context,
+    required BattleController controller,
+  }) async {
+    final String? action = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return const _PrivateRoomActionDialog();
+      },
+    );
+    if (action == null || !context.mounted) {
+      return;
+    }
+    try {
+      await ref.read(gameEconomyProvider.notifier).syncAuthoritativeLoadout();
+    } catch (_) {
+      // Ignored: Non-fatal loadout sync failure should not block room setup.
+    }
+    controller.setMode(BattleMode.online);
+    controller.setOnlineMatchmakingMode(OnlineMatchmakingMode.privateRoom);
+
+    if (action == 'create') {
+      await controller.createPrivateRoom();
+      return;
+    }
+
+    if (!context.mounted) {
+      return;
+    }
+    final String? code = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return const _PrivateRoomCodeDialog();
+      },
+    );
+    if (code == null || !context.mounted) {
+      return;
+    }
+    await controller.joinPrivateRoom(code);
   }
 
   Future<void> _showPauseDialog({
@@ -895,12 +942,14 @@ class _ArenaLoadingView extends StatelessWidget {
     required this.opponentAvatarAsset,
     this.onCancel,
     this.message,
+    this.roomCode,
   });
 
   final BattleMode mode;
   final String playerAvatarAsset;
   final String opponentAvatarAsset;
   final String? message;
+  final String? roomCode;
   final Future<void> Function()? onCancel;
 
   @override
@@ -982,6 +1031,33 @@ class _ArenaLoadingView extends StatelessWidget {
                   height: 1.4,
                 ),
               ),
+              if (roomCode != null && roomCode!.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 14),
+                Semantics(
+                  label: 'Kode room privat',
+                  value: roomCode,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF17233F),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFF2FAE7D)),
+                    ),
+                    child: Text(
+                      roomCode!,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: const Color(0xFF7ED0AC),
+                        fontSize: 30,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 6,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 22),
               const SizedBox(
                 width: 28,
@@ -999,13 +1075,290 @@ class _ArenaLoadingView extends StatelessWidget {
                   onPressed: onCancel,
                   icon: const Icon(Icons.close_rounded, size: 18),
                   label: Text(
-                    'Batalkan pencarian',
+                    roomCode != null && roomCode!.isNotEmpty
+                        ? 'Tutup room'
+                        : 'Batalkan pencarian',
                     style: GoogleFonts.dmSans(fontWeight: FontWeight.w800),
                   ),
                 ),
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PrivateRoomActionDialog extends StatelessWidget {
+  const _PrivateRoomActionDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF8EC),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFDCD5C7)),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: const Color(0xFF17233F).withAlpha(55),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: const Color(0xFF2FAE7D).withAlpha(24),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: const Icon(
+                Icons.meeting_room_rounded,
+                color: Color(0xFF2FAE7D),
+                size: 30,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Room Privat',
+              style: GoogleFonts.fredoka(
+                color: const Color(0xFF17233F),
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Main eksklusif bareng temanmu. Room otomatis batal '
+              'kalau battle tidak dimulai dalam 15 menit.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.dmSans(
+                color: const Color(0xFF66708A),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton.icon(
+                key: const ValueKey<String>('private-room-create'),
+                onPressed: () => Navigator.of(context).pop('create'),
+                icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF2FAE7D),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                label: Text(
+                  'Buat Room Baru',
+                  style: GoogleFonts.dmSans(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: OutlinedButton.icon(
+                key: const ValueKey<String>('private-room-join'),
+                onPressed: () => Navigator.of(context).pop('join'),
+                icon: const Icon(Icons.login_rounded, size: 18),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF2878F0),
+                  side: const BorderSide(color: Color(0xFF9FC1F5)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                label: Text(
+                  'Gabung dengan Kode',
+                  style: GoogleFonts.dmSans(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PrivateRoomCodeDialog extends StatefulWidget {
+  const _PrivateRoomCodeDialog();
+
+  @override
+  State<_PrivateRoomCodeDialog> createState() => _PrivateRoomCodeDialogState();
+}
+
+class _PrivateRoomCodeDialogState extends State<_PrivateRoomCodeDialog> {
+  late final TextEditingController _codeController = TextEditingController();
+  bool _hasError = false;
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final String code = _codeController.text.trim().toUpperCase();
+    if (code.length != 6) {
+      setState(() => _hasError = true);
+      return;
+    }
+    Navigator.of(context).pop(code);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF8EC),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFDCD5C7)),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: const Color(0xFF17233F).withAlpha(55),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Text(
+              'Gabung Room Privat',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.fredoka(
+                color: const Color(0xFF17233F),
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Masukkan 6 karakter kode dari pembuat room.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.dmSans(
+                color: const Color(0xFF66708A),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 18),
+            TextField(
+              controller: _codeController,
+              autofocus: true,
+              maxLength: 6,
+              textCapitalization: TextCapitalization.characters,
+              inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
+              ],
+              onChanged: (_) {
+                if (_hasError) {
+                  setState(() => _hasError = false);
+                }
+              },
+              onSubmitted: (_) => _submit(),
+              textAlign: TextAlign.center,
+              cursorColor: const Color(0xFF2878F0),
+              style: GoogleFonts.jetBrainsMono(
+                color: const Color(0xFF17233F),
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 8,
+              ),
+              decoration: InputDecoration(
+                counterText: '',
+                errorText: _hasError ? 'Kode harus 6 karakter.' : null,
+                filled: true,
+                fillColor: Colors.white,
+                hintText: 'ABC123',
+                hintStyle: GoogleFonts.jetBrainsMono(
+                  color: const Color(0xFFB4BAC6),
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 8,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide(
+                    color: _hasError
+                        ? const Color(0xFFF05E5E)
+                        : const Color(0xFFD5DAE3),
+                    width: 2,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF2878F0),
+                    width: 2,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton.icon(
+                key: const ValueKey<String>('private-room-submit'),
+                onPressed: _submit,
+                icon: const Icon(Icons.sports_esports_rounded, size: 20),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF2878F0),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                label: Text(
+                  'Gabung Sekarang',
+                  style: GoogleFonts.dmSans(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF66708A),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: Text(
+                  'Batal',
+                  style: GoogleFonts.dmSans(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -32,12 +32,18 @@ class BattleController extends StateNotifier<BattleState> {
   static const int winsToWin = 2;
   late final StreamSubscription<OnlineBattleUpdate> _onlineUpdatesSubscription;
   Timer? _roundTimer;
+  Timer? _privateRoomTimer;
+  String? _activePrivateRoomCode;
   bool _roundClockPaused = false;
   bool _acceptOnlineUpdates = false;
   bool _matchmakingCancelled = false;
   String? _preparedQuestionId;
   final Map<String, BattleQuestion> _onlineQuestionSnapshots =
       <String, BattleQuestion>{};
+
+  /// Private rooms auto-expire when the battle does not start in time.
+  /// Kept in sync with the backend's private room TTL (15 minutes).
+  static const Duration privateRoomTimeout = Duration(minutes: 15);
 
   Future<void> reconnectIfActive() async {
     try {
@@ -96,10 +102,15 @@ class BattleController extends StateNotifier<BattleState> {
     if (state.isMatchActive || state.isLoading) {
       return;
     }
+    final String label = switch (mode) {
+      OnlineMatchmakingMode.bot => 'Bot',
+      OnlineMatchmakingMode.ranked => 'Ranked',
+      OnlineMatchmakingMode.privateRoom => 'Room Privat',
+      OnlineMatchmakingMode.casual => 'Casual',
+    };
     state = state.copyWith(
       onlineMatchmakingMode: mode,
-      statusMessage:
-          'Mode ${mode == OnlineMatchmakingMode.bot ? 'Bot' : mode == OnlineMatchmakingMode.ranked ? 'Ranked' : 'Casual'} dipilih.',
+      statusMessage: 'Mode $label dipilih.',
       clearErrorMessage: true,
     );
   }
@@ -241,6 +252,136 @@ class BattleController extends StateNotifier<BattleState> {
       isLoading: false,
       statusMessage: 'Pencarian lawan dibatalkan.',
       clearErrorMessage: true,
+    );
+  }
+
+  /// Creates a private room and waits for an opponent to join with the
+  /// returned code. The room auto-expires after [privateRoomTimeout].
+  Future<void> createPrivateRoom() async {
+    if (state.isLoading) {
+      return;
+    }
+    _preparedQuestionId = null;
+    _resetBattleTimers();
+    _acceptOnlineUpdates = true;
+    state = state.copyWith(
+      isLoading: true,
+      onlineMatchmakingMode: OnlineMatchmakingMode.privateRoom,
+      statusMessage: 'Membuat room privat...',
+      clearErrorMessage: true,
+      clearPrivateRoomCode: true,
+    );
+
+    try {
+      final reservation = await _onlineRepository.createPrivateRoom();
+      _activePrivateRoomCode = reservation.code;
+      _startPrivateRoomTimeout();
+      state = state.copyWith(
+        isLoading: true,
+        battleTarget: reservation.target,
+        privateRoomCode: reservation.code,
+        statusMessage:
+            'Bagikan kode ${reservation.code} ke temanmu. '
+            'Room otomatis batal dalam 15 menit.',
+        clearErrorMessage: true,
+      );
+    } catch (error) {
+      _acceptOnlineUpdates = false;
+      state = state.copyWith(
+        isLoading: false,
+        phase: BattlePhase.arenaMenu,
+        errorMessage: _battleStartError(error),
+      );
+    }
+  }
+
+  /// Joins an existing private room by code; the server starts the battle
+  /// for both players as soon as the seat is consumed.
+  Future<void> joinPrivateRoom(String rawCode) async {
+    final String code = rawCode.trim().toUpperCase();
+    if (state.isLoading) {
+      return;
+    }
+    if (code.length != 6) {
+      state = state.copyWith(
+        errorMessage: 'Kode room harus 6 karakter.',
+      );
+      return;
+    }
+    _preparedQuestionId = null;
+    _resetBattleTimers();
+    _acceptOnlineUpdates = true;
+    state = state.copyWith(
+      isLoading: true,
+      onlineMatchmakingMode: OnlineMatchmakingMode.privateRoom,
+      statusMessage: 'Gabung ke room $code...',
+      clearErrorMessage: true,
+      clearPrivateRoomCode: true,
+    );
+
+    try {
+      await _onlineRepository.joinPrivateRoom(code: code);
+      // Success alone does not start the battle; the incoming
+      // match_found + game_state_update events take over from here.
+      _activePrivateRoomCode = code;
+      _startPrivateRoomTimeout();
+    } catch (error) {
+      _acceptOnlineUpdates = false;
+      state = state.copyWith(
+        isLoading: false,
+        phase: BattlePhase.arenaMenu,
+        errorMessage: _battleStartError(error),
+      );
+    }
+  }
+
+  Future<void> cancelPrivateRoom() async {
+    if (!state.isLoading) {
+      return;
+    }
+    final String? code = _activePrivateRoomCode;
+    _privateRoomTimer?.cancel();
+    _privateRoomTimer = null;
+    _activePrivateRoomCode = null;
+    _acceptOnlineUpdates = false;
+    if (code != null) {
+      await _onlineRepository.cancelPrivateRoom(code: code);
+    }
+    state = state.copyWith(
+      phase: BattlePhase.arenaMenu,
+      isLoading: false,
+      statusMessage: 'Room privat ditutup.',
+      clearErrorMessage: true,
+      clearPrivateRoomCode: true,
+    );
+  }
+
+  void _startPrivateRoomTimeout() {
+    _privateRoomTimer?.cancel();
+    _privateRoomTimer = Timer(privateRoomTimeout, () {
+      unawaited(_expirePrivateRoom());
+    });
+  }
+
+  Future<void> _expirePrivateRoom() async {
+    if (_activePrivateRoomCode == null || !state.isLoading) {
+      return;
+    }
+    final String? code = _activePrivateRoomCode;
+    _activePrivateRoomCode = null;
+    _acceptOnlineUpdates = false;
+    if (code != null) {
+      try {
+        await _onlineRepository.cancelPrivateRoom(code: code);
+      } catch (_) {}
+    }
+    state = state.copyWith(
+      phase: BattlePhase.arenaMenu,
+      isLoading: false,
+      statusMessage:
+          'Room privat kedaluwarsa karena tidak dimulai dalam 15 menit.',
+      clearErrorMessage: true,
+      clearPrivateRoomCode: true,
     );
   }
 
@@ -431,6 +572,7 @@ class BattleController extends StateNotifier<BattleState> {
         );
         break;
       case MatchFoundUpdate():
+        _cancelPrivateRoomWaiting();
         state = state.copyWith(
           opponentName: _firstName(
             update.opponentDisplayName,
@@ -457,6 +599,7 @@ class BattleController extends StateNotifier<BattleState> {
         if (onlinePhase == BattlePhase.roundBreak) {
           _resetBattleTimers();
         }
+        _cancelPrivateRoomWaiting();
         if (_preparedQuestionId != null &&
             !update.availableQuestions.any(
               (question) => question.id == _preparedQuestionId,
@@ -577,10 +720,47 @@ class BattleController extends StateNotifier<BattleState> {
           );
         }
         break;
+      case PrivateRoomCreatedUpdate():
+        // The ack from createPrivateRoom already drives the waiting state;
+        // this event only confirms it server-side.
+        break;
+      case PrivateRoomCancelledUpdate():
+        if (_activePrivateRoomCode != null && state.isLoading) {
+          _privateRoomTimer?.cancel();
+          _privateRoomTimer = null;
+          _activePrivateRoomCode = null;
+          _acceptOnlineUpdates = false;
+          state = state.copyWith(
+            phase: BattlePhase.arenaMenu,
+            isLoading: false,
+            statusMessage: update.reason == 'expired'
+                ? 'Room privat kedaluwarsa karena tidak dimulai dalam 15 menit.'
+                : 'Room privat ditutup.',
+            clearErrorMessage: true,
+            clearPrivateRoomCode: true,
+          );
+        }
+        break;
       case BattleErrorUpdate():
+        if (_activePrivateRoomCode != null && state.isLoading) {
+          final String? code = _activePrivateRoomCode;
+          _activePrivateRoomCode = null;
+          _privateRoomTimer?.cancel();
+          _privateRoomTimer = null;
+          _acceptOnlineUpdates = false;
+          if (code != null) {
+            unawaited(_onlineRepository.cancelPrivateRoom(code: code));
+          }
+        }
         state = state.copyWith(isLoading: false, errorMessage: update.message);
         break;
     }
+  }
+
+  void _cancelPrivateRoomWaiting() {
+    _privateRoomTimer?.cancel();
+    _privateRoomTimer = null;
+    _activePrivateRoomCode = null;
   }
 
   BattleQuestion? _findQuestionById(String questionId) {
@@ -684,5 +864,7 @@ class BattleController extends StateNotifier<BattleState> {
 
   void _resetBattleTimers() {
     _resetRoundTimer();
+    _privateRoomTimer?.cancel();
+    _privateRoomTimer = null;
   }
 }
