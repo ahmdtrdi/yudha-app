@@ -55,18 +55,31 @@ void main() {
     WidgetTester tester,
   ) async {
     final _FakeUserProfileRepository repository = _FakeUserProfileRepository();
-    await _pumpProfilePage(tester, repository: repository);
+    await _pumpProfilePage(
+      tester,
+      repository: repository,
+      surfaceSize: const Size(411, 700),
+    );
 
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
 
     await tester.tap(find.byKey(const Key('edit-profile-button')));
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    expect(find.byKey(const Key('profile-edit-sheet')), findsOneWidget);
+    expect(find.text('Atur profilmu'), findsOneWidget);
+    expect(find.text('IDENTITAS'), findsOneWidget);
+    expect(find.text('TARGET BELAJAR'), findsOneWidget);
+    expect(find.byKey(const Key('profile-target-cpns')), findsOneWidget);
+    expect(find.byKey(const Key('profile-target-bumn')), findsOneWidget);
 
     await tester.enterText(
       find.byKey(const Key('profile-full-name-field')),
       'Raka Baru',
     );
-    await tester.tap(find.text('BUMN'));
+    await tester.tap(find.byKey(const Key('profile-target-bumn')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('save-profile-button')));
     await tester.pumpAndSettle();
@@ -74,15 +87,51 @@ void main() {
     expect(repository.lastUpdate?.fullName, 'Raka Baru');
     expect(repository.lastUpdate?.target, ProfileTarget.bumn);
     expect(find.text('Raka Baru'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('confirms before discarding edited profile fields', (
+    WidgetTester tester,
+  ) async {
+    final _FakeUserProfileRepository repository = _FakeUserProfileRepository();
+    await _pumpProfilePage(tester, repository: repository);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('edit-profile-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('profile-full-name-field')),
+      'Perubahan sementara',
+    );
+
+    await tester.tap(find.byKey(const Key('close-profile-editor')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('discard-profile-dialog')), findsOneWidget);
+    expect(find.text('Buang perubahan?'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('continue-profile-editing')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('profile-edit-sheet')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('close-profile-editor')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('discard-profile-changes')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('profile-edit-sheet')), findsNothing);
+    expect(repository.lastUpdate, isNull);
+    expect(tester.takeException(), isNull);
   });
 }
 
 Future<void> _pumpProfilePage(
   WidgetTester tester, {
   _FakeUserProfileRepository? repository,
+  Size surfaceSize = const Size(430, 1200),
 }) async {
   tester.view.devicePixelRatio = 1;
-  tester.view.physicalSize = const Size(430, 1200);
+  tester.view.physicalSize = surfaceSize;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
 
