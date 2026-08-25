@@ -3,6 +3,8 @@ part of '../pvp_page.dart';
 class _ResultSection extends StatefulWidget {
   const _ResultSection({
     required this.state,
+    required this.soundEnabled,
+    required this.hapticsEnabled,
     required this.onClaimReward,
     required this.onPractice,
     required this.onReplay,
@@ -17,6 +19,8 @@ class _ResultSection extends StatefulWidget {
   static const Color _rivalCoral = Color(0xFFF05E5E);
 
   final BattleState state;
+  final bool soundEnabled;
+  final bool hapticsEnabled;
   final VoidCallback onClaimReward;
   final ValueChanged<String> onPractice;
   final VoidCallback onReplay;
@@ -30,6 +34,9 @@ class _ResultSection extends StatefulWidget {
 class _ResultSectionState extends State<_ResultSection>
     with SingleTickerProviderStateMixin {
   late final AnimationController _confettiController;
+  late final ArenaAudioController _sfx = ArenaAudioController.sfxOnly(
+    enabled: widget.soundEnabled,
+  );
   final List<_ConfettiParticle> _particles = <_ConfettiParticle>[];
   Timer? _hapticTimer;
 
@@ -41,15 +48,21 @@ class _ResultSectionState extends State<_ResultSection>
       duration: const Duration(milliseconds: 2400),
     );
 
-    if (widget.state.outcome == BattleOutcome.win) {
-      _initConfetti();
-      _confettiController.forward();
-      try {
-        HapticFeedback.mediumImpact();
+    final GameHaptics haptics = GameHaptics(widget.hapticsEnabled);
+    switch (widget.state.outcome) {
+      case BattleOutcome.win:
+        _initConfetti();
+        _confettiController.forward();
+        haptics.medium();
         _hapticTimer = Timer(const Duration(milliseconds: 160), () {
-          if (mounted) HapticFeedback.mediumImpact();
+          if (mounted) haptics.medium();
         });
-      } catch (_) {}
+        _sfx.playVictoryStinger();
+      case BattleOutcome.lose:
+        haptics.heavy();
+        _sfx.playDefeatStinger();
+      case BattleOutcome.inProgress || BattleOutcome.draw:
+        break;
     }
   }
 
@@ -85,6 +98,7 @@ class _ResultSectionState extends State<_ResultSection>
   @override
   void dispose() {
     _hapticTimer?.cancel();
+    unawaited(_sfx.dispose());
     _confettiController.dispose();
     super.dispose();
   }

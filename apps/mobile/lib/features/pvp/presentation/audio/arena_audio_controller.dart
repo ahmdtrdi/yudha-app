@@ -7,7 +7,17 @@ import 'package:audioplayers/audioplayers.dart';
 /// Audio failures are deliberately non-fatal: an unavailable audio device or
 /// platform plugin must never interrupt the battle loop.
 class ArenaAudioController {
-  ArenaAudioController({required bool enabled}) : _enabled = enabled;
+  ArenaAudioController({required bool enabled})
+    : this._(enabled: enabled, sfxOnly: false);
+
+  /// Sound-effects-only variant for surfaces outside the live battle loop
+  /// (question sheet, result screen). No music is ever prepared or played.
+  ArenaAudioController.sfxOnly({required bool enabled})
+    : this._(enabled: enabled, sfxOnly: true);
+
+  ArenaAudioController._({required bool enabled, required bool sfxOnly})
+    : _enabled = enabled,
+      _sfxOnly = sfxOnly;
 
   static const String _musicAsset = 'audio/arena_loop.wav';
   static const List<String> _preloadAssets = <String>[
@@ -18,6 +28,11 @@ class ArenaAudioController {
     'audio/projectile.wav',
     'audio/impact.wav',
     'audio/heal.wav',
+    'audio/answer_correct.wav',
+    'audio/answer_wrong.wav',
+    'audio/tick.wav',
+    'audio/victory_stinger.wav',
+    'audio/defeat_stinger.wav',
   ];
 
   final AudioPlayer _musicPlayer = AudioPlayer(playerId: 'pvp_arena_music');
@@ -27,6 +42,7 @@ class ArenaAudioController {
   );
 
   bool _enabled;
+  final bool _sfxOnly;
   bool _disposed = false;
   bool _musicPrepared = false;
   bool _musicPaused = false;
@@ -34,7 +50,7 @@ class ArenaAudioController {
   Future<void>? _startOperation;
 
   Future<void> start() {
-    if (!_enabled || _disposed) {
+    if (!_enabled || _disposed || _sfxOnly) {
       return Future<void>.value();
     }
     return _startOperation ??= _prepareAndPlayMusic();
@@ -53,7 +69,7 @@ class ArenaAudioController {
   }
 
   Future<void> pauseMusic() async {
-    if (_disposed) {
+    if (_disposed || _sfxOnly) {
       return;
     }
     _musicPaused = true;
@@ -64,7 +80,7 @@ class ArenaAudioController {
   }
 
   Future<void> resumeMusic() async {
-    if (_disposed || !_enabled) {
+    if (_disposed || !_enabled || _sfxOnly) {
       return;
     }
     _musicPaused = false;
@@ -90,6 +106,19 @@ class ArenaAudioController {
   void playImpact() => _playEffect('audio/impact.wav', volume: 0.38);
 
   void playHeal() => _playEffect('audio/heal.wav', volume: 0.34);
+
+  void playAnswerCorrect() =>
+      _playEffect('audio/answer_correct.wav', volume: 0.36);
+
+  void playAnswerWrong() => _playEffect('audio/answer_wrong.wav', volume: 0.34);
+
+  void playTickdown() => _playEffect('audio/tick.wav', volume: 0.26);
+
+  void playVictoryStinger() =>
+      _playEffect('audio/victory_stinger.wav', volume: 0.44);
+
+  void playDefeatStinger() =>
+      _playEffect('audio/defeat_stinger.wav', volume: 0.4);
 
   Future<void> dispose() async {
     if (_disposed) {
