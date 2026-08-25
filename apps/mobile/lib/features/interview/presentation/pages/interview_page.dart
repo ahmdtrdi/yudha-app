@@ -161,8 +161,9 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
   void _showHistory(InterviewState state) {
     showModalBottomSheet<void>(
       context: context,
-      showDragHandle: true,
-      backgroundColor: AppColors.scholarCream,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
@@ -171,8 +172,8 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
           currentSessionId: state.sessionId,
           config: widget.config,
           onOpenSession: (InterviewSessionSummaryRecord session) {
-            Navigator.of(context).pop();
             if (session.status == 'active') {
+              Navigator.of(context).pop();
               _continueSession(session, state.sessionId);
             } else {
               _showSessionDetail(session.sessionId);
@@ -231,9 +232,9 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
   void _showSessionDetail(String sessionId) {
     showModalBottomSheet<void>(
       context: context,
-      showDragHandle: true,
       isScrollControlled: true,
-      backgroundColor: AppColors.scholarCream,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
@@ -2740,6 +2741,25 @@ String _resultScoreLabel(double score) {
   return 'Perlu lebih banyak latihan';
 }
 
+class _InterviewSheetHandle extends StatelessWidget {
+  const _InterviewSheetHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        key: const ValueKey<String>('interview-sheet-handle'),
+        width: 46,
+        height: 5,
+        decoration: BoxDecoration(
+          color: AppColors.warriorNavy.withAlpha(35),
+          borderRadius: BorderRadius.circular(999),
+        ),
+      ),
+    );
+  }
+}
+
 class _SessionsSheet extends ConsumerWidget {
   const _SessionsSheet({
     required this.currentSessionId,
@@ -2756,314 +2776,427 @@ class _SessionsSheet extends ConsumerWidget {
     final AsyncValue<List<InterviewSessionSummaryRecord>> sessionsAsync = ref
         .watch(interviewSessionsProvider);
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        child: sessionsAsync.when(
-          data: (List<InterviewSessionSummaryRecord> sessions) {
-            if (sessions.isEmpty) {
-              return const Center(
-                child: Text(
-                  'Belum ada sesi interview tersimpan.',
-                  style: TextStyle(
-                    color: AppColors.textMuted,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              );
-            }
+    return FractionallySizedBox(
+      heightFactor: 0.72,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: AppColors.scholarCream,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+            child: sessionsAsync.when(
+              data: (List<InterviewSessionSummaryRecord> sessions) {
+                if (sessions.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      'Belum ada sesi interview tersimpan.',
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  );
+                }
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                const Text(
-                  'Riwayat Interview',
-                  style: TextStyle(
-                    color: AppColors.warriorNavy,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Sesi aktif baru: ${config.companyName}',
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: ListView.separated(
-                    itemCount: sessions.length,
-                    separatorBuilder: (BuildContext context, int index) =>
-                        const SizedBox(height: 10),
-                    itemBuilder: (BuildContext context, int index) {
-                      final InterviewSessionSummaryRecord session =
-                          sessions[index];
-                      final bool isCurrent =
-                          session.sessionId == currentSessionId;
-                      final String title = _humanizeCompanyId(
-                        session.companyId,
-                      );
-                      final String summaryText = session.finalSummary == null
-                          ? 'Belum diselesaikan'
-                          : 'Skor ${session.finalSummary!.overallScore.toStringAsFixed(1)}';
-
-                      return Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(18),
-                          onTap: () => onOpenSession(session),
-                          child: Ink(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(
-                                color: isCurrent
-                                    ? AppColors.levelUpTeal
-                                    : AppColors.warriorNavy.withAlpha(24),
-                                width: isCurrent ? 1.6 : 1,
-                              ),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Container(
-                                  width: 42,
-                                  height: 42,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.warriorNavy.withAlpha(12),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    session.status == 'completed'
-                                        ? Icons.task_alt_rounded
-                                        : Icons.history_rounded,
-                                    color: session.status == 'completed'
-                                        ? AppColors.levelUpTeal
-                                        : AppColors.warriorNavy,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: <Widget>[
-                                      Row(
-                                        children: <Widget>[
-                                          Expanded(
-                                            child: Text(
-                                              title,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                color: AppColors.textStrong,
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w800,
-                                              ),
-                                            ),
-                                          ),
-                                          if (isCurrent)
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 4,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: AppColors.levelUpTeal
-                                                    .withAlpha(18),
-                                                borderRadius:
-                                                    BorderRadius.circular(999),
-                                              ),
-                                              child: const Text(
-                                                'Aktif',
-                                                style: TextStyle(
-                                                  color: AppColors.levelUpTeal,
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w800,
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${session.targetRole} - ${_humanizeInterviewMode(session.mode)}',
-                                        style: const TextStyle(
-                                          color: AppColors.textMuted,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        '$summaryText  •  ${_sessionTimestamp(session.updatedAt)}',
-                                        style: const TextStyle(
-                                          color: AppColors.textStrong,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                const Icon(
-                                  Icons.chevron_right_rounded,
-                                  color: AppColors.textMuted,
-                                ),
-                              ],
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const _InterviewSheetHandle(),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: <Widget>[
+                        const Expanded(
+                          child: Text(
+                            'Riwayat Interview',
+                            style: TextStyle(
+                              color: AppColors.warriorNavy,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
                         ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            );
-          },
-          error: (Object error, StackTrace stackTrace) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  const Text(
-                    'Riwayat sesi belum bisa dimuat.',
-                    style: TextStyle(
-                      color: AppColors.textStrong,
-                      fontWeight: FontWeight.w700,
+                        IconButton.filledTonal(
+                          key: const ValueKey<String>('session-history-close'),
+                          tooltip: 'Tutup riwayat',
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close_rounded, size: 20),
+                        ),
+                      ],
                     ),
+                    Text(
+                      'Sesi aktif baru: ${config.companyName}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: ListView.separated(
+                        key: const ValueKey<String>('interview-session-list'),
+                        padding: const EdgeInsets.fromLTRB(1, 0, 1, 8),
+                        itemCount: sessions.length,
+                        separatorBuilder: (BuildContext context, int index) =>
+                            const SizedBox(height: 10),
+                        itemBuilder: (BuildContext context, int index) {
+                          final InterviewSessionSummaryRecord session =
+                              sessions[index];
+                          final bool isCurrent =
+                              session.sessionId == currentSessionId;
+                          final String title = _humanizeCompanyId(
+                            session.companyId,
+                          );
+                          final String summaryText =
+                              session.finalSummary == null
+                              ? 'Belum diselesaikan'
+                              : 'Skor ${session.finalSummary!.overallScore.toStringAsFixed(1)}';
+
+                          return Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              key: ValueKey<String>(
+                                'interview-session-${session.sessionId}',
+                              ),
+                              borderRadius: BorderRadius.circular(18),
+                              onTap: () => onOpenSession(session),
+                              child: Ink(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: isCurrent
+                                      ? const Color(0xFFE4F7F5)
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                    color: isCurrent
+                                        ? AppColors.levelUpTeal
+                                        : AppColors.warriorNavy.withAlpha(24),
+                                    width: isCurrent ? 1.6 : 1,
+                                  ),
+                                  boxShadow: const <BoxShadow>[
+                                    BoxShadow(
+                                      color: Color(0xFFD9DEE7),
+                                      blurRadius: 0,
+                                      offset: Offset(0, 5),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                    Container(
+                                      width: 42,
+                                      height: 42,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.warriorNavy.withAlpha(
+                                          12,
+                                        ),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        session.status == 'completed'
+                                            ? Icons.task_alt_rounded
+                                            : Icons.history_rounded,
+                                        color: session.status == 'completed'
+                                            ? AppColors.levelUpTeal
+                                            : AppColors.warriorNavy,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: <Widget>[
+                                          Row(
+                                            children: <Widget>[
+                                              Expanded(
+                                                child: Text(
+                                                  title,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    color: AppColors.textStrong,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w800,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (isCurrent)
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 4,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: AppColors.levelUpTeal
+                                                        .withAlpha(18),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          999,
+                                                        ),
+                                                  ),
+                                                  child: const Text(
+                                                    'Aktif',
+                                                    style: TextStyle(
+                                                      color:
+                                                          AppColors.levelUpTeal,
+                                                      fontSize: 10,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${session.targetRole} • ${_humanizeInterviewMode(session.mode)}',
+                                            style: const TextStyle(
+                                              color: AppColors.textMuted,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            '$summaryText  •  ${_sessionTimestamp(session.updatedAt)}',
+                                            style: const TextStyle(
+                                              color: AppColors.textStrong,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Icon(
+                                      Icons.chevron_right_rounded,
+                                      color: AppColors.textMuted,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+              error: (Object error, StackTrace stackTrace) {
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      const Text(
+                        'Riwayat sesi belum bisa dimuat.',
+                        style: TextStyle(
+                          color: AppColors.textStrong,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () =>
+                            ref.invalidate(interviewSessionsProvider),
+                        child: const Text('Muat ulang'),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () => ref.invalidate(interviewSessionsProvider),
-                    child: const Text('Muat ulang'),
-                  ),
-                ],
-              ),
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-class _SessionDetailSheet extends ConsumerWidget {
+class _SessionDetailSheet extends ConsumerStatefulWidget {
   const _SessionDetailSheet({required this.sessionId});
 
   final String sessionId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SessionDetailSheet> createState() =>
+      _SessionDetailSheetState();
+}
+
+class _SessionDetailSheetState extends ConsumerState<_SessionDetailSheet> {
+  final ScrollController _transcriptController = ScrollController();
+
+  @override
+  void dispose() {
+    _transcriptController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final AsyncValue<InterviewSessionDetailRecord> detailAsync = ref.watch(
-      interviewSessionDetailProvider(sessionId),
+      interviewSessionDetailProvider(widget.sessionId),
     );
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        child: detailAsync.when(
-          data: (InterviewSessionDetailRecord detail) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  _humanizeCompanyId(detail.companyId),
-                  style: const TextStyle(
-                    color: AppColors.warriorNavy,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${detail.targetRole} - ${_humanizeInterviewMode(detail.mode)}',
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (detail.finalSummary != null) ...<Widget>[
-                  const SizedBox(height: 10),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.levelUpTeal.withAlpha(16),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: AppColors.levelUpTeal.withAlpha(60),
-                      ),
-                    ),
-                    child: Text(
-                      'Skor akhir ${detail.finalSummary!.overallScore.toStringAsFixed(1)} dari ${detail.finalSummary!.answerCount} jawaban.',
-                      style: const TextStyle(
-                        color: AppColors.textStrong,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 14),
-                Expanded(
-                  child: detail.messages.isEmpty
-                      ? const Center(
+    return FractionallySizedBox(
+      heightFactor: 0.9,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: AppColors.scholarCream,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+            child: detailAsync.when(
+              data: (InterviewSessionDetailRecord detail) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const _InterviewSheetHandle(),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: <Widget>[
+                        IconButton.filledTonal(
+                          key: const ValueKey<String>('session-detail-back'),
+                          tooltip: 'Kembali ke riwayat',
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                        ),
+                        const SizedBox(width: 8),
+                        const Expanded(
                           child: Text(
-                            'Transkrip sesi masih kosong.',
+                            'Detail sesi',
                             style: TextStyle(
-                              color: AppColors.textMuted,
-                              fontWeight: FontWeight.w600,
+                              color: AppColors.warriorNavy,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
-                        )
-                      : ListView.separated(
-                          itemCount: detail.messages.length,
-                          separatorBuilder: (BuildContext context, int index) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (BuildContext context, int index) {
-                            final InterviewMessage message =
-                                detail.messages[index];
-                            return _SessionTranscriptTile(message: message);
-                          },
                         ),
-                ),
-              ],
-            );
-          },
-          error: (Object error, StackTrace stackTrace) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  const Text(
-                    'Detail sesi belum bisa dimuat.',
-                    style: TextStyle(
-                      color: AppColors.textStrong,
-                      fontWeight: FontWeight.w700,
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () => ref.invalidate(
-                      interviewSessionDetailProvider(sessionId),
+                    const SizedBox(height: 12),
+                    Text(
+                      _humanizeCompanyId(detail.companyId),
+                      style: const TextStyle(
+                        color: AppColors.warriorNavy,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
-                    child: const Text('Muat ulang'),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${detail.targetRole} - ${_humanizeInterviewMode(detail.mode)}',
+                      style: const TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (detail.finalSummary != null) ...<Widget>[
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.levelUpTeal.withAlpha(16),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: AppColors.levelUpTeal.withAlpha(60),
+                          ),
+                        ),
+                        child: Text(
+                          'Skor akhir ${detail.finalSummary!.overallScore.toStringAsFixed(1)} dari ${detail.finalSummary!.answerCount} jawaban.',
+                          style: const TextStyle(
+                            color: AppColors.textStrong,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    Expanded(
+                      child: detail.messages.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'Transkrip sesi masih kosong.',
+                                style: TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            )
+                          : Scrollbar(
+                              key: const ValueKey<String>(
+                                'interview-session-scrollbar',
+                              ),
+                              controller: _transcriptController,
+                              thumbVisibility: true,
+                              radius: const Radius.circular(999),
+                              thickness: 4,
+                              child: ListView.separated(
+                                key: const ValueKey<String>(
+                                  'interview-session-transcript',
+                                ),
+                                controller: _transcriptController,
+                                padding: const EdgeInsets.only(right: 10),
+                                itemCount: detail.messages.length,
+                                separatorBuilder:
+                                    (BuildContext context, int index) =>
+                                        const SizedBox(height: 10),
+                                itemBuilder: (BuildContext context, int index) {
+                                  final InterviewMessage message =
+                                      detail.messages[index];
+                                  return _SessionTranscriptTile(
+                                    message: message,
+                                  );
+                                },
+                              ),
+                            ),
+                    ),
+                  ],
+                );
+              },
+              error: (Object error, StackTrace stackTrace) {
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      const Text(
+                        'Detail sesi belum bisa dimuat.',
+                        style: TextStyle(
+                          color: AppColors.textStrong,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => ref.invalidate(
+                          interviewSessionDetailProvider(widget.sessionId),
+                        ),
+                        child: const Text('Muat ulang'),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+            ),
+          ),
         ),
       ),
     );
@@ -3081,13 +3214,22 @@ class _SessionTranscriptTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isCandidate ? const Color(0xFFE5F7F5) : Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: isCandidate
               ? AppColors.levelUpTeal.withAlpha(36)
               : AppColors.warriorNavy.withAlpha(20),
         ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: isCandidate
+                ? const Color(0xFFAADDD8)
+                : const Color(0xFFD9DEE7),
+            blurRadius: 0,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3139,8 +3281,9 @@ class _SessionTranscriptTile extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.scholarCream,
+                color: const Color(0xFFFFEBD9),
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFFC58D)),
               ),
               child: Text(
                 'Catatan untuk jawabanmu: ${message.evaluation!.coachNote!}',

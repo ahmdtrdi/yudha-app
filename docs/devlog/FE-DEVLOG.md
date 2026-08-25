@@ -2505,3 +2505,20 @@
 ### The Tech Debt
 - Result dimensions are limited to the six scores currently returned by the backend; richer trend comparisons require historical result data.
 
+## 2026-08-25 - Interview Session Sheets Redesign
+
+### The Change
+- Restyled the Interview history sheet with a visible drag handle, explicit close action, taller responsive surface, and clay session cards.
+- Redesigned session details with a persistent back action, blue score summary, distinct transcript cards, coaching-note treatment, and an always-visible transcript scrollbar.
+- Kept the history sheet beneath completed-session details so returning from a detail restores the session list.
+
+### The Reasoning
+- Session history now follows the same visual language as the redesigned Interview flow, while explicit navigation and scroll affordances make long archived sessions easier to understand and exit.
+
+### Verification
+- Focused Dart analysis completed with no issues.
+- Three focused Interview widget tests passed, including the history-to-detail flow, scrollbar presence, and return-to-history behavior.
+
+### The Tech Debt
+- Session timestamps remain compact relative labels; more detailed date grouping can be added if the history volume grows.
+

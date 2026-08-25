@@ -205,6 +205,56 @@ void main() {
       expect(find.text('Practice destination'), findsOneWidget);
     },
   );
+
+  testWidgets('opens a scrollable session detail and returns to history', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          authAccessTokenProvider.overrideWithValue(null),
+          interviewRepositoryProvider.overrideWithValue(
+            const _CompletedInterviewRepository(),
+          ),
+        ],
+        child: const MaterialApp(home: InterviewPage(config: _completedConfig)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Riwayat chat'));
+    await tester.pumpAndSettle();
+    expect(find.text('Riwayat Interview'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('interview-session-session-completed')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('interview-session-session-completed')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Detail sesi'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('session-detail-back')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('interview-session-scrollbar')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const ValueKey<String>('session-detail-back')));
+    await tester.pumpAndSettle();
+    expect(find.text('Detail sesi'), findsNothing);
+    expect(find.text('Riwayat Interview'), findsOneWidget);
+  });
 }
 
 const InterviewLaunchConfig _voiceConfig = InterviewLaunchConfig(
@@ -334,7 +384,27 @@ class _CompletedInterviewRepository implements InterviewRepository {
 
   @override
   Future<List<InterviewSessionSummaryRecord>> listSessions() async {
-    return const <InterviewSessionSummaryRecord>[];
+    final DateTime timestamp = DateTime(2026, 8, 25, 10, 30);
+    return <InterviewSessionSummaryRecord>[
+      InterviewSessionSummaryRecord(
+        sessionId: 'session-completed',
+        status: 'completed',
+        companyId: 'adhi-karya',
+        targetRole: 'Management Trainee',
+        mode: 'coaching',
+        language: 'id',
+        responseStyle: 'text',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        finalSummary: const InterviewFinalSummary(
+          overallScore: 82,
+          answerCount: 3,
+          dimensions: InterviewDimensions(),
+          strengths: <String>[],
+          improvements: <String>[],
+        ),
+      ),
+    ];
   }
 
   @override
