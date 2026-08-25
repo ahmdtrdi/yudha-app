@@ -2469,3 +2469,20 @@
 - The profile avatar remains initial-based until an editable avatar contract and approved artwork are available.
 - The existing Profile summary layout overflows at 390 logical pixels before the editor opens; that parent-page responsiveness issue is outside this component-only change and should be handled separately.
 
+## 2026-08-25 - Interview Setup Redesign
+
+### The Change
+- Reorganized Interview Setup into a blue target-aware preparation hero followed by three numbered white-and-gray clay panels for target, mode, and response configuration.
+- Restyled company and role fields, converted mode and answer-style choices into colored clay cards, and added the orange clay start action.
+- Reworked unfinished interviews into a compact continue-session panel while preserving the existing three-session cap and resume navigation.
+
+### The Reasoning
+- The setup now reads as one guided preparation flow instead of a collection of equally weighted form controls, while keeping all choices directly comparable and consistent with the redesigned app components.
+
+### Verification
+- Focused Dart analysis completed with no issues.
+- Both focused Interview Setup widget tests passed at 390 x 844, covering responsive rendering, company-driven default roles, mode and response selection, unchanged launch configuration, and unfinished-session resume navigation.
+
+### The Tech Debt
+- Company options remain frontend constants and should eventually come from backend-provided interview configuration metadata.
+
