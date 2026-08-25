@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:vibration/vibration.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/ads/application/ad_placement_providers.dart';
@@ -58,6 +59,73 @@ bool isPublicPvpResultAdEligible({
   return battleMode == BattleMode.online &&
       (matchmakingMode == OnlineMatchmakingMode.casual ||
           matchmakingMode == OnlineMatchmakingMode.ranked);
+}
+
+/// Fires haptic feedback only when the user keeps haptics enabled in
+/// profile settings. Prefers real amplitude-controlled vibration (much more
+/// noticeable on devices where predefined HapticFeedback effects are too
+/// subtle, e.g. Xiaomi/MIUI) and falls back to HapticFeedback elsewhere.
+/// Every call is non-fatal so gameplay is never interrupted.
+class GameHaptics {
+  const GameHaptics(this.enabled);
+
+  final bool enabled;
+
+  static Future<bool?>? _hasVibratorFuture;
+
+  void selection() =>
+      _pulse(const Duration(milliseconds: 12), 48, HapticFeedback.selectionClick);
+
+  void light() => _pulse(
+    const Duration(milliseconds: 22),
+    80,
+    HapticFeedback.lightImpact,
+  );
+
+  void medium() => _pulse(
+    const Duration(milliseconds: 45),
+    168,
+    HapticFeedback.mediumImpact,
+  );
+
+  void heavy() => _pulse(
+    const Duration(milliseconds: 70),
+    255,
+    HapticFeedback.heavyImpact,
+  );
+
+  void vibrate() => _pulse(
+    const Duration(milliseconds: 400),
+    255,
+    HapticFeedback.vibrate,
+  );
+
+  void _pulse(
+    Duration duration,
+    int amplitude,
+    Future<void> Function() fallback,
+  ) {
+    if (!enabled) {
+      return;
+    }
+    unawaited(() async {
+      try {
+        _hasVibratorFuture ??= Vibration.hasVibrator();
+        if (await _hasVibratorFuture! == true) {
+          await Vibration.vibrate(
+            duration: duration.inMilliseconds,
+            amplitude: amplitude,
+          );
+          return;
+        }
+      } catch (_) {
+        // Plugin unavailable (web/desktop/tests) — fall through to haptics.
+      }
+      try {
+        await fallback();
+      } catch (_) {}
+    }());
+  }
 }
 
 class PvpPage extends ConsumerStatefulWidget {
@@ -116,6 +184,12 @@ class _PvpPageState extends ConsumerState<PvpPage> {
     final GameEconomyState economy = ref.watch(gameEconomyProvider);
     final bool soundEnabled = ref.watch(
       profileSettingsProvider.select((settings) => settings.soundEnabled),
+    );
+    final bool hapticsEnabled = ref.watch(
+      profileSettingsProvider.select((settings) => settings.hapticsEnabled),
+    );
+    final double musicLevel = ref.watch(
+      profileSettingsProvider.select((settings) => settings.battleMusicVolume),
     );
     final ProfileTarget? localTarget = ref.watch(
       profileSettingsProvider.select((settings) => settings.target),
@@ -194,6 +268,8 @@ class _PvpPageState extends ConsumerState<PvpPage> {
         selectedArena: battleArena,
         profileTarget: profileTarget,
         soundEnabled: soundEnabled,
+        hapticsEnabled: hapticsEnabled,
+        musicLevel: musicLevel,
       );
       final Widget page = _SystemBarStyle(
         darkBackground: needsDark,
@@ -264,11 +340,13 @@ class _PvpPageState extends ConsumerState<PvpPage> {
                     selectedTower: battlePlayerTower,
                     opponentCharacter: battleOpponentCharacter,
                     opponentTower: battleOpponentTower,
-                    selectedArena: battleArena,
-                    profileTarget: profileTarget,
-                    soundEnabled: soundEnabled,
+                      selectedArena: battleArena,
+                      profileTarget: profileTarget,
+                      soundEnabled: soundEnabled,
+                      hapticsEnabled: hapticsEnabled,
+                      musicLevel: musicLevel,
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -291,6 +369,8 @@ class _PvpPageState extends ConsumerState<PvpPage> {
     required CosmeticItem selectedArena,
     required ProfileTarget? profileTarget,
     required bool soundEnabled,
+    required bool hapticsEnabled,
+    required double musicLevel,
   }) {
     if (state.isLoading) {
       return _ArenaLoadingView(
@@ -408,6 +488,8 @@ class _PvpPageState extends ConsumerState<PvpPage> {
 
       return _ResultSection(
         state: state,
+        soundEnabled: soundEnabled,
+        hapticsEnabled: hapticsEnabled,
         onClaimReward: claimReward,
         onPractice: (String category) {
           _triggerResultExitAd(state);
@@ -436,6 +518,8 @@ class _PvpPageState extends ConsumerState<PvpPage> {
       opponentTowerAsset: opponentTower.battleAssetPath ?? _enemyMiniTowerAsset,
       arenaTheme: ArenaVisualTheme.fromId(selectedArena.id),
       soundEnabled: soundEnabled,
+      hapticsEnabled: hapticsEnabled,
+      musicLevel: musicLevel,
       onPause: () async {
         controller.pauseRoundClock();
         try {
@@ -461,6 +545,8 @@ class _PvpPageState extends ConsumerState<PvpPage> {
             controller: controller,
             question: question,
             mode: state.mode,
+            soundEnabled: soundEnabled,
+            hapticsEnabled: hapticsEnabled,
           );
         } finally {
           controller.releasePreparedQuestion(question.id);
@@ -527,6 +613,8 @@ class _PvpPageState extends ConsumerState<PvpPage> {
     required BattleController controller,
     required BattleQuestion question,
     required BattleMode mode,
+    required bool soundEnabled,
+    required bool hapticsEnabled,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -562,6 +650,8 @@ class _PvpPageState extends ConsumerState<PvpPage> {
               question: question,
               isOnline: mode == BattleMode.online,
               comboLevel: modalState.comboLevel,
+              soundEnabled: soundEnabled,
+              hapticsEnabled: hapticsEnabled,
               onAnswered: (int selectedOptionIndex) {
                 return controller.answerQuestion(
                   questionId: question.id,
@@ -597,6 +687,9 @@ class _PvpPageState extends ConsumerState<PvpPage> {
     required BattleMode mode,
   }) async {
     final bool online = mode == BattleMode.online;
+    double musicVolume = ref
+        .read(profileSettingsProvider)
+        .battleMusicVolume;
     final String? action = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
@@ -656,6 +749,66 @@ class _PvpPageState extends ConsumerState<PvpPage> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                StatefulBuilder(
+                  builder: (BuildContext context, void Function(void Function()) setDialogState) {
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Row(
+                          children: <Widget>[
+                            const Icon(
+                              Icons.music_note_rounded,
+                              color: Color(0xFF66708A),
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Volume musik arena',
+                                style: GoogleFonts.dmSans(
+                                  color: const Color(0xFF17233F),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '${(musicVolume * 100).round()}%',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: const Color(0xFF66708A),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            trackHeight: 4,
+                            thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 9,
+                            ),
+                          ),
+                          child: Slider(
+                            value: musicVolume.clamp(0.0, 1.0),
+                            max: 1,
+                            divisions: 20,
+                            activeColor: const Color(0xFF2878F0),
+                            inactiveColor: const Color(0xFFDDE8FA),
+                            label: '${(musicVolume * 100).round()}%',
+                            onChanged: (double value) {
+                              setDialogState(() => musicVolume = value);
+                              ref
+                                  .read(profileSettingsProvider.notifier)
+                                  .setBattleMusicVolume(value);
+                            },
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 6),
                 SizedBox(
                   width: double.infinity,
                   height: 48,

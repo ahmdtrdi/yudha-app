@@ -32,6 +32,8 @@ class _InBattleSection extends StatefulWidget {
     required this.opponentTowerAsset,
     required this.arenaTheme,
     required this.soundEnabled,
+    required this.hapticsEnabled,
+    required this.musicLevel,
     required this.onPause,
     required this.onRoundReady,
     required this.onArenaDisposed,
@@ -46,6 +48,8 @@ class _InBattleSection extends StatefulWidget {
   final String opponentTowerAsset;
   final ArenaVisualTheme arenaTheme;
   final bool soundEnabled;
+  final bool hapticsEnabled;
+  final double musicLevel;
   final Future<void> Function() onPause;
   final VoidCallback onRoundReady;
   final VoidCallback onArenaDisposed;
@@ -99,7 +103,10 @@ class _InBattleSectionState extends State<_InBattleSection>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _arenaAudio = ArenaAudioController(enabled: widget.soundEnabled);
+    _arenaAudio = ArenaAudioController(
+      enabled: widget.soundEnabled,
+      musicLevel: widget.musicLevel,
+    );
     unawaited(_arenaAudio.start());
     _ambientController = AnimationController(
       vsync: this,
@@ -195,6 +202,9 @@ class _InBattleSectionState extends State<_InBattleSection>
     if (widget.soundEnabled != oldWidget.soundEnabled) {
       unawaited(_arenaAudio.setEnabled(widget.soundEnabled));
     }
+    if (widget.musicLevel != oldWidget.musicLevel) {
+      unawaited(_arenaAudio.setMusicLevel(widget.musicLevel));
+    }
     _rebuildHand();
 
     final int playerDelta = widget.state.playerHp - oldWidget.state.playerHp;
@@ -232,9 +242,7 @@ class _InBattleSectionState extends State<_InBattleSection>
         !_rushModeAnnounced) {
       _rushModeAnnounced = true;
       _showNotice('🔥 RUSH MODE: 30 DETIK TERAKHIR! 🔥');
-      try {
-        HapticFeedback.heavyImpact();
-      } catch (_) {}
+      GameHaptics(widget.hapticsEnabled).heavy();
     } else if (widget.state.phase != BattlePhase.inBattle) {
       _rushModeAnnounced = false;
     }
@@ -265,6 +273,7 @@ class _InBattleSectionState extends State<_InBattleSection>
         });
         if (_countdownValue > 0) {
           _arenaAudio.playCountdown();
+          GameHaptics(widget.hapticsEnabled).light();
         }
         return;
       }
@@ -273,6 +282,11 @@ class _InBattleSectionState extends State<_InBattleSection>
       setState(() {
         _countdownDone = true;
       });
+      _arenaAudio.playCountdown();
+      GameHaptics(widget.hapticsEnabled).medium();
+      // The first music attempt can silently lose the race against the
+      // countdown SFX burst on Android; nudge playback back on track here.
+      unawaited(_arenaAudio.ensureMusic());
       widget.onRoundReady();
     });
   }
@@ -480,23 +494,17 @@ class _InBattleSectionState extends State<_InBattleSection>
     _shakeIntensity = (0.5 + (projectileLevel * 0.35) + (amount > 20 ? 0.3 : 0.0)).clamp(0.4, 1.5);
     _shakeController.forward(from: 0);
 
-    if (targetsPlayer) {
-      _hitFlashController.forward(from: 0);
-      try {
-        if (projectileLevel >= 2 || amount >= 25) {
-          HapticFeedback.heavyImpact();
-        } else {
-          HapticFeedback.mediumImpact();
-        }
-      } catch (_) {}
+    // Feedback for the player's own attack already fired in the question
+    // sheet, so only vibrate here when the player is the one getting hit.
+    final GameHaptics haptics = GameHaptics(widget.hapticsEnabled);
+    if (!targetsPlayer) {
+      return;
+    }
+    _hitFlashController.forward(from: 0);
+    if (projectileLevel >= 2 || amount >= 25) {
+      haptics.heavy();
     } else {
-      try {
-        if (projectileLevel >= 2) {
-          HapticFeedback.mediumImpact();
-        } else {
-          HapticFeedback.lightImpact();
-        }
-      } catch (_) {}
+      haptics.medium();
     }
   }
 
@@ -532,9 +540,7 @@ class _InBattleSectionState extends State<_InBattleSection>
       return;
     }
 
-    try {
-      HapticFeedback.selectionClick();
-    } catch (_) {}
+    GameHaptics(widget.hapticsEnabled).selection();
 
     setState(() {
       _interactionLocked = true;
