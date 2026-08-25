@@ -2451,3 +2451,21 @@
 ### The Tech Debt
 - The lightweight SVGs can be replaced with final art-direction assets without changing the card layout.
 
+## 2026-08-25 - Profile Editor Redesign
+
+### The Change
+- Restyled the edit-profile bottom sheet with a compact identity header, scholar-cream background, white-and-gray clay form sections, and clearer field hierarchy.
+- Replaced the default segmented control with direct CPNS/BUMN clay choice cards and replaced the standard save button with the orange clay action treatment.
+- Replaced the default unsaved-changes alert with a custom warning dialog while preserving continue-editing and discard behavior.
+
+### The Reasoning
+- The editor now matches the redesigned Profile page and shared component language without changing profile validation, persistence, keyboard handling, or navigation.
+
+### Verification
+- Focused Dart analysis completed with no issues.
+- All four focused Profile widget tests passed, covering redesigned component rendering, explicit saving, and both unsaved-change actions; the editor was verified at a compact 411 x 700 viewport without overflow.
+
+### The Tech Debt
+- The profile avatar remains initial-based until an editable avatar contract and approved artwork are available.
+- The existing Profile summary layout overflows at 390 logical pixels before the editor opens; that parent-page responsiveness issue is outside this component-only change and should be handled separately.
+
