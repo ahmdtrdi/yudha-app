@@ -14,6 +14,7 @@ class SharedPreferencesProfileSettingsStorage
   static const String _targetKey = 'profile.target';
   static const String _soundEnabledKey = 'profile.soundEnabled';
   static const String _hapticsEnabledKey = 'profile.hapticsEnabled';
+  static const String _battleMusicVolumeKey = 'profile.battleMusicVolume';
 
   const SharedPreferencesProfileSettingsStorage();
 
@@ -24,11 +25,15 @@ class SharedPreferencesProfileSettingsStorage
     final String? targetCode = preferences.getString(_targetKey);
     final bool? soundEnabled = preferences.getBool(_soundEnabledKey);
     final bool? hapticsEnabled = preferences.getBool(_hapticsEnabledKey);
+    final double? battleMusicVolume = preferences.getDouble(
+      _battleMusicVolumeKey,
+    );
 
     if (displayName == null &&
         targetCode == null &&
         soundEnabled == null &&
-        hapticsEnabled == null) {
+        hapticsEnabled == null &&
+        battleMusicVolume == null) {
       return null;
     }
 
@@ -38,6 +43,8 @@ class SharedPreferencesProfileSettingsStorage
       target: _targetFromName(targetCode),
       soundEnabled: soundEnabled ?? fallback.soundEnabled,
       hapticsEnabled: hapticsEnabled ?? fallback.hapticsEnabled,
+      battleMusicVolume:
+          (battleMusicVolume ?? fallback.battleMusicVolume).clamp(0.0, 1.0),
     );
   }
 
@@ -47,6 +54,10 @@ class SharedPreferencesProfileSettingsStorage
     await preferences.setString(_displayNameKey, settings.displayName);
     await preferences.setBool(_soundEnabledKey, settings.soundEnabled);
     await preferences.setBool(_hapticsEnabledKey, settings.hapticsEnabled);
+    await preferences.setDouble(
+      _battleMusicVolumeKey,
+      settings.battleMusicVolume.clamp(0.0, 1.0),
+    );
 
     final ProfileTarget? target = settings.target;
     if (target == null) {

@@ -147,6 +147,25 @@ class PresenceUpdated extends OnlineBattleUpdate {
   final DateTime? opponentReconnectDeadline;
 }
 
+class PrivateRoomCreatedUpdate extends OnlineBattleUpdate {
+  const PrivateRoomCreatedUpdate({
+    required this.code,
+    required this.target,
+    required this.expiresAt,
+  });
+
+  final String code;
+  final BattleTarget target;
+  final DateTime expiresAt;
+}
+
+class PrivateRoomCancelledUpdate extends OnlineBattleUpdate {
+  const PrivateRoomCancelledUpdate({required this.code, required this.reason});
+
+  final String code;
+  final String reason;
+}
+
 class BattleErrorUpdate extends OnlineBattleUpdate {
   const BattleErrorUpdate({required this.message});
 

@@ -6,12 +6,16 @@ class _QuestionBattleSheet extends StatefulWidget {
     required this.onAnswered,
     required this.isOnline,
     required this.comboLevel,
+    required this.soundEnabled,
+    required this.hapticsEnabled,
   });
 
   final BattleQuestion question;
   final Future<bool> Function(int selectedOptionIndex) onAnswered;
   final bool isOnline;
   final int comboLevel;
+  final bool soundEnabled;
+  final bool hapticsEnabled;
 
   @override
   State<_QuestionBattleSheet> createState() => _QuestionBattleSheetState();
@@ -25,6 +29,10 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
   static const Color _danger = Color(0xFFF05E5E);
 
   Timer? _timer;
+  late final ArenaAudioController _sfx = ArenaAudioController.sfxOnly(
+    enabled: widget.soundEnabled,
+  );
+  late final GameHaptics _haptics = GameHaptics(widget.hapticsEnabled);
   late final int _maxSeconds;
   late int _remainingSeconds;
   int? _selectedIndex;
@@ -58,12 +66,17 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
       setState(() {
         _remainingSeconds -= 1;
       });
+      if (_remainingSeconds <= 3) {
+        _sfx.playTickdown();
+        _haptics.light();
+      }
     });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    unawaited(_sfx.dispose());
     super.dispose();
   }
 
@@ -78,17 +91,18 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
         ? null
         : selectedIndex == correctOptionIndex;
     _timer?.cancel();
-    try {
-      if (timedOut) {
-        HapticFeedback.vibrate();
-      } else if (correct == true) {
-        HapticFeedback.mediumImpact();
-      } else if (correct == false) {
-        HapticFeedback.heavyImpact();
-      } else {
-        HapticFeedback.lightImpact();
-      }
-    } catch (_) {}
+    if (timedOut) {
+      _haptics.vibrate();
+      _sfx.playAnswerWrong();
+    } else if (correct == true) {
+      _haptics.light();
+      _sfx.playAnswerCorrect();
+    } else if (correct == false) {
+      _haptics.medium();
+      _sfx.playAnswerWrong();
+    } else {
+      _haptics.light();
+    }
     setState(() {
       _locked = true;
       if (timedOut) {

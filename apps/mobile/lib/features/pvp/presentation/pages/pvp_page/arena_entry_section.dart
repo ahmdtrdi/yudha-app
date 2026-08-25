@@ -645,19 +645,19 @@ class _LoadoutPickerView extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: GoogleFonts.fredoka(
             color: const Color(0xFF17233F),
-            fontSize: compact ? 27 : 31,
+            fontSize: compact ? 25 : 29,
             height: 1.05,
             fontWeight: FontWeight.w700,
           ),
         ),
-        SizedBox(height: compact ? 12 : 16),
+        SizedBox(height: compact ? 10 : 12),
         _LoadoutDiorama(
           selectedArena: selectedArena,
           selectedCharacter: selectedCharacter,
           selectedTower: selectedTower,
           compact: compact,
         ),
-        SizedBox(height: compact ? 10 : 14),
+        SizedBox(height: compact ? 9 : 11),
         _LoadoutCardCarousel(
           title: 'Karakter',
           items: economy.characters,
@@ -667,7 +667,7 @@ class _LoadoutPickerView extends StatelessWidget {
           onSelect: onSelect,
           onLockedTap: onLockedTap,
         ),
-        SizedBox(height: compact ? 9 : 12),
+        SizedBox(height: compact ? 8 : 10),
         _LoadoutCardCarousel(
           title: 'Tower',
           items: economy.towers,
@@ -699,7 +699,7 @@ class _LoadoutDiorama extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: compact ? 180 : 208,
+      height: compact ? 168 : 188,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
@@ -996,7 +996,7 @@ class _LoadoutCardCarouselState extends State<_LoadoutCardCarousel> {
         ),
         const SizedBox(height: 7),
         SizedBox(
-          height: widget.compact ? 108 : 120,
+          height: widget.compact ? 98 : 110,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(20),
             child: ListView.separated(

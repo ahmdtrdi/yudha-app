@@ -2473,4 +2473,90 @@
 ### The Tech Debt
 - Production web deployment still needs `FIREBASE_WEB_VAPID_KEY`, and both Android and installed Chrome/Edge PWA delivery should be verified against staging FCM with next-minute reminder times.
 - Native iOS and Safari web push remain intentionally out of scope.
+## 2026-08-25 - Profile Editor Redesign
+
+### The Change
+- Restyled the edit-profile bottom sheet with a compact identity header, scholar-cream background, white-and-gray clay form sections, and clearer field hierarchy.
+- Replaced the default segmented control with direct CPNS/BUMN clay choice cards and replaced the standard save button with the orange clay action treatment.
+- Replaced the default unsaved-changes alert with a custom warning dialog while preserving continue-editing and discard behavior.
+
+### The Reasoning
+- The editor now matches the redesigned Profile page and shared component language without changing profile validation, persistence, keyboard handling, or navigation.
+
+### Verification
+- Focused Dart analysis completed with no issues.
+- All four focused Profile widget tests passed, covering redesigned component rendering, explicit saving, and both unsaved-change actions; the editor was verified at a compact 411 x 700 viewport without overflow.
+
+### The Tech Debt
+- The profile avatar remains initial-based until an editable avatar contract and approved artwork are available.
+- The existing Profile summary layout overflows at 390 logical pixels before the editor opens; that parent-page responsiveness issue is outside this component-only change and should be handled separately.
+
+## 2026-08-25 - Interview Setup Redesign
+
+### The Change
+- Reorganized Interview Setup into a blue target-aware preparation hero followed by three numbered white-and-gray clay panels for target, mode, and response configuration.
+- Restyled company and role fields, converted mode and answer-style choices into colored clay cards, and added the orange clay start action.
+- Reworked unfinished interviews into a compact continue-session panel while preserving the existing three-session cap and resume navigation.
+
+### The Reasoning
+- The setup now reads as one guided preparation flow instead of a collection of equally weighted form controls, while keeping all choices directly comparable and consistent with the redesigned app components.
+
+### Verification
+- Focused Dart analysis completed with no issues.
+- Both focused Interview Setup widget tests passed at 390 x 844, covering responsive rendering, company-driven default roles, mode and response selection, unchanged launch configuration, and unfinished-session resume navigation.
+
+### The Tech Debt
+- Company options remain frontend constants and should eventually come from backend-provided interview configuration metadata.
+
+## 2026-08-25 - Interview Result Redesign
+
+### The Change
+- Rebuilt the completed Interview view around a continuous royal-blue app bar and result stage with a circular overall-score indicator, target context, and evaluated-answer count.
+- Added score-aware, high-contrast readiness badges while preserving the existing score thresholds and labels.
+- Restyled dimension scores, strengths, improvements, and the suggested answer rewrite as distinct clay surfaces with semantic teal, orange, and purple treatments.
+- Kept one semantic heading icon for each feedback section instead of repeating it beside every feedback item.
+- Replaced standard result actions with primary orange and secondary white clay buttons while preserving their existing destinations.
+
+### The Reasoning
+- The result now prioritizes the overall outcome before progressively revealing diagnostic detail. The continuous header, readable readiness badge, and reduced icon repetition improve hierarchy and contrast while staying consistent with the app's redesigned visual language.
+
+### Verification
+- Focused Dart analysis completed with no issues.
+- Focused Interview widget tests passed, covering the completed-result rendering, score-aware status badge, both result actions, and active voice-room regression.
+
+### The Tech Debt
+- Result dimensions are limited to the six scores currently returned by the backend; richer trend comparisons require historical result data.
+
+## 2026-08-25 - Interview Session Sheets Redesign
+
+### The Change
+- Restyled the Interview history sheet with a visible drag handle, explicit close action, taller responsive surface, and clay session cards.
+- Redesigned session details with a persistent back action, blue score summary, distinct transcript cards, coaching-note treatment, and an always-visible transcript scrollbar.
+- Kept the history sheet beneath completed-session details so returning from a detail restores the session list.
+
+### The Reasoning
+- Session history now follows the same visual language as the redesigned Interview flow, while explicit navigation and scroll affordances make long archived sessions easier to understand and exit.
+
+### Verification
+- Focused Dart analysis completed with no issues.
+- Three focused Interview widget tests passed, including the history-to-detail flow, scrollbar presence, and return-to-history behavior.
+
+### The Tech Debt
+- Session timestamps remain compact relative labels; more detailed date grouping can be added if the history volume grows.
+
+## 2026-08-25 - Interview Confirmation Dialog Redesign
+
+### The Change
+- Replaced the default Material confirmation dialogs for leaving, completing, and switching Interview sessions with one reusable clay-styled dialog.
+- Added semantic icons, clearer supporting copy, and visually distinct white cancel and colored confirm actions while preserving every existing return value and callback.
+
+### The Reasoning
+- A shared component keeps destructive and progression confirmations consistent with the redesigned Interview flow and makes the action hierarchy easier to scan.
+
+### Verification
+- Focused Dart analysis completed with no issues.
+- Three focused Interview widget tests passed, including confirmation rendering, cancellation, and active-room retention.
+
+### The Tech Debt
+- None introduced; the dialog remains private to the Interview feature until another feature needs the same interaction pattern.
 

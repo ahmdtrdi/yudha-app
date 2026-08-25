@@ -13,6 +13,7 @@ class _ArenaMenuSection extends StatefulWidget {
     required this.onStartBot,
     required this.onStartCasual,
     required this.onStartRanked,
+    required this.onStartPrivateRoom,
   });
 
   final String playerDisplayName;
@@ -26,6 +27,7 @@ class _ArenaMenuSection extends StatefulWidget {
   final VoidCallback onStartBot;
   final VoidCallback onStartCasual;
   final VoidCallback onStartRanked;
+  final VoidCallback onStartPrivateRoom;
 
   @override
   State<_ArenaMenuSection> createState() => _ArenaMenuSectionState();
@@ -69,6 +71,17 @@ class _ArenaMenuSectionState extends State<_ArenaMenuSection> {
         shadow: const Color(0xFFE9B578),
         illustrationAsset: 'assets/icons/mode_ranked.svg',
         onStart: widget.onStartRanked,
+      ),
+      _BattleModeOption(
+        id: 'private',
+        title: 'Room Privat',
+        description: 'Buat room atau gabung teman pakai kode 6 digit.',
+        actionLabel: 'BUKA ROOM PRIVAT',
+        accent: const Color(0xFF2FAE7D),
+        surface: const Color(0xFFE7F8F1),
+        shadow: const Color(0xFF96CDB4),
+        illustrationAsset: 'assets/icons/mode_private.svg',
+        onStart: widget.onStartPrivateRoom,
       ),
     ];
     final _BattleModeOption selected = options[_selectedModeIndex];
@@ -134,7 +147,7 @@ class _ArenaMenuSectionState extends State<_ArenaMenuSection> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  SizedBox(height: compact ? 15 : 20),
+                  SizedBox(height: compact ? 12 : 16),
                   _ModeShowcase(
                     option: selected,
                     arena: widget.selectedArena,
@@ -142,7 +155,7 @@ class _ArenaMenuSectionState extends State<_ArenaMenuSection> {
                     tower: widget.selectedTower,
                     compact: compact,
                   ),
-                  SizedBox(height: compact ? 13 : 17),
+                  SizedBox(height: compact ? 10 : 13),
                   _ModeCardSelector(
                     options: options,
                     selectedIndex: _selectedModeIndex,
@@ -151,7 +164,7 @@ class _ArenaMenuSectionState extends State<_ArenaMenuSection> {
                       setState(() => _selectedModeIndex = index);
                     },
                   ),
-                  SizedBox(height: compact ? 13 : 17),
+                  SizedBox(height: compact ? 11 : 14),
                   _ClaySetupButton(
                     buttonKey: ValueKey<String>('mode-${selected.id}'),
                     label: selected.actionLabel,
@@ -314,24 +327,37 @@ class _ModeCardSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: List<Widget>.generate(options.length, (int index) {
-        final _BattleModeOption option = options[index];
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(
-              right: index == options.length - 1 ? 0 : 8,
-            ),
-            child: _ModePortraitCard(
-              option: option,
-              selected: index == selectedIndex,
-              compact: compact,
-              onTap: () => onSelect(index),
-            ),
+    final int rowCount = (options.length / 2).ceil();
+    return Column(
+      children: List<Widget>.generate(rowCount, (int row) {
+        final int first = row * 2;
+        final int second = first + 1;
+        return Padding(
+          padding: EdgeInsets.only(top: row == 0 ? 0 : 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(child: _buildCard(first)),
+              if (second < options.length)
+                Expanded(child: _buildCard(second))
+              else
+                const Spacer(),
+            ],
           ),
         );
       }),
+    );
+  }
+
+  Widget _buildCard(int index) {
+    return Padding(
+      padding: EdgeInsets.only(right: index.isOdd ? 0 : 8),
+      child: _ModePortraitCard(
+        option: options[index],
+        selected: index == selectedIndex,
+        compact: compact,
+        onTap: () => onSelect(index),
+      ),
     );
   }
 }
@@ -352,7 +378,7 @@ class _ModePortraitCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: compact ? 116 : 128,
+      height: compact ? 92 : 102,
       child: Stack(
         children: <Widget>[
           Positioned.fill(
@@ -376,8 +402,8 @@ class _ModePortraitCard extends StatelessWidget {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   padding: EdgeInsets.symmetric(
-                    horizontal: compact ? 7 : 9,
-                    vertical: compact ? 10 : 12,
+                    horizontal: compact ? 11 : 13,
+                    vertical: compact ? 9 : 11,
                   ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(17),
@@ -386,57 +412,57 @@ class _ModePortraitCard extends StatelessWidget {
                       width: selected ? 2 : 1,
                     ),
                   ),
-                  child: Stack(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: <Widget>[
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Container(
-                            width: 22,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: option.accent,
-                              borderRadius: BorderRadius.circular(4),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Container(
+                              width: 24,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: option.accent,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 9),
-                          Text(
-                            option.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.fredoka(
-                              color: const Color(0xFF17233F),
-                              fontSize: compact ? 12 : 13,
-                              height: 1.05,
-                              fontWeight: FontWeight.w700,
+                            const SizedBox(height: 7),
+                            Text(
+                              option.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.fredoka(
+                                color: const Color(0xFF17233F),
+                                fontSize: compact ? 14 : 15,
+                                height: 1.05,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            option.description,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.dmSans(
-                              color: const Color(0xFF667085),
-                              fontSize: compact ? 7.5 : 8,
-                              height: 1.15,
-                              fontWeight: FontWeight.w600,
+                            const SizedBox(height: 4),
+                            Text(
+                              option.description,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.dmSans(
+                                color: const Color(0xFF667085),
+                                fontSize: compact ? 9 : 9.5,
+                                height: 1.25,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      Positioned(
-                        right: 0,
-                        bottom: 0,
-                        child: SvgPicture.asset(
-                          option.illustrationAsset,
-                          key: ValueKey<String>(
-                            'mode-illustration-${option.id}',
-                          ),
-                          width: compact ? 42 : 48,
-                          height: compact ? 34 : 39,
-                          fit: BoxFit.contain,
+                          ],
                         ),
+                      ),
+                      const SizedBox(width: 6),
+                      SvgPicture.asset(
+                        option.illustrationAsset,
+                        key: ValueKey<String>('mode-illustration-${option.id}'),
+                        width: compact ? 44 : 50,
+                        height: compact ? 36 : 41,
+                        fit: BoxFit.contain,
                       ),
                     ],
                   ),

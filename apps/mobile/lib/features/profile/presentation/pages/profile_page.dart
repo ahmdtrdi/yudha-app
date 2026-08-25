@@ -470,22 +470,7 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
     final bool discard =
         await showDialog<bool>(
           context: context,
-          builder: (BuildContext context) => AlertDialog(
-            title: const Text('Buang perubahan?'),
-            content: const Text(
-              'Perubahan profil yang belum disimpan akan hilang.',
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Lanjut edit'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Buang'),
-              ),
-            ],
-          ),
+          builder: (BuildContext context) => const _DiscardProfileDialog(),
         ) ??
         false;
     if (!discard || !mounted) {
@@ -545,115 +530,243 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 620),
             child: FractionallySizedBox(
-              heightFactor: 0.82,
+              heightFactor: 0.84,
               widthFactor: 1,
               child: Material(
-                color: Colors.white,
+                key: const Key('profile-edit-sheet'),
+                color: AppColors.scholarCream,
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(22),
+                  top: Radius.circular(30),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Column(
                   children: <Widget>[
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 10, 8, 8),
-                      child: Row(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 12, 14),
+                      child: Column(
                         children: <Widget>[
-                          const Expanded(
-                            child: Text(
-                              'Edit Profil',
-                              style: TextStyle(
-                                color: AppColors.warriorNavy,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                              ),
+                          Container(
+                            width: 46,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFD2D5DB),
+                              borderRadius: BorderRadius.circular(5),
                             ),
                           ),
-                          IconButton(
-                            tooltip: 'Tutup',
-                            onPressed: isSaving ? null : _requestClose,
-                            icon: const Icon(Icons.close_rounded),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: <Widget>[
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE4EEFF),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: const Color(0xFF8EB6F5),
+                                    width: 2,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    widget.profile.displayName.characters.first
+                                        .toUpperCase(),
+                                    style: const TextStyle(
+                                      color: AppColors.warriorNavy,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                    Text(
+                                      'Atur profilmu',
+                                      style: TextStyle(
+                                        color: AppColors.textStrong,
+                                        fontSize: 19,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      'Perbarui identitas dan tujuan belajar.',
+                                      style: TextStyle(
+                                        color: AppColors.textMuted,
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              _ClayCloseButton(
+                                enabled: !isSaving,
+                                onPressed: _requestClose,
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
-                    Divider(
-                      height: 1,
-                      color: AppColors.warriorNavy.withAlpha(20),
-                    ),
                     Expanded(
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                        padding: const EdgeInsets.fromLTRB(16, 2, 16, 12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                            TextField(
-                              key: const Key('profile-full-name-field'),
-                              controller: _fullNameController,
-                              enabled: !isSaving,
-                              textCapitalization: TextCapitalization.words,
-                              textInputAction: TextInputAction.next,
-                              decoration: const InputDecoration(
-                                labelText: 'Nama lengkap',
-                                hintText: 'Nama yang tampil di profil',
-                                prefixIcon: Icon(Icons.badge_outlined),
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(22),
+                                border: Border.all(
+                                  color: AppColors.warriorNavy.withAlpha(14),
+                                ),
+                                boxShadow: const <BoxShadow>[
+                                  BoxShadow(
+                                    color: Color(0xFFD7DAE0),
+                                    blurRadius: 0,
+                                    offset: Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  const _EditSectionLabel(
+                                    icon: Icons.person_outline_rounded,
+                                    title: 'IDENTITAS',
+                                  ),
+                                  const SizedBox(height: 14),
+                                  TextField(
+                                    key: const Key('profile-full-name-field'),
+                                    controller: _fullNameController,
+                                    enabled: !isSaving,
+                                    textCapitalization:
+                                        TextCapitalization.words,
+                                    textInputAction: TextInputAction.next,
+                                    decoration: _editFieldDecoration(
+                                      label: 'Nama lengkap',
+                                      hint: 'Nama yang tampil di profil',
+                                      icon: Icons.badge_outlined,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  TextField(
+                                    key: const Key('profile-username-field'),
+                                    controller: _usernameController,
+                                    enabled: !isSaving,
+                                    textInputAction: TextInputAction.done,
+                                    decoration: _editFieldDecoration(
+                                      label: 'Username',
+                                      hint: 'Minimal 3 karakter',
+                                      icon: Icons.alternate_email_rounded,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 16),
-                            TextField(
-                              key: const Key('profile-username-field'),
-                              controller: _usernameController,
-                              enabled: !isSaving,
-                              textInputAction: TextInputAction.done,
-                              decoration: const InputDecoration(
-                                labelText: 'Username',
-                                hintText: 'Minimal 3 karakter',
-                                prefixIcon: Icon(Icons.alternate_email_rounded),
-                              ),
-                            ),
-                            const SizedBox(height: 22),
-                            const Text(
-                              'Target belajar',
-                              style: TextStyle(
-                                color: AppColors.textStrong,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            SizedBox(
-                              width: double.infinity,
-                              child: SegmentedButton<ProfileTarget>(
-                                showSelectedIcon: false,
-                                segments: const <ButtonSegment<ProfileTarget>>[
-                                  ButtonSegment<ProfileTarget>(
-                                    value: ProfileTarget.cpns,
-                                    label: Text('CPNS'),
-                                  ),
-                                  ButtonSegment<ProfileTarget>(
-                                    value: ProfileTarget.bumn,
-                                    label: Text('BUMN'),
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(22),
+                                border: Border.all(
+                                  color: AppColors.warriorNavy.withAlpha(14),
+                                ),
+                                boxShadow: const <BoxShadow>[
+                                  BoxShadow(
+                                    color: Color(0xFFD7DAE0),
+                                    blurRadius: 0,
+                                    offset: Offset(0, 6),
                                   ),
                                 ],
-                                selected: <ProfileTarget>{_target},
-                                onSelectionChanged: isSaving
-                                    ? null
-                                    : (Set<ProfileTarget> selected) {
-                                        setState(() {
-                                          _target = selected.first;
-                                          _validationError = null;
-                                        });
-                                      },
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  const _EditSectionLabel(
+                                    icon: Icons.track_changes_rounded,
+                                    title: 'TARGET BELAJAR',
+                                  ),
+                                  const SizedBox(height: 6),
+                                  const Text(
+                                    'Pilih jalur yang sesuai dengan tujuanmu.',
+                                    style: TextStyle(
+                                      color: AppColors.textMuted,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: <Widget>[
+                                      Expanded(
+                                        child: _TargetChoiceCard(
+                                          target: ProfileTarget.cpns,
+                                          icon: Icons.account_balance_rounded,
+                                          selected:
+                                              _target == ProfileTarget.cpns,
+                                          enabled: !isSaving,
+                                          onTap: () => setState(() {
+                                            _target = ProfileTarget.cpns;
+                                            _validationError = null;
+                                          }),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: _TargetChoiceCard(
+                                          target: ProfileTarget.bumn,
+                                          icon: Icons.business_rounded,
+                                          selected:
+                                              _target == ProfileTarget.bumn,
+                                          enabled: !isSaving,
+                                          onTap: () => setState(() {
+                                            _target = ProfileTarget.bumn;
+                                            _validationError = null;
+                                          }),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
                             if (errorMessage != null) ...<Widget>[
                               const SizedBox(height: 16),
-                              Text(
-                                errorMessage,
-                                style: const TextStyle(
-                                  color: Color(0xFFB42318),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFE9E5),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Row(
+                                  children: <Widget>[
+                                    const Icon(
+                                      Icons.info_outline_rounded,
+                                      color: Color(0xFFB42318),
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        errorMessage,
+                                        style: const TextStyle(
+                                          color: Color(0xFFB42318),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
@@ -664,30 +777,11 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
                     SafeArea(
                       top: false,
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            key: const Key('save-profile-button'),
-                            onPressed: !_isDirty || isSaving ? null : _save,
-                            icon: isSaving
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Icon(Icons.save_outlined),
-                            label: Text(
-                              isSaving ? 'Menyimpan...' : 'Simpan Perubahan',
-                            ),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppColors.warriorNavy,
-                              padding: const EdgeInsets.symmetric(vertical: 15),
-                            ),
-                          ),
+                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                        child: _ProfileSaveButton(
+                          enabled: _isDirty && !isSaving,
+                          isSaving: isSaving,
+                          onPressed: _save,
                         ),
                       ),
                     ),
@@ -696,6 +790,385 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+InputDecoration _editFieldDecoration({
+  required String label,
+  required String hint,
+  required IconData icon,
+}) {
+  return InputDecoration(
+    labelText: label,
+    hintText: hint,
+    prefixIcon: Icon(icon, size: 20),
+    filled: true,
+    fillColor: const Color(0xFFF7F8FA),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(15),
+      borderSide: const BorderSide(color: Color(0xFFE1E4E9)),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(15),
+      borderSide: const BorderSide(color: AppColors.warriorNavy, width: 1.5),
+    ),
+    disabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(15),
+      borderSide: const BorderSide(color: Color(0xFFE1E4E9)),
+    ),
+  );
+}
+
+class _EditSectionLabel extends StatelessWidget {
+  const _EditSectionLabel({required this.icon, required this.title});
+
+  final IconData icon;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Icon(icon, color: AppColors.warriorNavy, size: 17),
+        const SizedBox(width: 7),
+        Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.warriorNavy,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TargetChoiceCard extends StatelessWidget {
+  const _TargetChoiceCard({
+    required this.target,
+    required this.icon,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final ProfileTarget target;
+  final IconData icon;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
+      child: SizedBox(
+        height: 76,
+        child: Stack(
+          children: <Widget>[
+            Positioned.fill(
+              top: 5,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: selected
+                      ? const Color(0xFF8EB6F5)
+                      : const Color(0xFFD7DAE0),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              bottom: 5,
+              child: Material(
+                color: selected ? const Color(0xFFE4EEFF) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  key: Key('profile-target-${target.name}'),
+                  onTap: enabled ? onTap : null,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: selected
+                            ? AppColors.warriorNavy
+                            : const Color(0xFFE1E4E9),
+                        width: selected ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        Icon(
+                          icon,
+                          color: selected
+                              ? AppColors.warriorNavy
+                              : AppColors.textMuted,
+                          size: 22,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            target.label,
+                            style: TextStyle(
+                              color: selected
+                                  ? AppColors.warriorNavy
+                                  : AppColors.textStrong,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        if (selected)
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            color: AppColors.warriorNavy,
+                            size: 17,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ClayCloseButton extends StatelessWidget {
+  const _ClayCloseButton({required this.enabled, required this.onPressed});
+
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 42,
+      height: 42,
+      child: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            top: 4,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFFD4D7DD),
+                borderRadius: BorderRadius.circular(13),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            bottom: 4,
+            child: Material(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(13),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                key: const Key('close-profile-editor'),
+                onTap: enabled ? onPressed : null,
+                child: const Icon(
+                  Icons.close_rounded,
+                  color: AppColors.warriorNavy,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileSaveButton extends StatelessWidget {
+  const _ProfileSaveButton({
+    required this.enabled,
+    required this.isSaving,
+    required this.onPressed,
+  });
+
+  final bool enabled;
+  final bool isSaving;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: enabled || isSaving ? 1 : 0.52,
+      child: SizedBox(
+        width: double.infinity,
+        height: 58,
+        child: Stack(
+          children: <Widget>[
+            Positioned.fill(
+              top: 7,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0A35F),
+                  borderRadius: BorderRadius.circular(19),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              bottom: 7,
+              child: Material(
+                color: const Color(0xFFFFD7A3),
+                borderRadius: BorderRadius.circular(19),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  key: const Key('save-profile-button'),
+                  onTap: enabled ? onPressed : null,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      if (isSaving)
+                        const SizedBox(
+                          width: 17,
+                          height: 17,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFFC66B24),
+                          ),
+                        )
+                      else
+                        const Icon(
+                          Icons.save_outlined,
+                          color: Color(0xFFC66B24),
+                          size: 19,
+                        ),
+                      const SizedBox(width: 8),
+                      Text(
+                        isSaving ? 'MENYIMPAN...' : 'SIMPAN PERUBAHAN',
+                        style: const TextStyle(
+                          color: Color(0xFFC66B24),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DiscardProfileDialog extends StatelessWidget {
+  const _DiscardProfileDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      key: const Key('discard-profile-dialog'),
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFFFD0C7)),
+          boxShadow: const <BoxShadow>[
+            BoxShadow(
+              color: Color(0xFFD9AAA1),
+              blurRadius: 0,
+              offset: Offset(0, 7),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              width: 52,
+              height: 52,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFE9E5),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.edit_off_rounded,
+                color: Color(0xFFB42318),
+                size: 25,
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'Buang perubahan?',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textStrong,
+                fontSize: 19,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 7),
+            const Text(
+              'Perubahan profil yang belum disimpan akan hilang.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textMuted,
+                fontSize: 12.5,
+                height: 1.35,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: OutlinedButton(
+                    key: const Key('continue-profile-editing'),
+                    onPressed: () => Navigator.of(context).pop(false),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.warriorNavy,
+                      side: const BorderSide(color: Color(0xFFD7DAE0)),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'Lanjut edit',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    key: const Key('discard-profile-changes'),
+                    onPressed: () => Navigator.of(context).pop(true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFD92D20),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'Buang',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

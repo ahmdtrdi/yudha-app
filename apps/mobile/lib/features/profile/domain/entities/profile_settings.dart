@@ -6,7 +6,12 @@ class ProfileSettings {
     required this.target,
     required this.soundEnabled,
     required this.hapticsEnabled,
+    this.battleMusicVolume = defaultBattleMusicVolume,
   });
+
+  /// Normalized arena music level (0..1). Intentionally low by default so
+  /// battle SFX stay dominant.
+  static const double defaultBattleMusicVolume = 0.3;
 
   factory ProfileSettings.initial() {
     return const ProfileSettings(
@@ -21,6 +26,7 @@ class ProfileSettings {
   final ProfileTarget? target;
   final bool soundEnabled;
   final bool hapticsEnabled;
+  final double battleMusicVolume;
 
   bool get isProfileComplete => displayName.trim().isNotEmpty && target != null;
 
@@ -29,12 +35,15 @@ class ProfileSettings {
     ProfileTarget? target,
     bool? soundEnabled,
     bool? hapticsEnabled,
+    double? battleMusicVolume,
   }) {
     return ProfileSettings(
       displayName: displayName ?? this.displayName,
       target: target ?? this.target,
       soundEnabled: soundEnabled ?? this.soundEnabled,
       hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
+      battleMusicVolume:
+          battleMusicVolume ?? this.battleMusicVolume,
     );
   }
 }
