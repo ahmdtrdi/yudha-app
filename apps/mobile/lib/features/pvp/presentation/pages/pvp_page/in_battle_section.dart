@@ -33,6 +33,7 @@ class _InBattleSection extends StatefulWidget {
     required this.arenaTheme,
     required this.soundEnabled,
     required this.hapticsEnabled,
+    required this.musicLevel,
     required this.onPause,
     required this.onRoundReady,
     required this.onArenaDisposed,
@@ -48,6 +49,7 @@ class _InBattleSection extends StatefulWidget {
   final ArenaVisualTheme arenaTheme;
   final bool soundEnabled;
   final bool hapticsEnabled;
+  final double musicLevel;
   final Future<void> Function() onPause;
   final VoidCallback onRoundReady;
   final VoidCallback onArenaDisposed;
@@ -101,7 +103,10 @@ class _InBattleSectionState extends State<_InBattleSection>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _arenaAudio = ArenaAudioController(enabled: widget.soundEnabled);
+    _arenaAudio = ArenaAudioController(
+      enabled: widget.soundEnabled,
+      musicLevel: widget.musicLevel,
+    );
     unawaited(_arenaAudio.start());
     _ambientController = AnimationController(
       vsync: this,
@@ -197,6 +202,9 @@ class _InBattleSectionState extends State<_InBattleSection>
     if (widget.soundEnabled != oldWidget.soundEnabled) {
       unawaited(_arenaAudio.setEnabled(widget.soundEnabled));
     }
+    if (widget.musicLevel != oldWidget.musicLevel) {
+      unawaited(_arenaAudio.setMusicLevel(widget.musicLevel));
+    }
     _rebuildHand();
 
     final int playerDelta = widget.state.playerHp - oldWidget.state.playerHp;
@@ -276,6 +284,9 @@ class _InBattleSectionState extends State<_InBattleSection>
       });
       _arenaAudio.playCountdown();
       GameHaptics(widget.hapticsEnabled).medium();
+      // The first music attempt can silently lose the race against the
+      // countdown SFX burst on Android; nudge playback back on track here.
+      unawaited(_arenaAudio.ensureMusic());
       widget.onRoundReady();
     });
   }

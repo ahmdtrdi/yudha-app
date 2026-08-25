@@ -57,6 +57,14 @@ class ProfileSettingsController extends StateNotifier<ProfileSettings> {
     _setState(state.copyWith(hapticsEnabled: value));
   }
 
+  void setBattleMusicVolume(double value) {
+    final double clamped = value.clamp(0.0, 1.0);
+    if (clamped == state.battleMusicVolume) {
+      return;
+    }
+    _setState(state.copyWith(battleMusicVolume: clamped));
+  }
+
   Future<void> _loadSavedSettings() async {
     final ProfileSettings? savedSettings = await _storage?.load();
     if (savedSettings == null || _hasLocalMutation) {

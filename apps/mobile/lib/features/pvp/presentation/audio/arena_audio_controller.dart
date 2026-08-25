@@ -1,56 +1,70 @@
 import 'dart:async';
 
-import 'package:audioplayers/audioplayers.dart';
+import 'package:just_audio/just_audio.dart';
 
 /// Owns the short-lived audio resources used by one PvP arena session.
 ///
-/// Audio failures are deliberately non-fatal: an unavailable audio device or
-/// platform plugin must never interrupt the battle loop.
+/// BGM and every SFX deliberately run on [AudioPlayer] instances of ONE
+/// package only. Mixing separate audio engines (e.g. audioplayers for SFX)
+/// makes them fight over the platform audio session, pausing the looping
+/// BGM on each effect. One package = one session = uninterrupted BGM.
+///
+/// Each SFX asset gets a dedicated pre-loaded player so replaying is a
+/// cheap seek-to-zero + play, keeping effects snappy and overlap-friendly.
+///
+/// Audio failures are deliberately non-fatal: an unavailable audio device
+/// or platform plugin must never interrupt the battle loop.
 class ArenaAudioController {
-  ArenaAudioController({required bool enabled})
-    : this._(enabled: enabled, sfxOnly: false);
+  ArenaAudioController({
+    required bool enabled,
+    double musicLevel = defaultMusicLevel,
+  }) : this._(enabled: enabled, musicLevel: musicLevel);
 
   /// Sound-effects-only variant for surfaces outside the live battle loop
   /// (question sheet, result screen). No music is ever prepared or played.
   ArenaAudioController.sfxOnly({required bool enabled})
-    : this._(enabled: enabled, sfxOnly: true);
+    : this._(enabled: enabled, musicLevel: 0);
 
-  ArenaAudioController._({required bool enabled, required bool sfxOnly})
+  ArenaAudioController._({required bool enabled, required double musicLevel})
     : _enabled = enabled,
-      _sfxOnly = sfxOnly;
+      _musicLevel = musicLevel.clamp(0.0, 1.0);
 
-  static const String _musicAsset = 'audio/arena_loop.wav';
-  static const List<String> _preloadAssets = <String>[
-    _musicAsset,
-    'audio/countdown.wav',
-    'audio/card_pick.wav',
-    'audio/cast.wav',
-    'audio/projectile.wav',
-    'audio/impact.wav',
-    'audio/heal.wav',
-    'audio/answer_correct.wav',
-    'audio/answer_wrong.wav',
-    'audio/tick.wav',
-    'audio/victory_stinger.wav',
-    'audio/defeat_stinger.wav',
-  ];
+  /// Normalized music slider default (kept intentionally low; the actual
+  /// playback gain is a fraction of this so SFX stay dominant).
+  static const double defaultMusicLevel = 0.3;
+  static const double _maxMusicGain = 0.45;
 
-  final AudioPlayer _musicPlayer = AudioPlayer(playerId: 'pvp_arena_music');
-  final List<AudioPlayer> _effectPlayers = List<AudioPlayer>.generate(
-    3,
-    (int index) => AudioPlayer(playerId: 'pvp_arena_sfx_$index'),
-  );
+  static const String _musicAsset = 'assets/audio/arena_loop.wav';
+
+  /// Per-asset output gain keeps BGM dominant over effects.
+  static const Map<String, double> _sfxVolumes = <String, double>{
+    'audio/countdown.wav': 0.32,
+    'audio/card_pick.wav': 0.34,
+    'audio/cast.wav': 0.34,
+    'audio/projectile.wav': 0.28,
+    'audio/impact.wav': 0.38,
+    'audio/heal.wav': 0.34,
+    'audio/answer_correct.wav': 0.36,
+    'audio/answer_wrong.wav': 0.34,
+    'audio/tick.wav': 0.26,
+    'audio/victory_stinger.wav': 0.44,
+    'audio/defeat_stinger.wav': 0.4,
+  };
+
+  final AudioPlayer _musicPlayer = AudioPlayer();
+  final Map<String, AudioPlayer> _sfxPlayers = <String, AudioPlayer>{};
+  final Set<String> _sfxLoaded = <String>{};
 
   bool _enabled;
-  final bool _sfxOnly;
+  double _musicLevel;
   bool _disposed = false;
   bool _musicPrepared = false;
   bool _musicPaused = false;
-  int _effectPlayerIndex = 0;
   Future<void>? _startOperation;
+  StreamSubscription<PlayerState>? _musicStateSub;
 
   Future<void> start() {
-    if (!_enabled || _disposed || _sfxOnly) {
+    if (!_enabled || _disposed) {
       return Future<void>.value();
     }
     return _startOperation ??= _prepareAndPlayMusic();
@@ -68,8 +82,45 @@ class ArenaAudioController {
     await resumeMusic();
   }
 
+  /// Updates the arena music level (normalized 0..1) live.
+  Future<void> setMusicLevel(double level) async {
+    if (_disposed) {
+      return;
+    }
+    final double next = level.clamp(0.0, 1.0);
+    if (next == _musicLevel) {
+      return;
+    }
+    _musicLevel = next;
+    if (!_musicPrepared) {
+      return;
+    }
+    await _safely(() => _musicPlayer.setVolume(_gain));
+  }
+
+  /// Recovers playback when something external paused the BGM (focus theft,
+  /// OEM audio effects, codec hiccups). Safe to call repeatedly.
+  Future<void> ensureMusic() => _recoverPlayback();
+
+  double get _gain => (_musicLevel * _maxMusicGain).clamp(0.0, 1.0);
+
+  Future<void> _recoverPlayback() async {
+    if (_disposed || !_enabled || _musicPaused) {
+      return;
+    }
+    if (_musicPrepared && !_musicPlayer.playing) {
+      await _safely(() => _musicPlayer.setVolume(_gain));
+      await _safely(_musicPlayer.play);
+      return;
+    }
+    if (!_musicPrepared) {
+      _startOperation = null;
+      await start();
+    }
+  }
+
   Future<void> pauseMusic() async {
-    if (_disposed || _sfxOnly) {
+    if (_disposed) {
       return;
     }
     _musicPaused = true;
@@ -80,97 +131,152 @@ class ArenaAudioController {
   }
 
   Future<void> resumeMusic() async {
-    if (_disposed || !_enabled || _sfxOnly) {
+    if (_disposed || !_enabled) {
       return;
     }
     _musicPaused = false;
-    if (!_musicPrepared) {
-      await start();
-      if (!_musicPrepared && !_musicPaused && !_disposed) {
-        _startOperation = null;
-        await start();
-      }
-      return;
-    }
-    await _safely(_musicPlayer.resume);
+    await _recoverPlayback();
   }
 
-  void playCountdown() => _playEffect('audio/countdown.wav', volume: 0.32);
+  void playCountdown() => _playEffect('audio/countdown.wav');
 
-  void playCardPick() => _playEffect('audio/card_pick.wav', volume: 0.34);
+  void playCardPick() => _playEffect('audio/card_pick.wav');
 
-  void playCast() => _playEffect('audio/cast.wav', volume: 0.34);
+  void playCast() => _playEffect('audio/cast.wav');
 
-  void playProjectile() => _playEffect('audio/projectile.wav', volume: 0.28);
+  void playProjectile() => _playEffect('audio/projectile.wav');
 
-  void playImpact() => _playEffect('audio/impact.wav', volume: 0.38);
+  void playImpact() => _playEffect('audio/impact.wav');
 
-  void playHeal() => _playEffect('audio/heal.wav', volume: 0.34);
+  void playHeal() => _playEffect('audio/heal.wav');
 
-  void playAnswerCorrect() =>
-      _playEffect('audio/answer_correct.wav', volume: 0.36);
+  void playAnswerCorrect() => _playEffect('audio/answer_correct.wav');
 
-  void playAnswerWrong() => _playEffect('audio/answer_wrong.wav', volume: 0.34);
+  void playAnswerWrong() => _playEffect('audio/answer_wrong.wav');
 
-  void playTickdown() => _playEffect('audio/tick.wav', volume: 0.26);
+  void playTickdown() => _playEffect('audio/tick.wav');
 
-  void playVictoryStinger() =>
-      _playEffect('audio/victory_stinger.wav', volume: 0.44);
+  void playVictoryStinger() => _playEffect('audio/victory_stinger.wav');
 
-  void playDefeatStinger() =>
-      _playEffect('audio/defeat_stinger.wav', volume: 0.4);
+  void playDefeatStinger() => _playEffect('audio/defeat_stinger.wav');
 
   Future<void> dispose() async {
     if (_disposed) {
       return;
     }
     _disposed = true;
+    await _musicStateSub?.cancel();
     await _safely(_musicPlayer.stop);
     await _safely(_musicPlayer.dispose);
-    await Future.wait<void>(
-      _effectPlayers.map((AudioPlayer player) => _safely(player.dispose)),
-    );
+    for (final AudioPlayer player in _sfxPlayers.values) {
+      await _safely(player.stop);
+      await _safely(player.dispose);
+    }
+    _sfxPlayers.clear();
+    _sfxLoaded.clear();
   }
 
   Future<void> _prepareAndPlayMusic() async {
-    try {
-      await AudioCache.instance.loadAll(_preloadAssets);
+    // Android can transiently fail the first load when many players spin up
+    // at once. Retry with backoff instead of leaving the arena silent.
+    const int maxAttempts = 4;
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
       if (_disposed || !_enabled || _musicPaused) {
         return;
       }
-      await _musicPlayer.setReleaseMode(ReleaseMode.loop);
-      await _musicPlayer.play(
-        AssetSource(_musicAsset),
-        volume: 0.18,
-        mode: PlayerMode.mediaPlayer,
-      );
-      _musicPrepared = true;
-      _musicPaused = false;
-    } catch (_) {
-      // Battle remains fully playable when a device cannot initialize audio.
+      try {
+        if (attempt > 1) {
+          await Future<void>.delayed(Duration(milliseconds: 500 * attempt));
+          if (_disposed || !_enabled || _musicPaused) {
+            return;
+          }
+        }
+        await _musicPlayer.setAsset(_musicAsset);
+        await _musicPlayer.setLoopMode(LoopMode.one);
+        await _musicPlayer.setVolume(_gain);
+        _musicPrepared = true;
+        _musicPaused = false;
+        _startBgmWatchdog();
+        unawaited(_warmUpSfx());
+        // play()'s future stays pending while LoopMode.one loops, so it must
+        // not be awaited here.
+        unawaited(_musicPlayer.play().catchError((Object _) {}));
+        return;
+      } catch (_) {
+        // Retry; battle remains fully playable when a device cannot
+        // initialize audio.
+      }
     }
   }
 
-  void _playEffect(String asset, {required double volume}) {
+  /// Pre-decodes every effect right after the music starts so the first
+  /// actual trigger plays instantly.
+  Future<void> _warmUpSfx() async {
+    for (final String asset in _sfxVolumes.keys) {
+      if (_disposed || !_enabled) {
+        return;
+      }
+      try {
+        final AudioPlayer player = _sfxPlayers.putIfAbsent(
+          asset,
+          AudioPlayer.new,
+        );
+        if (_sfxLoaded.add(asset)) {
+          await player.setAsset('assets/$asset');
+          await player.setVolume(_sfxVolumes[asset] ?? 0.32);
+        }
+      } catch (_) {
+        // A missing or unreadable effect must not break the rest.
+      }
+    }
+  }
+
+  /// Reclaims BGM playback whenever something external pauses it. Intentional
+  /// pauses (pause menu, app background) are ignored via [_musicPaused].
+  void _startBgmWatchdog() {
+    _musicStateSub ??= _musicPlayer.playerStateStream.listen(
+      (PlayerState state) {
+        if (state.playing ||
+            _disposed ||
+            !_enabled ||
+            _musicPaused ||
+            !_musicPrepared) {
+          return;
+        }
+        unawaited(
+          Future<void>.delayed(const Duration(milliseconds: 120)).then((_) {
+            if (_disposed ||
+                !_enabled ||
+                _musicPaused ||
+                !_musicPrepared ||
+                _musicPlayer.playing) {
+              return;
+            }
+            unawaited(_musicPlayer.play().catchError((Object _) {}));
+          }),
+        );
+      },
+    );
+  }
+
+  Future<void> _playEffect(String asset) async {
     if (!_enabled || _disposed || _musicPaused) {
       return;
     }
-    final AudioPlayer player = _effectPlayers[_effectPlayerIndex];
-    _effectPlayerIndex = (_effectPlayerIndex + 1) % _effectPlayers.length;
-    unawaited(_playOn(player, asset, volume));
-  }
-
-  Future<void> _playOn(AudioPlayer player, String asset, double volume) async {
     try {
-      await player.stop();
+      final AudioPlayer player = _sfxPlayers.putIfAbsent(
+        asset,
+        AudioPlayer.new,
+      );
+      if (_sfxLoaded.add(asset)) {
+        await player.setAsset('assets/$asset');
+        await player.setVolume(_sfxVolumes[asset] ?? 0.32);
+      }
       if (_disposed || !_enabled || _musicPaused) {
         return;
       }
-      await player.play(
-        AssetSource(asset),
-        volume: volume,
-        mode: PlayerMode.lowLatency,
-      );
+      await player.seek(Duration.zero);
+      unawaited(player.play().catchError((Object _) {}));
     } catch (_) {
       // SFX is decorative and must not affect input or animation timing.
     }

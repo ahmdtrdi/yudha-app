@@ -188,6 +188,9 @@ class _PvpPageState extends ConsumerState<PvpPage> {
     final bool hapticsEnabled = ref.watch(
       profileSettingsProvider.select((settings) => settings.hapticsEnabled),
     );
+    final double musicLevel = ref.watch(
+      profileSettingsProvider.select((settings) => settings.battleMusicVolume),
+    );
     final ProfileTarget? localTarget = ref.watch(
       profileSettingsProvider.select((settings) => settings.target),
     );
@@ -266,6 +269,7 @@ class _PvpPageState extends ConsumerState<PvpPage> {
         profileTarget: profileTarget,
         soundEnabled: soundEnabled,
         hapticsEnabled: hapticsEnabled,
+        musicLevel: musicLevel,
       );
       final Widget page = _SystemBarStyle(
         darkBackground: needsDark,
@@ -340,6 +344,7 @@ class _PvpPageState extends ConsumerState<PvpPage> {
                       profileTarget: profileTarget,
                       soundEnabled: soundEnabled,
                       hapticsEnabled: hapticsEnabled,
+                      musicLevel: musicLevel,
                     ),
                   ),
               ],
@@ -365,6 +370,7 @@ class _PvpPageState extends ConsumerState<PvpPage> {
     required ProfileTarget? profileTarget,
     required bool soundEnabled,
     required bool hapticsEnabled,
+    required double musicLevel,
   }) {
     if (state.isLoading) {
       return _ArenaLoadingView(
@@ -513,6 +519,7 @@ class _PvpPageState extends ConsumerState<PvpPage> {
       arenaTheme: ArenaVisualTheme.fromId(selectedArena.id),
       soundEnabled: soundEnabled,
       hapticsEnabled: hapticsEnabled,
+      musicLevel: musicLevel,
       onPause: () async {
         controller.pauseRoundClock();
         try {
@@ -680,6 +687,9 @@ class _PvpPageState extends ConsumerState<PvpPage> {
     required BattleMode mode,
   }) async {
     final bool online = mode == BattleMode.online;
+    double musicVolume = ref
+        .read(profileSettingsProvider)
+        .battleMusicVolume;
     final String? action = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
@@ -739,6 +749,66 @@ class _PvpPageState extends ConsumerState<PvpPage> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                StatefulBuilder(
+                  builder: (BuildContext context, void Function(void Function()) setDialogState) {
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Row(
+                          children: <Widget>[
+                            const Icon(
+                              Icons.music_note_rounded,
+                              color: Color(0xFF66708A),
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Volume musik arena',
+                                style: GoogleFonts.dmSans(
+                                  color: const Color(0xFF17233F),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '${(musicVolume * 100).round()}%',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: const Color(0xFF66708A),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            trackHeight: 4,
+                            thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 9,
+                            ),
+                          ),
+                          child: Slider(
+                            value: musicVolume.clamp(0.0, 1.0),
+                            max: 1,
+                            divisions: 20,
+                            activeColor: const Color(0xFF2878F0),
+                            inactiveColor: const Color(0xFFDDE8FA),
+                            label: '${(musicVolume * 100).round()}%',
+                            onChanged: (double value) {
+                              setDialogState(() => musicVolume = value);
+                              ref
+                                  .read(profileSettingsProvider.notifier)
+                                  .setBattleMusicVolume(value);
+                            },
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 6),
                 SizedBox(
                   width: double.infinity,
                   height: 48,
