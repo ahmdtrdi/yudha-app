@@ -2451,3 +2451,26 @@
 ### The Tech Debt
 - The lightweight SVGs can be replaced with final art-direction assets without changing the card layout.
 
+## 2026-08-25 - Daily Mission And Streak Reminder Experience
+
+### The Change
+- Initialized FlutterFire and Firebase Messaging for Android and Chromium PWA, including the Android permission/channel configuration, dedicated web messaging worker, VAPID support, and no-cache deployment headers.
+- Replaced the unused local notification flag with server-backed master, morning, and rescue controls plus editable local-time pickers.
+- Added stable installation and token synchronization on login, refresh, resume, and timezone changes, with account-scoped unregister on logout.
+- Added the one-time post-success permission prompt, authenticated deep-link preservation, delivery-open reporting, and quiet foreground Lobby refresh behavior.
+
+### The Reasoning
+- Permission is requested after a meaningful success rather than at app launch, while Settings remains an explicit path for users who defer or deny it.
+- Installation-level registration supports every recently active authorized device without conflating browser/OS permission with account preferences.
+- Notification routes are constrained to Lobby, Practice, and PvP so cold-start payloads cannot navigate to arbitrary application locations.
+
+### Verification
+- The complete Flutter suite passed: 125 tests.
+- The production PWA build passed and contains `firebase-messaging-sw.js`.
+- The Android debug build passed and produced `build/app/outputs/flutter-apk/app-debug.apk`.
+- Flutter analysis reported no new diagnostics; two existing deprecated `Radio` API informational findings remain in the payment confirmation modal.
+
+### The Tech Debt
+- Production web deployment still needs `FIREBASE_WEB_VAPID_KEY`, and both Android and installed Chrome/Edge PWA delivery should be verified against staging FCM with next-minute reminder times.
+- Native iOS and Safari web push remain intentionally out of scope.
+

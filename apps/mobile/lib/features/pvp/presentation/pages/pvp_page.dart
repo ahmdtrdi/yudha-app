@@ -18,6 +18,7 @@ import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart
 import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
 import 'package:yudha_mobile/features/economy/presentation/widgets/economy_widgets.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
+import 'package:yudha_mobile/features/notifications/presentation/notification_permission_prompt.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 import 'package:yudha_mobile/features/profile/application/user_profile_providers.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
@@ -399,9 +400,19 @@ class _PvpPageState extends ConsumerState<PvpPage> {
           return;
         }
         if (state.mode == BattleMode.online) {
-          unawaited(
-            ref.read(playerProgressProvider.notifier).hydrateFromRepository(),
-          );
+          unawaited(() async {
+            await ref
+                .read(playerProgressProvider.notifier)
+                .hydrateFromRepository();
+            final bool qualifies =
+                state.progressionPersisted &&
+                (state.onlineMatchmakingMode == OnlineMatchmakingMode.casual ||
+                    state.onlineMatchmakingMode ==
+                        OnlineMatchmakingMode.ranked);
+            if (qualifies && context.mounted) {
+              await maybeShowNotificationPermissionPrompt(context, ref);
+            }
+          }());
         }
         controller.markRewardClaimed();
       }

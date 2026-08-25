@@ -37,6 +37,15 @@ String? appRedirect({required bool isAuthenticated, required Uri uri}) {
   return null;
 }
 
+String appInitialLocation() {
+  if (kIsWeb &&
+      Uri.base.queryParameters.containsKey('notificationDeliveryId') &&
+      AppRoutes.isPrivate(Uri.base)) {
+    return Uri.base.toString();
+  }
+  return AppRoutes.splash;
+}
+
 final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
   final ValueNotifier<AppAuthState> authRefresh = ValueNotifier<AppAuthState>(
     ref.read(authProvider),
@@ -47,7 +56,7 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
   ref.onDispose(authRefresh.dispose);
 
   return GoRouter(
-    initialLocation: AppRoutes.splash,
+    initialLocation: appInitialLocation(),
     refreshListenable: authRefresh,
     redirect: (context, state) {
       return appRedirect(

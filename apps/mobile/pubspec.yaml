@@ -47,6 +47,9 @@ dependencies:
   supabase_flutter: ^2.10.3
   web: ^1.1.1
   uuid: ^4.6.0
+  firebase_core: ^4.14.0
+  firebase_messaging: ^16.6.0
+  flutter_timezone: ^5.1.0
 
 dev_dependencies:
   flutter_test:

@@ -13,6 +13,8 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { HiredPassModule } from './hired-pass/hired-pass.module';
 import { StoreModule } from './store/store.module';
 import { LobbyModule } from './lobby/lobby.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -20,6 +22,7 @@ import { LobbyModule } from './lobby/lobby.module';
       isGlobal: true,
       envFilePath: ['apps/backend-api/.env', '.env'],
     }),
+    ScheduleModule.forRoot(),
     SupabaseModule,
     AuthModule,
     ProfileModule,
@@ -31,6 +34,7 @@ import { LobbyModule } from './lobby/lobby.module';
     StoreModule,
     HiredPassModule,
     LobbyModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

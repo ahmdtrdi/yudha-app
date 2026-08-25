@@ -554,3 +554,26 @@
 **The Tech Debt:**
 - For production, a dedicated database function or payment webhook RPC (`grant_purchased_coins`) should accept amount and transaction references directly instead of iterating base credit increments.
 
+## 2026-08-25 - Server-Driven Daily Reminder Delivery
+
+**The Change:**
+- Added account-level notification preferences, per-installation push registrations, durable delivery history, and an atomic Supabase claim function with per-installation/day deduplication.
+- Added authenticated preference, installation, and open-attribution endpoints to `backend-api`, plus a one-minute NestJS scheduler backed by Firebase Admin Cloud Messaging.
+- Implemented server-authoritative morning mission and evening streak-rescue eligibility, 30-day installation freshness, short expiry at the next WIB reset, collapse identifiers, bounded retries, and invalid-token deactivation.
+- Updated the OpenAPI contract, Supabase bootstrap schema, generated database types, environment template, and PRD notification contract.
+
+**The Reasoning:**
+- The server already owns Daily Lobby and WIB streak truth, so reminder eligibility must be calculated beside that data rather than inferred from stale device state.
+- Durable claims and delivery rows make multiple replicas safe and preserve attempt/open telemetry without depending on paid Firebase scheduling products.
+- Notification preferences default to disabled so an old local toggle can never be mistaken for push consent.
+
+**Verification:**
+- Backend production build passed.
+- All 20 backend test suites passed: 67 tests, including notification content, delivery scheduling, retries, invalid tokens, preferences, installation rotation, and ownership checks.
+- OpenAPI JSON parsing and the production Flutter web build passed.
+
+**The Tech Debt:**
+- The forward migration and pgTAP test still need to run in a Supabase environment; local execution was unavailable because Docker was not running.
+- Deployment still requires `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, and `NOTIFICATIONS_ENABLED=true`.
+- Staging should exercise real FCM delivery at next-minute reminder times before production scheduling is enabled.
+

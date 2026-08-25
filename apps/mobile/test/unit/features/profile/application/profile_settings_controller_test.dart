@@ -5,14 +5,12 @@ import 'package:yudha_mobile/features/profile/domain/entities/profile_settings.d
 import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
 void main() {
-  test('toggle flags update settings state', () {
+  test('toggle device feedback flags update settings state', () {
     final ProfileSettingsController controller = ProfileSettingsController();
 
-    controller.toggleNotifications(false);
     controller.toggleSound(false);
     controller.toggleHaptics(false);
 
-    expect(controller.state.notificationsEnabled, isFalse);
     expect(controller.state.soundEnabled, isFalse);
     expect(controller.state.hapticsEnabled, isFalse);
   });
@@ -43,7 +41,7 @@ void main() {
     final ProfileSettings savedSettings = ProfileSettings.initial().copyWith(
       displayName: 'Raka',
       target: ProfileTarget.bumn,
-      notificationsEnabled: false,
+      soundEnabled: false,
     );
     final _ProfileSettingsMemoryStorage storage = _ProfileSettingsMemoryStorage(
       savedSettings,
@@ -56,7 +54,7 @@ void main() {
 
     expect(controller.state.displayName, 'Raka');
     expect(controller.state.target, ProfileTarget.bumn);
-    expect(controller.state.notificationsEnabled, isFalse);
+    expect(controller.state.soundEnabled, isFalse);
   });
 
   test('persists changed settings to storage', () async {

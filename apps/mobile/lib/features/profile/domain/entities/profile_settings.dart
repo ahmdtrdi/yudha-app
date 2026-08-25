@@ -4,7 +4,6 @@ class ProfileSettings {
   const ProfileSettings({
     required this.displayName,
     required this.target,
-    required this.notificationsEnabled,
     required this.soundEnabled,
     required this.hapticsEnabled,
   });
@@ -13,7 +12,6 @@ class ProfileSettings {
     return const ProfileSettings(
       displayName: '',
       target: null,
-      notificationsEnabled: true,
       soundEnabled: true,
       hapticsEnabled: true,
     );
@@ -21,7 +19,6 @@ class ProfileSettings {
 
   final String displayName;
   final ProfileTarget? target;
-  final bool notificationsEnabled;
   final bool soundEnabled;
   final bool hapticsEnabled;
 
@@ -30,14 +27,12 @@ class ProfileSettings {
   ProfileSettings copyWith({
     String? displayName,
     ProfileTarget? target,
-    bool? notificationsEnabled,
     bool? soundEnabled,
     bool? hapticsEnabled,
   }) {
     return ProfileSettings(
       displayName: displayName ?? this.displayName,
       target: target ?? this.target,
-      notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       soundEnabled: soundEnabled ?? this.soundEnabled,
       hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
     );

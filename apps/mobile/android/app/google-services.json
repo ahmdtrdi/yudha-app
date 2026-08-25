@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "218293126626",
+    "project_id": "yudha-app",
+    "storage_bucket": "yudha-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:218293126626:android:e5e60157d101b3879ea5bb",
+        "android_client_info": {
+          "package_name": "com.yudha.app.yudha_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCR-AAUivYXGm9UJ6D3PDKTsxMB3o7eu1c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

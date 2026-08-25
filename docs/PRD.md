@@ -209,7 +209,17 @@ Daily Lobby missions are a separate system from Hired Pass missions. The two fix
 - The first qualifying date sets `currentStreak=1`. The next consecutive date increments it. A gap of at least one complete business date resets the next activity to `1`.
 - There is no grace day or offline backdating. `bestStreak` never decreases.
 
-### 3.5 Analytics and deterministic recommendation
+### 3.5 Daily reminder notifications
+
+- Android and Chromium PWA installations use Firebase Cloud Messaging only as the delivery transport; notification eligibility remains server-authoritative.
+- Account preferences default to disabled until explicit notification permission is granted. Morning and streak-rescue reminders can be controlled independently and use editable local wall-clock times, defaulting to `09:00` and `19:30`.
+- Each authorized installation stores an IANA time zone and receives at most one reminder of each kind per local calendar date while it has been active within the preceding 30 days.
+- The morning reminder is eligible only while at least one Daily Lobby mission is incomplete for the current `Asia/Jakarta` business date.
+- The rescue reminder is eligible only when `last_streak_date` is the immediately preceding WIB business date and no qualifying `daily_learning_activity` exists today. Stale or already-protected streaks never produce rescue reminders.
+- Reminder messages use normal priority, expire at the next WIB reset, collapse duplicates, contain no sensitive data, and deep-link to Lobby, Practice, or public PvP as appropriate.
+- A one-time contextual permission prompt may appear after the first authoritative Practice or public Casual/Ranked completion. Dismissing it prevents further automatic prompts; users retain control from Profile settings and system/browser settings.
+
+### 3.6 Analytics and deterministic recommendation
 
 Analytics exposes Practice and Ranked accuracy, average response time, sample sizes, weak categories/subcategories, public-match win rate, rank tier, current/best streak, and history.
 
@@ -223,13 +233,13 @@ The recommendation uses server-graded Practice and Ranked answers from the curre
 
 Ties use lower accuracy, then larger sample, then older last-practiced timestamp, then ascending stable category/subcategory ID. A never-practiced category is older than any timestamp. Recommendations never call an LLM.
 
-### 3.6 Leaderboard
+### 3.7 Leaderboard
 
 - Leaderboard order is descending `rank_points`, then descending Ranked wins, then ascending user ID for deterministic pagination. Casual, Bot, and Private results never affect a leaderboard tie-breaker.
 - It exposes paginated entries and an authenticated “my rank” result.
 - Daily mission and Ranked result mutations appear only after their authoritative transaction commits.
 
-### 3.7 Ad-placement stubs
+### 3.8 Ad-placement stubs
 
 - A free user triggers an ad-placement stub only when leaving a fully completed five-question Practice Results screen or any server-finalized public Casual/Ranked Results screen, including a surrender or disconnect result.
 - An active Hired Pass suppresses the stub entirely.
@@ -419,6 +429,9 @@ These are behaviorally required models, not a replacement for executable migrati
 | `rank_point_transactions` | Immutable deltas for Ranked results and the two daily missions; unique source/idempotency key |
 | `daily_mission_progress` | One row per user, mission key, and WIB business date; completion and reward are atomic |
 | `daily_learning_activity` | One qualifying streak row per user and WIB date |
+| `notification_preferences` | Account-level opt-in, reminder toggles, and local wall-clock times |
+| `push_installations` | Authorized Android/web FCM installations, IANA time zone, and freshness |
+| `notification_deliveries` | Idempotent per-installation reminder attempts, delivery state, and open attribution |
 | `coin_transactions` | Immutable non-zero Y-Coin delta and resulting non-negative balance; unique idempotency key |
 | `store_items` | Versioned server catalog containing character/tower items only, rarity, price, pass exclusivity, and availability |
 | `user_inventory` | Permanent item ownership with source and source reference |
@@ -479,6 +492,20 @@ PATCH  /profile
 PATCH  /profile/loadout
        { characterId?, towerId? }
        → { characterId, towerId }
+
+# Notifications
+GET    /notifications/preferences
+       → { enabled, morningEnabled, morningTime, rescueEnabled, rescueTime }
+PATCH  /notifications/preferences
+       { enabled?, morningEnabled?, morningTime?, rescueEnabled?, rescueTime? }
+       → updated preferences
+PUT    /notifications/installations/:installationId
+       { token, platform: "android" | "web", timeZone }
+       → registered installation summary
+DELETE /notifications/installations/:installationId
+       → { removed: true }
+POST   /notifications/deliveries/:deliveryId/open
+       → { deliveryId, openedAt }
 
 # Practice
 GET    /practice/dashboard

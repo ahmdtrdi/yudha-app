@@ -11,6 +11,7 @@ SUPABASE_URL=
 SUPABASE_PUBLISHABLE_KEY=
 YUDHA_API_BASE_URL=
 YUDHA_GAME_BASE_URL=
+FIREBASE_WEB_VAPID_KEY=
 ```
 
 Run the web client with the same compile-time environment:
@@ -40,6 +41,7 @@ Configure these variables for Production and Preview in Vercel:
 - `SUPABASE_PUBLISHABLE_KEY`
 - `YUDHA_API_BASE_URL`
 - `YUDHA_GAME_BASE_URL`
+- `FIREBASE_WEB_VAPID_KEY` (public Web Push certificate key from Firebase)
 
 Both backend URLs must use HTTPS. The Vercel build compiles the browser client
 against `/api-proxy`, which is rewritten to `YUDHA_API_BASE_URL` at the edge.

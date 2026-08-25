@@ -45,10 +45,6 @@ class ProfileSettingsController extends StateNotifier<ProfileSettings> {
     _setState(state.copyWith(displayName: displayName.trim(), target: target));
   }
 
-  void toggleNotifications(bool value) {
-    _setState(state.copyWith(notificationsEnabled: value));
-  }
-
   void toggleSound(bool value) {
     _setState(state.copyWith(soundEnabled: value));
   }

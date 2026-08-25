@@ -549,6 +549,94 @@ export type Database = {
         >;
         Relationships: [];
       };
+      notification_preferences: {
+        Row: TimestampedRow & {
+          user_id: string;
+          enabled: boolean;
+          morning_enabled: boolean;
+          morning_time: string;
+          rescue_enabled: boolean;
+          rescue_time: string;
+        };
+        Insert: TimestampedInsert & {
+          user_id: string;
+          enabled?: boolean;
+          morning_enabled?: boolean;
+          morning_time?: string;
+          rescue_enabled?: boolean;
+          rescue_time?: string;
+        };
+        Update: Partial<
+          Database['public']['Tables']['notification_preferences']['Insert']
+        >;
+        Relationships: [];
+      };
+      push_installations: {
+        Row: TimestampedRow & {
+          user_id: string;
+          installation_id: string;
+          fcm_token: string;
+          platform: string;
+          time_zone: string;
+          authorized: boolean;
+          active: boolean;
+          last_seen_at: string;
+        };
+        Insert: TimestampedInsert & {
+          user_id: string;
+          installation_id: string;
+          fcm_token: string;
+          platform: string;
+          time_zone: string;
+          authorized?: boolean;
+          active?: boolean;
+          last_seen_at?: string;
+        };
+        Update: Partial<
+          Database['public']['Tables']['push_installations']['Insert']
+        >;
+        Relationships: [];
+      };
+      notification_deliveries: {
+        Row: TimestampedRow & {
+          id: string;
+          user_id: string;
+          installation_id: string;
+          kind: string;
+          local_date: string;
+          business_date: string;
+          status: string;
+          attempt_count: number;
+          next_attempt_at: string;
+          lease_until: Nullable<string>;
+          expires_at: string;
+          fcm_message_id: Nullable<string>;
+          last_error: Nullable<string>;
+          sent_at: Nullable<string>;
+          opened_at: Nullable<string>;
+        };
+        Insert: TimestampedInsert & {
+          id?: string;
+          user_id: string;
+          installation_id: string;
+          kind: string;
+          local_date: string;
+          business_date: string;
+          status?: string;
+          attempt_count?: number;
+          next_attempt_at?: string;
+          lease_until?: Nullable<string>;
+          expires_at: string;
+          fcm_message_id?: Nullable<string>;
+          last_error?: Nullable<string>;
+          sent_at?: Nullable<string>;
+          opened_at?: Nullable<string>;
+        };
+        Update: Partial<
+          Database['public']['Tables']['notification_deliveries']['Insert']
+        >;
+        Relationships: [];
+      };
       interview_company_profiles: {
         Row: TimestampedRow & {
           id: string;
@@ -673,6 +761,24 @@ export type Database = {
       };
     };
     Functions: {
+      claim_due_notification_deliveries: {
+        Args: { p_now?: string; p_limit?: number };
+        Returns: Array<{
+          delivery_id: string;
+          user_id: string;
+          installation_id: string;
+          fcm_token: string;
+          platform: string;
+          time_zone: string;
+          kind: string;
+          local_date: string;
+          business_date: string;
+          current_streak: number;
+          remaining_mission_keys: string[];
+          expires_at: string;
+          attempt_count: number;
+        }>;
+      };
       purchase_store_item: {
         Args: {
           p_user_id: string;
