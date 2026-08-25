@@ -12,7 +12,6 @@ class SharedPreferencesProfileSettingsStorage
     implements ProfileSettingsStorage {
   static const String _displayNameKey = 'profile.displayName';
   static const String _targetKey = 'profile.target';
-  static const String _notificationsEnabledKey = 'profile.notificationsEnabled';
   static const String _soundEnabledKey = 'profile.soundEnabled';
   static const String _hapticsEnabledKey = 'profile.hapticsEnabled';
   static const String _battleMusicVolumeKey = 'profile.battleMusicVolume';
@@ -24,9 +23,6 @@ class SharedPreferencesProfileSettingsStorage
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     final String? displayName = preferences.getString(_displayNameKey);
     final String? targetCode = preferences.getString(_targetKey);
-    final bool? notificationsEnabled = preferences.getBool(
-      _notificationsEnabledKey,
-    );
     final bool? soundEnabled = preferences.getBool(_soundEnabledKey);
     final bool? hapticsEnabled = preferences.getBool(_hapticsEnabledKey);
     final double? battleMusicVolume = preferences.getDouble(
@@ -35,7 +31,6 @@ class SharedPreferencesProfileSettingsStorage
 
     if (displayName == null &&
         targetCode == null &&
-        notificationsEnabled == null &&
         soundEnabled == null &&
         hapticsEnabled == null &&
         battleMusicVolume == null) {
@@ -46,8 +41,6 @@ class SharedPreferencesProfileSettingsStorage
     return ProfileSettings(
       displayName: displayName ?? fallback.displayName,
       target: _targetFromName(targetCode),
-      notificationsEnabled:
-          notificationsEnabled ?? fallback.notificationsEnabled,
       soundEnabled: soundEnabled ?? fallback.soundEnabled,
       hapticsEnabled: hapticsEnabled ?? fallback.hapticsEnabled,
       battleMusicVolume:
@@ -59,10 +52,6 @@ class SharedPreferencesProfileSettingsStorage
   Future<void> save(ProfileSettings settings) async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     await preferences.setString(_displayNameKey, settings.displayName);
-    await preferences.setBool(
-      _notificationsEnabledKey,
-      settings.notificationsEnabled,
-    );
     await preferences.setBool(_soundEnabledKey, settings.soundEnabled);
     await preferences.setBool(_hapticsEnabledKey, settings.hapticsEnabled);
     await preferences.setDouble(

@@ -11,6 +11,8 @@ import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/gamification/domain/entities/player_progress.dart';
 import 'package:yudha_mobile/features/gamification/domain/entities/progress_tier.dart';
+import 'package:yudha_mobile/features/notifications/application/daily_reminder_providers.dart';
+import 'package:yudha_mobile/features/notifications/domain/daily_reminder_state.dart';
 import 'package:yudha_mobile/features/profile/application/performance_analytics_providers.dart';
 import 'package:yudha_mobile/features/profile/application/performance_analytics_state.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
@@ -53,11 +55,35 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
+  Future<void> _pickReminderTime(
+    BuildContext context,
+    String value,
+    Future<void> Function(String value) save,
+  ) async {
+    final parts = value.split(':');
+    final selected = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(
+        hour: int.tryParse(parts.first) ?? 9,
+        minute: parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0,
+      ),
+      helpText: 'Pilih waktu pengingat',
+      cancelText: 'Batal',
+      confirmText: 'Simpan',
+    );
+    if (selected == null) return;
+    final normalized =
+        '${selected.hour.toString().padLeft(2, '0')}:${selected.minute.toString().padLeft(2, '0')}';
+    await save(normalized);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final PlayerProgress progress = ref.watch(playerProgressProvider);
     final profileSettings = ref.watch(profileSettingsProvider);
     final settingsController = ref.read(profileSettingsProvider.notifier);
+    final DailyReminderState reminderState = ref.watch(dailyReminderProvider);
+    final reminderController = ref.read(dailyReminderProvider.notifier);
     final UserProfileState profileState = ref.watch(userProfileProvider);
     final PerformanceAnalyticsState performanceState = ref.watch(
       performanceAnalyticsProvider,
@@ -191,10 +217,80 @@ class ProfilePage extends ConsumerWidget {
                     icon: Icons.notifications_active_rounded,
                     iconColor: AppColors.levelUpTeal,
                     title: 'Notifikasi Harian',
-                    subtitle: 'Ingat belajar setiap hari',
-                    value: profileSettings.notificationsEnabled,
-                    onChanged: settingsController.toggleNotifications,
+                    subtitle: reminderState.isLoading
+                        ? 'Memuat pengaturan notifikasi'
+                        : 'Pengingat misi dan streak',
+                    value: reminderState.preferences.enabled,
+                    onChanged: reminderState.isLoading || reminderState.isSaving
+                        ? null
+                        : reminderController.setEnabled,
                   ),
+                  if (reminderState.preferences.enabled) ...<Widget>[
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Divider(height: 1, color: Colors.black12),
+                    ),
+                    _SettingsSwitchTile(
+                      icon: Icons.wb_sunny_outlined,
+                      iconColor: AppColors.fireGold,
+                      title: 'Pengingat Misi Pagi',
+                      subtitle: 'Hanya jika masih ada misi harian',
+                      value: reminderState.preferences.morningEnabled,
+                      onChanged: reminderState.isSaving
+                          ? null
+                          : reminderController.setMorningEnabled,
+                    ),
+                    if (reminderState.preferences.morningEnabled)
+                      _SettingsTimeTile(
+                        title: 'Waktu pengingat pagi',
+                        value: reminderState.preferences.morningTime,
+                        onTap: reminderState.isSaving
+                            ? null
+                            : () => _pickReminderTime(
+                                context,
+                                reminderState.preferences.morningTime,
+                                reminderController.setMorningTime,
+                              ),
+                      ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Divider(height: 1, color: Colors.black12),
+                    ),
+                    _SettingsSwitchTile(
+                      icon: Icons.local_fire_department_outlined,
+                      iconColor: const Color(0xFFD92D20),
+                      title: 'Penyelamat Streak',
+                      subtitle: 'Hanya jika streak hari ini belum aman',
+                      value: reminderState.preferences.rescueEnabled,
+                      onChanged: reminderState.isSaving
+                          ? null
+                          : reminderController.setRescueEnabled,
+                    ),
+                    if (reminderState.preferences.rescueEnabled)
+                      _SettingsTimeTile(
+                        title: 'Waktu penyelamat streak',
+                        value: reminderState.preferences.rescueTime,
+                        onTap: reminderState.isSaving
+                            ? null
+                            : () => _pickReminderTime(
+                                context,
+                                reminderState.preferences.rescueTime,
+                                reminderController.setRescueTime,
+                              ),
+                      ),
+                  ],
+                  if (reminderState.errorMessage != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                      child: Text(
+                        reminderState.errorMessage!,
+                        style: const TextStyle(
+                          color: Color(0xFFB42318),
+                          fontSize: 11,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16),
                     child: Divider(height: 1, color: Colors.black12),
@@ -234,6 +330,9 @@ class ProfilePage extends ConsumerWidget {
                           if (!shouldLogout) {
                             return;
                           }
+                          await ref
+                              .read(dailyReminderProvider.notifier)
+                              .unregisterBeforeLogout();
                           await ref.read(authProvider.notifier).logout();
                           if (!context.mounted) {
                             return;
@@ -2501,6 +2600,39 @@ class _SettingsSwitchTile extends StatelessWidget {
         value: value,
         onChanged: onChanged,
       ),
+    );
+  }
+}
+
+class _SettingsTimeTile extends StatelessWidget {
+  const _SettingsTimeTile({
+    required this.title,
+    required this.value,
+    required this.onTap,
+  });
+
+  final String title;
+  final String value;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.fromLTRB(60, 0, 16, 4),
+      leading: const Icon(Icons.schedule_rounded, size: 20),
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: AppColors.textStrong,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      trailing: TextButton(
+        onPressed: onTap,
+        child: Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
+      ),
+      onTap: onTap,
     );
   }
 }

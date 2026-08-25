@@ -30,6 +30,14 @@ for variable_name in "${required_defines[@]}"; do
   printf '%s=%s\n' "${variable_name}" "${variable_value}" >> "${defines_file}"
 done
 
+if [[ "${VERCEL:-}" == "1" && -z "${FIREBASE_WEB_VAPID_KEY:-}" ]]; then
+  echo "Missing required build environment variable: FIREBASE_WEB_VAPID_KEY" >&2
+  exit 1
+fi
+if [[ -n "${FIREBASE_WEB_VAPID_KEY:-}" ]]; then
+  printf 'FIREBASE_WEB_VAPID_KEY=%s\n' "${FIREBASE_WEB_VAPID_KEY}" >> "${defines_file}"
+fi
+
 "${flutter_bin}" build web \
   --release \
   --no-wasm-dry-run \

@@ -29,6 +29,15 @@ export const config = {
       ],
     },
     {
+      source: "/firebase-messaging-sw.js",
+      headers: [
+        {
+          key: "Cache-Control",
+          value: "no-cache, no-store, must-revalidate",
+        },
+      ],
+    },
+    {
       source: "/manifest.json",
       headers: [
         {

@@ -6,6 +6,7 @@ import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/core/theme/app_typography.dart';
 import 'package:yudha_mobile/features/ads/application/ad_placement_providers.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
+import 'package:yudha_mobile/features/notifications/presentation/notification_permission_prompt.dart';
 import 'package:yudha_mobile/features/practice/application/practice_providers.dart';
 import 'package:yudha_mobile/features/practice/application/practice_state.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_hint_state.dart';
@@ -399,6 +400,12 @@ class _PracticeQuizPageState extends ConsumerState<PracticeQuizPage> {
                                 await ref
                                     .read(playerProgressProvider.notifier)
                                     .hydrateFromRepository();
+                                if (context.mounted) {
+                                  await maybeShowNotificationPermissionPrompt(
+                                    context,
+                                    ref,
+                                  );
+                                }
                               }
                               if (!submitted && context.mounted) {
                                 final String message =

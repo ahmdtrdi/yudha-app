@@ -12,6 +12,9 @@ abstract final class AppConfig {
   static const String supabasePublishableKey = String.fromEnvironment(
     'SUPABASE_PUBLISHABLE_KEY',
   );
+  static const String firebaseWebVapidKey = String.fromEnvironment(
+    'FIREBASE_WEB_VAPID_KEY',
+  );
 
   static bool get hasSupabaseConfig =>
       supabaseUrl.trim().isNotEmpty && supabasePublishableKey.trim().isNotEmpty;

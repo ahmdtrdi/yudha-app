@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yudha_mobile/app/config/app_config.dart';
 import 'package:yudha_mobile/features/auth/data/app_auth_storage.dart';
+import 'package:yudha_mobile/firebase_options.dart';
 
 typedef AppBuilder = Widget Function();
 
@@ -25,6 +27,10 @@ abstract final class AppBootstrap {
             details.stack ?? StackTrace.current,
           );
         };
+
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
 
         if (AppConfig.hasSupabaseConfig) {
           await Supabase.initialize(
