@@ -72,21 +72,16 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
     final bool shouldComplete =
         await showDialog<bool>(
           context: context,
-          builder: (BuildContext context) => AlertDialog(
-            title: const Text('Selesaikan interview?'),
-            content: const Text(
-              'Sesi akan ditutup dan hasil akhir disiapkan dari jawaban yang sudah terkirim.',
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Kembali'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Selesaikan'),
-              ),
-            ],
+          builder: (BuildContext context) => const _InterviewConfirmationDialog(
+            icon: Icons.task_alt_rounded,
+            title: 'Selesaikan interview?',
+            message:
+                'Sesi akan ditutup dan hasil akhir disiapkan dari jawaban yang sudah terkirim.',
+            cancelLabel: 'Kembali',
+            confirmLabel: 'Selesaikan',
+            confirmFill: Color(0xFFFFD8AA),
+            confirmShadow: Color(0xFFF2A064),
+            confirmForeground: Color(0xFFA9571B),
           ),
         ) ??
         false;
@@ -110,23 +105,17 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
     final bool shouldLeave =
         await showDialog<bool>(
           context: context,
-          builder: (BuildContext context) => AlertDialog(
-            title: const Text('Tinggalkan interview?'),
-            content: Text(
-              state.isRecording
-                  ? 'Rekaman yang sedang berlangsung akan dibatalkan. Sesi tetap tersimpan dan bisa dilanjutkan dari riwayat.'
-                  : 'Sesi tetap tersimpan dan bisa dilanjutkan dari riwayat interview.',
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Tetap di sini'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Tinggalkan'),
-              ),
-            ],
+          builder: (BuildContext context) => _InterviewConfirmationDialog(
+            icon: Icons.logout_rounded,
+            title: 'Tinggalkan interview?',
+            message: state.isRecording
+                ? 'Rekaman yang sedang berlangsung akan dibatalkan. Sesi tetap tersimpan dan bisa dilanjutkan dari riwayat.'
+                : 'Sesi tetap tersimpan dan bisa dilanjutkan dari riwayat interview.',
+            cancelLabel: 'Tetap di sini',
+            confirmLabel: 'Tinggalkan',
+            confirmFill: const Color(0xFFFFE0DA),
+            confirmShadow: const Color(0xFFECA092),
+            confirmForeground: const Color(0xFFA63724),
           ),
         ) ??
         false;
@@ -194,21 +183,16 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
     final bool shouldSwitch =
         await showDialog<bool>(
           context: context,
-          builder: (BuildContext context) => AlertDialog(
-            title: const Text('Lanjutkan sesi ini?'),
-            content: const Text(
-              'Interview yang sedang terbuka tetap tersimpan di riwayat.',
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Batal'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Lanjutkan'),
-              ),
-            ],
+          builder: (BuildContext context) => const _InterviewConfirmationDialog(
+            icon: Icons.switch_account_rounded,
+            title: 'Lanjutkan sesi ini?',
+            message:
+                'Interview yang sedang terbuka tetap tersimpan di riwayat.',
+            cancelLabel: 'Batal',
+            confirmLabel: 'Lanjutkan',
+            confirmFill: Color(0xFFDDEAFF),
+            confirmShadow: Color(0xFF9CBCEB),
+            confirmForeground: Color(0xFF0D49B5),
           ),
         ) ??
         false;
@@ -2739,6 +2723,172 @@ String _resultScoreLabel(double score) {
     return 'Cukup siap';
   }
   return 'Perlu lebih banyak latihan';
+}
+
+class _InterviewConfirmationDialog extends StatelessWidget {
+  const _InterviewConfirmationDialog({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.cancelLabel,
+    required this.confirmLabel,
+    required this.confirmFill,
+    required this.confirmShadow,
+    required this.confirmForeground,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final String cancelLabel;
+  final String confirmLabel;
+  final Color confirmFill;
+  final Color confirmShadow;
+  final Color confirmForeground;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      key: const ValueKey<String>('interview-confirmation-dialog'),
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+        decoration: BoxDecoration(
+          color: AppColors.scholarCream,
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: Colors.white),
+          boxShadow: const <BoxShadow>[
+            BoxShadow(
+              color: Color(0xFFC9CFD9),
+              blurRadius: 0,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: confirmFill,
+                shape: BoxShape.circle,
+                border: Border.all(color: confirmForeground.withAlpha(50)),
+              ),
+              child: Icon(icon, color: confirmForeground, size: 27),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.fredoka(
+                color: AppColors.warriorNavy,
+                fontSize: 21,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.textMuted,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 22),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: _InterviewDialogAction(
+                    actionKey: const ValueKey<String>(
+                      'interview-confirmation-cancel',
+                    ),
+                    label: cancelLabel,
+                    fill: Colors.white,
+                    shadow: const Color(0xFFD7DCE4),
+                    foreground: AppColors.warriorNavy,
+                    onTap: () => Navigator.of(context).pop(false),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _InterviewDialogAction(
+                    actionKey: const ValueKey<String>(
+                      'interview-confirmation-confirm',
+                    ),
+                    label: confirmLabel,
+                    fill: confirmFill,
+                    shadow: confirmShadow,
+                    foreground: confirmForeground,
+                    onTap: () => Navigator.of(context).pop(true),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InterviewDialogAction extends StatelessWidget {
+  const _InterviewDialogAction({
+    required this.actionKey,
+    required this.label,
+    required this.fill,
+    required this.shadow,
+    required this.foreground,
+    required this.onTap,
+  });
+
+  final Key actionKey;
+  final String label;
+  final Color fill;
+  final Color shadow;
+  final Color foreground;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: shadow,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      padding: const EdgeInsets.only(bottom: 5),
+      child: Material(
+        color: fill,
+        borderRadius: BorderRadius.circular(15),
+        child: InkWell(
+          key: actionKey,
+          borderRadius: BorderRadius.circular(15),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 13),
+            child: Text(
+              label.toUpperCase(),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: foreground,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _InterviewSheetHandle extends StatelessWidget {

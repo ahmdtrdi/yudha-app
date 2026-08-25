@@ -95,6 +95,37 @@ void main() {
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byIcon(Icons.chevron_left));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      find.byKey(const ValueKey<String>('interview-confirmation-dialog')),
+      findsOneWidget,
+    );
+    expect(find.text('Tinggalkan interview?'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('interview-confirmation-cancel')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('interview-confirmation-confirm')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('interview-confirmation-cancel')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      find.byKey(const ValueKey<String>('interview-confirmation-dialog')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('interview-voice-stage')),
+      findsOneWidget,
+    );
   });
 
   testWidgets(

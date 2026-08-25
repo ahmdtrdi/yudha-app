@@ -2522,3 +2522,19 @@
 ### The Tech Debt
 - Session timestamps remain compact relative labels; more detailed date grouping can be added if the history volume grows.
 
+## 2026-08-25 - Interview Confirmation Dialog Redesign
+
+### The Change
+- Replaced the default Material confirmation dialogs for leaving, completing, and switching Interview sessions with one reusable clay-styled dialog.
+- Added semantic icons, clearer supporting copy, and visually distinct white cancel and colored confirm actions while preserving every existing return value and callback.
+
+### The Reasoning
+- A shared component keeps destructive and progression confirmations consistent with the redesigned Interview flow and makes the action hierarchy easier to scan.
+
+### Verification
+- Focused Dart analysis completed with no issues.
+- Three focused Interview widget tests passed, including confirmation rendering, cancellation, and active-room retention.
+
+### The Tech Debt
+- None introduced; the dialog remains private to the Interview feature until another feature needs the same interaction pattern.
+
