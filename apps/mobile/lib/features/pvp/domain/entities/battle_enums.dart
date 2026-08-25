@@ -1,6 +1,6 @@
 enum BattleMode { bot, online }
 
-enum OnlineMatchmakingMode { casual, ranked, bot }
+enum OnlineMatchmakingMode { casual, ranked, bot, privateRoom }
 
 enum BattleTarget { cpns, bumn }
 

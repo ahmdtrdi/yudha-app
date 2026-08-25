@@ -442,8 +442,7 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey<String>('mode-choice-online')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey<String>('mode-online')), findsOneWidget);
-    expect(
+    expect(find.byKey(const ValueKey<String>('mode-online')), findsOneWidget);    expect(
       ((tester
                           .widget<AnimatedContainer>(
                             find.byKey(
@@ -459,7 +458,12 @@ void main() {
       const Color(0x827559D4),
     );
 
-    await tester.tap(find.byKey(const ValueKey<String>('mode-choice-ranked')));
+    final Finder rankedChoice = find.byKey(
+      const ValueKey<String>('mode-choice-ranked'),
+    );
+    await tester.ensureVisible(rankedChoice);
+    await tester.pumpAndSettle();
+    await tester.tap(rankedChoice);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey<String>('mode-ranked')), findsOneWidget);
     expect(
