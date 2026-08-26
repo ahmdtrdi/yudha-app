@@ -2630,3 +2630,21 @@
 ### The Tech Debt
 - Surrender remains a separate result-state commit. Expanded prompts and unusually large accessibility text intentionally use the existing scroll fallback when content exceeds the viewport.
 
+## 2026-08-27 - Battle Overlays and Transient States Redesign
+
+### The Change
+- Redesigned the pause panel with clay depth, a contained music control, and the shared orange resume action, then added a dedicated confirmation step before surrendering or ending a battle.
+- Reworked initial and between-round countdowns into a centered clay transition board and added dedicated clay banners for reconnecting opponents, arena errors, and meaningful battle status updates.
+- Added a compact card-opening progress badge and redesigned the matchmaking/private-room waiting state as a raised clay panel while preserving the existing character and tower assets.
+- Kept raw answer-submission transport copy hidden so correct and incorrect feedback continues to use the established hand-header state instead of restoring the removed popup behavior.
+
+### The Reasoning
+- Transient UI sits directly above the arena and must share its component language without obscuring gameplay. Persistent connection states, short-lived arena notices, and explicit destructive confirmation give each interruption the appropriate visual weight.
+
+### Verification
+- Focused Flutter analysis completed with no issues.
+- All five focused PvP widget tests passed, including waiting, pause, surrender cancellation, reconnecting, error, card processing, round transition, question, and result flows.
+
+### The Tech Debt
+- The surrender-specific result presentation remains a separate follow-up commit; this change only confirms and executes the existing surrender action.
+

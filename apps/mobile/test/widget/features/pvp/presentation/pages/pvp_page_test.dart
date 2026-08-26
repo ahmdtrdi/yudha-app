@@ -26,6 +26,7 @@ class _LiveOnlineBattleRepository extends OnlineBattleRepository {
       StreamController<OnlineBattleUpdate>.broadcast(sync: true);
 
   OnlineMatchmakingMode? lastMatchmakingMode;
+  Completer<BattleSessionSeed>? pendingSession;
 
   @override
   Stream<OnlineBattleUpdate> get updates => _updates.stream;
@@ -37,6 +38,9 @@ class _LiveOnlineBattleRepository extends OnlineBattleRepository {
     OnlineMatchmakingMode matchmakingMode = OnlineMatchmakingMode.casual,
   }) async {
     lastMatchmakingMode = matchmakingMode;
+    if (pendingSession case final Completer<BattleSessionSeed> completer) {
+      return completer.future;
+    }
     return const BattleSessionSeed(
       opponentName: 'Bima Saputra',
       questions: <BattleQuestion>[],
@@ -611,6 +615,9 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       final _LiveOnlineBattleRepository online = _LiveOnlineBattleRepository();
+      final Completer<BattleSessionSeed> pendingSession =
+          Completer<BattleSessionSeed>();
+      online.pendingSession = pendingSession;
       final ProviderContainer container = ProviderContainer(
         overrides: <Override>[
           onlineBattleRepositoryProvider.overrideWithValue(online),
@@ -639,6 +646,18 @@ void main() {
       await tester.pump();
 
       expect(online.lastMatchmakingMode, OnlineMatchmakingMode.bot);
+      expect(
+        find.byKey(const ValueKey<String>('battle-waiting-panel')),
+        findsOneWidget,
+      );
+
+      pendingSession.complete(
+        const BattleSessionSeed(
+          opponentName: 'BOT YUDHA',
+          questions: <BattleQuestion>[],
+        ),
+      );
+      await tester.pump();
     },
   );
 
@@ -762,7 +781,61 @@ void main() {
       expect(tester.takeException(), isNull);
 
       await tester.pump(const Duration(seconds: 3));
+
+      await tester.tap(find.byTooltip('Opsi battle'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        find.byKey(const ValueKey<String>('battle-pause-dialog')),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Akhiri battle'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        find.byKey(const ValueKey<String>('battle-surrender-confirmation')),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Batal'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        find.byKey(const ValueKey<String>('battle-surrender-confirmation')),
+        findsNothing,
+      );
+
+      online.emit(
+        PresenceUpdated(
+          opponentConnected: false,
+          opponentReconnectDeadline: DateTime(2026, 8, 26, 12, 0, 30),
+        ),
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('battle-opponent-reconnecting')),
+        findsOneWidget,
+      );
+      online.emit(const PresenceUpdated(opponentConnected: true));
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('battle-opponent-reconnecting')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('battle-status-banner')),
+        findsOneWidget,
+      );
+
+      online.emit(const BattleErrorUpdate(message: 'Arena sedang terganggu.'));
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('battle-error-banner')),
+        findsOneWidget,
+      );
+
       await tester.tap(find.byKey(const ValueKey<String>('question-card-q2')));
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('battle-card-processing')),
+        findsOneWidget,
+      );
       await tester.pump(const Duration(milliseconds: 150));
       await tester.pump(const Duration(milliseconds: 350));
 
@@ -874,6 +947,33 @@ void main() {
         find.byKey(const ValueKey<String>('battle-hand-helper')),
         findsOneWidget,
       );
+
+      online.emit(
+        const GameStateUpdated(
+          roomId: 'room-bot-1',
+          phase: 'round_break',
+          playerHp: 95,
+          opponentHp: 0,
+          playerPoints: 10,
+          opponentPoints: 0,
+          playerComboLevel: 1,
+          currentRound: 1,
+          roundSecondsRemaining: 0,
+          playerRoundWins: 1,
+          opponentRoundWins: 0,
+          lastRoundOutcome: BattleOutcome.win,
+          availableQuestions: <BattleQuestion>[],
+          answeredQuestionIds: <String>['q1', 'q2'],
+          playerDisplayName: 'Kamu',
+          opponentDisplayName: 'BOT YUDHA',
+        ),
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('battle-round-overlay')),
+        findsOneWidget,
+      );
+      expect(find.text('RONDE SELESAI'), findsOneWidget);
 
       // Emit match finished
       online.emit(
