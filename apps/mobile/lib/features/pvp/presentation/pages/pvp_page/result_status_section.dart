@@ -145,186 +145,123 @@ class _ResultSectionState extends State<_ResultSection>
             child: LayoutBuilder(
               builder: (BuildContext context, BoxConstraints constraints) {
                 final bool compact = constraints.maxHeight < 700;
-                final double badgeSize = compact ? 88 : 106;
+                final double badgeSize = compact ? 76 : 84;
+                final double verticalPadding = compact ? 20 : 28;
 
                 return SingleChildScrollView(
                   padding: EdgeInsets.fromLTRB(
                     16,
-                    compact ? 12 : 20,
+                    compact ? 10 : 14,
                     16,
-                    compact ? 14 : 22,
+                    compact ? 10 : 14,
                   ),
                   child: Center(
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 520),
+                      constraints: BoxConstraints(
+                        maxWidth: 520,
+                        minHeight: max(
+                          0.0,
+                          constraints.maxHeight - verticalPadding,
+                        ),
+                      ),
                       child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: <Widget>[
-                          _ResultBadge(
-                            accent: accent,
-                            victory: isVictory,
-                            defeat: isDefeat,
-                            size: badgeSize,
-                          ),
-                          SizedBox(height: compact ? 10 : 14),
-                          Text(
-                            title,
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.fredoka(
-                              color: titleColor,
-                              fontSize: compact ? 30 : 36,
-                              fontWeight: FontWeight.w700,
-                              height: 1,
-                              letterSpacing: 0.4,
-                            ),
-                          ),
-                          const SizedBox(height: 7),
-                          Text(
-                            subtitle,
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.dmSans(
-                              color: _ResultSection._mutedInk,
-                              fontSize: compact ? 13 : 14,
-                              fontWeight: FontWeight.w600,
-                              height: 1.3,
-                            ),
-                          ),
-                          SizedBox(height: compact ? 14 : 18),
-                          _ScoreCard(
-                            state: state,
-                            playerDisplayName: widget.playerDisplayName,
-                            compact: compact,
-                          ),
-                          if (insight != null) ...<Widget>[
-                            SizedBox(height: compact ? 10 : 12),
-                            _PerformanceInsightCard(
-                              insight: insight,
-                              compact: compact,
-                              onPractice: () =>
-                                  widget.onPractice(insight.weakestCategory.category),
-                            ),
-                          ],
-                          SizedBox(height: compact ? 10 : 12),
-                          _RewardCard(
-                            ratingText: ratingText,
-                            coinsDelta: state.coinsDelta,
-                            isRanked:
-                                state.mode == BattleMode.online &&
-                                state.onlineMatchmakingMode ==
-                                    OnlineMatchmakingMode.ranked,
-                            claimed: state.rewardClaimed,
-                            accent: accent,
-                            compact: compact,
-                          ),
-                          SizedBox(height: compact ? 12 : 16),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 52,
-                            child: FilledButton.icon(
-                              onPressed: state.rewardClaimed
-                                  ? widget.onReplay
-                                  : widget.onClaimReward,
-                              icon: Icon(
-                                state.rewardClaimed
-                                    ? Icons.replay_rounded
-                                    : Icons.redeem_rounded,
-                                size: 21,
-                              ),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF0D2A52),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(17),
-                                ),
-                              ),
-                              label: Text(
-                                state.rewardClaimed ? 'Main lagi' : 'Klaim hadiah',
-                                style: GoogleFonts.dmSans(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (!state.rewardClaimed) ...<Widget>[
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 48,
-                              child: OutlinedButton.icon(
-                                onPressed: widget.onReplay,
-                                icon: const Icon(Icons.replay_rounded, size: 20),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: _ResultSection._ink,
-                                  side: BorderSide(color: _ResultSection._ink.withAlpha(45)),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                ),
-                                label: Text(
-                                  'Main lagi',
-                                  style: GoogleFonts.dmSans(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 8),
-                          Row(
+                          Column(
                             children: <Widget>[
-                              Expanded(
-                                child: SizedBox(
-                                  height: 46,
-                                  child: TextButton.icon(
-                                    onPressed: widget.onReset,
-                                    icon: const Icon(
-                                      Icons.grid_view_rounded,
-                                      size: 18,
-                                    ),
-                                    style: TextButton.styleFrom(
-                                      foregroundColor: _ResultSection._mutedInk,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                    ),
-                                    label: Text(
-                                      'Pilih mode',
-                                      style: GoogleFonts.dmSans(
-                                        fontWeight: FontWeight.w700,
-                                      ),
+                              _ResultHero(
+                                key: const ValueKey<String>(
+                                  'battle-result-hero',
+                                ),
+                                accent: accent,
+                                titleColor: titleColor,
+                                title: title,
+                                subtitle: subtitle,
+                                modeLabel: _resultModeLabel(state),
+                                victory: isVictory,
+                                defeat: isDefeat,
+                                badgeSize: badgeSize,
+                                compact: compact,
+                              ),
+                              SizedBox(height: compact ? 10 : 12),
+                              _ScoreCard(
+                                state: state,
+                                playerDisplayName: widget.playerDisplayName,
+                                compact: compact,
+                              ),
+                              SizedBox(height: compact ? 8 : 10),
+                              if (insight != null)
+                                _PerformanceInsightCard(
+                                  insight: insight,
+                                  compact: compact,
+                                  onPractice: () => widget.onPractice(
+                                    insight.weakestCategory.category,
+                                  ),
+                                )
+                              else
+                                _EmptyPerformanceInsightCard(compact: compact),
+                              SizedBox(height: compact ? 8 : 10),
+                              _RewardCard(
+                                ratingText: ratingText,
+                                coinsDelta: state.coinsDelta,
+                                isRanked:
+                                    state.mode == BattleMode.online &&
+                                    state.onlineMatchmakingMode ==
+                                        OnlineMatchmakingMode.ranked,
+                                claimed: state.rewardClaimed,
+                                accent: accent,
+                                compact: compact,
+                              ),
+                            ],
+                          ),
+                          Column(
+                            children: <Widget>[
+                              SizedBox(height: compact ? 10 : 14),
+                              if (!state.rewardClaimed) ...<Widget>[
+                                _ResultClayAction(
+                                  key: const ValueKey<String>(
+                                    'battle-result-primary-action',
+                                  ),
+                                  onPressed: widget.onClaimReward,
+                                  icon: Icons.redeem_rounded,
+                                  label: 'Klaim hadiah',
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+                              Row(
+                                children: <Widget>[
+                                  Expanded(
+                                    child: _ResultSecondaryAction(
+                                      onPressed: widget.onReplay,
+                                      icon: Icons.replay_rounded,
+                                      label: 'Main lagi',
                                     ),
                                   ),
-                                ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: _ResultSecondaryAction(
+                                      onPressed: widget.onReset,
+                                      icon: Icons.grid_view_rounded,
+                                      label: 'Pilih mode',
+                                    ),
+                                  ),
+                                ],
                               ),
                               if (canGoBack) ...<Widget>[
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: SizedBox(
-                                    height: 46,
-                                    child: TextButton.icon(
-                                      onPressed: () {
-                                        widget.onReset();
-                                        navigator.maybePop();
-                                      },
-                                      icon: const Icon(
-                                        Icons.arrow_back_rounded,
-                                        size: 18,
-                                      ),
-                                      style: TextButton.styleFrom(
-                                        foregroundColor: _ResultSection._mutedInk,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(14),
-                                        ),
-                                      ),
-                                      label: Text(
-                                        'Kembali',
-                                        style: GoogleFonts.dmSans(
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
+                                const SizedBox(height: 4),
+                                TextButton.icon(
+                                  onPressed: () {
+                                    widget.onReset();
+                                    navigator.maybePop();
+                                  },
+                                  icon: const Icon(
+                                    Icons.arrow_back_rounded,
+                                    size: 17,
+                                  ),
+                                  label: const Text('Kembali ke lobby'),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: _ResultSection._mutedInk,
+                                    visualDensity: VisualDensity.compact,
                                   ),
                                 ),
                               ],
@@ -360,6 +297,216 @@ class _ResultSectionState extends State<_ResultSection>
   }
 }
 
+String _resultModeLabel(BattleState state) {
+  if (state.mode != BattleMode.online) {
+    return 'LATIHAN BOT';
+  }
+  return switch (state.onlineMatchmakingMode) {
+    OnlineMatchmakingMode.ranked => 'RANKED MATCH',
+    OnlineMatchmakingMode.casual => 'PLAYER MATCH',
+    OnlineMatchmakingMode.privateRoom => 'PRIVATE ROOM',
+    OnlineMatchmakingMode.bot => 'LATIHAN BOT',
+  };
+}
+
+class _ResultHero extends StatelessWidget {
+  const _ResultHero({
+    required super.key,
+    required this.accent,
+    required this.titleColor,
+    required this.title,
+    required this.subtitle,
+    required this.modeLabel,
+    required this.victory,
+    required this.defeat,
+    required this.badgeSize,
+    required this.compact,
+  });
+
+  final Color accent;
+  final Color titleColor;
+  final String title;
+  final String subtitle;
+  final String modeLabel;
+  final bool victory;
+  final bool defeat;
+  final double badgeSize;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color surface = Color.alphaBlend(accent.withAlpha(24), Colors.white);
+    final Color clayEdge = Color.alphaBlend(
+      const Color(0xFF17233F).withAlpha(42),
+      accent,
+    );
+
+    return Container(
+      key: const ValueKey<String>('battle-result-hero-surface'),
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(18, compact ? 13 : 16, 18, 16),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: accent.withAlpha(72)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: clayEdge.withAlpha(150),
+            blurRadius: 0,
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+      child: Column(
+        children: <Widget>[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(185),
+              borderRadius: BorderRadius.circular(99),
+              border: Border.all(color: accent.withAlpha(55)),
+            ),
+            child: Text(
+              modeLabel,
+              style: GoogleFonts.dmSans(
+                color: titleColor,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.7,
+              ),
+            ),
+          ),
+          SizedBox(height: compact ? 7 : 9),
+          _ResultBadge(
+            accent: accent,
+            victory: victory,
+            defeat: defeat,
+            size: badgeSize,
+          ),
+          SizedBox(height: compact ? 7 : 9),
+          Text(
+            title,
+            key: const ValueKey<String>('battle-result-title'),
+            textAlign: TextAlign.center,
+            style: GoogleFonts.fredoka(
+              color: titleColor,
+              fontSize: compact ? 30 : 33,
+              fontWeight: FontWeight.w700,
+              height: 1,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.dmSans(
+              color: _ResultSection._mutedInk,
+              fontSize: compact ? 12 : 13,
+              fontWeight: FontWeight.w600,
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultClayAction extends StatelessWidget {
+  const _ResultClayAction({
+    required super.key,
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+  });
+
+  final VoidCallback onPressed;
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: 52,
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFD7A3),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFFFC27A)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0xFFF39A61),
+            blurRadius: 0,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(18),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Icon(icon, color: const Color(0xFFB85C21), size: 21),
+              const SizedBox(width: 8),
+              Text(
+                label.toUpperCase(),
+                style: GoogleFonts.dmSans(
+                  color: const Color(0xFFB85C21),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ResultSecondaryAction extends StatelessWidget {
+  const _ResultSecondaryAction({
+    required this.onPressed,
+    required this.icon,
+    required this.label,
+  });
+
+  final VoidCallback onPressed;
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 46,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: _ResultSection._ink,
+          backgroundColor: Colors.white.withAlpha(125),
+          side: BorderSide(color: _ResultSection._ink.withAlpha(38)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+        ),
+        label: Text(
+          label,
+          maxLines: 1,
+          style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w800),
+        ),
+      ),
+    );
+  }
+}
+
 class _ConfettiParticle {
   _ConfettiParticle({
     required this.x,
@@ -385,10 +532,7 @@ class _ConfettiParticle {
 }
 
 class _ConfettiPainter extends CustomPainter {
-  _ConfettiPainter({
-    required this.progress,
-    required this.particles,
-  });
+  _ConfettiPainter({required this.progress, required this.particles});
 
   final double progress;
   final List<_ConfettiParticle> particles;
@@ -402,7 +546,9 @@ class _ConfettiPainter extends CustomPainter {
 
     for (final _ConfettiParticle p in particles) {
       final double curX = (p.x + p.vx * progress) * size.width;
-      final double curY = (p.y + p.vy * progress * 1.5 + (0.5 * 1.2 * progress * progress)) * size.height;
+      final double curY =
+          (p.y + p.vy * progress * 1.5 + (0.5 * 1.2 * progress * progress)) *
+          size.height;
       if (curY < 0 || curY > size.height) continue;
 
       paint.color = p.color.withAlpha((fade * 255).round().clamp(0, 255));
@@ -414,7 +560,11 @@ class _ConfettiPainter extends CustomPainter {
 
       if (p.shape == 0) {
         canvas.drawRect(
-          Rect.fromCenter(center: Offset.zero, width: p.size, height: p.size * 0.6),
+          Rect.fromCenter(
+            center: Offset.zero,
+            width: p.size,
+            height: p.size * 0.6,
+          ),
           paint,
         );
       } else if (p.shape == 1) {
@@ -422,7 +572,11 @@ class _ConfettiPainter extends CustomPainter {
       } else {
         canvas.drawRRect(
           RRect.fromRectAndRadius(
-            Rect.fromCenter(center: Offset.zero, width: p.size * 1.2, height: p.size * 0.35),
+            Rect.fromCenter(
+              center: Offset.zero,
+              width: p.size * 1.2,
+              height: p.size * 0.35,
+            ),
             const Radius.circular(2),
           ),
           paint,
@@ -459,16 +613,16 @@ class _PerformanceInsightCard extends StatelessWidget {
     return Container(
       key: const ValueKey<String>('battle-performance-insight'),
       width: double.infinity,
-      padding: EdgeInsets.all(compact ? 14 : 16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: const Color(0xFF2878F0).withAlpha(34)),
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: const Color(0xFF17233F).withAlpha(12),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: const Color(0xFFD9DEE7),
+            blurRadius: 0,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -478,19 +632,19 @@ class _PerformanceInsightCard extends StatelessWidget {
           Row(
             children: <Widget>[
               Container(
-                width: 38,
-                height: 38,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
                   color: const Color(0xFF2878F0).withAlpha(18),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(11),
                 ),
                 child: const Icon(
                   Icons.insights_rounded,
                   color: Color(0xFF2878F0),
-                  size: 21,
+                  size: 19,
                 ),
               ),
-              const SizedBox(width: 11),
+              const SizedBox(width: 9),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -501,7 +655,7 @@ class _PerformanceInsightCard extends StatelessWidget {
                           : 'Fokus latihan berikutnya',
                       style: GoogleFonts.fredoka(
                         color: _ResultSection._ink,
-                        fontSize: compact ? 15 : 16,
+                        fontSize: compact ? 14 : 15,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -511,7 +665,7 @@ class _PerformanceInsightCard extends StatelessWidget {
                       '${category.totalAnswers} benar',
                       style: GoogleFonts.dmSans(
                         color: _ResultSection._mutedInk,
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -519,7 +673,7 @@ class _PerformanceInsightCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color:
                       (flawless
@@ -534,7 +688,7 @@ class _PerformanceInsightCard extends StatelessWidget {
                     color: flawless
                         ? const Color(0xFF21845F)
                         : const Color(0xFFB83F45),
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -542,13 +696,13 @@ class _PerformanceInsightCard extends StatelessWidget {
             ],
           ),
           if (missedCard != null) ...<Widget>[
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 color: const Color(0xFFFFF8EC),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -563,41 +717,179 @@ class _PerformanceInsightCard extends StatelessWidget {
                       letterSpacing: 0.3,
                     ),
                   ),
-                  const SizedBox(height: 5),
-                  Text(
-                    missedCard.prompt,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.dmSans(
-                      color: _ResultSection._ink,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      height: 1.35,
-                    ),
-                  ),
+                  const SizedBox(height: 3),
+                  _ExpandableResultQuestion(prompt: missedCard.prompt),
                 ],
               ),
             ),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
-            height: 44,
+            height: 36,
             child: OutlinedButton.icon(
               key: const ValueKey<String>('practice-weakest-category'),
               onPressed: onPractice,
-              icon: const Icon(Icons.fitness_center_rounded, size: 18),
+              icon: const Icon(Icons.fitness_center_rounded, size: 16),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF0D2A52),
                 side: const BorderSide(color: Color(0xFF2878F0)),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
               label: Text(
                 'Latihan $categoryLabel',
-                style: GoogleFonts.dmSans(fontWeight: FontWeight.w800),
+                style: GoogleFonts.dmSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExpandableResultQuestion extends StatefulWidget {
+  const _ExpandableResultQuestion({required this.prompt});
+
+  final String prompt;
+
+  @override
+  State<_ExpandableResultQuestion> createState() =>
+      _ExpandableResultQuestionState();
+}
+
+class _ExpandableResultQuestionState extends State<_ExpandableResultQuestion> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextStyle style = GoogleFonts.dmSans(
+      color: _ResultSection._ink,
+      fontSize: 11,
+      fontWeight: FontWeight.w700,
+      height: 1.35,
+    );
+
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        final TextPainter painter = TextPainter(
+          text: TextSpan(text: widget.prompt, style: style),
+          textDirection: Directionality.of(context),
+          maxLines: 2,
+        )..layout(maxWidth: constraints.maxWidth);
+        final bool canExpand = painter.didExceedMaxLines;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              widget.prompt,
+              maxLines: _expanded ? null : 2,
+              overflow: _expanded
+                  ? TextOverflow.visible
+                  : TextOverflow.ellipsis,
+              style: style,
+            ),
+            if (canExpand) ...<Widget>[
+              const SizedBox(height: 3),
+              InkWell(
+                key: const ValueKey<String>('result-question-expand'),
+                onTap: () => setState(() => _expanded = !_expanded),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Text(
+                    _expanded ? 'Ringkas' : 'Lihat lengkap',
+                    style: GoogleFonts.dmSans(
+                      color: const Color(0xFF2878F0),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _EmptyPerformanceInsightCard extends StatelessWidget {
+  const _EmptyPerformanceInsightCard({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey<String>('battle-performance-insight'),
+      width: double.infinity,
+      constraints: BoxConstraints(minHeight: compact ? 82 : 96),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 14 : 16,
+        vertical: compact ? 14 : 17,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF2878F0).withAlpha(34)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0xFFD9DEE7),
+            blurRadius: 0,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: compact ? 42 : 46,
+            height: compact ? 42 : 46,
+            decoration: BoxDecoration(
+              color: const Color(0xFF2878F0).withAlpha(18),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.auto_graph_rounded,
+              color: Color(0xFF2878F0),
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Fokus latihan berikutnya',
+                  style: GoogleFonts.fredoka(
+                    color: _ResultSection._ink,
+                    fontSize: compact ? 15 : 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Belum ada jawaban untuk dianalisis. Jawab minimal satu '
+                  'kartu agar rekomendasi latihan muncul.',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.dmSans(
+                    color: _ResultSection._mutedInk,
+                    fontSize: compact ? 11 : 12,
+                    fontWeight: FontWeight.w600,
+                    height: 1.25,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -612,12 +904,20 @@ String _performanceCategoryLabel(String category) {
     'numerik' => 'Numerik',
     'verbal' => 'Verbal',
     'logika' => 'Logika',
+    'tkd' => 'TKD',
     'tiu' => 'TIU',
     'twk' => 'TWK',
     'tkp' => 'TKP',
     'akhlak' => 'AKHLAK',
+    'wawasan_kebangsaan' || 'wawasan kebangsaan' => 'Wawasan Kebangsaan',
+    'uud_1945' || 'uud 1945' => 'UUD 1945',
+    'nkri' => 'NKRI',
     _ when normalized.isNotEmpty =>
-      '${normalized[0].toUpperCase()}${normalized.substring(1)}',
+      normalized
+          .split(RegExp(r'[_\s]+'))
+          .where((String word) => word.isNotEmpty)
+          .map((String word) => '${word[0].toUpperCase()}${word.substring(1)}')
+          .join(' '),
     _ => 'Kategori soal',
   };
 }
@@ -756,19 +1056,13 @@ class _ScoreCard extends StatelessWidget {
         : playerDisplayName;
 
     return Container(
+      key: const ValueKey<String>('battle-result-score-card'),
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(16, compact ? 13 : 16, 16, 14),
+      padding: EdgeInsets.fromLTRB(4, compact ? 8 : 10, 4, 10),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFF17233F).withAlpha(22)),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: const Color(0xFF17233F).withAlpha(12),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border(
+          bottom: BorderSide(color: const Color(0xFF17233F).withAlpha(22)),
+        ),
       ),
       child: Column(
         children: <Widget>[
@@ -790,7 +1084,7 @@ class _ScoreCard extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: compact ? 10 : 13),
+          SizedBox(height: compact ? 7 : 9),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: <Widget>[
@@ -823,9 +1117,9 @@ class _ScoreCard extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: compact ? 10 : 13),
+          SizedBox(height: compact ? 7 : 9),
           Divider(color: _ResultSection._ink.withAlpha(18), height: 1),
-          SizedBox(height: compact ? 10 : 12),
+          SizedBox(height: compact ? 7 : 9),
           Row(
             children: <Widget>[
               Expanded(
@@ -887,7 +1181,7 @@ class _ScoreColumn extends StatelessWidget {
           value,
           style: GoogleFonts.fredoka(
             color: color,
-            fontSize: compact ? 34 : 40,
+            fontSize: compact ? 29 : 32,
             fontWeight: FontWeight.w700,
             height: 1,
           ),
@@ -963,11 +1257,9 @@ class _RewardCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      key: const ValueKey<String>('battle-result-reward-card'),
       width: double.infinity,
-      padding: EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: compact ? 11 : 13,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: compact ? 8 : 9),
       decoration: BoxDecoration(
         color: accent.withAlpha(24),
         borderRadius: BorderRadius.circular(18),
@@ -976,19 +1268,19 @@ class _RewardCard extends StatelessWidget {
       child: Row(
         children: <Widget>[
           Container(
-            width: 42,
-            height: 42,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               color: accent,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(
               Icons.military_tech_rounded,
               color: Colors.white,
-              size: 23,
+              size: 20,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -997,7 +1289,7 @@ class _RewardCard extends StatelessWidget {
                   isRanked ? 'Rating & Y-Coin' : 'Mode tanpa progression',
                   style: GoogleFonts.dmSans(
                     color: _ResultSection._mutedInk,
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1008,7 +1300,7 @@ class _RewardCard extends StatelessWidget {
                       : 'Rating tetap',
                   style: GoogleFonts.fredoka(
                     color: _ResultSection._ink,
-                    fontSize: 20,
+                    fontSize: 17,
                     fontWeight: FontWeight.w700,
                     height: 1,
                   ),

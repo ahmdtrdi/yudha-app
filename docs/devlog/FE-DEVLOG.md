@@ -2612,3 +2612,21 @@
 ### The Tech Debt
 - A socket-repository integration harness is still needed to replay raw Socket.IO payloads without a live server; controller and widget behavior are covered independently for now.
 
+## 2026-08-26 - Result Screen Redesign
+
+### The Change
+- Redesigned the existing win, loss, and draw screen around a medium outcome-colored clay hero with semantic iconography and match-mode context.
+- Flattened the round-score section, added a compact reward banner, retained the orange clay claim action, and aligned `Main lagi` with `Pilih mode` as equal secondary actions.
+- Kept coaching visible for answered and unanswered matches, added two-line missed-question previews with inline `Lihat lengkap` / `Ringkas` expansion, and normalized taxonomy labels such as `TKD`, `Wawasan Kebangsaan`, `UUD 1945`, and `NKRI`.
+- Preserved reward claiming, replay, mode selection, practice recommendations, confetti, audio, haptics, and safe scrolling on short screens.
+
+### The Reasoning
+- A dominant outcome hero provides immediate result identity while flatter supporting information prevents excessive clay depth. Persistent coaching stabilizes both result states, and inline expansion provides enough question context without introducing another popup.
+
+### Verification
+- Focused Flutter analysis completed with no issues.
+- All five focused PvP widget tests passed, including result variants, long-question expansion, normalized taxonomy copy, reward claiming, aligned actions, and the complete multiplayer result flow.
+
+### The Tech Debt
+- Surrender remains a separate result-state commit. Expanded prompts and unusually large accessibility text intentionally use the existing scroll fallback when content exceeds the viewport.
+

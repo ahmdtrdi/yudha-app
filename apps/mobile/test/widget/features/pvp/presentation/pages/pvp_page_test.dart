@@ -689,12 +689,14 @@ void main() {
             ),
             BattleQuestion(
               id: 'q2',
-              prompt: 'Sinonim cepat?',
+              prompt:
+                  'Peran BUMN sebagai benteng kedaulatan ekonomi negara '
+                  'berdasarkan pilar UUD 1945 diwujudkan melalui tindakan apa?',
               options: <String>['Lekas', 'Lambat'],
               correctOptionIndex: 0,
               weight: 4,
               effect: QuestionEffect.damage,
-              category: 'verbal',
+              category: 'wawasan_kebangsaan',
             ),
           ],
           answeredQuestionIds: <String>[],
@@ -851,7 +853,7 @@ void main() {
           effectValue: 4,
           projectileLevel: 1,
           isSelfAction: true,
-          category: 'verbal',
+          category: 'wawasan_kebangsaan',
         ),
       );
       await tester.pump();
@@ -888,8 +890,55 @@ void main() {
 
       expect(find.text('VICTORY!'), findsOneWidget);
       expect(
+        find.byKey(const ValueKey<String>('battle-result-hero')),
+        findsOneWidget,
+      );
+      final Container resultHero = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('battle-result-hero-surface')),
+      );
+      expect((resultHero.decoration! as BoxDecoration).boxShadow, isNotEmpty);
+      expect(
+        find.byKey(const ValueKey<String>('battle-result-score-card')),
+        findsOneWidget,
+      );
+      final Container scoreSection = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('battle-result-score-card')),
+      );
+      expect((scoreSection.decoration! as BoxDecoration).boxShadow, isNull);
+      expect(
+        find.byKey(const ValueKey<String>('battle-result-reward-card')),
+        findsOneWidget,
+      );
+      expect(
         find.byKey(const ValueKey<String>('battle-performance-insight')),
         findsOneWidget,
+      );
+      expect(find.textContaining('Wawasan Kebangsaan'), findsWidgets);
+      expect(find.text('Lihat lengkap'), findsOneWidget);
+      await tester.ensureVisible(find.text('Lihat lengkap'));
+      await tester.pump();
+      await tester.tap(find.text('Lihat lengkap'));
+      await tester.pump();
+      expect(find.text('Ringkas'), findsOneWidget);
+      expect(find.text('KLAIM HADIAH'), findsOneWidget);
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey<String>('battle-result-primary-action')),
+      );
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey<String>('battle-result-primary-action')),
+      );
+      await tester.pump();
+      expect(find.text('Diklaim'), findsOneWidget);
+      expect(find.text('Main lagi'), findsOneWidget);
+      expect(find.text('Pilih mode'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Main lagi'));
+      await tester.pump();
+      expect(
+        tester.getCenter(find.text('Main lagi')).dy,
+        tester.getCenter(find.text('Pilih mode')).dy,
       );
     },
   );
