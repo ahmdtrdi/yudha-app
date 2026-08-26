@@ -303,9 +303,7 @@ class BattleController extends StateNotifier<BattleState> {
       return;
     }
     if (code.length != 6) {
-      state = state.copyWith(
-        errorMessage: 'Kode room harus 6 karakter.',
-      );
+      state = state.copyWith(errorMessage: 'Kode room harus 6 karakter.');
       return;
     }
     _preparedQuestionId = null;
@@ -417,9 +415,7 @@ class BattleController extends StateNotifier<BattleState> {
       );
       return true;
     } catch (_) {
-      state = state.copyWith(
-        errorMessage: 'Jawaban gagal dikirim ke arena.',
-      );
+      state = state.copyWith(errorMessage: 'Jawaban gagal dikirim ke arena.');
       return false;
     }
   }
@@ -672,6 +668,12 @@ class BattleController extends StateNotifier<BattleState> {
           clearErrorMessage: true,
           clearBattleEvent: effect == null,
           lastProjectileLevel: update.projectileLevel,
+          selfAnswerResultId: update.isSelfAction
+              ? state.selfAnswerResultId + 1
+              : state.selfAnswerResultId,
+          lastSelfAnswerCorrect: update.isSelfAction
+              ? isCorrect
+              : state.lastSelfAnswerCorrect,
           answerHistory: update.isSelfAction
               ? <BattleAnswerRecord>[
                   ...state.answerHistory,

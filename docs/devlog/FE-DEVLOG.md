@@ -2578,3 +2578,37 @@
 ### The Tech Debt
 - Battle overlays and the question sheet intentionally retain their existing styling until their dedicated redesign commits.
 
+## 2026-08-26 - Battle Question Popup Redesign
+
+### The Change
+- Redesigned the in-battle question popup with a flat category header, timer, prompt, connection notice, and one shared clay answer panel containing divided response rows.
+- Preserved available, selected, correct, incorrect, and locked answer states while removing repeated clay shadows from informational surfaces.
+- Removed successful-answer confirmation copy and delay so the popup closes immediately after a successful submission; timeout and submission-failure feedback remain available.
+
+### The Reasoning
+- One grouped response surface creates a calmer hierarchy, keeps informational content from looking interactive, and returns the player to the arena without an unnecessary success step.
+
+### Verification
+- Focused Flutter analysis completed with no issues.
+- All five focused PvP widget tests passed, including popup rendering, grouped-answer styling, answer submission, and dismissal.
+
+### The Tech Debt
+- Match-result and surrender surfaces remain separate redesign commits.
+
+## 2026-08-26 - Correct and Wrong Answer State Management
+
+### The Change
+- Added a dedicated self-answer result ID and correctness value to mobile battle state instead of inferring feedback from answer-history growth.
+- Added a mobile socket fallback that recognizes the player's result through the locally submitted card ID when actor-ID comparison is unreliable.
+- Reused the hand header helper position for a temporary green `BENAR` or red `SALAH` badge that restores the normal instruction after 1.5 seconds.
+
+### The Reasoning
+- First-class result state makes feedback independent of card replacement and unrelated battle effects while keeping server grading authoritative and avoiding additional visual clutter.
+
+### Verification
+- Focused Flutter analysis completed with no issues.
+- All 12 focused BattleController unit tests and all five focused PvP widget tests passed, including self-result publication, opponent-result isolation, badge transitions, and helper restoration.
+
+### The Tech Debt
+- A socket-repository integration harness is still needed to replay raw Socket.IO payloads without a live server; controller and widget behavior are covered independently for now.
+

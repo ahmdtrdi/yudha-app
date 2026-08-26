@@ -30,6 +30,8 @@ class BattleState {
     required this.roundSecondsRemaining,
     required this.progressionPersisted,
     required this.opponentConnected,
+    this.selfAnswerResultId = 0,
+    this.lastSelfAnswerCorrect,
     this.battleTarget,
     this.playerCharacterId,
     this.playerTowerId,
@@ -102,6 +104,8 @@ class BattleState {
   final int roundSecondsRemaining;
   final bool progressionPersisted;
   final bool opponentConnected;
+  final int selfAnswerResultId;
+  final bool? lastSelfAnswerCorrect;
   final BattleTarget? battleTarget;
   final String? playerCharacterId;
   final String? playerTowerId;
@@ -148,6 +152,8 @@ class BattleState {
     int? roundSecondsRemaining,
     bool? progressionPersisted,
     bool? opponentConnected,
+    int? selfAnswerResultId,
+    bool? lastSelfAnswerCorrect,
     BattleTarget? battleTarget,
     String? playerCharacterId,
     String? playerTowerId,
@@ -201,6 +207,9 @@ class BattleState {
           roundSecondsRemaining ?? this.roundSecondsRemaining,
       progressionPersisted: progressionPersisted ?? this.progressionPersisted,
       opponentConnected: opponentConnected ?? this.opponentConnected,
+      selfAnswerResultId: selfAnswerResultId ?? this.selfAnswerResultId,
+      lastSelfAnswerCorrect:
+          lastSelfAnswerCorrect ?? this.lastSelfAnswerCorrect,
       battleTarget: clearBattleTarget
           ? null
           : battleTarget ?? this.battleTarget,

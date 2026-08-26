@@ -759,6 +759,55 @@ void main() {
       );
       expect(tester.takeException(), isNull);
 
+      await tester.pump(const Duration(seconds: 3));
+      await tester.tap(find.byKey(const ValueKey<String>('question-card-q2')));
+      await tester.pump(const Duration(milliseconds: 150));
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(
+        find.byKey(const ValueKey<String>('question-battle-sheet')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('question-sheet-scroll-view')),
+        findsOneWidget,
+      );
+      final Container questionHeader = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('question-sheet-header')),
+      );
+      expect((questionHeader.decoration! as BoxDecoration).boxShadow, isNull);
+      final Container promptCard = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('question-prompt-card')),
+      );
+      expect((promptCard.decoration! as BoxDecoration).boxShadow, isNull);
+      expect(
+        find.byKey(const ValueKey<String>('question-timer-ring')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('question-online-status')),
+        findsNothing,
+      );
+      final Container answerGroup = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('question-answer-group')),
+      );
+      expect((answerGroup.decoration! as BoxDecoration).boxShadow, isNotEmpty);
+      final AnimatedContainer answerOption = tester.widget<AnimatedContainer>(
+        find.byKey(const ValueKey<String>('question-answer-0')),
+      );
+      expect((answerOption.decoration! as BoxDecoration).boxShadow, isNull);
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.byKey(const ValueKey<String>('question-answer-0')));
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(
+        find.byKey(const ValueKey<String>('question-battle-sheet')),
+        findsNothing,
+      );
+      expect(find.textContaining('Jawaban dikirim'), findsNothing);
+      expect(tester.takeException(), isNull);
+
       // Answer a question to generate answer history for performance insight
       await battleController.prepareQuestion(
         const BattleQuestion(
@@ -781,6 +830,47 @@ void main() {
           isSelfAction: true,
           category: 'numerik',
         ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(
+        find.byKey(const ValueKey<String>('battle-answer-result-true')),
+        findsOneWidget,
+      );
+      expect(find.text('BENAR'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('battle-hand-helper')),
+        findsNothing,
+      );
+
+      online.emit(
+        const CardPlayedUpdate(
+          cardId: 'q2',
+          correct: false,
+          effect: QuestionEffect.damage,
+          effectValue: 4,
+          projectileLevel: 1,
+          isSelfAction: true,
+          category: 'verbal',
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(
+        find.byKey(const ValueKey<String>('battle-answer-result-false')),
+        findsOneWidget,
+      );
+      expect(find.text('SALAH'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 1600));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(
+        find.byKey(const ValueKey<String>('battle-answer-result')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('battle-hand-helper')),
+        findsOneWidget,
       );
 
       // Emit match finished

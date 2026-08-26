@@ -82,6 +82,7 @@ class _InBattleSectionState extends State<_InBattleSection>
 
   Timer? _countdownTimer;
   Timer? _noticeTimer;
+  Timer? _answerResultTimer;
   final List<Timer> _effectSoundTimers = <Timer>[];
   final List<_BattleEffectEvent> _pendingEffects = <_BattleEffectEvent>[];
   int _countdownValue = 3;
@@ -90,6 +91,7 @@ class _InBattleSectionState extends State<_InBattleSection>
   bool _pauseOpen = false;
   List<BattleQuestion> _hand = const <BattleQuestion>[];
   String? _selectedQuestionId;
+  bool? _answerResultCorrect;
   String? _notice;
   bool _noticeIsError = false;
   bool _imagesPrecached = false;
@@ -218,6 +220,11 @@ class _InBattleSectionState extends State<_InBattleSection>
       unawaited(_arenaAudio.setMusicLevel(widget.musicLevel));
     }
     _rebuildHand();
+
+    if (widget.state.selfAnswerResultId != oldWidget.state.selfAnswerResultId &&
+        widget.state.lastSelfAnswerCorrect != null) {
+      _showAnswerResult(correct: widget.state.lastSelfAnswerCorrect!);
+    }
 
     final int playerDelta = widget.state.playerHp - oldWidget.state.playerHp;
     final int opponentDelta =
@@ -548,6 +555,19 @@ class _InBattleSectionState extends State<_InBattleSection>
     });
   }
 
+  void _showAnswerResult({required bool correct}) {
+    _answerResultTimer?.cancel();
+    _answerResultCorrect = correct;
+    _answerResultTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _answerResultCorrect = null;
+      });
+    });
+  }
+
   Future<void> _handlePickQuestion(BattleQuestion question) async {
     if (!_countdownDone ||
         _interactionLocked ||
@@ -611,6 +631,7 @@ class _InBattleSectionState extends State<_InBattleSection>
     WidgetsBinding.instance.removeObserver(this);
     _countdownTimer?.cancel();
     _noticeTimer?.cancel();
+    _answerResultTimer?.cancel();
     for (final Timer timer in _effectSoundTimers) {
       timer.cancel();
     }
@@ -728,6 +749,7 @@ class _InBattleSectionState extends State<_InBattleSection>
                         !_interactionLocked &&
                         !_pauseOpen,
                     selectedQuestionId: _selectedQuestionId,
+                    answerResultCorrect: _answerResultCorrect,
                     onPickQuestion: _handlePickQuestion,
                   ),
                 ],
@@ -2133,6 +2155,7 @@ class _BattleHand extends StatelessWidget {
     required this.compact,
     required this.enabled,
     required this.selectedQuestionId,
+    required this.answerResultCorrect,
     required this.onPickQuestion,
   });
 
@@ -2140,6 +2163,7 @@ class _BattleHand extends StatelessWidget {
   final bool compact;
   final bool enabled;
   final String? selectedQuestionId;
+  final bool? answerResultCorrect;
   final ValueChanged<BattleQuestion> onPickQuestion;
 
   @override
@@ -2162,13 +2186,25 @@ class _BattleHand extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Text(
-                enabled ? 'Jawab untuk bergerak' : 'Bersiap di arena',
-                style: GoogleFonts.dmSans(
-                  color: _BattleClayPalette.mutedInk,
-                  fontSize: compact ? 9 : 10,
-                  fontWeight: FontWeight.w700,
-                ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: answerResultCorrect == null
+                    ? Text(
+                        enabled ? 'Jawab untuk bergerak' : 'Bersiap di arena',
+                        key: const ValueKey<String>('battle-hand-helper'),
+                        style: GoogleFonts.dmSans(
+                          color: _BattleClayPalette.mutedInk,
+                          fontSize: compact ? 9 : 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      )
+                    : _BattleAnswerResultBadge(
+                        key: ValueKey<String>(
+                          'battle-answer-result-$answerResultCorrect',
+                        ),
+                        correct: answerResultCorrect!,
+                        compact: compact,
+                      ),
               ),
             ],
           ),
@@ -2304,6 +2340,56 @@ class _ArenaQuestionCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _BattleAnswerResultBadge extends StatelessWidget {
+  const _BattleAnswerResultBadge({
+    required super.key,
+    required this.correct,
+    required this.compact,
+  });
+
+  final bool correct;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = correct
+        ? const Color(0xFF168A61)
+        : const Color(0xFFD83D50);
+    return Container(
+      key: const ValueKey<String>('battle-answer-result'),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 7 : 8,
+        vertical: compact ? 2 : 3,
+      ),
+      decoration: BoxDecoration(
+        color: color.withAlpha(22),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: color.withAlpha(105)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(
+            correct ? Icons.check_rounded : Icons.close_rounded,
+            color: color,
+            size: compact ? 11 : 12,
+          ),
+          const SizedBox(width: 3),
+          Text(
+            correct ? 'BENAR' : 'SALAH',
+            style: GoogleFonts.dmSans(
+              color: color,
+              fontSize: compact ? 9 : 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.35,
+            ),
+          ),
+        ],
       ),
     );
   }
