@@ -54,6 +54,7 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
   Completer<void>? _openCardCompleter;
   Completer<void>? _surrenderCompleter;
   String? _pendingOpenCardId;
+  final Set<String> _submittedCardIds = <String>{};
   String? _roomId;
   String? _selfUserId;
   String? _opponentUserId;
@@ -92,6 +93,7 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
       _selfUserId = null;
       _opponentUserId = null;
       _opponentName = 'Player Match';
+      _submittedCardIds.clear();
     }
 
     try {
@@ -143,11 +145,17 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
   }) async {
     final String roomId = _requireRoomId();
     await _ensureConnected();
-    await _emitAcknowledgedCommand(_playCardEvent, <String, Object?>{
-      'roomId': roomId,
-      'cardId': cardId,
-      'selectedOptionIndex': selectedOptionIndex,
-    });
+    _submittedCardIds.add(cardId);
+    try {
+      await _emitAcknowledgedCommand(_playCardEvent, <String, Object?>{
+        'roomId': roomId,
+        'cardId': cardId,
+        'selectedOptionIndex': selectedOptionIndex,
+      });
+    } catch (_) {
+      _submittedCardIds.remove(cardId);
+      rethrow;
+    }
   }
 
   @override
@@ -235,6 +243,7 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
   @override
   void dispose() {
     _disposed = true;
+    _submittedCardIds.clear();
     if (_openCardCompleter != null && !_openCardCompleter!.isCompleted) {
       _openCardCompleter!.completeError(StateError('Battle ditutup.'));
     }
@@ -466,15 +475,17 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
 
     socket.on(_playCardResultEvent, (dynamic payload) {
       final Map<String, dynamic> data = _asMap(payload);
+      final String cardId = data['cardId'] as String? ?? '';
+      final bool submittedBySelf = _submittedCardIds.remove(cardId);
       _updatesController.add(
         CardPlayedUpdate(
-          cardId: data['cardId'] as String? ?? '',
+          cardId: cardId,
           category: data['category'] as String?,
           correct: data['correct'] as bool? ?? false,
           effect: _parseEffect(data['effect'] as String?),
           effectValue: _asInt(data['effectValue']),
           projectileLevel: _asInt(data['projectileLevel']).clamp(1, 3),
-          isSelfAction: data['actorUserId'] == _selfUserId,
+          isSelfAction: data['actorUserId'] == _selfUserId || submittedBySelf,
         ),
       );
     });
@@ -496,6 +507,7 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
           ? playerA
           : playerB;
       _roomId = null;
+      _submittedCardIds.clear();
       if (_surrenderCompleter != null && !_surrenderCompleter!.isCompleted) {
         _surrenderCompleter!.complete();
       }

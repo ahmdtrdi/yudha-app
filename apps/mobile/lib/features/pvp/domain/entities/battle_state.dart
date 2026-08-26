@@ -30,6 +30,8 @@ class BattleState {
     required this.roundSecondsRemaining,
     required this.progressionPersisted,
     required this.opponentConnected,
+    this.selfAnswerResultId = 0,
+    this.lastSelfAnswerCorrect,
     this.battleTarget,
     this.playerCharacterId,
     this.playerTowerId,
@@ -43,6 +45,7 @@ class BattleState {
     this.lastVisualEffect,
     this.lastEventCategory,
     this.lastRoundOutcome,
+    this.finishReason,
   });
 
   factory BattleState.initial() {
@@ -102,6 +105,8 @@ class BattleState {
   final int roundSecondsRemaining;
   final bool progressionPersisted;
   final bool opponentConnected;
+  final int selfAnswerResultId;
+  final bool? lastSelfAnswerCorrect;
   final BattleTarget? battleTarget;
   final String? playerCharacterId;
   final String? playerTowerId;
@@ -115,6 +120,7 @@ class BattleState {
   final BattleVisualEffect? lastVisualEffect;
   final String? lastEventCategory;
   final BattleOutcome? lastRoundOutcome;
+  final String? finishReason;
 
   bool get isBattleActive => phase == BattlePhase.inBattle;
   bool get isMatchActive =>
@@ -148,6 +154,8 @@ class BattleState {
     int? roundSecondsRemaining,
     bool? progressionPersisted,
     bool? opponentConnected,
+    int? selfAnswerResultId,
+    bool? lastSelfAnswerCorrect,
     BattleTarget? battleTarget,
     String? playerCharacterId,
     String? playerTowerId,
@@ -161,6 +169,7 @@ class BattleState {
     BattleVisualEffect? lastVisualEffect,
     String? lastEventCategory,
     BattleOutcome? lastRoundOutcome,
+    String? finishReason,
     bool clearStatusMessage = false,
     bool clearErrorMessage = false,
     bool clearBattleEvent = false,
@@ -170,6 +179,7 @@ class BattleState {
     bool clearOpponentLoadout = false,
     bool clearReconnectDeadline = false,
     bool clearPrivateRoomCode = false,
+    bool clearFinishReason = false,
   }) {
     return BattleState(
       mode: mode ?? this.mode,
@@ -201,6 +211,9 @@ class BattleState {
           roundSecondsRemaining ?? this.roundSecondsRemaining,
       progressionPersisted: progressionPersisted ?? this.progressionPersisted,
       opponentConnected: opponentConnected ?? this.opponentConnected,
+      selfAnswerResultId: selfAnswerResultId ?? this.selfAnswerResultId,
+      lastSelfAnswerCorrect:
+          lastSelfAnswerCorrect ?? this.lastSelfAnswerCorrect,
       battleTarget: clearBattleTarget
           ? null
           : battleTarget ?? this.battleTarget,
@@ -238,6 +251,9 @@ class BattleState {
       lastRoundOutcome: clearLastRoundOutcome
           ? null
           : lastRoundOutcome ?? this.lastRoundOutcome,
+      finishReason: clearFinishReason
+          ? null
+          : finishReason ?? this.finishReason,
     );
   }
 }

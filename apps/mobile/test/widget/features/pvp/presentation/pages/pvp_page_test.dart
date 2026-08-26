@@ -26,6 +26,7 @@ class _LiveOnlineBattleRepository extends OnlineBattleRepository {
       StreamController<OnlineBattleUpdate>.broadcast(sync: true);
 
   OnlineMatchmakingMode? lastMatchmakingMode;
+  Completer<BattleSessionSeed>? pendingSession;
 
   @override
   Stream<OnlineBattleUpdate> get updates => _updates.stream;
@@ -37,6 +38,9 @@ class _LiveOnlineBattleRepository extends OnlineBattleRepository {
     OnlineMatchmakingMode matchmakingMode = OnlineMatchmakingMode.casual,
   }) async {
     lastMatchmakingMode = matchmakingMode;
+    if (pendingSession case final Completer<BattleSessionSeed> completer) {
+      return completer.future;
+    }
     return const BattleSessionSeed(
       opponentName: 'Bima Saputra',
       questions: <BattleQuestion>[],
@@ -442,7 +446,8 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey<String>('mode-choice-online')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey<String>('mode-online')), findsOneWidget);    expect(
+    expect(find.byKey(const ValueKey<String>('mode-online')), findsOneWidget);
+    expect(
       ((tester
                           .widget<AnimatedContainer>(
                             find.byKey(
@@ -610,6 +615,9 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       final _LiveOnlineBattleRepository online = _LiveOnlineBattleRepository();
+      final Completer<BattleSessionSeed> pendingSession =
+          Completer<BattleSessionSeed>();
+      online.pendingSession = pendingSession;
       final ProviderContainer container = ProviderContainer(
         overrides: <Override>[
           onlineBattleRepositoryProvider.overrideWithValue(online),
@@ -638,8 +646,77 @@ void main() {
       await tester.pump();
 
       expect(online.lastMatchmakingMode, OnlineMatchmakingMode.bot);
+      expect(
+        find.byKey(const ValueKey<String>('battle-waiting-panel')),
+        findsOneWidget,
+      );
+
+      pendingSession.complete(
+        const BattleSessionSeed(
+          opponentName: 'BOT YUDHA',
+          questions: <BattleQuestion>[],
+        ),
+      );
+      await tester.pump();
     },
   );
+
+  testWidgets('renders the dedicated surrender result flow', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(411, 914));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final _LiveOnlineBattleRepository online = _LiveOnlineBattleRepository();
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        onlineBattleRepositoryProvider.overrideWithValue(online),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final battleController = container.read(battleControllerProvider.notifier);
+    battleController.enterArena();
+    battleController.setMode(BattleMode.online);
+    battleController.setOnlineMatchmakingMode(OnlineMatchmakingMode.bot);
+    await battleController.startBattle();
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: PvpPage()),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Opsi battle'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Menyerah & keluar'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Menyerah'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(
+      find.byKey(const ValueKey<String>('battle-surrender-result')),
+      findsOneWidget,
+    );
+    expect(battleController.state.phase, BattlePhase.finished);
+    expect(battleController.state.finishReason, 'surrender');
+    expect(find.text('KAMU MENYERAH'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('battle-surrender-consequence')),
+      findsOneWidget,
+    );
+    expect(find.text('Battle dihentikan tanpa hadiah.'), findsOneWidget);
+    expect(find.text('KLAIM HADIAH'), findsNothing);
+    expect(find.text('MAIN LAGI'), findsOneWidget);
+    expect(find.text('Pilih mode'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('battle-result-hero')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'renders in-battle view and responds to server game_state_update and match_result',
@@ -688,12 +765,14 @@ void main() {
             ),
             BattleQuestion(
               id: 'q2',
-              prompt: 'Sinonim cepat?',
+              prompt:
+                  'Peran BUMN sebagai benteng kedaulatan ekonomi negara '
+                  'berdasarkan pilar UUD 1945 diwujudkan melalui tindakan apa?',
               options: <String>['Lekas', 'Lambat'],
               correctOptionIndex: 0,
               weight: 4,
               effect: QuestionEffect.damage,
-              category: 'verbal',
+              category: 'wawasan_kebangsaan',
             ),
           ],
           answeredQuestionIds: <String>[],
@@ -722,6 +801,144 @@ void main() {
       expect(find.text('Kamu'), findsOneWidget);
       expect(find.byKey(const ValueKey<String>('combo-meter')), findsOneWidget);
       expect(find.byKey(const ValueKey<String>('round-clock')), findsOneWidget);
+      final DecoratedBox battleStage = tester.widget<DecoratedBox>(
+        find.byKey(const ValueKey<String>('in-battle-stage')),
+      );
+      expect(
+        (battleStage.decoration as BoxDecoration).gradient,
+        isA<LinearGradient>(),
+      );
+      final Container opponentHud = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('battle-hud-opponent')),
+      );
+      expect((opponentHud.decoration! as BoxDecoration).boxShadow, isNotEmpty);
+      final Container arenaBoard = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('battle-arena-board')),
+      );
+      expect(arenaBoard.padding, const EdgeInsets.all(5));
+      final Container battleHand = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('battle-hand')),
+      );
+      final BoxDecoration battleHandDecoration =
+          battleHand.decoration! as BoxDecoration;
+      expect(battleHandDecoration.borderRadius, isNull);
+      expect(battleHandDecoration.boxShadow, isNull);
+      final Container playerHud = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('battle-hud-player')),
+      );
+      expect((playerHud.decoration! as BoxDecoration).boxShadow, isNull);
+      expect(tester.takeException(), isNull);
+
+      await tester.binding.setSurfaceSize(const Size(390, 700));
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('battle-arena-board')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+
+      await tester.pump(const Duration(seconds: 3));
+
+      await tester.tap(find.byTooltip('Opsi battle'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        find.byKey(const ValueKey<String>('battle-pause-dialog')),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Akhiri battle'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        find.byKey(const ValueKey<String>('battle-surrender-confirmation')),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Batal'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        find.byKey(const ValueKey<String>('battle-surrender-confirmation')),
+        findsNothing,
+      );
+
+      online.emit(
+        PresenceUpdated(
+          opponentConnected: false,
+          opponentReconnectDeadline: DateTime(2026, 8, 26, 12, 0, 30),
+        ),
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('battle-opponent-reconnecting')),
+        findsOneWidget,
+      );
+      online.emit(const PresenceUpdated(opponentConnected: true));
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('battle-opponent-reconnecting')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('battle-status-banner')),
+        findsOneWidget,
+      );
+
+      online.emit(const BattleErrorUpdate(message: 'Arena sedang terganggu.'));
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('battle-error-banner')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const ValueKey<String>('question-card-q2')));
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('battle-card-processing')),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(milliseconds: 150));
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(
+        find.byKey(const ValueKey<String>('question-battle-sheet')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('question-sheet-scroll-view')),
+        findsOneWidget,
+      );
+      final Container questionHeader = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('question-sheet-header')),
+      );
+      expect((questionHeader.decoration! as BoxDecoration).boxShadow, isNull);
+      final Container promptCard = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('question-prompt-card')),
+      );
+      expect((promptCard.decoration! as BoxDecoration).boxShadow, isNull);
+      expect(
+        find.byKey(const ValueKey<String>('question-timer-ring')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('question-online-status')),
+        findsNothing,
+      );
+      final Container answerGroup = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('question-answer-group')),
+      );
+      expect((answerGroup.decoration! as BoxDecoration).boxShadow, isNotEmpty);
+      final AnimatedContainer answerOption = tester.widget<AnimatedContainer>(
+        find.byKey(const ValueKey<String>('question-answer-0')),
+      );
+      expect((answerOption.decoration! as BoxDecoration).boxShadow, isNull);
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.byKey(const ValueKey<String>('question-answer-0')));
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(
+        find.byKey(const ValueKey<String>('question-battle-sheet')),
+        findsNothing,
+      );
+      expect(find.textContaining('Jawaban dikirim'), findsNothing);
+      expect(tester.takeException(), isNull);
 
       // Answer a question to generate answer history for performance insight
       await battleController.prepareQuestion(
@@ -746,6 +963,74 @@ void main() {
           category: 'numerik',
         ),
       );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(
+        find.byKey(const ValueKey<String>('battle-answer-result-true')),
+        findsOneWidget,
+      );
+      expect(find.text('BENAR'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('battle-hand-helper')),
+        findsNothing,
+      );
+
+      online.emit(
+        const CardPlayedUpdate(
+          cardId: 'q2',
+          correct: false,
+          effect: QuestionEffect.damage,
+          effectValue: 4,
+          projectileLevel: 1,
+          isSelfAction: true,
+          category: 'wawasan_kebangsaan',
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(
+        find.byKey(const ValueKey<String>('battle-answer-result-false')),
+        findsOneWidget,
+      );
+      expect(find.text('SALAH'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 1600));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(
+        find.byKey(const ValueKey<String>('battle-answer-result')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('battle-hand-helper')),
+        findsOneWidget,
+      );
+
+      online.emit(
+        const GameStateUpdated(
+          roomId: 'room-bot-1',
+          phase: 'round_break',
+          playerHp: 95,
+          opponentHp: 0,
+          playerPoints: 10,
+          opponentPoints: 0,
+          playerComboLevel: 1,
+          currentRound: 1,
+          roundSecondsRemaining: 0,
+          playerRoundWins: 1,
+          opponentRoundWins: 0,
+          lastRoundOutcome: BattleOutcome.win,
+          availableQuestions: <BattleQuestion>[],
+          answeredQuestionIds: <String>['q1', 'q2'],
+          playerDisplayName: 'Kamu',
+          opponentDisplayName: 'BOT YUDHA',
+        ),
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('battle-round-overlay')),
+        findsOneWidget,
+      );
+      expect(find.text('RONDE SELESAI'), findsOneWidget);
 
       // Emit match finished
       online.emit(
@@ -762,8 +1047,55 @@ void main() {
 
       expect(find.text('VICTORY!'), findsOneWidget);
       expect(
+        find.byKey(const ValueKey<String>('battle-result-hero')),
+        findsOneWidget,
+      );
+      final Container resultHero = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('battle-result-hero-surface')),
+      );
+      expect((resultHero.decoration! as BoxDecoration).boxShadow, isNotEmpty);
+      expect(
+        find.byKey(const ValueKey<String>('battle-result-score-card')),
+        findsOneWidget,
+      );
+      final Container scoreSection = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('battle-result-score-card')),
+      );
+      expect((scoreSection.decoration! as BoxDecoration).boxShadow, isNull);
+      expect(
+        find.byKey(const ValueKey<String>('battle-result-reward-card')),
+        findsOneWidget,
+      );
+      expect(
         find.byKey(const ValueKey<String>('battle-performance-insight')),
         findsOneWidget,
+      );
+      expect(find.textContaining('Wawasan Kebangsaan'), findsWidgets);
+      expect(find.text('Lihat lengkap'), findsOneWidget);
+      await tester.ensureVisible(find.text('Lihat lengkap'));
+      await tester.pump();
+      await tester.tap(find.text('Lihat lengkap'));
+      await tester.pump();
+      expect(find.text('Ringkas'), findsOneWidget);
+      expect(find.text('KLAIM HADIAH'), findsOneWidget);
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey<String>('battle-result-primary-action')),
+      );
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey<String>('battle-result-primary-action')),
+      );
+      await tester.pump();
+      expect(find.text('Diklaim'), findsOneWidget);
+      expect(find.text('Main lagi'), findsOneWidget);
+      expect(find.text('Pilih mode'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Main lagi'));
+      await tester.pump();
+      expect(
+        tester.getCenter(find.text('Main lagi')).dy,
+        tester.getCenter(find.text('Pilih mode')).dy,
       );
     },
   );

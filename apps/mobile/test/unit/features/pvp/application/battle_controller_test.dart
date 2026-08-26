@@ -50,6 +50,7 @@ class _ControllableOnlineRepository extends OnlineBattleRepository {
   String? lastOpenedCardId;
   String? lastSubmittedCardId;
   int? lastSubmittedOptionIndex;
+  OnlineBattleUpdate? surrenderResult;
 
   @override
   Stream<OnlineBattleUpdate> get updates => _updates.stream;
@@ -102,6 +103,10 @@ class _ControllableOnlineRepository extends OnlineBattleRepository {
   @override
   Future<void> surrender() async {
     surrenderCount += 1;
+    final OnlineBattleUpdate? result = surrenderResult;
+    if (result != null) {
+      emit(result);
+    }
   }
 }
 
@@ -138,18 +143,12 @@ void main() {
       expect(controller.state.statusMessage, 'Pilih mode arena.');
 
       controller.setOnlineMatchmakingMode(OnlineMatchmakingMode.bot);
-      expect(
-        controller.state.onlineMatchmakingMode,
-        OnlineMatchmakingMode.bot,
-      );
+      expect(controller.state.onlineMatchmakingMode, OnlineMatchmakingMode.bot);
       expect(controller.state.statusMessage, 'Mode Bot dipilih.');
 
       controller.exitArena();
       expect(controller.state.phase, BattlePhase.preBattle);
-      expect(
-        controller.state.onlineMatchmakingMode,
-        OnlineMatchmakingMode.bot,
-      );
+      expect(controller.state.onlineMatchmakingMode, OnlineMatchmakingMode.bot);
     });
 
     test('starts bot match requesting OnlineMatchmakingMode.bot', () async {
@@ -233,7 +232,10 @@ void main() {
           playerRoundWins: 0,
           opponentRoundWins: 0,
           lastRoundOutcome: null,
-          availableQuestions: <BattleQuestion>[selectedQuestion, secondQuestion],
+          availableQuestions: <BattleQuestion>[
+            selectedQuestion,
+            secondQuestion,
+          ],
           answeredQuestionIds: <String>[],
           playerDisplayName: 'Yudha',
           opponentDisplayName: 'BOT YUDHA',
@@ -265,6 +267,8 @@ void main() {
       controller.setMode(BattleMode.online);
       await controller.startBattle();
       await controller.prepareQuestion(selectedQuestion);
+      expect(controller.state.selfAnswerResultId, 0);
+      expect(controller.state.lastSelfAnswerCorrect, isNull);
 
       online.emit(
         const GameStateUpdated(
@@ -305,6 +309,8 @@ void main() {
       );
       expect(controller.state.answerHistory.single.category, 'verbal');
       expect(controller.state.answerHistory.single.isCorrect, isFalse);
+      expect(controller.state.selfAnswerResultId, 1);
+      expect(controller.state.lastSelfAnswerCorrect, isFalse);
     });
 
     test('restores an active server room after controller recreation', () {
@@ -405,6 +411,8 @@ void main() {
       expect(controller.state.lastActor, BattleActor.opponent);
       expect(controller.state.lastEventCategory, 'verbal');
       expect(controller.state.lastVisualEffect, BattleVisualEffect.wizard);
+      expect(controller.state.selfAnswerResultId, 0);
+      expect(controller.state.lastSelfAnswerCorrect, isNull);
 
       online.emit(
         const MatchResultUpdate(
@@ -422,10 +430,11 @@ void main() {
       expect(controller.state.ratingDelta, -12);
       expect(controller.state.coinsDelta, 3);
       expect(controller.state.progressionPersisted, isTrue);
+      expect(controller.state.finishReason, 'hp_zero');
     });
 
     test(
-      'surrender returns directly to mode selection and ignores result UI',
+      'surrender publishes a dedicated finished state when no result arrives',
       () async {
         final _ControllableOnlineRepository online =
             _ControllableOnlineRepository();
@@ -441,7 +450,9 @@ void main() {
 
         await controller.surrenderBattle();
         expect(online.surrenderCount, 1);
-        expect(controller.state.phase, BattlePhase.arenaMenu);
+        expect(controller.state.phase, BattlePhase.finished);
+        expect(controller.state.outcome, BattleOutcome.lose);
+        expect(controller.state.finishReason, 'surrender');
 
         online.emit(
           const MatchResultUpdate(
@@ -452,43 +463,81 @@ void main() {
             progressionPersisted: true,
           ),
         );
-        expect(controller.state.phase, BattlePhase.arenaMenu);
+        expect(controller.state.phase, BattlePhase.finished);
       },
     );
 
-    test('handles presence updates when opponent disconnects and reconnects', () async {
-      final _ControllableOnlineRepository online =
-          _ControllableOnlineRepository();
-      final BattleController controller = BattleController(
-        onlineRepository: online,
-      );
-      addTearDown(controller.dispose);
+    test(
+      'surrender keeps the authoritative server result when available',
+      () async {
+        final _ControllableOnlineRepository online =
+            _ControllableOnlineRepository()
+              ..surrenderResult = const MatchResultUpdate(
+                outcome: BattleOutcome.lose,
+                reason: 'surrender',
+                ratingDelta: -8,
+                coinsDelta: 0,
+                progressionPersisted: true,
+                matchmakingMode: OnlineMatchmakingMode.ranked,
+              );
+        final BattleController controller = BattleController(
+          onlineRepository: online,
+        );
+        addTearDown(controller.dispose);
 
-      controller.enterArena();
-      await controller.startBattle();
+        controller.enterArena();
+        controller.setMode(BattleMode.online);
+        controller.setOnlineMatchmakingMode(OnlineMatchmakingMode.ranked);
+        await controller.startBattle();
+        await controller.surrenderBattle();
 
-      online.emit(
-        PresenceUpdated(
-          opponentConnected: false,
-          opponentReconnectDeadline: DateTime.now().add(
-            const Duration(seconds: 30),
+        expect(controller.state.phase, BattlePhase.finished);
+        expect(controller.state.finishReason, 'surrender');
+        expect(controller.state.ratingDelta, -8);
+        expect(controller.state.progressionPersisted, isTrue);
+        expect(
+          controller.state.onlineMatchmakingMode,
+          OnlineMatchmakingMode.ranked,
+        );
+      },
+    );
+
+    test(
+      'handles presence updates when opponent disconnects and reconnects',
+      () async {
+        final _ControllableOnlineRepository online =
+            _ControllableOnlineRepository();
+        final BattleController controller = BattleController(
+          onlineRepository: online,
+        );
+        addTearDown(controller.dispose);
+
+        controller.enterArena();
+        await controller.startBattle();
+
+        online.emit(
+          PresenceUpdated(
+            opponentConnected: false,
+            opponentReconnectDeadline: DateTime.now().add(
+              const Duration(seconds: 30),
+            ),
           ),
-        ),
-      );
+        );
 
-      expect(controller.state.opponentConnected, isFalse);
-      expect(controller.state.opponentReconnectDeadline, isNotNull);
+        expect(controller.state.opponentConnected, isFalse);
+        expect(controller.state.opponentReconnectDeadline, isNotNull);
 
-      online.emit(
-        const PresenceUpdated(
-          opponentConnected: true,
-          opponentReconnectDeadline: null,
-        ),
-      );
+        online.emit(
+          const PresenceUpdated(
+            opponentConnected: true,
+            opponentReconnectDeadline: null,
+          ),
+        );
 
-      expect(controller.state.opponentConnected, isTrue);
-      expect(controller.state.opponentReconnectDeadline, isNull);
-    });
+        expect(controller.state.opponentConnected, isTrue);
+        expect(controller.state.opponentReconnectDeadline, isNull);
+      },
+    );
   });
 
   group('BattleController round clock and rewards', () {
@@ -517,7 +566,10 @@ void main() {
 
       controller.resumeRoundClock();
       await Future<void>.delayed(const Duration(milliseconds: 25));
-      expect(controller.state.roundSecondsRemaining, lessThanOrEqualTo(pausedTime));
+      expect(
+        controller.state.roundSecondsRemaining,
+        lessThanOrEqualTo(pausedTime),
+      );
     });
 
     test('marks reward claimed when battle is finished', () async {

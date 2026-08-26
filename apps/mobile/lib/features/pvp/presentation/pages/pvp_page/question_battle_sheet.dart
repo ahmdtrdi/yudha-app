@@ -22,9 +22,9 @@ class _QuestionBattleSheet extends StatefulWidget {
 }
 
 class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
-  static const Color _ink = Color(0xFF17233F);
-  static const Color _warmCanvas = Color(0xFFFFF8EC);
-  static const Color _mutedInk = Color(0xFF66708A);
+  static const Color _ink = _BattleClayPalette.ink;
+  static const Color _warmCanvas = _BattleClayPalette.cream;
+  static const Color _mutedInk = _BattleClayPalette.mutedInk;
   static const Color _success = Color(0xFF2FAE7D);
   static const Color _danger = Color(0xFFF05E5E);
 
@@ -85,7 +85,6 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
       return;
     }
 
-    final bool isDamage = widget.question.effect == QuestionEffect.damage;
     final int? correctOptionIndex = widget.question.correctOptionIndex;
     final bool? correct = correctOptionIndex == null
         ? null
@@ -110,22 +109,12 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
       }
       _selectedIndex = selectedIndex;
       _isCorrect = timedOut ? false : correct;
-      _feedback = timedOut
-          ? 'Waktu habis. Kartu tidak digunakan.'
-          : correct == null
-          ? 'Jawaban dikirim ke arena.'
-          : correct
-          ? isDamage
-                ? 'Tepat! Serangan diluncurkan.'
-                : 'Tepat! Pertahananmu pulih.'
-          : isDamage
-          ? 'Belum tepat. Lawan mendapat giliran balasan.'
-          : 'Belum tepat. Lawan mendapat pemulihan.';
+      _feedback = timedOut ? 'Waktu habis. Kartu tidak digunakan.' : null;
     });
 
-    await Future<void>.delayed(
-      Duration(milliseconds: widget.isOnline ? 180 : 520),
-    );
+    if (timedOut) {
+      await Future<void>.delayed(const Duration(milliseconds: 520));
+    }
     if (!mounted) {
       return;
     }
@@ -167,6 +156,7 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
         child: Padding(
           padding: EdgeInsets.only(bottom: bottomInset),
           child: Container(
+            key: const ValueKey<String>('question-battle-sheet'),
             width: double.infinity,
             constraints: BoxConstraints(maxHeight: screenHeight * 0.9),
             decoration: BoxDecoration(
@@ -174,16 +164,12 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(28),
               ),
-              border: Border.all(color: categoryColor.withAlpha(60)),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: _ink.withAlpha(48),
-                  blurRadius: 24,
-                  offset: const Offset(0, -6),
-                ),
-              ],
+              border: Border(
+                top: BorderSide(color: categoryColor.withAlpha(90), width: 2),
+              ),
             ),
             child: SingleChildScrollView(
+              key: const ValueKey<String>('question-sheet-scroll-view'),
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -199,63 +185,69 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: <Widget>[
-                      _QuestionEmblem(
-                        color: categoryColor,
-                        icon: _categoryIcon(widget.question.category),
+                  Container(
+                    key: const ValueKey<String>('question-sheet-header'),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Color.alphaBlend(
+                        categoryColor.withAlpha(20),
+                        Colors.white,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              _categoryLabel(widget.question.category),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.fredoka(
-                                color: _ink,
-                                fontSize: 21,
-                                fontWeight: FontWeight.w600,
-                                height: 1.05,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${isDamage ? 'Serang' : 'Pulihkan'}  |  Combo x$comboLevel  |  $impact dampak',
-                              style: GoogleFonts.dmSans(
-                                color: _mutedInk,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: categoryColor.withAlpha(52)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: <Widget>[
+                        _QuestionEmblem(
+                          color: categoryColor,
+                          icon: _categoryIcon(widget.question.category),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      _TimerRing(
-                        remainingSeconds: _remainingSeconds,
-                        progress: timerProgress,
-                        accent: categoryColor,
-                      ),
-                    ],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                _categoryLabel(widget.question.category),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.fredoka(
+                                  color: _ink,
+                                  fontSize: 21,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.05,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${isDamage ? 'Serang' : 'Pulihkan'}  |  Combo x$comboLevel  |  $impact dampak',
+                                style: GoogleFonts.dmSans(
+                                  color: _mutedInk,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        _TimerRing(
+                          remainingSeconds: _remainingSeconds,
+                          progress: timerProgress,
+                          accent: categoryColor,
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 18),
                   Container(
+                    key: const ValueKey<String>('question-prompt-card'),
                     padding: const EdgeInsets.fromLTRB(16, 15, 16, 16),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(color: categoryColor.withAlpha(48)),
-                      boxShadow: <BoxShadow>[
-                        BoxShadow(
-                          color: _ink.withAlpha(12),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
                     ),
                     child: Text(
                       widget.question.prompt,
@@ -278,27 +270,54 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  for (
-                    int index = 0;
-                    index < widget.question.options.length;
-                    index++
-                  ) ...<Widget>[
-                    _AnswerOption(
-                      index: index,
-                      text: widget.question.options[index],
-                      categoryColor: categoryColor,
-                      selected: _selectedIndex == index,
-                      correct: widget.question.correctOptionIndex == index,
-                      revealResult:
-                          !widget.isOnline &&
-                          _locked &&
-                          widget.question.correctOptionIndex != null,
-                      enabled: !_locked,
-                      onTap: () => _submitAnswer(index),
+                  Container(
+                    key: const ValueKey<String>('question-answer-group'),
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: _ink.withAlpha(24)),
+                      boxShadow: const <BoxShadow>[
+                        BoxShadow(
+                          color: Color(0xFFD9DEE7),
+                          blurRadius: 0,
+                          offset: Offset(0, 5),
+                        ),
+                      ],
                     ),
-                    if (index != widget.question.options.length - 1)
-                      const SizedBox(height: 8),
-                  ],
+                    child: Column(
+                      children: <Widget>[
+                        for (
+                          int index = 0;
+                          index < widget.question.options.length;
+                          index++
+                        ) ...<Widget>[
+                          _AnswerOption(
+                            index: index,
+                            text: widget.question.options[index],
+                            categoryColor: categoryColor,
+                            selected: _selectedIndex == index,
+                            correct:
+                                widget.question.correctOptionIndex == index,
+                            revealResult:
+                                !widget.isOnline &&
+                                _locked &&
+                                widget.question.correctOptionIndex != null,
+                            enabled: !_locked,
+                            onTap: () => _submitAnswer(index),
+                          ),
+                          if (index != widget.question.options.length - 1)
+                            Divider(
+                              height: 1,
+                              thickness: 1,
+                              indent: 12,
+                              endIndent: 12,
+                              color: _ink.withAlpha(16),
+                            ),
+                        ],
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 180),
@@ -313,6 +332,7 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
                   if (_feedback != null) const SizedBox(height: 8),
                   if (widget.isOnline)
                     Container(
+                      key: const ValueKey<String>('question-online-status'),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 10,
@@ -320,6 +340,9 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
                       decoration: BoxDecoration(
                         color: const Color(0xFFE9F1FF),
                         borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: const Color(0xFF2878F0).withAlpha(45),
+                        ),
                       ),
                       child: Row(
                         children: <Widget>[
@@ -415,13 +438,6 @@ class _QuestionEmblem extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: color.withAlpha(45),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Icon(icon, color: Colors.white, size: 25),
     );
@@ -456,19 +472,22 @@ class _AnswerOption extends StatelessWidget {
     const Color danger = Color(0xFFF05E5E);
     final bool selectedWrong = revealResult && selected && !correct;
     final bool showCorrect = revealResult && correct;
+    final bool subdued = !enabled && !selected && !showCorrect;
     final Color borderColor = showCorrect
         ? success
         : selectedWrong
         ? danger
         : selected
         ? categoryColor
-        : ink.withAlpha(28);
+        : Colors.transparent;
     final Color background = showCorrect
         ? const Color(0xFFE9F8F1)
         : selectedWrong
         ? const Color(0xFFFFEEEE)
         : selected
         ? categoryColor.withAlpha(18)
+        : subdued
+        ? const Color(0xFFF1EFE9)
         : Colors.white;
     final Color markerColor = showCorrect
         ? success
@@ -481,6 +500,7 @@ class _AnswerOption extends StatelessWidget {
         ? Colors.white
         : const Color(0xFF66708A);
     final String optionLetter = String.fromCharCode(65 + index);
+    final bool highlighted = selected || showCorrect || selectedWrong;
 
     return Semantics(
       button: true,
@@ -488,19 +508,17 @@ class _AnswerOption extends StatelessWidget {
       selected: selected,
       label: 'Jawaban $optionLetter, $text',
       child: AnimatedContainer(
+        key: ValueKey<String>('question-answer-$index'),
         duration: const Duration(milliseconds: 160),
         constraints: const BoxConstraints(minHeight: 56),
         decoration: BoxDecoration(
           color: background,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: borderColor, width: selected ? 2 : 1.2),
+          border: Border.all(color: borderColor, width: highlighted ? 1.5 : 0),
         ),
         child: Material(
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(15),
           child: InkWell(
             onTap: enabled ? onTap : null,
-            borderRadius: BorderRadius.circular(15),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
               child: Row(
@@ -578,7 +596,7 @@ class _QuestionFeedback extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: color.withAlpha(18),
+        color: Color.alphaBlend(color.withAlpha(18), Colors.white),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: color.withAlpha(60)),
       ),
@@ -630,9 +648,16 @@ class _TimerRing extends StatelessWidget {
     return Semantics(
       label: 'Sisa waktu',
       value: '$remainingSeconds detik',
-      child: SizedBox(
-        width: 48,
-        height: 48,
+      child: Container(
+        key: const ValueKey<String>('question-timer-ring'),
+        width: 52,
+        height: 52,
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: color.withAlpha(52)),
+        ),
         child: Stack(
           alignment: Alignment.center,
           children: <Widget>[

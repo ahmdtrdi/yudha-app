@@ -2,6 +2,18 @@ part of '../pvp_page.dart';
 
 enum _CharacterPose { idle, ready, attack, hit }
 
+abstract final class _BattleClayPalette {
+  static const Color navy = Color(0xFF0D2A52);
+  static const Color navyEdge = Color(0xFF061A34);
+  static const Color arenaFrame = Color(0xFF244963);
+  static const Color cream = Color(0xFFFFF8EC);
+  static const Color neutralEdge = Color(0xFFD5D0C5);
+  static const Color ink = Color(0xFF17233F);
+  static const Color mutedInk = Color(0xFF66708A);
+  static const Color player = Color(0xFF2878F0);
+  static const Color rival = Color(0xFFF05E5E);
+}
+
 class _BattleEffectEvent {
   const _BattleEffectEvent({
     required this.actor,
@@ -70,6 +82,7 @@ class _InBattleSectionState extends State<_InBattleSection>
 
   Timer? _countdownTimer;
   Timer? _noticeTimer;
+  Timer? _answerResultTimer;
   final List<Timer> _effectSoundTimers = <Timer>[];
   final List<_BattleEffectEvent> _pendingEffects = <_BattleEffectEvent>[];
   int _countdownValue = 3;
@@ -78,6 +91,7 @@ class _InBattleSectionState extends State<_InBattleSection>
   bool _pauseOpen = false;
   List<BattleQuestion> _hand = const <BattleQuestion>[];
   String? _selectedQuestionId;
+  bool? _answerResultCorrect;
   String? _notice;
   bool _noticeIsError = false;
   bool _imagesPrecached = false;
@@ -207,6 +221,11 @@ class _InBattleSectionState extends State<_InBattleSection>
     }
     _rebuildHand();
 
+    if (widget.state.selfAnswerResultId != oldWidget.state.selfAnswerResultId &&
+        widget.state.lastSelfAnswerCorrect != null) {
+      _showAnswerResult(correct: widget.state.lastSelfAnswerCorrect!);
+    }
+
     final int playerDelta = widget.state.playerHp - oldWidget.state.playerHp;
     final int opponentDelta =
         widget.state.opponentHp - oldWidget.state.opponentHp;
@@ -252,6 +271,24 @@ class _InBattleSectionState extends State<_InBattleSection>
     if (newError != null && newError != oldError) {
       _showNotice(newError, isError: true);
     }
+
+    final String? newStatus = widget.state.statusMessage;
+    final String? oldStatus = oldWidget.state.statusMessage;
+    if (newStatus != null &&
+        newStatus != oldStatus &&
+        _shouldShowArenaStatus(newStatus) &&
+        widget.state.phase == BattlePhase.inBattle &&
+        widget.state.opponentConnected &&
+        newError == null) {
+      _showNotice(newStatus);
+    }
+  }
+
+  bool _shouldShowArenaStatus(String status) {
+    return status != 'Battle sedang berlangsung.' &&
+        !status.startsWith('Jawaban dikirim') &&
+        !status.startsWith('Pilih satu jawaban') &&
+        !status.startsWith('Kartu terbuka');
   }
 
   void _startCountdownTimer() {
@@ -491,7 +528,11 @@ class _InBattleSectionState extends State<_InBattleSection>
     if (!mounted) {
       return;
     }
-    _shakeIntensity = (0.5 + (projectileLevel * 0.35) + (amount > 20 ? 0.3 : 0.0)).clamp(0.4, 1.5);
+    _shakeIntensity =
+        (0.5 + (projectileLevel * 0.35) + (amount > 20 ? 0.3 : 0.0)).clamp(
+          0.4,
+          1.5,
+        );
     _shakeController.forward(from: 0);
 
     // Feedback for the player's own attack already fired in the question
@@ -528,6 +569,19 @@ class _InBattleSectionState extends State<_InBattleSection>
       }
       setState(() {
         _notice = null;
+      });
+    });
+  }
+
+  void _showAnswerResult({required bool correct}) {
+    _answerResultTimer?.cancel();
+    _answerResultCorrect = correct;
+    _answerResultTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _answerResultCorrect = null;
       });
     });
   }
@@ -595,6 +649,7 @@ class _InBattleSectionState extends State<_InBattleSection>
     WidgetsBinding.instance.removeObserver(this);
     _countdownTimer?.cancel();
     _noticeTimer?.cancel();
+    _answerResultTimer?.cancel();
     for (final Timer timer in _effectSoundTimers) {
       timer.cancel();
     }
@@ -626,8 +681,19 @@ class _InBattleSectionState extends State<_InBattleSection>
         final bool compact =
             constraints.maxHeight < 700 || constraints.maxWidth < 380;
 
-        return ColoredBox(
-          color: const Color(0xFF0D2A52),
+        return DecoratedBox(
+          key: const ValueKey<String>('in-battle-stage'),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: <Color>[
+                _BattleClayPalette.navy,
+                Color(0xFF123D60),
+                _BattleClayPalette.navy,
+              ],
+            ),
+          ),
           child: Stack(
             children: <Widget>[
               Column(
@@ -701,6 +767,8 @@ class _InBattleSectionState extends State<_InBattleSection>
                         !_interactionLocked &&
                         !_pauseOpen,
                     selectedQuestionId: _selectedQuestionId,
+                    answerResultCorrect: _answerResultCorrect,
+                    processing: _interactionLocked,
                     onPickQuestion: _handlePickQuestion,
                   ),
                 ],
@@ -734,6 +802,13 @@ class _InBattleSectionState extends State<_InBattleSection>
                   ),
                 ),
               ),
+              if (!widget.state.opponentConnected)
+                const Positioned(
+                  top: 72,
+                  left: 18,
+                  right: 18,
+                  child: _OpponentReconnectBanner(),
+                ),
               if (!_countdownDone)
                 _CountdownOverlay(
                   value: _countdownValue,
@@ -788,23 +863,32 @@ class _BattleHud extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color accent = isOpponent
-        ? const Color(0xFFF05E5E)
-        : const Color(0xFF2878F0);
+        ? _BattleClayPalette.rival
+        : _BattleClayPalette.player;
     final int safeHp = hp.clamp(0, 100).toInt();
 
     return Container(
+      key: ValueKey<String>(
+        isOpponent ? 'battle-hud-opponent' : 'battle-hud-player',
+      ),
       constraints: BoxConstraints(minHeight: compact ? 58 : 66),
       padding: EdgeInsets.fromLTRB(10, compact ? 6 : 8, 10, compact ? 6 : 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8EC),
-        border: Border(
-          bottom: isOpponent
-              ? BorderSide(color: accent.withAlpha(75), width: 2)
-              : BorderSide.none,
-          top: isOpponent
-              ? BorderSide.none
-              : BorderSide(color: accent.withAlpha(75), width: 2),
+        color: _BattleClayPalette.cream,
+        borderRadius: BorderRadius.vertical(
+          bottom: isOpponent ? const Radius.circular(18) : Radius.zero,
+          top: isOpponent ? Radius.zero : const Radius.circular(18),
         ),
+        border: Border.all(color: Colors.white.withAlpha(190)),
+        boxShadow: isOpponent
+            ? <BoxShadow>[
+                BoxShadow(
+                  color: _BattleClayPalette.rival.withAlpha(72),
+                  blurRadius: 0,
+                  offset: const Offset(0, 5),
+                ),
+              ]
+            : null,
       ),
       child: Row(
         children: <Widget>[
@@ -823,7 +907,7 @@ class _BattleHud extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.fredoka(
-                          color: const Color(0xFF17233F),
+                          color: _BattleClayPalette.ink,
                           fontSize: compact ? 13 : 15,
                           fontWeight: FontWeight.w600,
                         ),
@@ -835,7 +919,7 @@ class _BattleHud extends StatelessWidget {
                       Text(
                         'HP $safeHp',
                         style: GoogleFonts.dmSans(
-                          color: const Color(0xFF66708A),
+                          color: _BattleClayPalette.mutedInk,
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
                         ),
@@ -877,8 +961,10 @@ class _BattleHud extends StatelessWidget {
                 tooltip: 'Opsi battle',
                 visualDensity: VisualDensity.compact,
                 style: IconButton.styleFrom(
-                  foregroundColor: const Color(0xFF17233F),
-                  backgroundColor: const Color(0xFFECE7DA),
+                  foregroundColor: _BattleClayPalette.navy,
+                  backgroundColor: Colors.white,
+                  shadowColor: _BattleClayPalette.neutralEdge,
+                  elevation: 4,
                 ),
                 icon: const Icon(Icons.pause_rounded, size: 20),
               ),
@@ -917,9 +1003,16 @@ class _ComboBadge extends StatelessWidget {
         constraints: BoxConstraints(minWidth: compact ? 45 : 50),
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
         decoration: BoxDecoration(
-          color: accent.withAlpha(20),
+          color: Color.alphaBlend(accent.withAlpha(22), Colors.white),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: accent.withAlpha(90)),
+          border: Border.all(color: accent.withAlpha(72)),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: accent.withAlpha(64),
+              blurRadius: 0,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -936,7 +1029,7 @@ class _ComboBadge extends StatelessWidget {
             Text(
               'x$level',
               style: GoogleFonts.jetBrainsMono(
-                color: const Color(0xFF17233F),
+                color: _BattleClayPalette.ink,
                 fontSize: compact ? 10 : 11,
                 fontWeight: FontWeight.w900,
                 height: 1.1,
@@ -984,20 +1077,21 @@ class _RoundClockPill extends StatelessWidget {
         constraints: BoxConstraints(minWidth: compact ? 58 : 66),
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
         decoration: BoxDecoration(
-          color: isRush ? const Color(0xFFC0392B) : const Color(0xFF0D2A52),
+          color: isRush ? const Color(0xFFC0392B) : _BattleClayPalette.navy,
           borderRadius: BorderRadius.circular(12),
           border: isRush
               ? Border.all(color: const Color(0xFFFFC857), width: 1.5)
               : null,
-          boxShadow: isRush
-              ? <BoxShadow>[
-                  BoxShadow(
-                    color: const Color(0xFFE74C3C).withAlpha(140),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-                ]
-              : null,
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: isRush
+                  ? const Color(0xFF7E251C)
+                  : _BattleClayPalette.navyEdge,
+              blurRadius: isRush ? 8 : 0,
+              spreadRadius: isRush ? 1 : 0,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1048,6 +1142,13 @@ class _BattleAvatar extends StatelessWidget {
         color: accent.withAlpha(28),
         shape: BoxShape.circle,
         border: Border.all(color: accent, width: 2),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: accent.withAlpha(82),
+            blurRadius: 0,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: ClipOval(
         child: Image.asset(
@@ -1110,6 +1211,13 @@ class _ScorePill extends StatelessWidget {
       decoration: BoxDecoration(
         color: accent,
         borderRadius: BorderRadius.circular(13),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Color.alphaBlend(Colors.black.withAlpha(75), accent),
+            blurRadius: 0,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1146,33 +1254,41 @@ class _AnimatedHpBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(99),
-      child: SizedBox(
-        height: 10,
-        child: Stack(
-          children: <Widget>[
-            const Positioned.fill(child: ColoredBox(color: Color(0xFFE5E1D7))),
-            Positioned.fill(
-              child: TweenAnimationBuilder<double>(
-                tween: Tween<double>(end: value.clamp(0, 1)),
-                duration: const Duration(milliseconds: 420),
-                curve: Curves.easeOutCubic,
-                builder:
-                    (BuildContext context, double animated, Widget? child) {
-                      return Align(
-                        alignment: Alignment.centerLeft,
-                        child: FractionallySizedBox(
-                          widthFactor: animated,
-                          heightFactor: 1,
-                          child: ColoredBox(color: accent),
-                        ),
-                      );
-                    },
-              ),
+    return Container(
+      height: 10,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE5E1D7),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: Colors.white, width: 1.2),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: _BattleClayPalette.neutralEdge,
+            blurRadius: 0,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(end: value.clamp(0, 1)),
+              duration: const Duration(milliseconds: 420),
+              curve: Curves.easeOutCubic,
+              builder: (BuildContext context, double animated, Widget? child) {
+                return Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: animated,
+                    heightFactor: 1,
+                    child: ColoredBox(color: accent),
+                  ),
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1223,19 +1339,23 @@ class _ArenaBoard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    return Container(
+      key: const ValueKey<String>('battle-arena-board'),
+      padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: <BoxShadow>[
+        color: _BattleClayPalette.arenaFrame,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: Colors.white.withAlpha(52), width: 1.5),
+        boxShadow: const <BoxShadow>[
           BoxShadow(
-            color: Colors.black.withAlpha(45),
-            blurRadius: 12,
-            offset: const Offset(0, 5),
+            color: _BattleClayPalette.navyEdge,
+            blurRadius: 0,
+            offset: Offset(0, 7),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         child: LayoutBuilder(
           builder: (BuildContext context, BoxConstraints constraints) {
             final double width = constraints.maxWidth;
@@ -1931,8 +2051,8 @@ class _BattleEffectLayer extends StatelessWidget {
                                   color: isHeal
                                       ? const Color(0xFF2ECC71)
                                       : (projectileLevel >= 2
-                                          ? const Color(0xFFFF5252)
-                                          : color),
+                                            ? const Color(0xFFFF5252)
+                                            : color),
                                   fontSize: projectileLevel >= 2 ? 28 : 24,
                                   fontWeight: FontWeight.w700,
                                   shadows: const <Shadow>[
@@ -1997,7 +2117,7 @@ class _CharacterProjectile extends StatelessWidget {
         asset,
         fit: BoxFit.contain,
         cacheWidth: 240,
-          filterQuality: FilterQuality.low,
+        filterQuality: FilterQuality.low,
         semanticLabel: 'Projectile combo level $level',
       ),
     );
@@ -2061,6 +2181,8 @@ class _BattleHand extends StatelessWidget {
     required this.compact,
     required this.enabled,
     required this.selectedQuestionId,
+    required this.answerResultCorrect,
+    required this.processing,
     required this.onPickQuestion,
   });
 
@@ -2068,13 +2190,16 @@ class _BattleHand extends StatelessWidget {
   final bool compact;
   final bool enabled;
   final String? selectedQuestionId;
+  final bool? answerResultCorrect;
+  final bool processing;
   final ValueChanged<BattleQuestion> onPickQuestion;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFFFFF8EC),
+      key: const ValueKey<String>('battle-hand'),
       padding: EdgeInsets.fromLTRB(8, compact ? 6 : 8, 8, compact ? 7 : 10),
+      decoration: const BoxDecoration(color: _BattleClayPalette.cream),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
@@ -2083,19 +2208,35 @@ class _BattleHand extends StatelessWidget {
               Text(
                 'Pilih kartu',
                 style: GoogleFonts.fredoka(
-                  color: const Color(0xFF17233F),
+                  color: _BattleClayPalette.ink,
                   fontSize: compact ? 12 : 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const Spacer(),
-              Text(
-                enabled ? 'Jawab untuk bergerak' : 'Bersiap di arena',
-                style: GoogleFonts.dmSans(
-                  color: const Color(0xFF66708A),
-                  fontSize: compact ? 9 : 10,
-                  fontWeight: FontWeight.w700,
-                ),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: answerResultCorrect == null
+                    ? processing
+                          ? _BattleProcessingBadge(compact: compact)
+                          : Text(
+                              enabled
+                                  ? 'Jawab untuk bergerak'
+                                  : 'Bersiap di arena',
+                              key: const ValueKey<String>('battle-hand-helper'),
+                              style: GoogleFonts.dmSans(
+                                color: _BattleClayPalette.mutedInk,
+                                fontSize: compact ? 9 : 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            )
+                    : _BattleAnswerResultBadge(
+                        key: ValueKey<String>(
+                          'battle-answer-result-$answerResultCorrect',
+                        ),
+                        correct: answerResultCorrect!,
+                        compact: compact,
+                      ),
               ),
             ],
           ),
@@ -2120,6 +2261,51 @@ class _BattleHand extends StatelessWidget {
                   ),
                 );
               }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BattleProcessingBadge extends StatelessWidget {
+  const _BattleProcessingBadge({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey<String>('battle-card-processing'),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 7 : 8,
+        vertical: compact ? 3 : 4,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2878F0).withAlpha(20),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: const Color(0xFF2878F0).withAlpha(65)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          SizedBox(
+            width: compact ? 9 : 10,
+            height: compact ? 9 : 10,
+            child: const CircularProgressIndicator(
+              strokeWidth: 1.7,
+              color: Color(0xFF2878F0),
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            'MEMBUKA KARTU',
+            style: GoogleFonts.dmSans(
+              color: const Color(0xFF1F62BF),
+              fontSize: compact ? 7 : 8,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.25,
             ),
           ),
         ],
@@ -2166,14 +2352,16 @@ class _ArenaQuestionCard extends StatelessWidget {
             child: Ink(
               padding: EdgeInsets.fromLTRB(5, compact ? 5 : 6, 5, 5),
               decoration: BoxDecoration(
-                color: Color.alphaBlend(color.withAlpha(20), Colors.white),
+                color: Color.alphaBlend(color.withAlpha(24), Colors.white),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: color, width: selected ? 2.5 : 1.5),
                 boxShadow: <BoxShadow>[
                   BoxShadow(
-                    color: const Color(0xFF17233F).withAlpha(24),
-                    blurRadius: 5,
-                    offset: const Offset(0, 3),
+                    color: selected
+                        ? color.withAlpha(145)
+                        : color.withAlpha(82),
+                    blurRadius: selected ? 7 : 0,
+                    offset: Offset(0, selected ? 3 : 5),
                   ),
                 ],
               ),
@@ -2187,7 +2375,7 @@ class _ArenaQuestionCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.dmSans(
-                            color: const Color(0xFF17233F),
+                            color: _BattleClayPalette.ink,
                             fontSize: compact ? 8 : 9,
                             fontWeight: FontWeight.w900,
                           ),
@@ -2234,6 +2422,56 @@ class _ArenaQuestionCard extends StatelessWidget {
   }
 }
 
+class _BattleAnswerResultBadge extends StatelessWidget {
+  const _BattleAnswerResultBadge({
+    required super.key,
+    required this.correct,
+    required this.compact,
+  });
+
+  final bool correct;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = correct
+        ? const Color(0xFF168A61)
+        : const Color(0xFFD83D50);
+    return Container(
+      key: const ValueKey<String>('battle-answer-result'),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 7 : 8,
+        vertical: compact ? 2 : 3,
+      ),
+      decoration: BoxDecoration(
+        color: color.withAlpha(22),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: color.withAlpha(105)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(
+            correct ? Icons.check_rounded : Icons.close_rounded,
+            color: color,
+            size: compact ? 11 : 12,
+          ),
+          const SizedBox(width: 3),
+          Text(
+            correct ? 'BENAR' : 'SALAH',
+            style: GoogleFonts.dmSans(
+              color: color,
+              fontSize: compact ? 9 : 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PowerPips extends StatelessWidget {
   const _PowerPips({required this.value, required this.color});
 
@@ -2269,6 +2507,13 @@ class _EmptyCardSlot extends StatelessWidget {
         color: const Color(0xFFEDE8DC),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFD8D2C5)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: _BattleClayPalette.neutralEdge,
+            blurRadius: 0,
+            offset: Offset(0, 5),
+          ),
+        ],
       ),
       child: const Center(
         child: Icon(Icons.hourglass_empty_rounded, color: Color(0xFF9AA1B2)),
@@ -2294,29 +2539,43 @@ class _ArenaNotice extends StatelessWidget {
         : const Color(0xFF2878F0);
     return Center(
       child: Container(
+        key: ValueKey<String>(
+          isError ? 'battle-error-banner' : 'battle-status-banner',
+        ),
         constraints: const BoxConstraints(maxWidth: 330),
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+        padding: const EdgeInsets.fromLTRB(10, 9, 13, 9),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withAlpha(95)),
+          color: Color.alphaBlend(color.withAlpha(18), Colors.white),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withAlpha(105)),
           boxShadow: <BoxShadow>[
             BoxShadow(
-              color: const Color(0xFF17233F).withAlpha(45),
-              blurRadius: 9,
-              offset: const Offset(0, 4),
+              color: Color.alphaBlend(
+                const Color(0xFF17233F).withAlpha(35),
+                color,
+              ),
+              blurRadius: 0,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(
-              isError ? Icons.info_rounded : Icons.bolt_rounded,
-              color: color,
-              size: 18,
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                isError ? Icons.priority_high_rounded : Icons.bolt_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 9),
             Flexible(
               child: Text(
                 text,
@@ -2326,7 +2585,84 @@ class _ArenaNotice extends StatelessWidget {
                   color: const Color(0xFF17233F),
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
+                  height: 1.25,
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OpponentReconnectBanner extends StatelessWidget {
+  const _OpponentReconnectBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        key: const ValueKey<String>('battle-opponent-reconnecting'),
+        constraints: const BoxConstraints(maxWidth: 330),
+        padding: const EdgeInsets.fromLTRB(10, 9, 13, 9),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF3D8),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFFFC857)),
+          boxShadow: const <BoxShadow>[
+            BoxShadow(
+              color: Color(0xFFD99723),
+              blurRadius: 0,
+              offset: Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFC857),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(7),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Color(0xFF8A5600),
+                ),
+              ),
+            ),
+            const SizedBox(width: 9),
+            Flexible(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'MENUNGGU LAWAN',
+                    style: GoogleFonts.dmSans(
+                      color: const Color(0xFF8A5600),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.45,
+                    ),
+                  ),
+                  Text(
+                    'Koneksi lawan terputus. Arena menunggu hingga 30 detik.',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.dmSans(
+                      color: _BattleClayPalette.ink,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -2350,73 +2686,146 @@ class _CountdownOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool ready = value == 0;
+    final bool betweenRounds = resultMessage != null;
     return Positioned.fill(
       child: ColoredBox(
-        color: const Color(0xFF0D2A52).withAlpha(205),
+        color: const Color(0xFF0D2A52).withAlpha(190),
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              if (resultMessage != null) ...<Widget>[
-                Container(
-                  constraints: const BoxConstraints(maxWidth: 320),
-                  margin: const EdgeInsets.only(bottom: 18),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 12,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Container(
+              key: const ValueKey<String>('battle-round-overlay'),
+              width: double.infinity,
+              constraints: const BoxConstraints(maxWidth: 320),
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+              decoration: BoxDecoration(
+                color: _BattleClayPalette.cream,
+                borderRadius: BorderRadius.circular(26),
+                border: Border.all(color: const Color(0xFFB9D5FF)),
+                boxShadow: const <BoxShadow>[
+                  BoxShadow(
+                    color: Color(0xFF2878F0),
+                    blurRadius: 0,
+                    offset: Offset(0, 8),
                   ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: const Color(0xFFFFC857).withAlpha(180),
-                      width: 2,
-                    ),
-                  ),
-                  child: Text(
-                    resultMessage!,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.fredoka(
-                      color: const Color(0xFF17233F),
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-              Text(
-                ready ? 'Ronde $round mulai!' : 'Ronde $round dimulai dalam',
-                style: GoogleFonts.dmSans(
-                  color: Colors.white.withAlpha(205),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.6,
-                ),
+                ],
               ),
-              const SizedBox(height: 6),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                transitionBuilder: (Widget child, Animation<double> animation) {
-                  return ScaleTransition(
-                    scale: CurvedAnimation(
-                      parent: animation,
-                      curve: Curves.easeOutBack,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
                     ),
-                    child: FadeTransition(opacity: animation, child: child),
-                  );
-                },
-                child: Text(
-                  ready ? 'GO' : '$value',
-                  key: ValueKey<int>(value),
-                  style: GoogleFonts.fredoka(
-                    color: ready ? const Color(0xFFFFC857) : Colors.white,
-                    fontSize: ready ? 62 : 76,
-                    fontWeight: FontWeight.w700,
-                    height: 1,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2878F0).withAlpha(18),
+                      borderRadius: BorderRadius.circular(99),
+                      border: Border.all(
+                        color: const Color(0xFF2878F0).withAlpha(55),
+                      ),
+                    ),
+                    child: Text(
+                      betweenRounds ? 'RONDE SELESAI' : 'BERSIAP DI ARENA',
+                      style: GoogleFonts.dmSans(
+                        color: const Color(0xFF1F62BF),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
                   ),
-                ),
+                  if (betweenRounds) ...<Widget>[
+                    const SizedBox(height: 12),
+                    Text(
+                      resultMessage!,
+                      textAlign: TextAlign.center,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.fredoka(
+                        color: _BattleClayPalette.ink,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Divider(
+                      height: 1,
+                      color: _BattleClayPalette.ink.withAlpha(20),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  Text(
+                    ready
+                        ? 'Ronde $round dimulai!'
+                        : 'Ronde $round dimulai dalam',
+                    style: GoogleFonts.dmSans(
+                      color: _BattleClayPalette.mutedInk,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 9),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    transitionBuilder:
+                        (Widget child, Animation<double> animation) {
+                          return ScaleTransition(
+                            scale: CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutBack,
+                            ),
+                            child: FadeTransition(
+                              opacity: animation,
+                              child: child,
+                            ),
+                          );
+                        },
+                    child: Container(
+                      key: ValueKey<int>(value),
+                      width: 88,
+                      height: 88,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: ready
+                            ? const Color(0xFFFFE9B0)
+                            : const Color(0xFFDDEBFF),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: ready
+                              ? const Color(0xFFFFC857)
+                              : const Color(0xFF2878F0),
+                          width: 3,
+                        ),
+                        boxShadow: <BoxShadow>[
+                          BoxShadow(
+                            color:
+                                (ready
+                                        ? const Color(0xFFFFC857)
+                                        : const Color(0xFF2878F0))
+                                    .withAlpha(45),
+                            blurRadius: 14,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        ready ? 'GO' : '$value',
+                        style: GoogleFonts.fredoka(
+                          color: ready
+                              ? const Color(0xFF9A6200)
+                              : const Color(0xFF1F62BF),
+                          fontSize: ready ? 34 : 48,
+                          fontWeight: FontWeight.w700,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -2678,10 +3087,7 @@ class _ArenaShakeWrapper extends StatelessWidget {
         final double decay = 1.0 - progress;
         final double dx = sin(progress * pi * 8) * 6.5 * intensity * decay;
         final double dy = cos(progress * pi * 6) * 4.5 * intensity * decay;
-        return Transform.translate(
-          offset: Offset(dx, dy),
-          child: child,
-        );
+        return Transform.translate(offset: Offset(dx, dy), child: child);
       },
     );
   }

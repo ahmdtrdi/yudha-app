@@ -185,6 +185,7 @@ class BattleController extends StateNotifier<BattleState> {
       isLoading: true,
       statusMessage: isBot ? 'Menyiapkan arena bot...' : 'Mencari lawan...',
       clearErrorMessage: true,
+      clearFinishReason: true,
     );
 
     try {
@@ -225,6 +226,7 @@ class BattleController extends StateNotifier<BattleState> {
         clearErrorMessage: true,
         clearBattleEvent: true,
         clearLastRoundOutcome: true,
+        clearFinishReason: true,
       );
     } catch (error) {
       _acceptOnlineUpdates = false;
@@ -303,9 +305,7 @@ class BattleController extends StateNotifier<BattleState> {
       return;
     }
     if (code.length != 6) {
-      state = state.copyWith(
-        errorMessage: 'Kode room harus 6 karakter.',
-      );
+      state = state.copyWith(errorMessage: 'Kode room harus 6 karakter.');
       return;
     }
     _preparedQuestionId = null;
@@ -417,9 +417,7 @@ class BattleController extends StateNotifier<BattleState> {
       );
       return true;
     } catch (_) {
-      state = state.copyWith(
-        errorMessage: 'Jawaban gagal dikirim ke arena.',
-      );
+      state = state.copyWith(errorMessage: 'Jawaban gagal dikirim ke arena.');
       return false;
     }
   }
@@ -457,11 +455,24 @@ class BattleController extends StateNotifier<BattleState> {
 
     _preparedQuestionId = null;
     _resetBattleTimers();
-    _acceptOnlineUpdates = false;
-    resetBattle();
     try {
       await _onlineRepository.surrender();
     } catch (_) {}
+    if (state.phase == BattlePhase.finished) {
+      return;
+    }
+    _acceptOnlineUpdates = false;
+    state = state.copyWith(
+      phase: BattlePhase.finished,
+      outcome: BattleOutcome.lose,
+      ratingDelta: 0,
+      coinsDelta: 0,
+      progressionPersisted: false,
+      isLoading: false,
+      finishReason: 'surrender',
+      statusMessage: 'Kamu menyerah. Battle telah diakhiri.',
+      clearErrorMessage: true,
+    );
   }
 
   void resetBattle() {
@@ -672,6 +683,12 @@ class BattleController extends StateNotifier<BattleState> {
           clearErrorMessage: true,
           clearBattleEvent: effect == null,
           lastProjectileLevel: update.projectileLevel,
+          selfAnswerResultId: update.isSelfAction
+              ? state.selfAnswerResultId + 1
+              : state.selfAnswerResultId,
+          lastSelfAnswerCorrect: update.isSelfAction
+              ? isCorrect
+              : state.lastSelfAnswerCorrect,
           answerHistory: update.isSelfAction
               ? <BattleAnswerRecord>[
                   ...state.answerHistory,
@@ -701,6 +718,7 @@ class BattleController extends StateNotifier<BattleState> {
           battleTarget: update.target,
           isLoading: false,
           statusMessage: _resultMessage(update.outcome, update.reason),
+          finishReason: update.reason,
           clearErrorMessage: true,
         );
         break;

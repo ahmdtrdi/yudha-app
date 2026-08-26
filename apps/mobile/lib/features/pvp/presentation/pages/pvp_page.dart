@@ -74,14 +74,14 @@ class GameHaptics {
 
   static Future<bool?>? _hasVibratorFuture;
 
-  void selection() =>
-      _pulse(const Duration(milliseconds: 12), 48, HapticFeedback.selectionClick);
-
-  void light() => _pulse(
-    const Duration(milliseconds: 22),
-    80,
-    HapticFeedback.lightImpact,
+  void selection() => _pulse(
+    const Duration(milliseconds: 12),
+    48,
+    HapticFeedback.selectionClick,
   );
+
+  void light() =>
+      _pulse(const Duration(milliseconds: 22), 80, HapticFeedback.lightImpact);
 
   void medium() => _pulse(
     const Duration(milliseconds: 45),
@@ -89,17 +89,11 @@ class GameHaptics {
     HapticFeedback.mediumImpact,
   );
 
-  void heavy() => _pulse(
-    const Duration(milliseconds: 70),
-    255,
-    HapticFeedback.heavyImpact,
-  );
+  void heavy() =>
+      _pulse(const Duration(milliseconds: 70), 255, HapticFeedback.heavyImpact);
 
-  void vibrate() => _pulse(
-    const Duration(milliseconds: 400),
-    255,
-    HapticFeedback.vibrate,
-  );
+  void vibrate() =>
+      _pulse(const Duration(milliseconds: 400), 255, HapticFeedback.vibrate);
 
   void _pulse(
     Duration duration,
@@ -341,13 +335,13 @@ class _PvpPageState extends ConsumerState<PvpPage> {
                     selectedTower: battlePlayerTower,
                     opponentCharacter: battleOpponentCharacter,
                     opponentTower: battleOpponentTower,
-                      selectedArena: battleArena,
-                      profileTarget: profileTarget,
-                      soundEnabled: soundEnabled,
-                      hapticsEnabled: hapticsEnabled,
-                      musicLevel: musicLevel,
-                    ),
+                    selectedArena: battleArena,
+                    profileTarget: profileTarget,
+                    soundEnabled: soundEnabled,
+                    hapticsEnabled: hapticsEnabled,
+                    musicLevel: musicLevel,
                   ),
+                ),
               ],
             ),
           ),
@@ -475,12 +469,24 @@ class _PvpPageState extends ConsumerState<PvpPage> {
           );
         },
         onStartPrivateRoom: () async {
-          await _showPrivateRoomDialog(context: context, controller: controller);
+          await _showPrivateRoomDialog(
+            context: context,
+            controller: controller,
+          );
         },
       );
     }
 
     if (state.phase == BattlePhase.finished) {
+      if (state.finishReason == 'surrender') {
+        return _SurrenderResultSection(
+          state: state,
+          playerDisplayName: playerDisplayName,
+          onReplay: () => unawaited(controller.startBattle()),
+          onReset: controller.resetBattle,
+        );
+      }
+
       void claimReward() {
         if (state.rewardClaimed) {
           return;
@@ -745,26 +751,25 @@ class _PvpPageState extends ConsumerState<PvpPage> {
     required BattleMode mode,
   }) async {
     final bool online = mode == BattleMode.online;
-    double musicVolume = ref
-        .read(profileSettingsProvider)
-        .battleMusicVolume;
+    double musicVolume = ref.read(profileSettingsProvider).battleMusicVolume;
     final String? action = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
         return Dialog(
           backgroundColor: Colors.transparent,
           child: Container(
+            key: const ValueKey<String>('battle-pause-dialog'),
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF8EC),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFFDCD5C7)),
-              boxShadow: <BoxShadow>[
+              border: Border.all(color: const Color(0xFFB9D5FF)),
+              boxShadow: const <BoxShadow>[
                 BoxShadow(
-                  color: const Color(0xFF17233F).withAlpha(55),
-                  blurRadius: 24,
-                  offset: const Offset(0, 10),
+                  color: Color(0xFF0D2A52),
+                  blurRadius: 0,
+                  offset: Offset(0, 8),
                 ),
               ],
             ),
@@ -775,8 +780,16 @@ class _PvpPageState extends ConsumerState<PvpPage> {
                   width: 54,
                   height: 54,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2878F0).withAlpha(20),
+                    color: const Color(0xFFDDEBFF),
                     borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFF8DBAFF)),
+                    boxShadow: const <BoxShadow>[
+                      BoxShadow(
+                        color: Color(0xFF2878F0),
+                        blurRadius: 0,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: const Icon(
                     Icons.pause_rounded,
@@ -807,84 +820,83 @@ class _PvpPageState extends ConsumerState<PvpPage> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                StatefulBuilder(
-                  builder: (BuildContext context, void Function(void Function()) setDialogState) {
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            const Icon(
-                              Icons.music_note_rounded,
-                              color: Color(0xFF66708A),
-                              size: 18,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Volume musik arena',
-                                style: GoogleFonts.dmSans(
-                                  color: const Color(0xFF17233F),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
+                Container(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF4F6FA),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFD9DEE7)),
+                  ),
+                  child: StatefulBuilder(
+                    builder:
+                        (
+                          BuildContext context,
+                          void Function(void Function()) setDialogState,
+                        ) {
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Row(
+                                children: <Widget>[
+                                  const Icon(
+                                    Icons.music_note_rounded,
+                                    color: Color(0xFF66708A),
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Volume musik arena',
+                                      style: GoogleFonts.dmSans(
+                                        color: const Color(0xFF17233F),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    '${(musicVolume * 100).round()}%',
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: const Color(0xFF66708A),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  trackHeight: 4,
+                                  thumbShape: const RoundSliderThumbShape(
+                                    enabledThumbRadius: 9,
+                                  ),
+                                ),
+                                child: Slider(
+                                  value: musicVolume.clamp(0.0, 1.0),
+                                  max: 1,
+                                  divisions: 20,
+                                  activeColor: const Color(0xFF2878F0),
+                                  inactiveColor: const Color(0xFFDDE8FA),
+                                  label: '${(musicVolume * 100).round()}%',
+                                  onChanged: (double value) {
+                                    setDialogState(() => musicVolume = value);
+                                    ref
+                                        .read(profileSettingsProvider.notifier)
+                                        .setBattleMusicVolume(value);
+                                  },
                                 ),
                               ),
-                            ),
-                            Text(
-                              '${(musicVolume * 100).round()}%',
-                              style: GoogleFonts.jetBrainsMono(
-                                color: const Color(0xFF66708A),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ),
-                        SliderTheme(
-                          data: SliderTheme.of(context).copyWith(
-                            trackHeight: 4,
-                            thumbShape: const RoundSliderThumbShape(
-                              enabledThumbRadius: 9,
-                            ),
-                          ),
-                          child: Slider(
-                            value: musicVolume.clamp(0.0, 1.0),
-                            max: 1,
-                            divisions: 20,
-                            activeColor: const Color(0xFF2878F0),
-                            inactiveColor: const Color(0xFFDDE8FA),
-                            label: '${(musicVolume * 100).round()}%',
-                            onChanged: (double value) {
-                              setDialogState(() => musicVolume = value);
-                              ref
-                                  .read(profileSettingsProvider.notifier)
-                                  .setBattleMusicVolume(value);
-                            },
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 6),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: FilledButton.icon(
-                    onPressed: () => Navigator.of(context).pop('resume'),
-                    icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF2878F0),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    label: Text(
-                      'Lanjutkan',
-                      style: GoogleFonts.dmSans(fontWeight: FontWeight.w800),
-                    ),
+                            ],
+                          );
+                        },
                   ),
+                ),
+                const SizedBox(height: 16),
+                _ResultClayAction(
+                  key: const ValueKey<String>('battle-pause-resume'),
+                  onPressed: () => Navigator.of(context).pop('resume'),
+                  icon: Icons.play_arrow_rounded,
+                  label: 'Lanjutkan',
                 ),
                 const SizedBox(height: 10),
                 SizedBox(
@@ -913,13 +925,133 @@ class _PvpPageState extends ConsumerState<PvpPage> {
       },
     );
 
-    if (action == 'menu') {
-      try {
-        await controller.surrenderBattle();
-      } finally {
-        controller.resetBattle();
+    if (action == 'menu' && context.mounted) {
+      final bool confirmed =
+          await showDialog<bool>(
+            context: context,
+            builder: (BuildContext dialogContext) {
+              return const _SurrenderConfirmationDialog();
+            },
+          ) ??
+          false;
+      if (!confirmed) {
+        return;
       }
+      await controller.surrenderBattle();
     }
+  }
+}
+
+class _SurrenderConfirmationDialog extends StatelessWidget {
+  const _SurrenderConfirmationDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        key: const ValueKey<String>('battle-surrender-confirmation'),
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFFFB8B8)),
+          boxShadow: const <BoxShadow>[
+            BoxShadow(
+              color: Color(0xFFB83F45),
+              blurRadius: 0,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFE4E4),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFFFB8B8)),
+              ),
+              child: const Icon(
+                Icons.flag_rounded,
+                color: Color(0xFFB83F45),
+                size: 29,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Yakin ingin menyerah?',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.fredoka(
+                color: const Color(0xFF17233F),
+                fontSize: 23,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Battle akan langsung berakhir dan kamu kembali ke pilihan mode.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.dmSans(
+                color: const Color(0xFF66708A),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: SizedBox(
+                    height: 46,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF17233F),
+                        side: const BorderSide(color: Color(0xFFD9DEE7)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                      ),
+                      child: Text(
+                        'Batal',
+                        style: GoogleFonts.dmSans(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: SizedBox(
+                    height: 46,
+                    child: FilledButton.icon(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      icon: const Icon(Icons.flag_rounded, size: 18),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFFF05E5E),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                      ),
+                      label: Text(
+                        'Menyerah',
+                        style: GoogleFonts.dmSans(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -966,134 +1098,158 @@ class _ArenaLoadingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool online = mode == BattleMode.online;
-    return ColoredBox(
-      color: const Color(0xFFFFF8EC),
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: <Color>[Color(0xFFEAF2FF), Color(0xFFFFF8EC)],
+        ),
+      ),
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              SizedBox(
-                width: 210,
-                height: 116,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: <Widget>[
-                    Positioned(
-                      left: 4,
-                      bottom: 0,
-                      child: Image.asset(
-                        playerAvatarAsset,
-                        width: 106,
-                        height: 106,
-                        fit: BoxFit.contain,
-                        cacheWidth: 280,
-                      ),
-                    ),
-                    Positioned(
-                      right: 4,
-                      bottom: 0,
-                      child: Image.asset(
-                        opponentAvatarAsset,
-                        width: 106,
-                        height: 106,
-                        fit: BoxFit.contain,
-                        cacheWidth: 280,
-                      ),
-                    ),
-                    Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFC857),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.white, width: 3),
-                      ),
-                      child: const Icon(
-                        Icons.bolt_rounded,
-                        color: Color(0xFF17233F),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 22),
-              Text(
-                online ? 'Mencari lawan...' : 'Menyiapkan arena...',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.fredoka(
-                  color: const Color(0xFF17233F),
-                  fontSize: 25,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                message ??
-                    (online
-                        ? 'Matchmaking akan dimulai begitu lawan tersedia.'
-                        : 'Empat kartu pertamamu sedang dibagikan.'),
-                textAlign: TextAlign.center,
-                style: GoogleFonts.dmSans(
-                  color: const Color(0xFF66708A),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  height: 1.4,
-                ),
-              ),
-              if (roomCode != null && roomCode!.isNotEmpty) ...<Widget>[
-                const SizedBox(height: 14),
-                Semantics(
-                  label: 'Kode room privat',
-                  value: roomCode,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF17233F),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFF2FAE7D)),
-                    ),
-                    child: Text(
-                      roomCode!,
-                      style: GoogleFonts.jetBrainsMono(
-                        color: const Color(0xFF7ED0AC),
-                        fontSize: 30,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 6,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 22),
-              const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
+          padding: const EdgeInsets.all(24),
+          child: Container(
+            key: const ValueKey<String>('battle-waiting-panel'),
+            width: double.infinity,
+            constraints: const BoxConstraints(maxWidth: 360),
+            padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(26),
+              border: Border.all(color: const Color(0xFFB9D5FF)),
+              boxShadow: const <BoxShadow>[
+                BoxShadow(
                   color: Color(0xFF2878F0),
-                  backgroundColor: Color(0xFFDDE8FA),
-                ),
-              ),
-              if (onCancel != null) ...<Widget>[
-                const SizedBox(height: 20),
-                OutlinedButton.icon(
-                  key: const ValueKey<String>('cancel-matchmaking'),
-                  onPressed: onCancel,
-                  icon: const Icon(Icons.close_rounded, size: 18),
-                  label: Text(
-                    roomCode != null && roomCode!.isNotEmpty
-                        ? 'Tutup room'
-                        : 'Batalkan pencarian',
-                    style: GoogleFonts.dmSans(fontWeight: FontWeight.w800),
-                  ),
+                  blurRadius: 0,
+                  offset: Offset(0, 8),
                 ),
               ],
-            ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                SizedBox(
+                  width: 210,
+                  height: 116,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: <Widget>[
+                      Positioned(
+                        left: 4,
+                        bottom: 0,
+                        child: Image.asset(
+                          playerAvatarAsset,
+                          width: 106,
+                          height: 106,
+                          fit: BoxFit.contain,
+                          cacheWidth: 280,
+                        ),
+                      ),
+                      Positioned(
+                        right: 4,
+                        bottom: 0,
+                        child: Image.asset(
+                          opponentAvatarAsset,
+                          width: 106,
+                          height: 106,
+                          fit: BoxFit.contain,
+                          cacheWidth: 280,
+                        ),
+                      ),
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFC857),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.white, width: 3),
+                        ),
+                        child: const Icon(
+                          Icons.bolt_rounded,
+                          color: Color(0xFF17233F),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 22),
+                Text(
+                  online ? 'Mencari lawan...' : 'Menyiapkan arena...',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.fredoka(
+                    color: const Color(0xFF17233F),
+                    fontSize: 25,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  message ??
+                      (online
+                          ? 'Matchmaking akan dimulai begitu lawan tersedia.'
+                          : 'Empat kartu pertamamu sedang dibagikan.'),
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.dmSans(
+                    color: const Color(0xFF66708A),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    height: 1.4,
+                  ),
+                ),
+                if (roomCode != null && roomCode!.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 14),
+                  Semantics(
+                    label: 'Kode room privat',
+                    value: roomCode,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF17233F),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFF2FAE7D)),
+                      ),
+                      child: Text(
+                        roomCode!,
+                        style: GoogleFonts.jetBrainsMono(
+                          color: const Color(0xFF7ED0AC),
+                          fontSize: 30,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 6,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 22),
+                const SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: Color(0xFF2878F0),
+                    backgroundColor: Color(0xFFDDE8FA),
+                  ),
+                ),
+                if (onCancel != null) ...<Widget>[
+                  const SizedBox(height: 20),
+                  OutlinedButton.icon(
+                    key: const ValueKey<String>('cancel-matchmaking'),
+                    onPressed: onCancel,
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    label: Text(
+                      roomCode != null && roomCode!.isNotEmpty
+                          ? 'Tutup room'
+                          : 'Batalkan pencarian',
+                      style: GoogleFonts.dmSans(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),

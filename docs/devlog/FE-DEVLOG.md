@@ -2560,3 +2560,108 @@
 ### The Tech Debt
 - None introduced; the dialog remains private to the Interview feature until another feature needs the same interaction pattern.
 
+## 2026-08-26 - In-Battle Arena Clay Redesign
+
+### The Change
+- Applied a shared clay palette to the live PvP stage without changing the existing opponent, arena, player, and card-hand layout.
+- Added layered navy stage depth, raised player and opponent HUD surfaces, tactile score, combo, timer, pause, avatar, and HP treatments, plus a darker clay base around the arena.
+- Strengthened available, selected, disabled, and empty card presentation while preserving the existing card assets and interactions.
+- Joined the player HUD and card-section wrapper into one continuous cream control deck while retaining rounded, raised individual cards.
+
+### The Reasoning
+- The live arena now matches the app's clay component language while retaining the established gameplay geometry, asset positions, animations, and information density. Removing competing edges between the player HUD and card section also makes both areas read as one control surface.
+
+### Verification
+- Focused Dart analysis completed with no issues.
+- All five focused PvP widget tests passed, including the in-battle server-update flow, connected control-deck assertions, and layout checks at 411 x 914 and 390 x 700.
+
+### The Tech Debt
+- Battle overlays and the question sheet intentionally retain their existing styling until their dedicated redesign commits.
+
+## 2026-08-26 - Battle Question Popup Redesign
+
+### The Change
+- Redesigned the in-battle question popup with a flat category header, timer, prompt, connection notice, and one shared clay answer panel containing divided response rows.
+- Preserved available, selected, correct, incorrect, and locked answer states while removing repeated clay shadows from informational surfaces.
+- Removed successful-answer confirmation copy and delay so the popup closes immediately after a successful submission; timeout and submission-failure feedback remain available.
+
+### The Reasoning
+- One grouped response surface creates a calmer hierarchy, keeps informational content from looking interactive, and returns the player to the arena without an unnecessary success step.
+
+### Verification
+- Focused Flutter analysis completed with no issues.
+- All five focused PvP widget tests passed, including popup rendering, grouped-answer styling, answer submission, and dismissal.
+
+### The Tech Debt
+- Match-result and surrender surfaces remain separate redesign commits.
+
+## 2026-08-26 - Correct and Wrong Answer State Management
+
+### The Change
+- Added a dedicated self-answer result ID and correctness value to mobile battle state instead of inferring feedback from answer-history growth.
+- Added a mobile socket fallback that recognizes the player's result through the locally submitted card ID when actor-ID comparison is unreliable.
+- Reused the hand header helper position for a temporary green `BENAR` or red `SALAH` badge that restores the normal instruction after 1.5 seconds.
+
+### The Reasoning
+- First-class result state makes feedback independent of card replacement and unrelated battle effects while keeping server grading authoritative and avoiding additional visual clutter.
+
+### Verification
+- Focused Flutter analysis completed with no issues.
+- All 12 focused BattleController unit tests and all five focused PvP widget tests passed, including self-result publication, opponent-result isolation, badge transitions, and helper restoration.
+
+### The Tech Debt
+- A socket-repository integration harness is still needed to replay raw Socket.IO payloads without a live server; controller and widget behavior are covered independently for now.
+
+## 2026-08-26 - Result Screen Redesign
+
+### The Change
+- Redesigned the existing win, loss, and draw screen around a medium outcome-colored clay hero with semantic iconography and match-mode context.
+- Flattened the round-score section, added a compact reward banner, retained the orange clay claim action, and aligned `Main lagi` with `Pilih mode` as equal secondary actions.
+- Kept coaching visible for answered and unanswered matches, added two-line missed-question previews with inline `Lihat lengkap` / `Ringkas` expansion, and normalized taxonomy labels such as `TKD`, `Wawasan Kebangsaan`, `UUD 1945`, and `NKRI`.
+- Preserved reward claiming, replay, mode selection, practice recommendations, confetti, audio, haptics, and safe scrolling on short screens.
+
+### The Reasoning
+- A dominant outcome hero provides immediate result identity while flatter supporting information prevents excessive clay depth. Persistent coaching stabilizes both result states, and inline expansion provides enough question context without introducing another popup.
+
+### Verification
+- Focused Flutter analysis completed with no issues.
+- All five focused PvP widget tests passed, including result variants, long-question expansion, normalized taxonomy copy, reward claiming, aligned actions, and the complete multiplayer result flow.
+
+### The Tech Debt
+- Surrender remains a separate result-state commit. Expanded prompts and unusually large accessibility text intentionally use the existing scroll fallback when content exceeds the viewport.
+
+## 2026-08-27 - Battle Overlays and Transient States Redesign
+
+### The Change
+- Redesigned the pause panel with clay depth, a contained music control, and the shared orange resume action, then added a dedicated confirmation step before surrendering or ending a battle.
+- Reworked initial and between-round countdowns into a centered clay transition board and added dedicated clay banners for reconnecting opponents, arena errors, and meaningful battle status updates.
+- Added a compact card-opening progress badge and redesigned the matchmaking/private-room waiting state as a raised clay panel while preserving the existing character and tower assets.
+- Kept raw answer-submission transport copy hidden so correct and incorrect feedback continues to use the established hand-header state instead of restoring the removed popup behavior.
+
+### The Reasoning
+- Transient UI sits directly above the arena and must share its component language without obscuring gameplay. Persistent connection states, short-lived arena notices, and explicit destructive confirmation give each interruption the appropriate visual weight.
+
+### Verification
+- Focused Flutter analysis completed with no issues.
+- All five focused PvP widget tests passed, including waiting, pause, surrender cancellation, reconnecting, error, card processing, round transition, question, and result flows.
+
+### The Tech Debt
+- The surrender-specific result presentation remains a separate follow-up commit; this change only confirms and executes the existing surrender action.
+
+## 2026-08-27 - Surrender Result Page
+
+### The Change
+- Added a dedicated surrender result state and coral clay result page with the round and HP summary, recovery guidance, surrender consequence, replay action, and mode-selection action.
+- Preserved authoritative server results with a local fallback, removed normal defeat rewards and coaching from surrender outcomes, and kept the finished state visible until the player leaves the result page.
+- Covered the real pause and confirmation-dialog transition so surrender no longer resets directly to the arena menu.
+
+### The Reasoning
+- Surrender is a deliberate exit rather than an ordinary loss, so it needs distinct feedback and actions. Resetting only from the result-page navigation preserves that feedback while the bounded local fallback prevents missing server acknowledgements from leaving the player stuck.
+
+### Verification
+- The controller and presentation coverage includes local fallback, authoritative surrender results, and the dedicated result page; the widget test now follows the actual pause and surrender-confirmation path.
+- `git diff --check` passed after the transition fix. The refreshed Flutter test was blocked by another active Flutter runner during the final check.
+
+### The Tech Debt
+- The local fallback cannot infer ranked penalties if the server result misses its acknowledgment window; the repository may still reconcile authoritative progression on the next profile hydration.
+
