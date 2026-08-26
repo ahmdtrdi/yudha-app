@@ -189,4 +189,5 @@ Struktur arsitektur ini selaras dengan kode canonical NestJS yang ada:
 - [ ] Membuat `GeminiLlmService` berbasis `@google/genai` dengan dukungan **Gemini Context Caching**.
 - [ ] Menyesuaikan `InterviewPromptService` agar menghasilkan payload terkompresi.
 - [x] Menambahkan endpoint/gateway streaming (SSE untuk T2T, Socket.IO untuk S2S).
-- [ ] Meng-update `docs/devlog/BE-DEVLOG.md` sesuai panduan `AGENTS.md`.
+- [x] Membangun `InterviewGuardrailService` zero-token content moderation (SARA, profanity, explicit, prompt injection) sebelum LLM API.
+- [x] Meng-update `docs/devlog/BE-DEVLOG.md` sesuai panduan `AGENTS.md`.

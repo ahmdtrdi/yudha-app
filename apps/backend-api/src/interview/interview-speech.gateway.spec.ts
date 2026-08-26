@@ -1,5 +1,6 @@
 import { InterviewSpeechGateway } from './interview-speech.gateway';
 import { InterviewSpeechStreamService } from './services/interview-speech-stream.service';
+import { InterviewGuardrailService } from './services/interview-guardrail.service';
 
 describe('InterviewSpeechGateway', () => {
   let gateway: InterviewSpeechGateway;
@@ -7,6 +8,7 @@ describe('InterviewSpeechGateway', () => {
   let repository: any;
   let interviewService: any;
   let speechStreamService: InterviewSpeechStreamService;
+  let guardrailService: InterviewGuardrailService;
   let sttClient: any;
   let ttsClient: any;
 
@@ -28,6 +30,7 @@ describe('InterviewSpeechGateway', () => {
     };
 
     speechStreamService = new InterviewSpeechStreamService();
+    guardrailService = new InterviewGuardrailService();
 
     sttClient = {
       transcribe: jest.fn(),
@@ -42,6 +45,7 @@ describe('InterviewSpeechGateway', () => {
       repository,
       interviewService,
       speechStreamService,
+      guardrailService,
       sttClient,
       ttsClient,
     );
@@ -166,6 +170,46 @@ describe('InterviewSpeechGateway', () => {
       expect(emittedEvents).toContain('question_text');
       expect(emittedEvents).toContain('question_audio_chunk');
       expect(emittedEvents).toContain('turn_completed');
+    });
+
+    it('emits error and clears session when answer violates guardrail', async () => {
+      const mockClient: any = {
+        data: { userId: 'user-123' },
+        emit: jest.fn(),
+      };
+
+      repository.getOwnedSession.mockResolvedValue({
+        id: 'session-123',
+        status: 'active',
+      });
+
+      await gateway.handleStartSession(mockClient, {
+        commandId: 'cmd-1',
+        sessionId: 'session-123',
+      });
+
+      await gateway.handleAudioChunk(mockClient, {
+        commandId: 'cmd-2',
+        sessionId: 'session-123',
+        sequence: 0,
+        audio: Buffer.from('audio-data-chunk-1').toString('base64'),
+      });
+
+      sttClient.transcribe.mockResolvedValue({
+        text: 'Jawaban saya anjing banget.',
+      });
+
+      await gateway.handleFinishAnswer(mockClient, {
+        commandId: 'cmd-3',
+        sessionId: 'session-123',
+      });
+
+      const emittedEvents = mockClient.emit.mock.calls.map(
+        (call: any) => call[0],
+      );
+
+      expect(emittedEvents).toContain('error');
+      expect(interviewService.submitAnswer).not.toHaveBeenCalled();
     });
   });
 });

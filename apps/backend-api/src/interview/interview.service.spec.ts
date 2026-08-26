@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { InterviewService } from './interview.service';
 import { InterviewSessionRepository } from './repositories/interview-session.repository';
 import { CompanyContextService } from './services/company-context.service';
+import { InterviewGuardrailService } from './services/interview-guardrail.service';
 import { InterviewInputValidator } from './services/interview-input-validator.service';
 import { InterviewSummaryService } from './services/interview-summary.service';
 import { InterviewLlmClient } from './interview.types';
@@ -39,7 +40,7 @@ describe('InterviewService', () => {
       resolveSnapshot: jest.fn(),
     } as any;
 
-    inputValidator = new InterviewInputValidator();
+    inputValidator = new InterviewInputValidator(new InterviewGuardrailService());
     summaryService = new InterviewSummaryService();
 
     llmClient = {
