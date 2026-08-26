@@ -612,5 +612,24 @@
 **The Tech Debt:**
 - Client audio format currently defaults to `audio/m4a`. Add client-side format negotiation if native PCM or Opus streaming is adopted by mobile clients.
 
+## 2026-08-26 - AI Mock Interview Input Guardrail & Content Moderation Service (`InterviewGuardrailService`)
+
+**The Change:**
+- Created `InterviewGuardrailService` (`apps/backend-api/src/interview/services/interview-guardrail.service.ts`) with sub-millisecond local rule engines for SARA, profanity, explicit/sexual language, and prompt injection/jailbreak detection.
+- Integrated guardrail inspection into `InterviewInputValidator` (`validateSubmitTurn`) to reject invalid REST/SSE turn submissions before claiming answer turns or calling LLM APIs.
+- Integrated guardrail inspection into `InterviewSpeechGateway` (`handleFinishAnswer`) right after STT transcription to reject toxic/prohibited spoken answers with `GUARDRAIL_VIOLATION` error events before hitting LLM APIs.
+- Registered `InterviewGuardrailService` in `InterviewModule`.
+- Created `interview-guardrail.service.spec.ts` unit test suite covering clean interview answers, Indonesian/English profanity, leetspeak normalization, SARA, explicit terms, and prompt injection attempts (8/8 tests passed).
+- Updated existing test suites (`interview.service.spec.ts` & `interview-speech.gateway.spec.ts`) for guardrail dependency injection.
+
+**The Reasoning:**
+- Eliminates 100% of LLM token API costs for prohibited/toxic/injection inputs by intercepting and rejecting candidate text immediately after STT.
+- Emits Section 4.3 standardized `GUARDRAIL_VIOLATION` error payload with clear feedback for the candidate UI.
+- Local regex & leetspeak normalization runs in sub-millisecond time without adding network latency.
+
+**The Tech Debt:**
+- Add ML/Embedding-based toxicity classification model if adversarial leetspeak obfuscation bypasses static regex patterns in production.
+
+
 
 

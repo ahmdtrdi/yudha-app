@@ -22,6 +22,8 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const message =
       code === 'IDEMPOTENCY_KEY_REUSED'
         ? 'Kunci idempotensi sudah digunakan untuk permintaan yang berbeda.'
+        : code === 'GUARDRAIL_VIOLATION'
+        ? rawMessage.replace(/^GUARDRAIL_VIOLATION:\s*/, '')
         : rawMessage;
     const requestId =
       this.header(request.headers['x-request-id']) ?? randomUUID();
@@ -42,14 +44,22 @@ export class ApiExceptionFilter implements ExceptionFilter {
     }
     const value = exception.getResponse();
     if (typeof value === 'string') return value;
-    if (value && typeof value === 'object' && 'message' in value) {
-      const message = (value as { message: unknown }).message;
-      return Array.isArray(message) ? message.join('; ') : String(message);
+    if (value && typeof value === 'object') {
+      if ('error' in value && (value as any).error?.message) {
+        return `GUARDRAIL_VIOLATION: ${(value as any).error.message}`;
+      }
+      if ('message' in value) {
+        const message = (value as { message: unknown }).message;
+        return Array.isArray(message) ? message.join('; ') : String(message);
+      }
     }
     return status === 500 ? 'Internal server error.' : exception.message;
   }
 
   private code(message: string, status: number): string {
+    if (message.includes('GUARDRAIL_VIOLATION')) {
+      return 'GUARDRAIL_VIOLATION';
+    }
     if (message.includes('IDEMPOTENCY_KEY_REUSED')) {
       return 'IDEMPOTENCY_KEY_REUSED';
     }

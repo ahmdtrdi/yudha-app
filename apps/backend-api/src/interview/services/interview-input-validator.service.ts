@@ -1,9 +1,14 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { StartInterviewSessionDto } from '../dto/start-interview-session.dto';
 import { SubmitInterviewTurnDto } from '../dto/submit-interview-turn.dto';
+import { InterviewGuardrailService } from './interview-guardrail.service';
 
 @Injectable()
 export class InterviewInputValidator {
+  constructor(
+    private readonly guardrailService: InterviewGuardrailService,
+  ) {}
+
   validateStartSession(input: StartInterviewSessionDto): void {
     this.requireText(input.companyId, 'companyId', 100);
     this.requireText(input.targetRole, 'targetRole', 120);
@@ -31,6 +36,25 @@ export class InterviewInputValidator {
     }
 
     this.requireText(input.answer.text, 'answer.text', 5000);
+
+    const guardrailResult = this.guardrailService.validateAnswer(
+      input.answer.text,
+    );
+
+    if (!guardrailResult.isAllowed) {
+      throw new BadRequestException({
+        error: {
+          code: 'GUARDRAIL_VIOLATION',
+          message:
+            guardrailResult.reason ||
+            'Jawaban mengandung bahasa yang dilarang atau tidak pantas.',
+          details: {
+            category: guardrailResult.category,
+            matchedTerm: guardrailResult.matchedTerm,
+          },
+        },
+      });
+    }
   }
 
   private requireText(value: unknown, field: string, maxLength: number): void {

@@ -22,6 +22,8 @@ import type {
   InterviewSpeechTranscriptionClient,
 } from './speech/interview-speech.types';
 
+import { InterviewGuardrailService } from './services/interview-guardrail.service';
+
 interface AuthenticatedSocket extends Socket {
   data: {
     userId?: string;
@@ -45,6 +47,7 @@ export class InterviewSpeechGateway
     private readonly repository: InterviewSessionRepository,
     private readonly interviewService: InterviewService,
     private readonly speechStreamService: InterviewSpeechStreamService,
+    private readonly guardrailService: InterviewGuardrailService,
     @Inject(INTERVIEW_SPEECH_TRANSCRIPTION_CLIENT)
     private readonly sttClient: InterviewSpeechTranscriptionClient,
     @Inject(INTERVIEW_SPEECH_SYNTHESIS_CLIENT)
@@ -194,6 +197,20 @@ export class InterviewSpeechGateway
         fileName: 'answer.m4a',
         mimeType: 'audio/m4a',
       });
+
+      const guardrailResult = this.guardrailService.validateAnswer(
+        transcription.text,
+      );
+
+      if (!guardrailResult.isAllowed) {
+        this.speechStreamService.clearSession(payload.sessionId);
+        return this.sendError(
+          client,
+          'GUARDRAIL_VIOLATION',
+          guardrailResult.reason ||
+            'Jawaban mengandung bahasa yang dilarang atau tidak pantas.',
+        );
+      }
 
       client.emit('transcript_final', {
         sessionId: payload.sessionId,

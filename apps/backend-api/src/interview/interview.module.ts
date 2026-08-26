@@ -19,6 +19,7 @@ import { GroqSttService } from './services/groq-stt.service';
 import { GroqTtsService } from './services/groq-tts.service';
 import { InterviewAudioValidator } from './services/interview-audio-validator.service';
 import { InterviewEvaluationValidator } from './services/interview-evaluation-validator.service';
+import { InterviewGuardrailService } from './services/interview-guardrail.service';
 import { InterviewInputValidator } from './services/interview-input-validator.service';
 import { InterviewPromptService } from './services/interview-prompt.service';
 import { InterviewSpeechGateway } from './interview-speech.gateway';
@@ -34,6 +35,7 @@ import { InterviewSummaryService } from './services/interview-summary.service';
     InterviewSpeechService,
     InterviewSpeechGateway,
     InterviewSpeechStreamService,
+    InterviewGuardrailService,
     InterviewSessionRepository,
     CompanyContextService,
     InterviewInputValidator,
