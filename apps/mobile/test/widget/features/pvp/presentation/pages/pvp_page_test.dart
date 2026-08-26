@@ -442,7 +442,8 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey<String>('mode-choice-online')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey<String>('mode-online')), findsOneWidget);    expect(
+    expect(find.byKey(const ValueKey<String>('mode-online')), findsOneWidget);
+    expect(
       ((tester
                           .widget<AnimatedContainer>(
                             find.byKey(
@@ -722,6 +723,41 @@ void main() {
       expect(find.text('Kamu'), findsOneWidget);
       expect(find.byKey(const ValueKey<String>('combo-meter')), findsOneWidget);
       expect(find.byKey(const ValueKey<String>('round-clock')), findsOneWidget);
+      final DecoratedBox battleStage = tester.widget<DecoratedBox>(
+        find.byKey(const ValueKey<String>('in-battle-stage')),
+      );
+      expect(
+        (battleStage.decoration as BoxDecoration).gradient,
+        isA<LinearGradient>(),
+      );
+      final Container opponentHud = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('battle-hud-opponent')),
+      );
+      expect((opponentHud.decoration! as BoxDecoration).boxShadow, isNotEmpty);
+      final Container arenaBoard = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('battle-arena-board')),
+      );
+      expect(arenaBoard.padding, const EdgeInsets.all(5));
+      final Container battleHand = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('battle-hand')),
+      );
+      final BoxDecoration battleHandDecoration =
+          battleHand.decoration! as BoxDecoration;
+      expect(battleHandDecoration.borderRadius, isNull);
+      expect(battleHandDecoration.boxShadow, isNull);
+      final Container playerHud = tester.widget<Container>(
+        find.byKey(const ValueKey<String>('battle-hud-player')),
+      );
+      expect((playerHud.decoration! as BoxDecoration).boxShadow, isNull);
+      expect(tester.takeException(), isNull);
+
+      await tester.binding.setSurfaceSize(const Size(390, 700));
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('battle-arena-board')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
 
       // Answer a question to generate answer history for performance insight
       await battleController.prepareQuestion(

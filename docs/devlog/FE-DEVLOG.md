@@ -2560,3 +2560,21 @@
 ### The Tech Debt
 - None introduced; the dialog remains private to the Interview feature until another feature needs the same interaction pattern.
 
+## 2026-08-26 - In-Battle Arena Clay Redesign
+
+### The Change
+- Applied a shared clay palette to the live PvP stage without changing the existing opponent, arena, player, and card-hand layout.
+- Added layered navy stage depth, raised player and opponent HUD surfaces, tactile score, combo, timer, pause, avatar, and HP treatments, plus a darker clay base around the arena.
+- Strengthened available, selected, disabled, and empty card presentation while preserving the existing card assets and interactions.
+- Joined the player HUD and card-section wrapper into one continuous cream control deck while retaining rounded, raised individual cards.
+
+### The Reasoning
+- The live arena now matches the app's clay component language while retaining the established gameplay geometry, asset positions, animations, and information density. Removing competing edges between the player HUD and card section also makes both areas read as one control surface.
+
+### Verification
+- Focused Dart analysis completed with no issues.
+- All five focused PvP widget tests passed, including the in-battle server-update flow, connected control-deck assertions, and layout checks at 411 x 914 and 390 x 700.
+
+### The Tech Debt
+- Battle overlays and the question sheet intentionally retain their existing styling until their dedicated redesign commits.
+
