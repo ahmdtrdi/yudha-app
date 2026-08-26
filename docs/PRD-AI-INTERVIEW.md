@@ -188,5 +188,5 @@ Struktur arsitektur ini selaras dengan kode canonical NestJS yang ada:
 - [ ] Memperbarui `docs/PRD.md` utama untuk mereferensikan dokumen PRD spesifik ini.
 - [ ] Membuat `GeminiLlmService` berbasis `@google/genai` dengan dukungan **Gemini Context Caching**.
 - [ ] Menyesuaikan `InterviewPromptService` agar menghasilkan payload terkompresi.
-- [ ] Menambahkan endpoint/gateway streaming (SSE untuk T2T, Socket.IO untuk S2S).
+- [x] Menambahkan endpoint/gateway streaming (SSE untuk T2T, Socket.IO untuk S2S).
 - [ ] Meng-update `docs/devlog/BE-DEVLOG.md` sesuai panduan `AGENTS.md`.

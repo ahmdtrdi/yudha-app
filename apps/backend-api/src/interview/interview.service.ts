@@ -5,6 +5,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { Response } from 'express';
 import { StartInterviewSessionDto } from './dto/start-interview-session.dto';
 import { SubmitInterviewTurnDto } from './dto/submit-interview-turn.dto';
 import { INTERVIEW_LLM_CLIENT } from './interview.constants';
@@ -24,6 +25,7 @@ import { InterviewSummaryService } from './services/interview-summary.service';
 export class InterviewService {
   private readonly maxTurns: number;
   private readonly defaultLanguage: string;
+  private readonly wordStreamingDelayMs: number;
 
   constructor(
     private readonly repository: InterviewSessionRepository,
@@ -42,6 +44,12 @@ export class InterviewService {
     this.defaultLanguage = configService.get<string>(
       'INTERVIEW_RESPONSE_LANGUAGE',
       'id',
+    );
+    this.wordStreamingDelayMs = Number(
+      configService.get<string>(
+        'INTERVIEW_WORD_STREAMING_DELAY_MS',
+        process.env.NODE_ENV === 'test' ? '0' : '30',
+      ),
     );
   }
 
@@ -190,6 +198,251 @@ export class InterviewService {
 
       throw error;
     }
+  }
+
+  async submitAnswerStream(
+    userId: string,
+    sessionId: string,
+    input: SubmitInterviewTurnDto,
+    res: Response,
+  ) {
+    this.inputValidator.validateSubmitTurn(input);
+
+    const session = await this.repository.getOwnedSession(sessionId, userId);
+    this.assertActive(session);
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    if (typeof (res as any).flushHeaders === 'function') {
+      (res as any).flushHeaders();
+    }
+
+    const answerClaim = await this.repository.claimAnswer(
+      session.id,
+      input.answer.text.trim(),
+      input.idempotencyKey.trim(),
+    );
+
+    if (!answerClaim.isNew) {
+      return this.streamReplayResponse(
+        session,
+        answerClaim.turn,
+        input.idempotencyKey.trim(),
+        res,
+      );
+    }
+
+    const answerTurn = answerClaim.turn;
+    let sequence = 0;
+    const sendEvent = (event: string, payload: Record<string, unknown>) => {
+      const data = JSON.stringify({
+        sessionId: session.id,
+        requestId: input.idempotencyKey.trim(),
+        sequence: sequence++,
+        ...payload,
+      });
+      res.write(`event: ${event}\ndata: ${data}\n\n`);
+    };
+
+    let isAnswerCompleted = false;
+
+    try {
+      sendEvent('started', { answerTurnId: answerTurn.id });
+
+      const turns = await this.repository.listTurns(session.id);
+      const answerCount = turns.filter(
+        (turn) => turn.role === 'answer' && turn.processingStatus !== 'failed',
+      ).length;
+      const latestQuestion = this.findQuestionBeforeAnswer(
+        turns,
+        answerTurn.id,
+      );
+      const recentTurns = await this.repository.listRecentTurns(session.id);
+      const evaluation = await this.llmClient.evaluateAnswer({
+        companyContext: session.contextSnapshot,
+        targetRole: session.targetRole,
+        mode: session.mode,
+        language: session.language,
+        rollingSummary: session.rollingSummary,
+        recentTurns: recentTurns.filter((turn) => turn.id !== answerTurn.id),
+        latestQuestion: latestQuestion.content,
+        latestAnswer: answerTurn.content,
+      });
+      const shouldEndSession =
+        evaluation.shouldEndSession || answerCount >= this.maxTurns;
+      const completedEvaluation = {
+        ...evaluation,
+        shouldEndSession,
+        endReason: shouldEndSession
+          ? evaluation.endReason || 'Maximum interview turns reached.'
+          : evaluation.endReason,
+      };
+
+      await this.repository.completeAnswer(answerTurn.id, completedEvaluation);
+      isAnswerCompleted = true;
+      await this.repository.updateSessionSummary(
+        session.id,
+        this.summaryService.appendRollingSummary(
+          session.rollingSummary,
+          completedEvaluation,
+        ),
+      );
+
+      if (!shouldEndSession && completedEvaluation.nextQuestion) {
+        const words =
+          completedEvaluation.nextQuestion.match(/\S+\s*/g) || [
+            completedEvaluation.nextQuestion,
+          ];
+        for (const word of words) {
+          sendEvent('delta', { delta: word });
+          if (this.wordStreamingDelayMs > 0) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, this.wordStreamingDelayMs),
+            );
+          }
+        }
+      }
+
+      if (session.mode === 'coaching') {
+        sendEvent('evaluation', { evaluation: completedEvaluation });
+      }
+
+      const nextQuestion = shouldEndSession
+        ? null
+        : await this.repository.addQuestion(
+            session.id,
+            completedEvaluation.nextQuestion,
+            answerTurn.id,
+          );
+      const finalSummary = shouldEndSession
+        ? this.buildFinalSummary(await this.repository.listTurns(session.id))
+        : null;
+
+      if (finalSummary) {
+        await this.repository.completeSession(session.id, finalSummary);
+      }
+
+      if (nextQuestion) {
+        sendEvent('question', {
+          question: this.toQuestionResponse(
+            nextQuestion,
+            session.responseStyle,
+          ),
+        });
+      }
+
+      sendEvent('completed', {
+        status: shouldEndSession ? 'completed' : 'active',
+        finalSummary: shouldEndSession ? finalSummary : undefined,
+      });
+      res.end();
+    } catch (error: any) {
+      if (!isAnswerCompleted) {
+        await this.repository.failAnswer(answerTurn.id);
+      }
+
+      sendEvent('error', {
+        error: {
+          code:
+            error?.status === 504 || error?.name === 'TimeoutError'
+              ? 'PROVIDER_UNAVAILABLE'
+              : 'INTERNAL_SERVER_ERROR',
+          message: error?.message || 'Streaming turn evaluation failed.',
+          details: { recoverable: true },
+        },
+      });
+      res.end();
+    }
+  }
+
+  private async streamReplayResponse(
+    session: InterviewSession,
+    answer: InterviewTurn,
+    requestId: string,
+    res: Response,
+  ) {
+    let sequence = 0;
+    const sendEvent = (event: string, payload: Record<string, unknown>) => {
+      const data = JSON.stringify({
+        sessionId: session.id,
+        requestId,
+        sequence: sequence++,
+        ...payload,
+      });
+      res.write(`event: ${event}\ndata: ${data}\n\n`);
+    };
+
+    if (answer.processingStatus === 'pending') {
+      sendEvent('error', {
+        error: {
+          code: 'CONFLICT',
+          message: 'Interview answer is still processing.',
+          details: { recoverable: true },
+        },
+      });
+      res.end();
+      return;
+    }
+
+    if (answer.processingStatus === 'failed' || !answer.evaluation) {
+      sendEvent('error', {
+        error: {
+          code: 'PROVIDER_UNAVAILABLE',
+          message:
+            'The previous interview answer processing failed. Submit a new request.',
+          details: { recoverable: true },
+        },
+      });
+      res.end();
+      return;
+    }
+
+    sendEvent('started', { answerTurnId: answer.id });
+
+    const evaluation = answer.evaluation;
+    const shouldEndSession = evaluation.shouldEndSession;
+
+    if (!shouldEndSession && evaluation.nextQuestion) {
+      const words = evaluation.nextQuestion.match(/\S+\s*/g) || [
+        evaluation.nextQuestion,
+      ];
+      for (const word of words) {
+        sendEvent('delta', { delta: word });
+      }
+    }
+
+    if (session.mode === 'coaching') {
+      sendEvent('evaluation', { evaluation });
+    }
+
+    const nextQuestion = shouldEndSession
+      ? null
+      : await this.repository.addQuestion(
+          session.id,
+          evaluation.nextQuestion,
+          answer.id,
+        );
+    let finalSummary = session.finalSummary;
+
+    if (shouldEndSession && session.status === 'active') {
+      const turns = await this.repository.listTurns(session.id);
+      finalSummary = this.buildFinalSummary(turns);
+      await this.repository.completeSession(session.id, finalSummary);
+    }
+
+    if (nextQuestion) {
+      sendEvent('question', {
+        question: this.toQuestionResponse(nextQuestion, session.responseStyle),
+      });
+    }
+
+    sendEvent('completed', {
+      status: shouldEndSession ? 'completed' : 'active',
+      finalSummary: shouldEndSession ? finalSummary : undefined,
+    });
+    res.end();
   }
 
   async getSession(userId: string, sessionId: string) {

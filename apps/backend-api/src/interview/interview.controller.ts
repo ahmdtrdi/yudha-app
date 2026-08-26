@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { SupabaseAuthGuard } from '../auth/guards/supabase-auth.guard';
 import { StartInterviewSessionDto } from './dto/start-interview-session.dto';
@@ -34,6 +35,21 @@ export class InterviewController {
     @Body() input: SubmitInterviewTurnDto,
   ) {
     return this.interviewService.submitAnswer(user.id, sessionId, input);
+  }
+
+  @Post(':sessionId/turns/stream')
+  submitAnswerStream(
+    @GetUser() user: AuthenticatedUser,
+    @Param('sessionId') sessionId: string,
+    @Body() input: SubmitInterviewTurnDto,
+    @Res() res: Response,
+  ) {
+    return this.interviewService.submitAnswerStream(
+      user.id,
+      sessionId,
+      input,
+      res,
+    );
   }
 
   @Get(':sessionId')
