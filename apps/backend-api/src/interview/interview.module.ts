@@ -21,6 +21,8 @@ import { InterviewAudioValidator } from './services/interview-audio-validator.se
 import { InterviewEvaluationValidator } from './services/interview-evaluation-validator.service';
 import { InterviewInputValidator } from './services/interview-input-validator.service';
 import { InterviewPromptService } from './services/interview-prompt.service';
+import { InterviewSpeechGateway } from './interview-speech.gateway';
+import { InterviewSpeechStreamService } from './services/interview-speech-stream.service';
 import { InterviewSpeechService } from './services/interview-speech.service';
 import { InterviewSummaryService } from './services/interview-summary.service';
 
@@ -30,6 +32,8 @@ import { InterviewSummaryService } from './services/interview-summary.service';
   providers: [
     InterviewService,
     InterviewSpeechService,
+    InterviewSpeechGateway,
+    InterviewSpeechStreamService,
     InterviewSessionRepository,
     CompanyContextService,
     InterviewInputValidator,

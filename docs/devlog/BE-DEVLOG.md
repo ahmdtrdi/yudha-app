@@ -594,4 +594,23 @@
 **The Tech Debt:**
 - Multi-sentence TTS audio chunk streaming for voice mode (S2S) is planned for the WebSocket voice gateway phase.
 
+## 2026-08-26 - AI Mock Interview Live Speech Socket.IO Gateway (`/interview-speech`)
+
+**The Change:**
+- Installed `@nestjs/websockets`, `@nestjs/platform-socket.io`, and `socket.io` in `apps/backend-api`.
+- Created `InterviewSpeechGateway` (`apps/backend-api/src/interview/interview-speech.gateway.ts`) on namespace `/interview-speech` with handshake Supabase JWT authentication.
+- Created `InterviewSpeechStreamService` (`apps/backend-api/src/interview/services/interview-speech-stream.service.ts`) for session audio chunk buffering and binary TTS frame chunking.
+- Implemented socket lifecycle handlers: `start_session` → `session_ready`, `audio_chunk` → `transcript_delta`, `finish_answer` → `transcript_final` → `evaluation` → `question_text` → `question_audio_chunk` → `turn_completed` / `session_completed`, and `cancel`.
+- Registered `InterviewSpeechGateway` and `InterviewSpeechStreamService` in `InterviewModule`.
+- Created `interview-speech.gateway.spec.ts` unit test suite covering socket auth, session start, chunking, full speech answer turn flow, and cancellation.
+
+**The Reasoning:**
+- Conforms to Section 4.7 of `docs/PRD.md` & `docs/PRD-AI-INTERVIEW.md` for Speech-to-Speech (S2S) live voice mode.
+- Encapsulates existing domain services (`GroqSttService`, `InterviewService`, `GroqTtsService`/`ElevenLabsTtsService`) inside an event-driven Socket.IO lifecycle wrapper without rewriting business logic.
+- Chunking synthesized TTS audio into Base64 frames (`question_audio_chunk`) enables low-latency immediate voice playback on client mobile devices.
+
+**The Tech Debt:**
+- Client audio format currently defaults to `audio/m4a`. Add client-side format negotiation if native PCM or Opus streaming is adopted by mobile clients.
+
+
 
