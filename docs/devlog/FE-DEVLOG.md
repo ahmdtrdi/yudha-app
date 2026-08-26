@@ -2648,3 +2648,20 @@
 ### The Tech Debt
 - The surrender-specific result presentation remains a separate follow-up commit; this change only confirms and executes the existing surrender action.
 
+## 2026-08-27 - Surrender Result Page
+
+### The Change
+- Added a dedicated surrender result state and coral clay result page with the round and HP summary, recovery guidance, surrender consequence, replay action, and mode-selection action.
+- Preserved authoritative server results with a local fallback, removed normal defeat rewards and coaching from surrender outcomes, and kept the finished state visible until the player leaves the result page.
+- Covered the real pause and confirmation-dialog transition so surrender no longer resets directly to the arena menu.
+
+### The Reasoning
+- Surrender is a deliberate exit rather than an ordinary loss, so it needs distinct feedback and actions. Resetting only from the result-page navigation preserves that feedback while the bounded local fallback prevents missing server acknowledgements from leaving the player stuck.
+
+### Verification
+- The controller and presentation coverage includes local fallback, authoritative surrender results, and the dedicated result page; the widget test now follows the actual pause and surrender-confirmation path.
+- `git diff --check` passed after the transition fix. The refreshed Flutter test was blocked by another active Flutter runner during the final check.
+
+### The Tech Debt
+- The local fallback cannot infer ranked penalties if the server result misses its acknowledgment window; the repository may still reconcile authoritative progression on the next profile hydration.
+

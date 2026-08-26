@@ -478,6 +478,15 @@ class _PvpPageState extends ConsumerState<PvpPage> {
     }
 
     if (state.phase == BattlePhase.finished) {
+      if (state.finishReason == 'surrender') {
+        return _SurrenderResultSection(
+          state: state,
+          playerDisplayName: playerDisplayName,
+          onReplay: () => unawaited(controller.startBattle()),
+          onReset: controller.resetBattle,
+        );
+      }
+
       void claimReward() {
         if (state.rewardClaimed) {
           return;
@@ -928,11 +937,7 @@ class _PvpPageState extends ConsumerState<PvpPage> {
       if (!confirmed) {
         return;
       }
-      try {
-        await controller.surrenderBattle();
-      } finally {
-        controller.resetBattle();
-      }
+      await controller.surrenderBattle();
     }
   }
 }

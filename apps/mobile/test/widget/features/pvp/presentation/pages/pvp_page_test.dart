@@ -661,6 +661,63 @@ void main() {
     },
   );
 
+  testWidgets('renders the dedicated surrender result flow', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(411, 914));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final _LiveOnlineBattleRepository online = _LiveOnlineBattleRepository();
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        onlineBattleRepositoryProvider.overrideWithValue(online),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final battleController = container.read(battleControllerProvider.notifier);
+    battleController.enterArena();
+    battleController.setMode(BattleMode.online);
+    battleController.setOnlineMatchmakingMode(OnlineMatchmakingMode.bot);
+    await battleController.startBattle();
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: PvpPage()),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Opsi battle'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Menyerah & keluar'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Menyerah'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(
+      find.byKey(const ValueKey<String>('battle-surrender-result')),
+      findsOneWidget,
+    );
+    expect(battleController.state.phase, BattlePhase.finished);
+    expect(battleController.state.finishReason, 'surrender');
+    expect(find.text('KAMU MENYERAH'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('battle-surrender-consequence')),
+      findsOneWidget,
+    );
+    expect(find.text('Battle dihentikan tanpa hadiah.'), findsOneWidget);
+    expect(find.text('KLAIM HADIAH'), findsNothing);
+    expect(find.text('MAIN LAGI'), findsOneWidget);
+    expect(find.text('Pilih mode'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('battle-result-hero')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'renders in-battle view and responds to server game_state_update and match_result',
     (WidgetTester tester) async {

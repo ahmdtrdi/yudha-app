@@ -297,6 +297,289 @@ class _ResultSectionState extends State<_ResultSection>
   }
 }
 
+class _SurrenderResultSection extends StatelessWidget {
+  const _SurrenderResultSection({
+    required this.state,
+    required this.playerDisplayName,
+    required this.onReplay,
+    required this.onReset,
+  });
+
+  final BattleState state;
+  final String playerDisplayName;
+  final VoidCallback onReplay;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    const Color coral = Color(0xFFF05E5E);
+    const Color coralInk = Color(0xFFB83F45);
+    final bool ranked =
+        state.mode == BattleMode.online &&
+        state.onlineMatchmakingMode == OnlineMatchmakingMode.ranked;
+    final String ratingText = state.ratingDelta > 0
+        ? '+${state.ratingDelta}'
+        : '${state.ratingDelta}';
+
+    return ColoredBox(
+      color: _ResultSection._warmCanvas,
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          final bool compact = constraints.maxHeight < 700;
+          final double verticalPadding = compact ? 20 : 28;
+
+          return SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              compact ? 10 : 14,
+              16,
+              compact ? 10 : 14,
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 520,
+                  minHeight: max(0.0, constraints.maxHeight - verticalPadding),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    Column(
+                      children: <Widget>[
+                        Container(
+                          key: const ValueKey<String>(
+                            'battle-surrender-result',
+                          ),
+                          width: double.infinity,
+                          padding: EdgeInsets.fromLTRB(
+                            18,
+                            compact ? 14 : 18,
+                            18,
+                            compact ? 16 : 20,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFEEEE),
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(color: coral.withAlpha(80)),
+                            boxShadow: const <BoxShadow>[
+                              BoxShadow(
+                                color: coralInk,
+                                blurRadius: 0,
+                                offset: Offset(0, 7),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: <Widget>[
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withAlpha(190),
+                                  borderRadius: BorderRadius.circular(99),
+                                  border: Border.all(
+                                    color: coral.withAlpha(55),
+                                  ),
+                                ),
+                                child: Text(
+                                  'BATTLE DIHENTIKAN',
+                                  style: GoogleFonts.dmSans(
+                                    color: coralInk,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.65,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: compact ? 10 : 12),
+                              Container(
+                                width: compact ? 72 : 82,
+                                height: compact ? 72 : 82,
+                                decoration: BoxDecoration(
+                                  color: coral.withAlpha(28),
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(
+                                    color: coral.withAlpha(95),
+                                    width: 2,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.flag_rounded,
+                                  color: coral,
+                                  size: 40,
+                                ),
+                              ),
+                              SizedBox(height: compact ? 9 : 12),
+                              Text(
+                                'KAMU MENYERAH',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.fredoka(
+                                  color: coralInk,
+                                  fontSize: compact ? 28 : 32,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1,
+                                ),
+                              ),
+                              const SizedBox(height: 7),
+                              Text(
+                                'Tidak apa-apa. Atur strategi dan kembali '
+                                'saat kamu siap.',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.dmSans(
+                                  color: _ResultSection._mutedInk,
+                                  fontSize: compact ? 11 : 13,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: compact ? 11 : 14),
+                        _ScoreCard(
+                          state: state,
+                          playerDisplayName: playerDisplayName,
+                          compact: compact,
+                        ),
+                        SizedBox(height: compact ? 9 : 11),
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(compact ? 12 : 14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: const Color(0xFF2878F0).withAlpha(34),
+                            ),
+                            boxShadow: const <BoxShadow>[
+                              BoxShadow(
+                                color: Color(0xFFD9DEE7),
+                                blurRadius: 0,
+                                offset: Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: <Widget>[
+                              Container(
+                                width: 42,
+                                height: 42,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2878F0).withAlpha(18),
+                                  borderRadius: BorderRadius.circular(13),
+                                ),
+                                child: const Icon(
+                                  Icons.replay_circle_filled_rounded,
+                                  color: Color(0xFF2878F0),
+                                  size: 23,
+                                ),
+                              ),
+                              const SizedBox(width: 11),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                    Text(
+                                      'Coba lagi dengan strategi baru',
+                                      style: GoogleFonts.fredoka(
+                                        color: _ResultSection._ink,
+                                        fontSize: compact ? 14 : 15,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Pilih kartu dengan ritme berbeda atau '
+                                      'kembali ke mode untuk mengganti lawan.',
+                                      style: GoogleFonts.dmSans(
+                                        color: _ResultSection._mutedInk,
+                                        fontSize: compact ? 10 : 11,
+                                        fontWeight: FontWeight.w600,
+                                        height: 1.25,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: compact ? 9 : 11),
+                        Container(
+                          key: const ValueKey<String>(
+                            'battle-surrender-consequence',
+                          ),
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 13,
+                            vertical: 11,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFEEEE),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFFFC5C5)),
+                          ),
+                          child: Row(
+                            children: <Widget>[
+                              const Icon(
+                                Icons.info_outline_rounded,
+                                color: coralInk,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 9),
+                              Expanded(
+                                child: Text(
+                                  ranked && state.progressionPersisted
+                                      ? '$ratingText rating · '
+                                            '+${state.coinsDelta} Y-Coin'
+                                      : 'Battle dihentikan tanpa hadiah.',
+                                  style: GoogleFonts.dmSans(
+                                    color: _ResultSection._ink,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    Column(
+                      children: <Widget>[
+                        SizedBox(height: compact ? 12 : 16),
+                        _ResultClayAction(
+                          key: const ValueKey<String>(
+                            'battle-surrender-replay',
+                          ),
+                          onPressed: onReplay,
+                          icon: Icons.replay_rounded,
+                          label: 'Main lagi',
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: _ResultSecondaryAction(
+                            onPressed: onReset,
+                            icon: Icons.grid_view_rounded,
+                            label: 'Pilih mode',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 String _resultModeLabel(BattleState state) {
   if (state.mode != BattleMode.online) {
     return 'LATIHAN BOT';

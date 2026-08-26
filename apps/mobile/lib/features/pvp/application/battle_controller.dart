@@ -185,6 +185,7 @@ class BattleController extends StateNotifier<BattleState> {
       isLoading: true,
       statusMessage: isBot ? 'Menyiapkan arena bot...' : 'Mencari lawan...',
       clearErrorMessage: true,
+      clearFinishReason: true,
     );
 
     try {
@@ -225,6 +226,7 @@ class BattleController extends StateNotifier<BattleState> {
         clearErrorMessage: true,
         clearBattleEvent: true,
         clearLastRoundOutcome: true,
+        clearFinishReason: true,
       );
     } catch (error) {
       _acceptOnlineUpdates = false;
@@ -453,11 +455,24 @@ class BattleController extends StateNotifier<BattleState> {
 
     _preparedQuestionId = null;
     _resetBattleTimers();
-    _acceptOnlineUpdates = false;
-    resetBattle();
     try {
       await _onlineRepository.surrender();
     } catch (_) {}
+    if (state.phase == BattlePhase.finished) {
+      return;
+    }
+    _acceptOnlineUpdates = false;
+    state = state.copyWith(
+      phase: BattlePhase.finished,
+      outcome: BattleOutcome.lose,
+      ratingDelta: 0,
+      coinsDelta: 0,
+      progressionPersisted: false,
+      isLoading: false,
+      finishReason: 'surrender',
+      statusMessage: 'Kamu menyerah. Battle telah diakhiri.',
+      clearErrorMessage: true,
+    );
   }
 
   void resetBattle() {
@@ -703,6 +718,7 @@ class BattleController extends StateNotifier<BattleState> {
           battleTarget: update.target,
           isLoading: false,
           statusMessage: _resultMessage(update.outcome, update.reason),
+          finishReason: update.reason,
           clearErrorMessage: true,
         );
         break;

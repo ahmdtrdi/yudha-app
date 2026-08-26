@@ -45,6 +45,7 @@ class BattleState {
     this.lastVisualEffect,
     this.lastEventCategory,
     this.lastRoundOutcome,
+    this.finishReason,
   });
 
   factory BattleState.initial() {
@@ -119,6 +120,7 @@ class BattleState {
   final BattleVisualEffect? lastVisualEffect;
   final String? lastEventCategory;
   final BattleOutcome? lastRoundOutcome;
+  final String? finishReason;
 
   bool get isBattleActive => phase == BattlePhase.inBattle;
   bool get isMatchActive =>
@@ -167,6 +169,7 @@ class BattleState {
     BattleVisualEffect? lastVisualEffect,
     String? lastEventCategory,
     BattleOutcome? lastRoundOutcome,
+    String? finishReason,
     bool clearStatusMessage = false,
     bool clearErrorMessage = false,
     bool clearBattleEvent = false,
@@ -176,6 +179,7 @@ class BattleState {
     bool clearOpponentLoadout = false,
     bool clearReconnectDeadline = false,
     bool clearPrivateRoomCode = false,
+    bool clearFinishReason = false,
   }) {
     return BattleState(
       mode: mode ?? this.mode,
@@ -247,6 +251,9 @@ class BattleState {
       lastRoundOutcome: clearLastRoundOutcome
           ? null
           : lastRoundOutcome ?? this.lastRoundOutcome,
+      finishReason: clearFinishReason
+          ? null
+          : finishReason ?? this.finishReason,
     );
   }
 }
