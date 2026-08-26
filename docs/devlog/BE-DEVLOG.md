@@ -577,3 +577,21 @@
 - Deployment still requires `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, and `NOTIFICATIONS_ENABLED=true`.
 - Staging should exercise real FCM delivery at next-minute reminder times before production scheduling is enabled.
 
+## 2026-08-26 - AI Mock Interview Word-by-Word Streaming (SSE)
+
+**The Change:**
+- Implemented `POST /interview/sessions/:id/turns/stream` in `apps/backend-api` with HTTP/2 Server-Sent Events (SSE) streaming (`text/event-stream`).
+- Added `submitAnswerStream` and `streamReplayResponse` methods in `InterviewService` with event sequence `started` → `delta` (word-by-word streaming) → `evaluation` (coaching mode) → `question` → `completed`.
+- Added configurable `wordStreamingDelayMs` to `InterviewService` to enable smooth word-by-word streaming pacing (~30ms/word) in production while bypassing delays in test environments.
+- Created `apps/backend-api/src/interview/interview.service.spec.ts` with test coverage for new turn streaming, coaching mode evaluations, replay behavior, and error handling.
+- Updated `docs/PRD-AI-INTERVIEW.md` roadmap to mark SSE streaming endpoint as completed.
+
+**The Reasoning:**
+- Conforms to Section 4.5 of `docs/PRD.md` and Section 3.2 & 5.1 of `docs/PRD-AI-INTERVIEW.md` for Text-to-Text (T2T) mode.
+- Word-by-word streaming provides near-zero perceived latency (~0ms perceived latency) and a smooth real-time typing effect for candidate responses.
+- Idempotency replay streams existing turns reliably without re-evaluating LLM completions on duplicated requests.
+
+**The Tech Debt:**
+- Multi-sentence TTS audio chunk streaming for voice mode (S2S) is planned for the WebSocket voice gateway phase.
+
+
