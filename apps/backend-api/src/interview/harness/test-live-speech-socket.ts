@@ -1,36 +1,17 @@
 import { io } from 'socket.io-client';
 import { performance } from 'perf_hooks';
 
-function createSampleWavBuffer(durationSeconds = 1, sampleRate = 16000): Buffer {
-  const numChannels = 1;
-  const bitsPerSample = 16;
-  const bytesPerSample = bitsPerSample / 8;
-  const blockAlign = numChannels * bytesPerSample;
-  const byteRate = sampleRate * blockAlign;
+function createSamplePcmBuffer(
+  durationSeconds = 1,
+  sampleRate = 16000,
+): Buffer {
   const numSamples = Math.floor(sampleRate * durationSeconds);
-  const dataSize = numSamples * blockAlign;
-  const buffer = Buffer.alloc(44 + dataSize);
-
-  buffer.write('RIFF', 0);
-  buffer.writeUInt32LE(36 + dataSize, 4);
-  buffer.write('WAVE', 8);
-
-  buffer.write('fmt ', 12);
-  buffer.writeUInt32LE(16, 16);
-  buffer.writeUInt16LE(1, 20);
-  buffer.writeUInt16LE(numChannels, 22);
-  buffer.writeUInt32LE(sampleRate, 24);
-  buffer.writeUInt32LE(byteRate, 28);
-  buffer.writeUInt16LE(blockAlign, 32);
-  buffer.writeUInt16LE(bitsPerSample, 34);
-
-  buffer.write('data', 36);
-  buffer.writeUInt32LE(dataSize, 40);
+  const buffer = Buffer.alloc(numSamples * 2);
 
   for (let i = 0; i < numSamples; i++) {
     const t = i / sampleRate;
     const sample = Math.floor(Math.sin(2 * Math.PI * 440 * t) * 16000);
-    buffer.writeInt16LE(sample, 44 + i * 2);
+    buffer.writeInt16LE(sample, i * 2);
   }
 
   return buffer;
@@ -80,7 +61,7 @@ async function runSocketBenchmark() {
           companyId: 'pertamina',
           targetRole: 'Management Trainee Financial Analyst',
           mode: 'coaching',
-          responseStyle: 'text',
+          responseStyle: 'voice',
         }),
       });
       const sessionData = (await sessionRes.json()) as any;
@@ -94,7 +75,9 @@ async function runSocketBenchmark() {
     sessionId = '00000000-0000-0000-0000-000000000001';
   }
 
-  console.log(`🚀 Connecting WebSocket (/interview-speech) for session ${sessionId}...`);
+  console.log(
+    `🚀 Connecting WebSocket (/interview-speech) for session ${sessionId}...`,
+  );
   const socket = io(`${baseUrl}/interview-speech`, {
     auth: { token: `Bearer ${token}` },
   });
@@ -113,21 +96,32 @@ async function runSocketBenchmark() {
   socket.on('session_ready', (data) => {
     console.log('📥 Session Ready:', data);
 
-    const sampleWav = createSampleWavBuffer(1.5, 16000);
-    console.log(`📤 Emitting valid WAV audio_chunk (${sampleWav.length} bytes)...`);
+    const answerId = `answer-${Date.now()}`;
+    const samplePcm = createSamplePcmBuffer(1.5, 16000);
+    console.log(
+      `📤 Simulating press-and-hold PCM16 capture (${samplePcm.length} bytes)...`,
+    );
     socket.emit('audio_chunk', {
       commandId: 'cmd-chunk-1',
       sessionId,
+      answerId,
       sequence: 0,
-      audio: sampleWav.toString('base64'),
+      audio: samplePcm.toString('base64'),
+      encoding: 'pcm_s16le',
+      sampleRateHz: 16000,
+      channels: 1,
     });
 
     setTimeout(() => {
-      console.log('⏱️  [TIMESTAMP 0ms] Emitting finish_answer...');
+      console.log(
+        '⏱️  [TIMESTAMP 0ms] Simulating button release with finish_answer...',
+      );
       finishAnswerTime = performance.now();
       socket.emit('finish_answer', {
         commandId: `cmd-finish-${Date.now()}`,
         sessionId,
+        answerId,
+        finalSequence: 0,
       });
     }, 500);
   });
@@ -135,24 +129,45 @@ async function runSocketBenchmark() {
   socket.on('transcript_final', (data) => {
     sttDoneTime = performance.now();
     const sttLatency = Math.round(sttDoneTime - finishAnswerTime);
-    console.log(`📥 [TIMESTAMP +${sttLatency}ms] STT Final Transcript: "${data.text}"`);
+    const transcriptLength =
+      typeof data.text === 'string' ? data.text.length : 0;
+    console.log(
+      `📥 [TIMESTAMP +${sttLatency}ms] STT final received (${transcriptLength} characters).`,
+    );
+  });
+
+  socket.on('audio_chunk_ack', (data) => {
+    console.log(`📥 Audio chunk ${data.sequence} acknowledged.`);
+  });
+
+  socket.on('question_audio_start', (data) => {
+    console.log(
+      `📥 Question audio started (${data.provider}, ${data.contentType}, ${data.totalChunks} chunks).`,
+    );
   });
 
   socket.on('evaluation', (data) => {
-    console.log('📥 Coaching Evaluation Received:', data.evaluation?.overallScore);
+    console.log(
+      '📥 Coaching Evaluation Received:',
+      data.evaluation?.overallScore,
+    );
   });
 
   socket.on('question_text', (data) => {
     textDoneTime = performance.now();
     const llmLatency = Math.round(textDoneTime - sttDoneTime);
-    console.log(`📥 [TIMESTAMP +${Math.round(textDoneTime - finishAnswerTime)}ms] LLM Question Text (+${llmLatency}ms from STT): "${data.text}"`);
+    console.log(
+      `📥 [TIMESTAMP +${Math.round(textDoneTime - finishAnswerTime)}ms] LLM Question Text (+${llmLatency}ms from STT): "${data.text}"`,
+    );
   });
 
   socket.on('question_audio_chunk', (data) => {
     if (firstAudioTime === 0) {
       firstAudioTime = performance.now();
       const firstAudioLatency = Math.round(firstAudioTime - finishAnswerTime);
-      console.log(`⚡ [TIMESTAMP +${firstAudioLatency}ms] FIRST AUDIO CHUNK RECEIVED (Time-To-First-Byte Audio Playback)!`);
+      console.log(
+        `⚡ [TIMESTAMP +${firstAudioLatency}ms] FIRST AUDIO CHUNK RECEIVED (Time-To-First-Byte Audio Playback)!`,
+      );
     }
   });
 
@@ -167,14 +182,20 @@ async function runSocketBenchmark() {
     console.log('================================================');
     console.log(`1️⃣  STT Whisper Transcription Latency : ${sttMs} ms`);
     console.log(`2️⃣  LLM Gemini Reasoning & Text Latency : ${llmMs} ms`);
-    console.log(`3️⃣  TTFB Audio Playback (First Chunk)   : ${ttsFirstByteMs} ms  <-- Perceived User Latency!`);
+    console.log(
+      `3️⃣  TTFB Audio Playback (First Chunk)   : ${ttsFirstByteMs} ms  <-- Perceived User Latency!`,
+    );
     console.log(`4️⃣  Total End-to-End Turn Completion    : ${totalTime} ms`);
     console.log('================================================');
 
     if (ttsFirstByteMs <= 1600) {
-      console.log('✅ PERCEIVED LATENCY WITHIN PRD TARGET (< 1.6s) — EXCELLENT REAL-TIME PACING!');
+      console.log(
+        '✅ PERCEIVED LATENCY WITHIN PRD TARGET (< 1.6s) — EXCELLENT REAL-TIME PACING!',
+      );
     } else {
-      console.log('⚠️  LATENCY EXCEEDS 1.6s BUDGET — CHECK PROVIDER RESPONSE TIMES');
+      console.log(
+        '⚠️  LATENCY EXCEEDS 1.6s BUDGET — CHECK PROVIDER RESPONSE TIMES',
+      );
     }
     console.log('================================================\n');
 

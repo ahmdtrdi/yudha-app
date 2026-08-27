@@ -640,10 +640,11 @@ error
 
 Namespace: `/interview-speech`. Authentication and session ownership are required before audio is accepted.
 
-- Client events: `start_session { commandId, sessionId }`, `audio_chunk { commandId, sessionId, sequence, audio }`, `finish_answer { commandId, sessionId }`, and `cancel { commandId, sessionId }`.
-- Server events: `session_ready`, `transcript_delta`, `transcript_final`, `evaluation`, `question_text`, `question_audio_chunk`, `turn_completed`, `session_completed`, and `error`.
-- The lifecycle is `start_session` → `session_ready` → zero or more ordered `audio_chunk`/`transcript_delta` pairs → `finish_answer` → `transcript_final` → evaluation/question events → `turn_completed` or `session_completed`. `cancel` ends capture and provider work without committing a partial transcript as an answer.
-- Client audio and server audio/text chunks carry monotonic sequence numbers and bounded payloads. The server rejects gaps, duplicate content under a different command ID, oversize chunks, excessive duration, inactivity, and input beyond advertised backpressure limits using the Section 4.3 error object.
+- Client events: `start_session { commandId, sessionId }`, `audio_chunk { commandId, sessionId, answerId, sequence, audio, encoding, sampleRateHz, channels }`, `finish_answer { commandId, sessionId, answerId, finalSequence }`, and `cancel { commandId, sessionId, answerId? }`.
+- Server events: `session_ready`, `audio_chunk_ack`, `transcript_final`, `evaluation`, `question_text`, `question_audio_start`, `question_audio_chunk`, `question_audio_end`, `turn_completed`, `session_completed`, and `error`. `transcript_delta` is reserved for future streaming-STT adapters and is not required in the Groq final-transcript release.
+- The lifecycle is `start_session` → `session_ready` → ordered `audio_chunk`/`audio_chunk_ack` pairs → `finish_answer` → required `transcript_final` → evaluation/question events → ordered question-audio start/chunk/end events → `turn_completed` or `session_completed`. `cancel` discards the partial answer without committing it and re-arms sequence zero for the active socket/session.
+- `session_ready.audioConfig` advertises mono PCM16 (`pcm_s16le`) at 16 kHz, 64 KiB maximum decoded chunks, a 10 MiB/90-second answer limit, and a 15-second inactivity timeout after capture begins.
+- Every speech event carries its available correlation IDs and monotonic sequence/final-sequence values. The server rejects gaps, duplicates, answer conflicts, unsupported formats, excessive size/duration, inactivity, and input beyond advertised backpressure limits using the Section 4.3 error object.
 - The final transcript is persisted as the candidate answer. Audio is never a parallel source of truth.
 
 ### 4.8 Service ownership
@@ -833,10 +834,12 @@ The final summary contains overall/dimension scores, evidence-based strengths, i
 ### 7.4 Text and voice behavior
 
 - Text answers support ordinary REST and SSE streaming. Both paths use the same idempotency claim and persist the same final turn.
-- Recorded voice uploads audio, receives a transcript, lets the user review/edit it, and submits the reviewed text as the answer.
-- Live voice streams bounded audio chunks, returns partial/final transcript, evaluates the final text, and streams the next question text/audio.
+- Recorded voice remains a failure fallback that uploads audio, receives a transcript, lets the user review/edit it, and submits the reviewed text as the answer.
+- Android live voice automatically plays each question, then keeps the microphone off until the candidate presses and holds the answer control. PCM16 capture starts on press and release submits the required final transcript for automatic evaluation and next-question playback.
+- Presses shorter than 500 ms or without audio are discarded and re-armed without STT. A held answer submits automatically at 90 seconds; interruption cancels it, while transport reconnect replays buffered audio with the same answer ID.
 - Text is the sole domain source of truth. STT never submits without a final transcript, and TTS never changes question content.
 - Speech failure degrades to text within the paid session. It does not invalidate or duplicate a completed text turn.
+- Ending a call after at least one committed answer completes the session and shows the summary. Ending before any answer disconnects while preserving the paid session for resume; REST completion rejects zero-answer sessions.
 - Raw candidate audio is deleted after transcription or live-session termination and is never used for training. Generated question audio is ephemeral and can be regenerated from persisted text.
 
 ### 7.5 Safety and privacy

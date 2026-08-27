@@ -10,6 +10,19 @@ enum InterviewViewStatus {
   error,
 }
 
+enum LiveInterviewPhase {
+  disconnected,
+  connecting,
+  interviewerSpeaking,
+  readyToAnswer,
+  candidateSpeaking,
+  transcribing,
+  evaluating,
+  reconnecting,
+  degraded,
+  completed,
+}
+
 class PendingInterviewAnswer {
   const PendingInterviewAnswer({
     required this.text,
@@ -50,6 +63,11 @@ class InterviewState {
     this.transcriptionText,
     this.transcriptionErrorMessage,
     this.pendingAnswer,
+    this.livePhase = LiveInterviewPhase.disconnected,
+    this.liveRecordingDuration = Duration.zero,
+    this.useTextFallback = false,
+    this.liveTranscript,
+    this.liveErrorMessage,
   });
 
   factory InterviewState.initial(InterviewLaunchConfig config) {
@@ -72,6 +90,11 @@ class InterviewState {
   final String? transcriptionText;
   final String? transcriptionErrorMessage;
   final PendingInterviewAnswer? pendingAnswer;
+  final LiveInterviewPhase livePhase;
+  final Duration liveRecordingDuration;
+  final bool useTextFallback;
+  final String? liveTranscript;
+  final String? liveErrorMessage;
 
   bool get canSubmit =>
       status == InterviewViewStatus.active &&
@@ -107,6 +130,13 @@ class InterviewState {
     PendingInterviewAnswer? pendingAnswer,
     bool clearPendingAnswer = false,
     bool clearFinalSummary = false,
+    LiveInterviewPhase? livePhase,
+    Duration? liveRecordingDuration,
+    bool? useTextFallback,
+    String? liveTranscript,
+    String? liveErrorMessage,
+    bool clearLiveTranscript = false,
+    bool clearLiveError = false,
   }) {
     return InterviewState(
       status: status ?? this.status,
@@ -131,6 +161,16 @@ class InterviewState {
       pendingAnswer: clearPendingAnswer
           ? null
           : pendingAnswer ?? this.pendingAnswer,
+      livePhase: livePhase ?? this.livePhase,
+      liveRecordingDuration:
+          liveRecordingDuration ?? this.liveRecordingDuration,
+      useTextFallback: useTextFallback ?? this.useTextFallback,
+      liveTranscript: clearLiveTranscript
+          ? null
+          : liveTranscript ?? this.liveTranscript,
+      liveErrorMessage: clearLiveError
+          ? null
+          : liveErrorMessage ?? this.liveErrorMessage,
     );
   }
 }

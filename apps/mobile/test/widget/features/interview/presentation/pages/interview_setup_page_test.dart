@@ -154,7 +154,6 @@ class _BumnProfileStorage implements ProfileSettingsStorage {
     return const ProfileSettings(
       displayName: 'Yudha',
       target: ProfileTarget.bumn,
-      notificationsEnabled: true,
       soundEnabled: true,
       hapticsEnabled: true,
     );

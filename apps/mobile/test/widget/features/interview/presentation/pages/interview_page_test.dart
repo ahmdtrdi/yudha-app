@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,7 +7,10 @@ import 'package:go_router/go_router.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
 import 'package:yudha_mobile/features/interview/application/interview_providers.dart';
+import 'package:yudha_mobile/features/interview/data/audio/live_interview_audio_capture.dart';
+import 'package:yudha_mobile/features/interview/data/audio/live_interview_audio_player.dart';
 import 'package:yudha_mobile/features/interview/data/repositories/interview_repository.dart';
+import 'package:yudha_mobile/features/interview/data/repositories/live_interview_speech_client.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_message.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_session_record.dart';
@@ -24,6 +29,15 @@ void main() {
           authAccessTokenProvider.overrideWithValue(null),
           interviewRepositoryProvider.overrideWithValue(
             _InterviewPageRepository(),
+          ),
+          liveInterviewAudioCaptureFactoryProvider.overrideWithValue(
+            () => _FakeLiveAudioCapture(),
+          ),
+          liveInterviewAudioPlayerFactoryProvider.overrideWithValue(
+            () => _FakeLiveAudioPlayer(),
+          ),
+          liveInterviewSpeechClientFactoryProvider.overrideWithValue(
+            (_) => _FakeLiveSpeechClient(),
           ),
         ],
         child: const MaterialApp(home: InterviewPage(config: _voiceConfig)),
@@ -66,27 +80,79 @@ void main() {
       const Size.square(180),
     );
 
-    final Finder composer = find.byKey(
-      const ValueKey<String>('interview-floating-composer'),
+    expect(
+      find.byKey(const ValueKey<String>('interview-floating-composer')),
+      findsNothing,
     );
-    final Container composerContainer = tester.widget<Container>(composer);
-    final BoxDecoration composerDecoration =
-        composerContainer.decoration! as BoxDecoration;
-    expect(composerContainer.margin, const EdgeInsets.fromLTRB(20, 8, 20, 18));
-    expect(composerContainer.padding, const EdgeInsets.fromLTRB(8, 4, 4, 4));
-    expect(composerDecoration.color, Colors.white);
-    expect(composerDecoration.borderRadius, BorderRadius.circular(30));
-    final TextField answerField = tester.widget<TextField>(
+    expect(
       find.byKey(const ValueKey<String>('interview-answer-field')),
+      findsNothing,
     );
-    expect(answerField.minLines, 1);
-    expect(answerField.maxLines, 1);
-    expect(answerField.textInputAction, TextInputAction.send);
-    expect(answerField.decoration?.hintMaxLines, 1);
-    expect(answerField.decoration?.hintStyle?.fontSize, 11.5);
-    expect(find.text('Siap mendengarkan'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('live-interview-mute')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('live-interview-push-to-talk')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('live-interview-end-call')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('live-interview-text-fallback')),
+      findsOneWidget,
+    );
     expect(find.text(_openingQuestion), findsOneWidget);
+    expect(find.text('Tekan dan tahan untuk menjawab'), findsOneWidget);
     expect(tester.takeException(), isNull);
+
+    final TestGesture pushToTalk = await tester.startGesture(
+      tester.getCenter(
+        find.byKey(const ValueKey<String>('live-interview-push-to-talk')),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Lepaskan untuk mengirim'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('live-interview-recording-duration')),
+      findsOneWidget,
+    );
+    await pushToTalk.up();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('live-interview-end-call')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Tinggalkan interview?'), findsOneWidget);
+    expect(find.textContaining('Sesi tetap tersimpan'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const ValueKey<String>('interview-confirmation-cancel')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('live-interview-text-fallback')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      find.byKey(const ValueKey<String>('interview-voice-stage')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('interview-floating-composer')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('interview-answer-field')),
+      findsOneWidget,
+    );
 
     await tester.binding.setSurfaceSize(const Size(390, 680));
     await tester.pump();
@@ -123,7 +189,7 @@ void main() {
       findsNothing,
     );
     expect(
-      find.byKey(const ValueKey<String>('interview-voice-stage')),
+      find.byKey(const ValueKey<String>('interview-floating-composer')),
       findsOneWidget,
     );
   });
@@ -286,6 +352,53 @@ void main() {
     expect(find.text('Detail sesi'), findsNothing);
     expect(find.text('Riwayat Interview'), findsOneWidget);
   });
+}
+
+class _FakeLiveAudioCapture implements LiveInterviewAudioCapture {
+  @override
+  Future<void> dispose() async {}
+
+  @override
+  Future<bool> hasPermission() async => true;
+
+  @override
+  Future<Stream<Uint8List>> start() async => Stream<Uint8List>.empty();
+
+  @override
+  Future<void> stop() async {}
+}
+
+class _FakeLiveAudioPlayer implements LiveInterviewAudioPlayer {
+  @override
+  Future<void> dispose() async {}
+
+  @override
+  Future<void> playBytes(
+    Uint8List bytes, {
+    required String fileExtension,
+  }) async {}
+
+  @override
+  Future<void> playUrl(String url, {String? accessToken}) async {}
+
+  @override
+  Future<void> stop() async {}
+}
+
+class _FakeLiveSpeechClient extends LiveInterviewSpeechClient {
+  _FakeLiveSpeechClient() : super(baseUrl: 'http://test', accessToken: 'test');
+
+  @override
+  bool get isConnected => true;
+
+  @override
+  Future<void> connect(String sessionId) async {}
+
+  @override
+  void cancel({String? answerId}) {}
+
+  @override
+  Future<void> disconnect() async {}
 }
 
 const InterviewLaunchConfig _voiceConfig = InterviewLaunchConfig(

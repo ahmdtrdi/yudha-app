@@ -630,6 +630,40 @@
 **The Tech Debt:**
 - Add ML/Embedding-based toxicity classification model if adversarial leetspeak obfuscation bypasses static regex patterns in production.
 
+## 2026-08-27 - Hardened Hands-Free Interview Speech Lifecycle
+
+**The Change:**
+- Hardened `/interview-speech` with verified Supabase authentication, non-production-only development tokens, voice-session ownership/status checks, and the `INTERVIEW_LIVE_SPEECH_ENABLED` release flag.
+- Added per-socket/session/answer PCM16 state with exact ordering, chunk acknowledgements, 64 KiB/10 MiB/90-second limits, post-capture inactivity enforcement, PCM-to-WAV conversion, Indonesian Groq STT, guardrails, and answer-ID idempotency through `InterviewService`.
+- Added ordered `question_audio_start`/`question_audio_chunk`/`question_audio_end` metadata around ElevenLabs Indonesian audio, automatic capture re-arming between turns, raw-buffer cleanup, reconnect-safe replay, and zero-answer REST completion rejection.
+- Updated the socket benchmark harness to the finalized payloads without logging candidate transcript content.
+
+**The Reasoning:**
+- The gateway remains a provider-neutral transport around the existing session, evaluation, five-answer, summary, and ledger behavior while enforcing enough capture state to make automatic Android turns safe and retryable.
+
+**Verification:**
+- Backend TypeScript compilation passed.
+- Speech gateway, stream service, and interview service suites passed: 16 tests across 3 suites.
+
+**The Tech Debt:**
+- Deployment acceptance still requires a real Supabase token, configured ElevenLabs voice, Groq key, and monitoring for active calls plus STT/LLM/TTS latency and error rates without content logging.
+
+## 2026-08-27 - Press-to-Talk Capture Cancellation Re-arm
+
+**The Change:**
+- Changed authenticated `/interview-speech` cancellation to erase the current raw answer while retaining a fresh sequence-zero capture state for the same socket/session.
+- Kept PCM16 payloads, acknowledgements, answer IDs, final sequences, limits, STT, evaluation, and TTS contracts unchanged.
+- Updated the socket harness language to model button hold and release rather than automatic silence completion.
+
+**The Reasoning:**
+- Short presses and Android pointer/lifecycle cancellations must be recoverable immediately without reconnecting or allowing discarded chunks to leak into the next answer.
+
+**Verification:**
+- Gateway and stream-service coverage verifies cancellation followed by a different answer at sequence zero.
+
+**The Tech Debt:**
+- No server-side gesture concept is introduced; the backend intentionally remains transport-oriented and trusts explicit client finish/cancel events.
+
 
 
 

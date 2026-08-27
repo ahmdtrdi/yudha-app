@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yudha_mobile/features/interview/application/interview_state.dart';
+import 'package:yudha_mobile/features/interview/application/live_interview_coordinator.dart';
 import 'package:yudha_mobile/features/interview/data/repositories/interview_repository.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_message.dart';
@@ -16,6 +17,11 @@ class InterviewController extends StateNotifier<InterviewState> {
 
   final InterviewRepository _repository;
   final void Function(String sessionId)? _onSessionChanged;
+  LiveInterviewCoordinator? _liveCoordinator;
+
+  void attachLiveCoordinator(LiveInterviewCoordinator coordinator) {
+    _liveCoordinator = coordinator;
+  }
 
   Future<void> start() async {
     if (state.status == InterviewViewStatus.starting ||
@@ -47,6 +53,7 @@ class InterviewController extends StateNotifier<InterviewState> {
         messages: <InterviewMessage>[result.openingQuestion],
       );
       _onSessionChanged?.call(result.sessionId);
+      await _startLiveVoiceIfNeeded();
     } catch (error) {
       state = state.copyWith(
         status: InterviewViewStatus.error,
@@ -76,6 +83,7 @@ class InterviewController extends StateNotifier<InterviewState> {
       );
       _applySessionDetail(detail);
       _onSessionChanged?.call(sessionId);
+      await _startLiveVoiceIfNeeded();
     } catch (error) {
       state = state.copyWith(
         status: InterviewViewStatus.error,
@@ -234,6 +242,7 @@ class InterviewController extends StateNotifier<InterviewState> {
       return;
     }
 
+    await _liveCoordinator?.stop();
     state = state.copyWith(status: InterviewViewStatus.submitting);
     try {
       final InterviewFinalSummary summary = await _repository.completeSession(
@@ -254,6 +263,125 @@ class InterviewController extends StateNotifier<InterviewState> {
 
   void setRecording(bool isRecording) {
     state = state.copyWith(isRecording: isRecording);
+  }
+
+  Future<void> beginLivePushToTalk() async {
+    await _liveCoordinator?.beginPushToTalk();
+  }
+
+  Future<void> endLivePushToTalk() async {
+    await _liveCoordinator?.endPushToTalk();
+  }
+
+  Future<void> cancelLivePushToTalk() async {
+    await _liveCoordinator?.cancelPushToTalk();
+  }
+
+  Future<void> reconnectLiveVoice() async {
+    await _liveCoordinator?.reconnect();
+  }
+
+  Future<void> switchLiveVoiceToText() async {
+    await _liveCoordinator?.switchToText();
+  }
+
+  void updateLivePhase(
+    LiveInterviewPhase phase, {
+    String? errorMessage,
+    bool clearError = false,
+  }) {
+    state = state.copyWith(
+      livePhase: phase,
+      liveErrorMessage: errorMessage,
+      clearLiveError: clearError,
+      isRecording: phase == LiveInterviewPhase.candidateSpeaking,
+      isTranscribing: phase == LiveInterviewPhase.transcribing,
+    );
+  }
+
+  void updateLiveRecordingDuration(Duration duration) {
+    state = state.copyWith(liveRecordingDuration: duration);
+  }
+
+  void useTextFallback() {
+    state = state.copyWith(
+      useTextFallback: true,
+      livePhase: LiveInterviewPhase.degraded,
+      isRecording: false,
+      isTranscribing: false,
+      liveRecordingDuration: Duration.zero,
+    );
+  }
+
+  void applyLiveTranscript(String answerId, String text) {
+    if (state.messages.any(
+      (InterviewMessage message) => message.id == answerId,
+    )) {
+      return;
+    }
+    state = state.copyWith(
+      messages: <InterviewMessage>[
+        ...state.messages,
+        InterviewMessage(
+          id: answerId,
+          author: InterviewMessageAuthor.candidate,
+          text: text,
+          createdAt: DateTime.now(),
+        ),
+      ],
+      liveTranscript: text,
+      clearError: true,
+    );
+  }
+
+  void applyLiveEvaluation(String answerId, InterviewEvaluation evaluation) {
+    state = state.copyWith(
+      messages: state.messages
+          .map(
+            (InterviewMessage message) => message.id == answerId
+                ? message.copyWith(evaluation: evaluation)
+                : message,
+          )
+          .toList(growable: false),
+      latestEvaluation: evaluation,
+    );
+  }
+
+  void applyLiveQuestion(String turnId, String text) {
+    if (turnId.isEmpty ||
+        state.messages.any(
+          (InterviewMessage message) => message.id == turnId,
+        )) {
+      return;
+    }
+    state = state.copyWith(
+      messages: <InterviewMessage>[
+        ...state.messages,
+        InterviewMessage(
+          id: turnId,
+          author: InterviewMessageAuthor.interviewer,
+          text: text,
+          createdAt: DateTime.now(),
+          audioAvailable: true,
+        ),
+      ],
+      clearLiveTranscript: true,
+    );
+  }
+
+  void applyLiveCompletion(InterviewFinalSummary summary) {
+    state = state.copyWith(
+      status: InterviewViewStatus.completed,
+      livePhase: LiveInterviewPhase.completed,
+      finalSummary: summary,
+      isRecording: false,
+      isTranscribing: false,
+      liveRecordingDuration: Duration.zero,
+    );
+    final String? sessionId = state.sessionId;
+    if (sessionId != null) {
+      _onSessionChanged?.call(sessionId);
+    }
   }
 
   Future<String?> transcribeAudio(List<int> bytes, String filename) async {
@@ -299,6 +427,33 @@ class InterviewController extends StateNotifier<InterviewState> {
       sessionId: sessionId,
       turnId: turnId,
     );
+  }
+
+  Future<void> _startLiveVoiceIfNeeded() async {
+    final LiveInterviewCoordinator? coordinator = _liveCoordinator;
+    final String? sessionId = state.sessionId;
+    final InterviewMessage? question = state.currentQuestion;
+    if (coordinator == null ||
+        state.config.responseStyle != 'voice' ||
+        state.useTextFallback ||
+        sessionId == null ||
+        question == null ||
+        state.status != InterviewViewStatus.active) {
+      return;
+    }
+    await coordinator.start(
+      sessionId: sessionId,
+      currentQuestionId: question.id,
+    );
+  }
+
+  @override
+  void dispose() {
+    final LiveInterviewCoordinator? coordinator = _liveCoordinator;
+    if (coordinator != null) {
+      coordinator.dispose();
+    }
+    super.dispose();
   }
 
   void _applySessionDetail(

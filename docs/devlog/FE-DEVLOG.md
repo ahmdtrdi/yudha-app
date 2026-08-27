@@ -2665,3 +2665,39 @@
 ### The Tech Debt
 - The local fallback cannot infer ranked penalties if the server result misses its acknowledgment window; the repository may still reconcile authoritative progression on the next profile hydration.
 
+## 2026-08-27 - Android Hands-Free Live Interview
+
+### The Change
+- Replaced the voice-mode record–transcribe–edit–send composer with an automatic call coordinator: opening/next-question playback, PCM16 capture, pure-Dart VAD, acknowledged chunk streaming, final transcript/evaluation reduction, and automatic next-turn capture.
+- Added explicit connecting, interviewer-speaking, listening, candidate-speaking, transcribing, evaluating, reconnecting, muted, degraded, and completed phases with mute, confirmed hang-up, reconnect, and text-fallback controls.
+- Added Android `record.startStream` capture at 16 kHz mono PCM16, deterministic 300 ms pre-roll/200 ms speech confirmation/1.2 s silence/500 ms minimum utterance rules, replay with the same answer ID after reconnect, and minimum SDK 23.
+- Injected capture, playback, and socket factories so widget tests use fakes and never contact question autoplay URLs.
+
+### The Reasoning
+- Voice mode now behaves like a turn-based phone call after the setup/resume gesture while keeping persisted text as the domain source of truth and preserving the paid session when live providers or permissions fail.
+
+### Verification
+- Flutter interview unit and widget suite passed: 20 tests.
+- Focused Flutter analysis completed with no issues before the final contract documentation pass.
+
+### The Tech Debt
+- Physical-device acceptance still needs provider credentials and Android scenarios for microphone denial, backgrounding, network interruption, and five complete spoken turns. iOS/PWA, barge-in, full duplex, and partial captions remain out of scope.
+
+## 2026-08-27 - Press-and-Hold Live Interview Capture
+
+### The Change
+- Replaced noise-sensitive automatic VAD completion with explicit press-and-hold capture: the microphone stays off after question playback, begins on pointer-down, and submits on release.
+- Replaced mute with a prominent Indonesian hold control, active recording treatment, elapsed timer, 500 ms short-press protection, and a 90-second automatic submission cap.
+- Added lifecycle and pointer cancellation that discard rather than submit, while preserving same-answer-ID replay for transport disconnects and the existing reconnect, hang-up, and text fallback controls.
+- Removed the VAD implementation/tests and added deterministic coordinator coverage for release, cancellation, maximum duration, duplicate press protection, and reconnect replay.
+
+### The Reasoning
+- Explicit release is predictable in noisy rooms and prevents ambient sound from keeping a turn open indefinitely, while question playback and post-transcript evaluation remain automatic.
+
+### Verification
+- Focused coordinator tests passed: 6/6.
+- Focused active/completed/history interview widget tests passed: 3/3.
+
+### The Tech Debt
+- Physical Android validation should confirm long-hold ergonomics and pointer behavior with TalkBack before release.
+

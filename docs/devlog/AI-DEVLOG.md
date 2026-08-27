@@ -242,6 +242,37 @@
 - `FallbackLlmService` currently supports exactly 2 providers. If a third provider is added, consider a chain-of-responsibility pattern.
 - Add health check endpoint that validates LLM provider connectivity on startup.
 
+## 2026-08-27 - Final-Transcript Indonesian Live Interview Pipeline
+
+### The Change
+- Finalized live voice around Groq Whisper Indonesian STT and ElevenLabs Indonesian TTS while preserving the provider-neutral transcription/synthesis interfaces and existing structured evaluation pipeline.
+- The gateway now wraps ordered PCM16 in WAV, requests `language: id`, validates the final transcript through interview guardrails, and submits it with the client answer ID as the idempotency key.
+- Marked partial transcripts as optional future-adapter behavior; the current lifecycle requires `transcript_final` and never treats raw audio as domain state.
+
+### The Reasoning
+- Final-only Groq STT matches the current adapter and avoids presenting fake chunk-received events as transcript deltas. Persisted question text and candidate transcript remain canonical while ElevenLabs only supplies ephemeral playback audio.
+
+### Verification
+- Backend speech and interview tests passed, including Indonesian STT input, WAV framing, idempotent submission, TTS event ordering/degradation, and zero-answer completion protection.
+
+### The Tech Debt
+- Word-level partial captions and barge-in require a streaming-STT/full-duplex architecture and remain intentionally outside this Android turn-based release.
+
+## 2026-08-27 - Press-and-Hold Speech Turn Boundary
+
+### The Change
+- Replaced client VAD as the answer-boundary authority with explicit button release while retaining Groq Indonesian final STT, guardrails, structured evaluation, and ElevenLabs question synthesis.
+- Short or interrupted captures are cancelled before STT; valid releases keep the same final-transcript and answer-idempotency pipeline.
+
+### The Reasoning
+- Ambient noise should not decide when an interview answer ends. An explicit human gesture provides a deterministic boundary without changing the AI provider or persisted text contract.
+
+### Verification
+- Coordinator coverage verifies that only a valid release or the 90-second cap invokes `finish_answer`; cancellation never invokes STT.
+
+### The Tech Debt
+- Automatic endpointing could return later as an opt-in mode only after physical-device noise calibration; it is not part of the default live flow.
+
 ## 2026-07-23 - Groq Orpheus TTS Free Tier Integration & Modular Architecture
 
 ### The Change

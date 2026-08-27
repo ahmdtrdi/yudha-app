@@ -40,7 +40,9 @@ describe('InterviewService', () => {
       resolveSnapshot: jest.fn(),
     } as any;
 
-    inputValidator = new InterviewInputValidator(new InterviewGuardrailService());
+    inputValidator = new InterviewInputValidator(
+      new InterviewGuardrailService(),
+    );
     summaryService = new InterviewSummaryService();
 
     llmClient = {
@@ -201,10 +203,16 @@ describe('InterviewService', () => {
         (call) => call[0] as string,
       );
 
-      expect(writtenEvents.some((e) => e.includes('event: started'))).toBe(true);
+      expect(writtenEvents.some((e) => e.includes('event: started'))).toBe(
+        true,
+      );
       expect(writtenEvents.some((e) => e.includes('event: delta'))).toBe(true);
-      expect(writtenEvents.some((e) => e.includes('event: question'))).toBe(true);
-      expect(writtenEvents.some((e) => e.includes('event: completed'))).toBe(true);
+      expect(writtenEvents.some((e) => e.includes('event: question'))).toBe(
+        true,
+      );
+      expect(writtenEvents.some((e) => e.includes('event: completed'))).toBe(
+        true,
+      );
     });
 
     it('streams evaluation event in coaching mode', async () => {
@@ -356,5 +364,46 @@ describe('InterviewService', () => {
       );
       expect(writtenEvents.some((e) => e.includes('event: error'))).toBe(true);
     });
+  });
+
+  it('rejects explicit completion before any answer is committed', async () => {
+    repository.getOwnedSession.mockResolvedValue({
+      id: 'session-empty',
+      userId: 'user-123',
+      companyId: 'mandiri',
+      targetRole: 'Analis',
+      mode: 'coaching',
+      language: 'id',
+      responseStyle: 'voice',
+      status: 'active',
+      contextSnapshot: {
+        companyId: 'mandiri',
+        companyName: 'Bank Mandiri',
+        contentVersion: '1',
+        briefing: '',
+      },
+      rollingSummary: '',
+      finalSummary: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    repository.listTurns.mockResolvedValue([
+      {
+        id: 'question-1',
+        sessionId: 'session-empty',
+        role: 'question',
+        content: 'Ceritakan tentang diri Anda.',
+        idempotencyKey: null,
+        parentTurnId: null,
+        processingStatus: null,
+        evaluation: null,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+
+    await expect(
+      service.completeSession('user-123', 'session-empty'),
+    ).rejects.toThrow('Submit at least one answer');
+    expect(repository.completeSession).not.toHaveBeenCalled();
   });
 });

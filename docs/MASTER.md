@@ -74,7 +74,7 @@ npm install
 npm run start:dev
 ```
 
-Isi minimal `SUPABASE_URL`, `SUPABASE_KEY`, dan `SUPABASE_SERVICE_ROLE_KEY` di `.env`. Fitur AI interview juga memerlukan `GROQ_API_KEY`; voice TTS memerlukan `ELEVENLABS_API_KEY`. Service berjalan di `http://localhost:3000` secara default.
+Isi minimal `SUPABASE_URL`, `SUPABASE_KEY`, dan `SUPABASE_SERVICE_ROLE_KEY` di `.env`. Fitur AI interview juga memerlukan `GROQ_API_KEY`; live voice Android memerlukan `ELEVENLABS_API_KEY`, `INTERVIEW_TTS_VOICE_ID`, `INTERVIEW_TTS_PROVIDER=elevenlabs`, dan `INTERVIEW_LIVE_SPEECH_ENABLED=true`. Service berjalan di `http://localhost:3000` secara default.
 
 ### Jalankan Game Backend
 
