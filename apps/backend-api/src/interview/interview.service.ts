@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
@@ -291,10 +292,9 @@ export class InterviewService {
       );
 
       if (!shouldEndSession && completedEvaluation.nextQuestion) {
-        const words =
-          completedEvaluation.nextQuestion.match(/\S+\s*/g) || [
-            completedEvaluation.nextQuestion,
-          ];
+        const words = completedEvaluation.nextQuestion.match(/\S+\s*/g) || [
+          completedEvaluation.nextQuestion,
+        ];
         for (const word of words) {
           sendEvent('delta', { delta: word });
           if (this.wordStreamingDelayMs > 0) {
@@ -484,6 +484,14 @@ export class InterviewService {
     this.assertActive(session);
 
     const turns = await this.repository.listTurns(session.id);
+    const completedAnswerCount = turns.filter(
+      (turn) => turn.role === 'answer' && turn.processingStatus === 'completed',
+    ).length;
+    if (completedAnswerCount === 0) {
+      throw new BadRequestException(
+        'Submit at least one answer before completing the interview.',
+      );
+    }
     const finalSummary = this.buildFinalSummary(turns);
     await this.repository.completeSession(session.id, finalSummary);
 

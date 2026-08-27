@@ -357,13 +357,14 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
                             child: _SelectCard(
                               cardKey: const Key('interview-response-voice'),
                               title: 'Suara',
-                              subtitle: 'Jawab langsung dengan rekaman suara.',
+                              subtitle:
+                                  'Pertanyaan otomatis, tahan mic saat menjawab.',
                               icon: Icons.mic_none_outlined,
                               accent: const Color(0xFFE0922F),
                               selectedFill: const Color(0xFFFFEEDB),
                               selectedShadow: const Color(0xFFE9B578),
                               isSelected: _responseStyle == 'voice',
-                              badgeText: 'BETA',
+                              badgeText: 'LIVE',
                               onTap: () =>
                                   setState(() => _responseStyle = 'voice'),
                             ),

@@ -26,7 +26,8 @@ class InterviewPage extends ConsumerStatefulWidget {
   ConsumerState<InterviewPage> createState() => _InterviewPageState();
 }
 
-class _InterviewPageState extends ConsumerState<InterviewPage> {
+class _InterviewPageState extends ConsumerState<InterviewPage>
+    with WidgetsBindingObserver {
   final TextEditingController _answerController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _allowPop = false;
@@ -34,13 +35,27 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(interviewControllerProvider(widget.config).notifier).start();
     });
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed &&
+        widget.config.responseStyle == 'voice') {
+      unawaited(
+        ref
+            .read(interviewControllerProvider(widget.config).notifier)
+            .cancelLivePushToTalk(),
+      );
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _answerController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -311,7 +326,8 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
               icon: const Icon(Icons.history_rounded),
               onPressed: () => _showHistory(state),
             ),
-            if (state.status != InterviewViewStatus.completed)
+            if (state.status != InterviewViewStatus.completed &&
+                (!isVoiceMode || state.useTextFallback))
               TextButton(
                 onPressed: isBusy || !hasSubmittedAnswer
                     ? null
@@ -357,7 +373,7 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
                   )
                 : Column(
                     children: <Widget>[
-                      if (!isVoiceMode)
+                      if (!isVoiceMode || state.useTextFallback)
                         _InterviewHeader(
                           status: state.status,
                           config: widget.config,
@@ -378,31 +394,52 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
                       Expanded(
                         child: state.status == InterviewViewStatus.starting
                             ? const Center(child: CircularProgressIndicator())
-                            : isVoiceMode
+                            : isVoiceMode && !state.useTextFallback
                             ? Builder(
                                 builder: (BuildContext context) {
-                                  final String? token = ref.watch(
-                                    authAccessTokenProvider,
-                                  );
-                                  final controllerNotifier = ref.read(
-                                    interviewControllerProvider(
-                                      widget.config,
-                                    ).notifier,
-                                  );
-                                  final String? audioUrl =
-                                      currentQuestion == null
-                                      ? null
-                                      : controllerNotifier.getQuestionAudioUrl(
-                                          currentQuestion.id,
-                                        );
-
                                   return _VoiceRoomPanel(
                                     state: state,
                                     currentQuestion: currentQuestion,
                                     latestCandidateAnswer:
                                         latestCandidateAnswer,
-                                    audioUrl: audioUrl,
-                                    accessToken: token,
+                                    onPushToTalkStart: () => ref
+                                        .read(
+                                          interviewControllerProvider(
+                                            widget.config,
+                                          ).notifier,
+                                        )
+                                        .beginLivePushToTalk(),
+                                    onPushToTalkEnd: () => ref
+                                        .read(
+                                          interviewControllerProvider(
+                                            widget.config,
+                                          ).notifier,
+                                        )
+                                        .endLivePushToTalk(),
+                                    onPushToTalkCancel: () => ref
+                                        .read(
+                                          interviewControllerProvider(
+                                            widget.config,
+                                          ).notifier,
+                                        )
+                                        .cancelLivePushToTalk(),
+                                    onReconnect: () => ref
+                                        .read(
+                                          interviewControllerProvider(
+                                            widget.config,
+                                          ).notifier,
+                                        )
+                                        .reconnectLiveVoice(),
+                                    onTextFallback: () => ref
+                                        .read(
+                                          interviewControllerProvider(
+                                            widget.config,
+                                          ).notifier,
+                                        )
+                                        .switchLiveVoiceToText(),
+                                    onEndCall: () => hasSubmittedAnswer
+                                        ? _completeSession()
+                                        : _requestExit(state),
                                   );
                                 },
                               )
@@ -461,13 +498,15 @@ class _InterviewPageState extends ConsumerState<InterviewPage> {
                       ),
                       if (state.latestEvaluation != null)
                         _EvaluationStrip(evaluation: state.latestEvaluation!),
-                      _AnswerComposer(
-                        controller: _answerController,
-                        enabled: state.canSubmit,
-                        isBusy: isBusy,
-                        config: widget.config,
-                        onSubmit: _submitAnswer,
-                      ),
+                      if (!isVoiceMode || state.useTextFallback)
+                        _AnswerComposer(
+                          controller: _answerController,
+                          enabled: state.canSubmit,
+                          isBusy: isBusy,
+                          config: widget.config,
+                          allowVoiceRecording: !state.useTextFallback,
+                          onSubmit: _submitAnswer,
+                        ),
                     ],
                   ),
           ),
@@ -651,35 +690,37 @@ class _VoiceRoomPanel extends StatelessWidget {
     required this.state,
     required this.currentQuestion,
     required this.latestCandidateAnswer,
-    required this.audioUrl,
-    required this.accessToken,
+    required this.onPushToTalkStart,
+    required this.onPushToTalkEnd,
+    required this.onPushToTalkCancel,
+    required this.onReconnect,
+    required this.onTextFallback,
+    required this.onEndCall,
   });
 
   final InterviewState state;
   final InterviewMessage? currentQuestion;
   final InterviewMessage? latestCandidateAnswer;
-  final String? audioUrl;
-  final String? accessToken;
+  final VoidCallback onPushToTalkStart;
+  final VoidCallback onPushToTalkEnd;
+  final VoidCallback onPushToTalkCancel;
+  final VoidCallback onReconnect;
+  final VoidCallback onTextFallback;
+  final VoidCallback onEndCall;
 
   @override
   Widget build(BuildContext context) {
-    final bool isListening = state.isRecording;
-    final bool isTranscribing = state.isTranscribing;
-    final bool isThinking = state.status == InterviewViewStatus.submitting;
-    final String title = isListening
-        ? 'Saya mendengarkan...'
-        : isTranscribing
-        ? 'Menyiapkan transkrip...'
-        : isThinking
-        ? 'Menyiapkan respons...'
-        : 'Siap mendengarkan';
-    final String subtitle = isListening
-        ? 'Bicara dengan tenang, lalu tekan selesai.'
-        : isTranscribing
-        ? 'Sebentar, jawaban suaramu sedang diubah menjadi teks.'
-        : isThinking
-        ? 'Pewawancara AI sedang menilai jawabanmu.'
-        : 'Gunakan mic atau tetap ketik jawaban di bawah.';
+    final _LiveVoiceCopy copy = _liveVoiceCopy(state.livePhase);
+    final bool isActive = switch (state.livePhase) {
+      LiveInterviewPhase.connecting ||
+      LiveInterviewPhase.interviewerSpeaking ||
+      LiveInterviewPhase.readyToAnswer ||
+      LiveInterviewPhase.candidateSpeaking ||
+      LiveInterviewPhase.transcribing ||
+      LiveInterviewPhase.evaluating ||
+      LiveInterviewPhase.reconnecting => true,
+      _ => false,
+    };
 
     return Container(
       key: const ValueKey<String>('interview-voice-stage'),
@@ -725,7 +766,7 @@ class _VoiceRoomPanel extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        subtitle,
+                        copy.subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -737,19 +778,19 @@ class _VoiceRoomPanel extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (audioUrl != null)
-                  _AudioPlayButton(
-                    audioUrl: audioUrl!,
-                    accessToken: accessToken,
-                    color: Colors.white,
-                    autoPlay: true,
-                  ),
+                Icon(
+                  state.livePhase == LiveInterviewPhase.degraded
+                      ? Icons.wifi_off_rounded
+                      : Icons.graphic_eq_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
               ],
             ),
           ),
           const Spacer(),
           Text(
-            title,
+            copy.title,
             textAlign: TextAlign.center,
             style: GoogleFonts.fredoka(
               color: Colors.white,
@@ -759,9 +800,7 @@ class _VoiceRoomPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 22),
-          _VoiceVisualizerOrb(
-            isActive: isListening || isTranscribing || isThinking,
-          ),
+          _VoiceVisualizerOrb(isActive: isActive),
           const SizedBox(height: 24),
           Flexible(
             child: Container(
@@ -804,9 +843,373 @@ class _VoiceRoomPanel extends StatelessWidget {
               ),
             ),
           ],
-          const Spacer(),
+          if (state.liveErrorMessage != null) ...<Widget>[
+            const SizedBox(height: 10),
+            Text(
+              state.liveErrorMessage!,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFFFFE0C2),
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          _LiveCallControls(
+            phase: state.livePhase,
+            recordingDuration: state.liveRecordingDuration,
+            showReconnect: state.livePhase == LiveInterviewPhase.degraded,
+            onPushToTalkStart: onPushToTalkStart,
+            onPushToTalkEnd: onPushToTalkEnd,
+            onPushToTalkCancel: onPushToTalkCancel,
+            onReconnect: onReconnect,
+            onTextFallback: onTextFallback,
+            onEndCall: onEndCall,
+          ),
+          const SizedBox(height: 6),
         ],
       ),
+    );
+  }
+}
+
+class _LiveVoiceCopy {
+  const _LiveVoiceCopy(this.title, this.subtitle);
+
+  final String title;
+  final String subtitle;
+}
+
+_LiveVoiceCopy _liveVoiceCopy(LiveInterviewPhase phase) {
+  return switch (phase) {
+    LiveInterviewPhase.connecting => const _LiveVoiceCopy(
+      'Menghubungkan panggilan...',
+      'Menyiapkan koneksi audio yang aman.',
+    ),
+    LiveInterviewPhase.interviewerSpeaking => const _LiveVoiceCopy(
+      'Pewawancara sedang berbicara',
+      'Dengarkan pertanyaan, lalu jawab setelah audio selesai.',
+    ),
+    LiveInterviewPhase.readyToAnswer => const _LiveVoiceCopy(
+      'Siap mendengar jawabanmu',
+      'Tekan dan tahan tombol mikrofon untuk menjawab.',
+    ),
+    LiveInterviewPhase.candidateSpeaking => const _LiveVoiceCopy(
+      'Jawaban sedang direkam',
+      'Lepaskan tombol untuk mengirim jawaban.',
+    ),
+    LiveInterviewPhase.transcribing => const _LiveVoiceCopy(
+      'Menyiapkan transkrip...',
+      'Jawaban akhir sedang diubah menjadi teks.',
+    ),
+    LiveInterviewPhase.evaluating => const _LiveVoiceCopy(
+      'Menilai jawaban...',
+      'Pewawancara sedang menyiapkan pertanyaan berikutnya.',
+    ),
+    LiveInterviewPhase.reconnecting => const _LiveVoiceCopy(
+      'Menyambungkan kembali...',
+      'Jawaban yang belum selesai tetap dijaga di perangkat.',
+    ),
+    LiveInterviewPhase.degraded => const _LiveVoiceCopy(
+      'Panggilan terputus',
+      'Sambungkan lagi atau lanjutkan sesi yang sama lewat teks.',
+    ),
+    LiveInterviewPhase.completed => const _LiveVoiceCopy(
+      'Interview selesai',
+      'Hasil akhir sedang disiapkan.',
+    ),
+    LiveInterviewPhase.disconnected => const _LiveVoiceCopy(
+      'Menyiapkan interview suara',
+      'Panggilan akan dimulai otomatis.',
+    ),
+  };
+}
+
+class _LiveCallControls extends StatelessWidget {
+  const _LiveCallControls({
+    required this.phase,
+    required this.recordingDuration,
+    required this.showReconnect,
+    required this.onPushToTalkStart,
+    required this.onPushToTalkEnd,
+    required this.onPushToTalkCancel,
+    required this.onReconnect,
+    required this.onTextFallback,
+    required this.onEndCall,
+  });
+
+  final LiveInterviewPhase phase;
+  final Duration recordingDuration;
+  final bool showReconnect;
+  final VoidCallback onPushToTalkStart;
+  final VoidCallback onPushToTalkEnd;
+  final VoidCallback onPushToTalkCancel;
+  final VoidCallback onReconnect;
+  final VoidCallback onTextFallback;
+  final VoidCallback onEndCall;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        _PushToTalkButton(
+          canStart: phase == LiveInterviewPhase.readyToAnswer,
+          isSpeaking: phase == LiveInterviewPhase.candidateSpeaking,
+          recordingDuration: recordingDuration,
+          onStart: onPushToTalkStart,
+          onEnd: onPushToTalkEnd,
+          onCancel: onPushToTalkCancel,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            _LiveCallButton(
+              key: const ValueKey<String>('live-interview-end-call'),
+              icon: Icons.call_end_rounded,
+              label: 'Akhiri',
+              background: const Color(0xFFE94D4D),
+              onPressed: onEndCall,
+            ),
+            if (showReconnect) ...<Widget>[
+              const SizedBox(width: 20),
+              _LiveCallButton(
+                key: const ValueKey<String>('live-interview-reconnect'),
+                icon: Icons.refresh_rounded,
+                label: 'Sambung',
+                background: const Color(0xFF159A9C),
+                onPressed: onReconnect,
+              ),
+            ],
+          ],
+        ),
+        TextButton.icon(
+          key: const ValueKey<String>('live-interview-text-fallback'),
+          onPressed: onTextFallback,
+          icon: const Icon(Icons.keyboard_alt_outlined, size: 17),
+          label: const Text('Beralih ke teks'),
+          style: TextButton.styleFrom(foregroundColor: Colors.white),
+        ),
+      ],
+    );
+  }
+}
+
+class _PushToTalkButton extends StatefulWidget {
+  const _PushToTalkButton({
+    required this.canStart,
+    required this.isSpeaking,
+    required this.recordingDuration,
+    required this.onStart,
+    required this.onEnd,
+    required this.onCancel,
+  });
+
+  final bool canStart;
+  final bool isSpeaking;
+  final Duration recordingDuration;
+  final VoidCallback onStart;
+  final VoidCallback onEnd;
+  final VoidCallback onCancel;
+
+  @override
+  State<_PushToTalkButton> createState() => _PushToTalkButtonState();
+}
+
+class _PushToTalkButtonState extends State<_PushToTalkButton> {
+  int? _pointer;
+  bool _pressed = false;
+
+  @override
+  void didUpdateWidget(covariant _PushToTalkButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.canStart && !widget.isSpeaking && _pointer != null) {
+      _pointer = null;
+      _pressed = false;
+    }
+  }
+
+  void _handleDown(PointerDownEvent event) {
+    if (!widget.canStart || _pointer != null) {
+      return;
+    }
+    setState(() {
+      _pointer = event.pointer;
+      _pressed = true;
+    });
+    widget.onStart();
+  }
+
+  void _handleUp(PointerUpEvent event) {
+    if (event.pointer != _pointer) {
+      return;
+    }
+    setState(() {
+      _pointer = null;
+      _pressed = false;
+    });
+    widget.onEnd();
+  }
+
+  void _handleCancel(PointerCancelEvent event) {
+    if (event.pointer != _pointer) {
+      return;
+    }
+    setState(() {
+      _pointer = null;
+      _pressed = false;
+    });
+    widget.onCancel();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool recording = _pressed || widget.isSpeaking;
+    final bool enabled = widget.canStart || widget.isSpeaking;
+    final String label = recording
+        ? 'Lepaskan untuk mengirim'
+        : 'Tekan dan tahan untuk menjawab';
+    final String elapsed = _formatLiveRecordingDuration(
+      widget.recordingDuration,
+    );
+
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: label,
+      hint: recording
+          ? 'Lepaskan jari untuk mengirim jawaban.'
+          : 'Tahan tombol sambil berbicara.',
+      child: Listener(
+        key: const ValueKey<String>('live-interview-push-to-talk'),
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: _handleDown,
+        onPointerUp: _handleUp,
+        onPointerCancel: _handleCancel,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 228,
+          height: 68,
+          decoration: BoxDecoration(
+            color: recording
+                ? const Color(0xFFE94D4D)
+                : enabled
+                ? Colors.white.withAlpha(38)
+                : Colors.white.withAlpha(18),
+            borderRadius: BorderRadius.circular(34),
+            border: Border.all(
+              color: recording
+                  ? const Color(0xFFFFD4D4)
+                  : Colors.white.withAlpha(enabled ? 85 : 35),
+              width: 1.5,
+            ),
+            boxShadow: recording
+                ? <BoxShadow>[
+                    BoxShadow(
+                      color: const Color(0xFFE94D4D).withAlpha(90),
+                      blurRadius: 18,
+                      spreadRadius: 2,
+                    ),
+                  ]
+                : const <BoxShadow>[],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Icon(
+                recording ? Icons.mic_rounded : Icons.touch_app_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (recording)
+                      Text(
+                        '$elapsed / 01:30',
+                        key: const ValueKey<String>(
+                          'live-interview-recording-duration',
+                        ),
+                        style: TextStyle(
+                          color: Colors.white.withAlpha(210),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _formatLiveRecordingDuration(Duration duration) {
+  final int totalSeconds = duration.inSeconds.clamp(0, 90);
+  final int minutes = totalSeconds ~/ 60;
+  final int seconds = totalSeconds % 60;
+  return '${minutes.toString().padLeft(2, '0')}:'
+      '${seconds.toString().padLeft(2, '0')}';
+}
+
+class _LiveCallButton extends StatelessWidget {
+  const _LiveCallButton({
+    required super.key,
+    required this.icon,
+    required this.label,
+    required this.background,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color background;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Material(
+          color: background,
+          shape: const CircleBorder(),
+          child: IconButton(
+            tooltip: label,
+            onPressed: onPressed,
+            icon: Icon(icon, color: Colors.white),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1147,17 +1550,10 @@ class _ChatBubble extends StatelessWidget {
 }
 
 class _AudioPlayButton extends StatefulWidget {
-  const _AudioPlayButton({
-    required this.audioUrl,
-    this.accessToken,
-    this.color = AppColors.levelUpTeal,
-    this.autoPlay = false,
-  });
+  const _AudioPlayButton({required this.audioUrl, this.accessToken});
 
   final String audioUrl;
   final String? accessToken;
-  final Color color;
-  final bool autoPlay;
 
   @override
   State<_AudioPlayButton> createState() => _AudioPlayButtonState();
@@ -1189,7 +1585,6 @@ class _AudioPlayButtonState extends State<_AudioPlayButton> {
         });
       }
     });
-    _scheduleAutoPlay();
   }
 
   @override
@@ -1202,7 +1597,6 @@ class _AudioPlayButtonState extends State<_AudioPlayButton> {
     unawaited(_player.stop());
     _isPrepared = false;
     _hasError = false;
-    _scheduleAutoPlay();
   }
 
   @override
@@ -1262,17 +1656,6 @@ class _AudioPlayButtonState extends State<_AudioPlayButton> {
     }
   }
 
-  void _scheduleAutoPlay() {
-    if (!widget.autoPlay) {
-      return;
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        unawaited(_togglePlay());
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -1296,7 +1679,7 @@ class _AudioPlayButtonState extends State<_AudioPlayButton> {
               : _hasError
               ? Icons.replay_rounded
               : Icons.volume_up_rounded,
-          color: widget.color,
+          color: AppColors.levelUpTeal,
           size: 22,
         ),
       ),
@@ -1671,6 +2054,7 @@ class _AnswerComposer extends ConsumerStatefulWidget {
     required this.isBusy,
     required this.config,
     required this.onSubmit,
+    this.allowVoiceRecording = true,
   });
 
   final TextEditingController controller;
@@ -1678,6 +2062,7 @@ class _AnswerComposer extends ConsumerStatefulWidget {
   final bool isBusy;
   final InterviewLaunchConfig config;
   final VoidCallback onSubmit;
+  final bool allowVoiceRecording;
 
   @override
   ConsumerState<_AnswerComposer> createState() => _AnswerComposerState();
@@ -1859,7 +2244,8 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
 
   @override
   Widget build(BuildContext context) {
-    final bool isVoice = widget.config.responseStyle == 'voice';
+    final bool isVoice =
+        widget.config.responseStyle == 'voice' && widget.allowVoiceRecording;
     final bool isBusy = widget.isBusy || _isTranscribing;
 
     if (_isRecording) {

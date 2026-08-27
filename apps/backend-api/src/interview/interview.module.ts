@@ -60,9 +60,11 @@ import { InterviewSummaryService } from './services/interview-summary.service';
         elevenLabsTtsService: ElevenLabsTtsService,
       ) => {
         const provider = configService
-          .get<string>('INTERVIEW_TTS_PROVIDER', 'groq')
+          .get<string>('INTERVIEW_TTS_PROVIDER', 'elevenlabs')
           .toLowerCase();
-        return provider === 'elevenlabs' ? elevenLabsTtsService : groqTtsService;
+        return provider === 'elevenlabs'
+          ? elevenLabsTtsService
+          : groqTtsService;
       },
       inject: [ConfigService, GroqTtsService, ElevenLabsTtsService],
     },
