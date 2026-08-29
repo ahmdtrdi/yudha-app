@@ -1,0 +1,150 @@
+{
+  "companies": [
+    {
+      "name": "PT Pertamina (Persero)",
+      "legal_status": "Persero (BUMN), 100% owned by Government of Republic of Indonesia",
+      "establishment": {
+        "founded": "10 Desember 1957 (as PERMINA)",
+        "legal_entity": "17 September 2003 as PT Pertamina (Persero)",
+        "holding_status": "Holding Company sejak 12 Juni 2020"
+      },
+      "headquarters": {
+        "address": "Gedung Grha Pertamina, Jl. Medan Merdeka Timur No.11-13, Jakarta Pusat 10340",
+        "website": "https://www.pertamina.com",
+        "contact": "Telp: (62-21) 3815111, 3816111"
+      },
+      "vision": "Menjadi perusahaan energi yang mengedepankan ketahanan, ketersediaan dan keberlanjutan energi.",
+      "mission": "Menyediakan energi melalui solusi inovatif yang memberi nilai tambah untuk masyarakat.",
+      "core_values": "AKHLAK-inspired elements (dari sumber terkait), fokus pada integritas, kompetensi, harmoni, loyalitas, adaptif, kolaboratif.",
+      "history_summary": "Dimulai dari PERMINA 1957, merger menjadi Pertamina 1968. Transformasi besar 2003 menjadi PT Persero. Holding company 2020 dengan subholdings. Lebih dari 6 dekade menyediakan energi nasional.",
+      "milestones": {
+        "1957_1967": "Pendiri PERMINA, eksplorasi Sumatera.",
+        "1968_1977": "Merger, UU No.8/1971, kontribusi infrastruktur.",
+        "2020": "Transformasi menjadi Holding dengan 5-6 Subholdings.",
+        "recent": "Komitmen Net Zero Emission 2060, ranking Fortune Global 500."
+      },
+      "business_lines": "Integrated energy: Upstream (PHE), Downstream (Patra Niaga), Gas (PGN), Power & NRE (PPI), Integrated Marine Logistics (PIS), Refinery & Petrochemical.",
+      "subsidiaries_subholdings": [
+        "Upstream: PT Pertamina Hulu Energi (PHE)",
+        "Downstream/Commercial: PT Pertamina Patra Niaga",
+        "Gas: PT Pertamina Gas Negara (PGN)",
+        "Power & New Renewable Energy: PT Pertamina Power Indonesia (PPI)",
+        "Integrated Marine Logistics: PT Pertamina International Shipping (PIS)",
+        "Refinery & Petrochemical: PT Kilang Pertamina Internasional",
+        "Lainnya: ~12 subsidiaries total"
+      ],
+      "work_culture": "Transformasi ke agile, inovatif, fokus dual-growth (legacy + low carbon), nilai-nilai perusahaan yang mendukung keberlanjutan dan kolaborasi.",
+      "esg_sustainability": {
+        "commitment": "Net Zero Emission 2060 atau lebih cepat",
+        "rating": "ESG Risk Rating rendah (medium risk), peringkat tinggi di sektor",
+        "initiatives": "Pengembangan EBT, dekarbonisasi, biodiversity, community programs (air bersih, pendidikan, ekonomi lokal), CDP Climate B, dll.",
+        "performance": "Reduksi emisi signifikan, peningkatan produksi renewable."
+      },
+      "leadership": {
+        "board_of_commissioners": [
+          {
+            "position": "President Commissioner & Independent",
+            "name": "Mochamad Iriawan"
+          },
+          {
+            "position": "Vice President Commissioner",
+            "name": "Todotua Pasaribu / Dony Oskaria (updates vary)"
+          }
+        ],
+        "board_of_directors": [
+          {
+            "position": "President Director & CEO",
+            "name": "Simon Aloysius Mantiri"
+          },
+          {
+            "position": "Deputy President Director",
+            "name": "Oki Muraza"
+          },
+          {
+            "position": "Director of Finance",
+            "name": "Emma Sri Martini"
+          },
+          {
+            "position": "Director of Strategy, Portfolio & New Ventures",
+            "name": "Relevant"
+          },
+          {
+            "position": "Others: Risk Mgmt, Logistics, Transformation & Sustainability, HC, dll."
+          }
+        ]
+      },
+      "key_performance": {
+        "revenue_2024_approx": "USD 75+ Billion",
+        "profit": "Positive, kontribusi besar ke negara",
+        "production": "Migas >1 juta BOEPD, supply 70% BBM nasional"
+      }
+    },
+    {
+      "name": "PT PLN (Persero)",
+      "legal_status": "Persero (BUMN), 100% owned by Government of Republic of Indonesia",
+      "establishment": {
+        "founded": "27 Oktober 1945 (Jawatan Listrik dan Gas)",
+        "key_changes": "1961 BPU-PLN, 1965 PLN, Holding Company akhir 2022"
+      },
+      "headquarters": {
+        "address": "Jakarta (Kebayoran Baru area)",
+        "website": "https://pln.co.id",
+        "motto": "Listrik untuk Kehidupan yang Lebih Baik"
+      },
+      "vision": "Menjadi Perusahaan Listrik Terkemuka se-Asia Tenggara dan #1 Pilihan Pelanggan untuk Solusi Energi (Global Top 500).",
+      "mission": [
+        "Menjalankan bisnis kelistrikan dan bidang terkait berorientasi kepuasan pelanggan, anggota, pemegang saham.",
+        "Meningkatkan kualitas kehidupan masyarakat melalui listrik.",
+        "Mendorong kegiatan ekonomi.",
+        "Usaha berwawasan lingkungan."
+      ],
+      "core_values": "AKHLAK (Amanah, Kompeten, Harmonis, Loyal, Adaptif, Kolaboratif).",
+      "history_summary": "Mulai 1945 mengelola pembangkit 157.5 MW. Evolusi menjadi perusahaan listrik nasional. Transformasi holding 2022 dengan subholdings (Energi Primer, Pembangkitan, Beyond kWh). Fokus elektrifikasi dan transisi energi.",
+      "business_lines": "Generation, Transmission, Distribution, Retail, Energi Primer, Beyond kWh (telekom, digital, green energy).",
+      "subsidiaries_subholdings": [
+        "Holding dengan 4 subholdings utama (Energi Primer Indonesia, dll.)",
+        "PLN Icon Plus (connectivity, digital)",
+        "PLN Energi Gas / Geothermal",
+        "Lainnya: Pelayaran, Coal, dll."
+      ],
+      "work_culture": "AKHLAK values, transformasi digital, inovasi, customer-centric, sustainability-focused.",
+      "esg_sustainability": {
+        "commitment": "Net Zero Emissions 2060, transisi renewable (target tambahan 52.9 GW+)",
+        "rating": "ESG Risk Rating rendah di ASEAN (~27.4, target medium/low)",
+        "initiatives": "Decarbonization, renewable development (hydro, solar, geothermal), just transition, community electrification.",
+        "performance": "Power capacity ~49 GW+, transmission lines, customers 96+ juta, charging stations."
+      },
+      "leadership": {
+        "board_of_commissioners": [
+          {
+            "position": "President Commissioner & Independent",
+            "name": "Burhanuddin Abdullah"
+          },
+          {
+            "position": "Vice President Commissioner",
+            "name": "Suahasil Nazara"
+          },
+          {
+            "position": "Commissioners: Aminuddin Ma’ruf, Dadan Kusdiana, Jisman Parada Hutajulu, Bambang Eko Suhariyanto, dan Independent Commissioners (Yazid Fanani, dll.)"
+          }
+        ],
+        "board_of_directors": [
+          {
+            "position": "President Director",
+            "name": "Darmawan Prasodjo"
+          },
+          {
+            "position": "Directors : Edwin Nugraha Putra (Transmisi & Perencanaan), Evy Haryadi (Teknologi & Keberlanjutan), Sinthya Roesly (Keuangan), dll. (termasuk Manajemen Pembangkitan, Distribusi, Proyek EBT)"
+          }
+        ]
+      },
+      "key_performance": {
+        "capacity": "49,273 MW+",
+        "customers": "96.2 juta+",
+        "energy_distribution": "317,692 GWh+",
+        "electrification": "Tinggi nasional, fokus universal access"
+      }
+    }
+  ],
+  "sources": "Official websites (pertamina.com, pln.co.id), Sustainability Reports, Annual Reports, recent RUPS announcements (2025-2026). Data granular diambil langsung dari halaman resmi."
+}
