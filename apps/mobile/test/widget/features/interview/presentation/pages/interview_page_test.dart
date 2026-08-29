@@ -77,7 +77,7 @@ void main() {
     );
     expect(
       tester.getSize(find.byKey(const ValueKey<String>('interview-voice-orb'))),
-      const Size.square(180),
+      const Size.square(230),
     );
 
     expect(
