@@ -1,0 +1,130 @@
+{
+    "company_name": "Bank Indonesia",
+    "overview": {
+        "description": "Bank Indonesia adalah bank sentral Republik Indonesia yang bertugas menjaga stabilitas nilai rupiah, menjaga stabilitas sistem keuangan, dan mendukung pembangunan ekonomi berkelanjutan. BI berperan sebagai otoritas moneter, regulator perbankan (sebagian), dan pengelola cadangan devisa.",
+        "established": "1 Juli 1953",
+        "headquarters": "Jl. M.H. Thamrin No.2, Jakarta 10350, Indonesia",
+        "website": "https://www.bi.go.id",
+        "legal_basis": "Undang-Undang No. 23 Tahun 1999 tentang Bank Indonesia (sebagaimana diubah dengan UU No. 6 Tahun 2023)",
+        "independence": "Independen dalam menjalankan tugas dan wewenangnya"
+    },
+    "vision": "Menjadi bank sentral yang kredibel dan terbaik di kawasan melalui penguatan nilai-nilai strategis berlandaskan integritas, profesionalisme, dan inovasi untuk mendukung stabilitas dan pembangunan ekonomi nasional yang berkelanjutan.",
+    "mission": [
+        "Mencapai dan memelihara stabilitas nilai rupiah",
+        "Menjaga stabilitas sistem keuangan",
+        "Mendukung pertumbuhan ekonomi berkelanjutan dan inklusif",
+        "Meningkatkan peran BI dalam sistem keuangan internasional"
+    ],
+    "centrality_role": {
+        "description": "Bank Indonesia merupakan lembaga sentral dalam sistem keuangan dan perekonomian Indonesia. Sentralitas BI tercermin dari peran strategisnya sebagai otoritas tunggal di bidang moneter dan sistem pembayaran, serta koordinator kebijakan ekonomi makro.",
+        "key_central_roles": [
+            {
+                "role": "Otoritas Moneter",
+                "description": "Menetapkan dan melaksanakan kebijakan moneter (BI Rate, operasi pasar terbuka, Giro Wajib Minimum, dll.) untuk mengendalikan inflasi dan stabilitas rupiah."
+            },
+            {
+                "role": "Banker to Government",
+                "description": "Mengelola rekening pemerintah, penjualan SBN, dan pembiayaan APBN."
+            },
+            {
+                "role": "Bank of Banks",
+                "description": "Lender of Last Resort, penyedia likuiditas, dan fasilitator antar bank."
+            },
+            {
+                "role": "Pengelola Cadangan Devisa",
+                "description": "Mengelola cadangan devisa negara untuk menjaga stabilitas nilai tukar dan kepercayaan internasional."
+            },
+            {
+                "role": "Otoritas Sistem Pembayaran",
+                "description": "Mengatur, mengawasi, dan mengembangkan sistem pembayaran nasional (BI-RTGS, BI-FAST, QRIS, dan Digital Rupiah)."
+            },
+            {
+                "role": "Koordinator Kebijakan Makroprudensial",
+                "description": "Menjaga stabilitas sistem keuangan melalui instrumen makroprudensial (countercyclical capital buffer, loan-to-value ratio, dll.)."
+            },
+            {
+                "role": "Pengawas Valuta Asing dan Lembaga Keuangan Tertentu",
+                "description": "Mengawasi kegiatan devisa dan lembaga keuangan non-bank tertentu."
+            }
+        ],
+        "strategic_importance": "BI berperan sebagai 'pengendali utama' stabilitas ekonomi nasional, koordinator kebijakan dengan pemerintah dan OJK, serta representasi Indonesia di forum internasional (BIS, IMF, G20, dll.)."
+    },
+    "history": [
+        "1945: De Javasche Bank menjadi bank sentral pada masa kemerdekaan",
+        "1953: Pendirian resmi Bank Indonesia melalui UU No. 11 Tahun 1953",
+        "1999: Reformasi besar dengan UU No. 23 Tahun 1999 yang memberikan independensi",
+        "2004: Penyerahan pengawasan perbankan ke OJK (berlaku penuh 2011)",
+        "2023: Perubahan UU BI terbaru yang memperkuat peran makroprudensial dan digitalisasi"
+    ],
+    "corporate_culture": {
+        "core_values": "Integritas, Profesionalisme, Inovasi, Kolaborasi, dan Akuntabilitas",
+        "description": "Budaya BI menekankan integritas tinggi, profesionalisme, dan inovasi untuk mendukung tugas negara. Karyawan BI (Pegawai BI) diharapkan memiliki semangat nasionalisme, disiplin, dan komitmen terhadap good governance.",
+        "key_principles": [
+            "Budaya integritas dan anti-korupsi yang kuat",
+            "Pengembangan kompetensi berkelanjutan",
+            "Kolaborasi antar divisi dan dengan institusi lain",
+            "Inovasi dalam kebijakan moneter dan sistem pembayaran"
+        ]
+    },
+    "leadership_development_programs": {
+        "description": "Bank Indonesia memiliki program pengembangan kepemimpinan yang komprehensif untuk membangun kader pemimpin yang kompeten dalam kebijakan moneter, makroprudensial, dan digitalisasi.",
+        "key_programs": [
+            "BI Leadership Development Program",
+            "Executive Education dan program dengan universitas ternama (dalam dan luar negeri)",
+            "Talent Pool dan Succession Planning",
+            "Digital Leadership Program",
+            "International Exposure dan Secondment ke bank sentral lain"
+        ],
+        "focus": "Strategic leadership, policy making, risk management, dan inovasi digital"
+    },
+    "main_functions": {
+        "monetary_policy": "Menetapkan dan melaksanakan kebijakan moneter untuk menjaga inflasi dan stabilitas rupiah",
+        "financial_system_stability": "Melaksanakan kebijakan makroprudensial",
+        "payment_system": "Mengatur dan mengawasi sistem pembayaran nasional (termasuk BI-RTGS, BI-FAST)",
+        "reserve_management": "Pengelolaan cadangan devisa negara",
+        "other_roles": "Banker to Government, Bank of Banks, dan regulator valuta asing"
+    },
+    "digital_initiatives": {
+        "key_projects": [
+            "BI-FAST (Sistem Pembayaran Ritel Instan)",
+            "QRIS (Quick Response Code Indonesian Standard)",
+            "Digital Rupiah (Central Bank Digital Currency / CBDC) – tahap pengembangan",
+            "Open API dan Open Banking Framework",
+            "Digital Financial Ecosystem"
+        ]
+    },
+    "esg_and_sustainability": {
+        "commitment": "Mendukung transisi ekonomi hijau dan keuangan berkelanjutan",
+        "initiatives": [
+            "Green Banking dan Sustainable Finance",
+            "Kebijakan moneter yang mempertimbangkan aspek iklim",
+            "Inklusi keuangan dan literasi keuangan",
+            "Pengembangan ekonomi syariah dan UMKM"
+        ]
+    },
+    "organizational_structure": {
+        "governance": "Dewan Gubernur (Gubernur + Deputi Gubernur)",
+        "key_divisions": [
+            "Departemen Kebijakan Ekonomi dan Moneter",
+            "Departemen Makroprudensial",
+            "Departemen Sistem Pembayaran",
+            "Departemen Pengelolaan Cadangan Devisa",
+            "Departemen Komunikasi",
+            "Departemen Audit Internal"
+        ]
+    },
+    "key_initiatives_2024_2025": [
+        "Penguatan stabilitas rupiah di tengah ketidakpastian global",
+        "Akselerasi digitalisasi sistem pembayaran",
+        "Pengembangan Digital Rupiah",
+        "Dukungan pemulihan ekonomi pasca-pandemi",
+        "Penguatan literasi dan inklusi keuangan",
+        "Kolaborasi internasional dengan BIS, IMF, dan bank sentral lain"
+    ],
+    "governance": {
+        "status": "Lembaga negara independen",
+        "accountability": "Bertanggung jawab kepada DPR dan Presiden sesuai ketentuan UU"
+    },
+    "commitment": "Menjaga stabilitas ekonomi Indonesia dan mendukung pembangunan nasional yang berkelanjutan.",
+    "source": "Situs resmi bi.go.id, Undang-Undang BI, Laporan Tahunan, dan publikasi resmi Bank Indonesia"
+}

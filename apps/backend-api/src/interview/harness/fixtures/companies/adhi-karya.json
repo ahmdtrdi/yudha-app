@@ -1,0 +1,198 @@
+{
+    "company_identity": {
+        "full_name": "PT Adhi Karya (Persero) Tbk",
+        "nickname": "ADHI",
+        "ticker": "ADHI",
+        "status": "BUMN (Badan Usaha Milik Negara) yang terbuka",
+        "establishment_date": "11 Maret 1960",
+        "legal_basis": [
+            "Peraturan Pemerintah No. 2 Tahun 1960 (nasionalisasi perusahaan Belanda)",
+            "Surat Keputusan Menteri Pekerjaan Umum dan Tenaga Listrik No. 5 Tahun 1960",
+            "Akta Notaris No. 1 tanggal 1 Juni 1974 (menjadi Persero), diubah beberapa kali termasuk Akta No. 47 tanggal 23 Juni 2021 dan Akta No. 24 tanggal 18 Mei 2022"
+        ],
+        "head_office": {
+            "address": "Gedung Harmonis / South Building, Jl. Raya Pasar Minggu Km. 18, Jakarta 12510",
+            "operational_headquarters": "ADHI Tower / MTH 27 Office Suites, Jl. Letjen M.T. Haryono No. 27, Jakarta Selatan 13630",
+            "contact": {
+                "phone": "+62 21 797 5312",
+                "fax": "+62 21 797 5311",
+                "email": "adhi@adhi.co.id",
+                "website": "https://adhi.co.id"
+            }
+        },
+        "shareholding": {
+            "government_ri": "64% (Series A Dwiwarna)",
+            "public": "36%",
+            "total_shares_info": "Per data laporan terbaru"
+        },
+        "employees": {
+            "2022": 2667,
+            "2023": 2595,
+            "2024": 2502,
+            "note": "Angka permanen grup sekitar 1.600-1.700 orang (data terbaru)"
+        }
+    },
+    "history": {
+        "brief": "Didirikan dari nasionalisasi perusahaan Belanda (Architecten-Ingenicure-en Annemersbedrijf Associatie Selleen de Bruyn, Reyerse en de Vries N.V.) pada 11 Maret 1960 menjadi PN Adhi Karya. Menjadi PT (Persero) pada 1 Juni 1974. IPO pada 18 Maret 2004. Lebih dari 60+ tahun pengalaman di konstruksi infrastruktur Indonesia.",
+        "milestones": [
+            "1960: Nasionalisasi dan pendirian sebagai PN Adhi Karya",
+            "1974: Menjadi Persero",
+            "2004: IPO di BEI",
+            "2020+: Redefinisi visi-misi, transformasi digital, fokus ESG dan TOD (Transit Oriented Development)",
+            "Ongoing: Proyek-proyek strategis nasional seperti jalan tol, LRT, MRT, bendungan, dll."
+        ]
+    },
+    "vision_mission": {
+        "vision": "Menjadi Korporasi Inovatif dan Berbudaya Unggul untuk Pertumbuhan Berkelanjutan.",
+        "mission": [
+            "Membangun insan yang unggul, profesional, amanah, dan berjiwa wirausaha.",
+            "Mengembangkan bisnis konstruksi, rekayasa, properti, industri, dan investasi yang bereputasi.",
+            "Mengembangkan inovasi produk dan proses untuk memberi solusi serta impact bagi stakeholders.",
+            "Menjalankan organisasi dengan tata kelola perusahaan yang baik.",
+            "Menjalankan sistem manajemen yang menjamin pencapaian sasaran, kualitas, keselamatan, kesehatan dan lingkungan kerja.",
+            "Mengembangkan teknologi informasi dan komunikasi sebagai sarana untuk pembuatan keputusan dan pengelolaan risiko korporasi."
+        ]
+    },
+    "core_values": {
+        "akhlak": [
+            "Amanah",
+            "Kompeten",
+            "Harmonis",
+            "Loyal",
+            "Adaptif",
+            "Kolaboratif"
+        ],
+        "additional_culture": "Bekerja cerdas, jujur, bertanggung jawab, dan bersahaja. Implementasi melalui ADHI Learning Center dan program internalisasi budaya."
+    },
+    "business_lines": [
+        {
+            "name": "Engineering & Construction",
+            "description": "Proyek sipil, gedung, perkeretaapian (stasiun, jalan, jembatan), industri, petrokimia, kelistrikan, telekomunikasi, perminyakan, agro, mekanikal, elektrikal. Termasuk EPC."
+        },
+        {
+            "name": "Property & Hospitality",
+            "description": "Pengembangan properti (TOD, apartemen, high-rise, landed house, mall, hotel). Dikelola melalui anak perusahaan seperti Adhi Commuter Properti dan Adhi Persada Properti."
+        },
+        {
+            "name": "Manufacture",
+            "description": "Produksi beton pracetak (precast), ready mix, dan produk manufaktur terkait."
+        },
+        {
+            "name": "Investment & Concession",
+            "description": "Investasi infrastruktur, konsesi (termasuk fasilitas pengolahan limbah, dll.), dan recurring income."
+        }
+    ],
+    "subsidiaries_and_affiliates": [
+        {
+            "name": "PT Adhi Persada Properti (APP)",
+            "ownership": "99.99%",
+            "description": "Developer properti (perumahan, high-rise, hotel, dll.)"
+        },
+        {
+            "name": "PT Adhi Commuter Properti Tbk (ADCP)",
+            "ownership": "90%",
+            "description": "Pengembang kawasan berbasis TOD (Transit Oriented Development)"
+        },
+        {
+            "name": "PT Adhi Persada Gedung (APG)",
+            "ownership": "High",
+            "description": "Konstruksi bangunan bertingkat/high-rise"
+        },
+        {
+            "name": "PT Adhi Persada Beton (APB)",
+            "ownership": "High",
+            "description": "Manufaktur beton pracetak"
+        },
+        {
+            "name": [
+                "PT Dumai Tirta Persada (DTP)",
+                "PT Jalintim Adhi Abipraya (JAA)",
+                "PT Adhi Jalintim Riau (AJR) dll."
+            ]
+        }
+    ],
+    "board_structure": {
+        "note": "Susunan terbaru per Desember 2025 (setelah RUPSLB 16 Desember 2025)",
+        "board_of_commissioners": [
+            {
+                "position": "Komisaris Utama",
+                "name": "Dody Usodo Hargosuseno"
+            },
+            {
+                "position": "Komisaris Independen",
+                "name": "R. Erwin M. Singajuru"
+            },
+            {
+                "position": "Komisaris",
+                "name": "Bob Arthur Lombogia"
+            },
+            {
+                "position": "Komisaris Independen",
+                "name": "Rustam Sofyan Sirait"
+            },
+            {
+                "position": "Komisaris Independen",
+                "name": "Elan Suherlan"
+            },
+            {
+                "position": "Komisaris",
+                "name": "Amelia Tetriana"
+            }
+        ],
+        "board_of_directors": [
+            {
+                "position": "Direktur Utama",
+                "name": "Moeharmein Zein Chaniago"
+            },
+            {
+                "position": "Direktur Human Capital & Legal",
+                "name": "Ki Syahgolang Permata"
+            },
+            {
+                "position": "Direktur Keuangan",
+                "name": "Bani Iqbal"
+            },
+            {
+                "position": "Direktur Manajemen Risiko & Kesisteman",
+                "name": "Yan Arianto"
+            },
+            {
+                "position": "Direktur Operasi I",
+                "name": "Alloysius Suko Widigdo"
+            },
+            {
+                "position": "Direktur Operasi II",
+                "name": "Harimawan"
+            },
+            {
+                "position": "Direktur Operasi III",
+                "name": "Vera Kirana"
+            }
+        ]
+    },
+    "work_culture": {
+        "description": "Berbasis AKHLAK BUMN dengan penekanan pada inovasi, profesionalisme, kolaborasi, dan keberlanjutan. Didukung ADHI Learning Center (ALC) untuk pengembangan SDM. Fokus pada K3 (Keselamatan & Kesehatan Kerja), etika bisnis, dan adaptasi teknologi."
+    },
+    "esg_and_sustainability": {
+        "commitment": "Komitmen kuat terhadap Environmental, Social, Governance (ESG) melalui 'ADHI for ESG', Roadmap ESG, Komite ESG, dan Biro ESG. Selaras dengan SDGs dan transisi hijau Indonesia.",
+        "key_pillars": [
+            "Ecological Impact: Pengelolaan risiko lingkungan, efisiensi energi, pengurangan emisi, rehabilitasi mangrove, penanaman pohon.",
+            "Social: Kesehatan & keselamatan karyawan, program TJSL/CSR, pengembangan masyarakat.",
+            "Governance: Tata kelola baik, anti-korupsi, transparansi, Code of Conduct.",
+            "Innovation: Teknologi hijau, BIM, produk ramah lingkungan."
+        ],
+        "highlights": "Integrasi ESG di seluruh lini bisnis, pengurangan emisi Scope 1-3, peningkatan kinerja keberlanjutan."
+    },
+    "programs_and_initiatives": {
+        "sustainability": "Program lingkungan (carbon sequestration, waste management), sosial (CSR mendukung 10+ SDGs), ekonomi (proyek strategis nasional).",
+        "innovation": "ADHI Innovation List, pengembangan teknologi konstruksi.",
+        "human_capital": "Internalisasi budaya AKHLAK, pelatihan via ALC."
+    },
+    "financial_highlights_example": {
+        "note": "Data bervariasi per tahun (contoh 2023-2024 dari SR)",
+        "revenue_2023": "Rp20.073 miliar",
+        "net_profit_2023": "Rp290 miliar",
+        "assets_example": "Sekitar Rp35-40 triliun"
+    },
+    "sources": "Diambil dari situs resmi adhi.co.id, Laporan Keberlanjutan 2023-2025, Laporan Tahunan, pengumuman IDX, dan dokumen perusahaan resmi."
+}
