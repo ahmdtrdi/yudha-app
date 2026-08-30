@@ -5,64 +5,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/interview/application/interview_providers.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_company_option.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_session_record.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
-
-class InterviewCompanyOption {
-  const InterviewCompanyOption({
-    required this.id,
-    required this.name,
-    required this.defaultRole,
-    required this.targetGroup,
-  });
-
-  final String id;
-  final String name;
-  final String defaultRole;
-  final ProfileTarget targetGroup;
-}
-
-const List<InterviewCompanyOption> kInterviewCompanies =
-    <InterviewCompanyOption>[
-      InterviewCompanyOption(
-        id: 'adhi-karya',
-        name: 'PT Adhi Karya (Persero) Tbk',
-        defaultRole: 'Management Trainee',
-        targetGroup: ProfileTarget.bumn,
-      ),
-      InterviewCompanyOption(
-        id: 'bank-indonesia',
-        name: 'Bank Indonesia',
-        defaultRole: 'Asisten Manajer',
-        targetGroup: ProfileTarget.bumn,
-      ),
-      InterviewCompanyOption(
-        id: 'bank-mandiri',
-        name: 'PT Bank Mandiri (Persero) Tbk',
-        defaultRole: 'Officer Development Program',
-        targetGroup: ProfileTarget.bumn,
-      ),
-      InterviewCompanyOption(
-        id: 'garuda-indonesia',
-        name: 'PT Garuda Indonesia (Persero) Tbk',
-        defaultRole: 'Management Trainee',
-        targetGroup: ProfileTarget.bumn,
-      ),
-      InterviewCompanyOption(
-        id: 'pertamina',
-        name: 'PT Pertamina (Persero)',
-        defaultRole: 'Bimbingan Profesi Sarjana',
-        targetGroup: ProfileTarget.bumn,
-      ),
-      InterviewCompanyOption(
-        id: 'kementerian-keuangan',
-        name: 'Kementerian Keuangan Republik Indonesia',
-        defaultRole: 'Staf Pengelola Keuangan Negara',
-        targetGroup: ProfileTarget.cpns,
-      ),
-    ];
 
 class InterviewSetupPage extends ConsumerStatefulWidget {
   const InterviewSetupPage({super.key});
@@ -72,24 +19,17 @@ class InterviewSetupPage extends ConsumerStatefulWidget {
 }
 
 class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
-  late InterviewCompanyOption _selectedCompany;
+  InterviewCompanyOption? _selectedCompany;
   late TextEditingController _roleController;
+  String? _pendingCompanyId;
+  String? _roleError;
   String _mode = 'coaching';
   String _responseStyle = 'text';
 
   @override
   void initState() {
     super.initState();
-    final ProfileTarget userTarget =
-        ref.read(profileSettingsProvider).target ?? ProfileTarget.bumn;
-    final List<InterviewCompanyOption> matching = kInterviewCompanies
-        .where((c) => c.targetGroup == userTarget)
-        .toList();
-
-    _selectedCompany = matching.isNotEmpty
-        ? matching.first
-        : kInterviewCompanies.first;
-    _roleController = TextEditingController(text: _selectedCompany.defaultRole);
+    _roleController = TextEditingController();
   }
 
   @override
@@ -101,18 +41,25 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
   void _onCompanyChanged(InterviewCompanyOption newCompany) {
     setState(() {
       _selectedCompany = newCompany;
-      _roleController.text = newCompany.defaultRole;
+      _roleController.text = newCompany.defaultRole ?? '';
+      _roleError = null;
     });
   }
 
   void _startInterview() {
-    final String role = _roleController.text.trim().isEmpty
-        ? _selectedCompany.defaultRole
-        : _roleController.text.trim();
+    final InterviewCompanyOption? company = _selectedCompany;
+    final String role = _roleController.text.trim();
+    if (company == null) {
+      return;
+    }
+    if (role.isEmpty) {
+      setState(() => _roleError = 'Masukkan posisi yang dilamar.');
+      return;
+    }
 
     final InterviewLaunchConfig config = InterviewLaunchConfig(
-      companyId: _selectedCompany.id,
-      companyName: _selectedCompany.name,
+      companyId: company.id,
+      companyName: company.name,
       targetRole: role,
       mode: _mode,
       language: 'id',
@@ -122,9 +69,12 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
     context.push(AppRoutes.interview, extra: config);
   }
 
-  void _resumeInterview(InterviewSessionSummaryRecord session) {
+  void _resumeInterview(
+    InterviewSessionSummaryRecord session,
+    List<InterviewCompanyOption> companies,
+  ) {
     InterviewCompanyOption? company;
-    for (final InterviewCompanyOption item in kInterviewCompanies) {
+    for (final InterviewCompanyOption item in companies) {
       if (item.id == session.companyId) {
         company = item;
         break;
@@ -146,31 +96,29 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<ProfileTarget?>(
-      profileSettingsProvider.select((settings) => settings.target),
-      (ProfileTarget? previous, ProfileTarget? next) {
-        if (next == null || next == previous) {
-          return;
-        }
-        final List<InterviewCompanyOption> matching = kInterviewCompanies
-            .where(
-              (InterviewCompanyOption company) => company.targetGroup == next,
-            )
-            .toList(growable: false);
-        if (matching.isEmpty || matching.contains(_selectedCompany)) {
-          return;
-        }
-        setState(() {
-          _selectedCompany = matching.first;
-          _roleController.text = matching.first.defaultRole;
-        });
-      },
-    );
     final ProfileTarget userTarget =
         ref.watch(profileSettingsProvider).target ?? ProfileTarget.bumn;
-    final List<InterviewCompanyOption> availableCompanies = kInterviewCompanies
-        .where((c) => c.targetGroup == userTarget)
-        .toList();
+    final AsyncValue<List<InterviewCompanyOption>> companiesState = ref.watch(
+      interviewCompaniesProvider,
+    );
+    final List<InterviewCompanyOption> availableCompanies =
+        companiesState.asData?.value ?? const <InterviewCompanyOption>[];
+    final InterviewCompanyOption? selectedCompany = _selectedCompanyFor(
+      availableCompanies,
+    );
+    if (selectedCompany != null &&
+        selectedCompany != _selectedCompany &&
+        _pendingCompanyId != selectedCompany.id) {
+      _pendingCompanyId = selectedCompany.id;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _pendingCompanyId = null;
+        if (mounted && selectedCompany != _selectedCompany) {
+          _onCompanyChanged(selectedCompany);
+        }
+      });
+    }
+    final bool companyCatalogReady =
+        companiesState.hasValue && availableCompanies.isNotEmpty;
     final List<InterviewSessionSummaryRecord> activeSessions =
         ref
             .watch(interviewSessionsProvider)
@@ -222,7 +170,10 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
                     if (activeSessions.isNotEmpty) ...<Widget>[
                       _ActiveSessionsPanel(
                         sessions: activeSessions,
-                        onResume: _resumeInterview,
+                        companyNameFor: (String companyId) =>
+                            _companyNameFor(companyId, availableCompanies),
+                        onResume: (InterviewSessionSummaryRecord session) =>
+                            _resumeInterview(session, availableCompanies),
                       ),
                       const SizedBox(height: 20),
                     ],
@@ -235,40 +186,13 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
                         children: <Widget>[
                           const _FieldLabel(label: 'Instansi / perusahaan'),
                           const SizedBox(height: 7),
-                          DropdownButtonFormField<InterviewCompanyOption>(
-                            key: const Key('interview-company-field'),
-                            initialValue:
-                                availableCompanies.contains(_selectedCompany)
-                                ? _selectedCompany
-                                : availableCompanies.first,
-                            isExpanded: true,
-                            icon: const Icon(Icons.expand_more_rounded),
-                            decoration: _setupFieldDecoration(
-                              icon: Icons.apartment_rounded,
-                            ),
-                            items: availableCompanies
-                                .map(
-                                  (InterviewCompanyOption company) =>
-                                      DropdownMenuItem<InterviewCompanyOption>(
-                                        value: company,
-                                        child: Text(
-                                          company.name,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            color: AppColors.textStrong,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ),
-                                )
-                                .toList(),
-                            onChanged: (InterviewCompanyOption? company) {
-                              if (company != null) {
-                                _onCompanyChanged(company);
-                              }
-                            },
+                          _CompanyCatalogField(
+                            state: companiesState,
+                            companies: availableCompanies,
+                            selectedCompany: selectedCompany,
+                            onChanged: _onCompanyChanged,
+                            onRetry: () =>
+                                ref.invalidate(interviewCompaniesProvider),
                           ),
                           const SizedBox(height: 13),
                           const _FieldLabel(label: 'Posisi yang dilamar'),
@@ -276,12 +200,18 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
                           TextField(
                             key: const Key('interview-role-field'),
                             controller: _roleController,
+                            enabled: companyCatalogReady,
+                            onChanged: (_) {
+                              if (_roleError != null) {
+                                setState(() => _roleError = null);
+                              }
+                            },
                             textCapitalization: TextCapitalization.words,
                             textInputAction: TextInputAction.done,
                             decoration: _setupFieldDecoration(
                               icon: Icons.work_outline_rounded,
                               hint: 'Masukkan posisi target...',
-                            ),
+                            ).copyWith(errorText: _roleError),
                             style: const TextStyle(
                               color: AppColors.textStrong,
                               fontWeight: FontWeight.w700,
@@ -373,7 +303,9 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
                       ),
                     ),
                     const SizedBox(height: 22),
-                    _InterviewStartButton(onPressed: _startInterview),
+                    _InterviewStartButton(
+                      onPressed: companyCatalogReady ? _startInterview : null,
+                    ),
                   ],
                 ),
               ),
@@ -383,10 +315,28 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
       ),
     );
   }
+
+  InterviewCompanyOption? _selectedCompanyFor(
+    List<InterviewCompanyOption> companies,
+  ) {
+    if (companies.isEmpty) {
+      return null;
+    }
+    final String? selectedId = _selectedCompany?.id;
+    for (final InterviewCompanyOption company in companies) {
+      if (company.id == selectedId) {
+        return company;
+      }
+    }
+    return companies.first;
+  }
 }
 
-String _companyNameFor(String companyId) {
-  for (final InterviewCompanyOption company in kInterviewCompanies) {
+String _companyNameFor(
+  String companyId,
+  List<InterviewCompanyOption> companies,
+) {
+  for (final InterviewCompanyOption company in companies) {
     if (company.id == companyId) {
       return company.name;
     }
@@ -520,9 +470,14 @@ class _InterviewSetupHero extends StatelessWidget {
 }
 
 class _ActiveSessionsPanel extends StatelessWidget {
-  const _ActiveSessionsPanel({required this.sessions, required this.onResume});
+  const _ActiveSessionsPanel({
+    required this.sessions,
+    required this.companyNameFor,
+    required this.onResume,
+  });
 
   final List<InterviewSessionSummaryRecord> sessions;
+  final String Function(String companyId) companyNameFor;
   final ValueChanged<InterviewSessionSummaryRecord> onResume;
 
   @override
@@ -589,7 +544,7 @@ class _ActiveSessionsPanel extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
                               Text(
-                                _companyNameFor(sessions[index].companyId),
+                                companyNameFor(sessions[index].companyId),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -719,6 +674,138 @@ class _SetupPanel extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           child,
+        ],
+      ),
+    );
+  }
+}
+
+class _CompanyCatalogField extends StatelessWidget {
+  const _CompanyCatalogField({
+    required this.state,
+    required this.companies,
+    required this.selectedCompany,
+    required this.onChanged,
+    required this.onRetry,
+  });
+
+  final AsyncValue<List<InterviewCompanyOption>> state;
+  final List<InterviewCompanyOption> companies;
+  final InterviewCompanyOption? selectedCompany;
+  final ValueChanged<InterviewCompanyOption> onChanged;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return state.when(
+      data: (_) {
+        if (companies.isEmpty) {
+          return _CompanyCatalogStatus(
+            statusKey: const Key('interview-company-empty'),
+            icon: Icons.apartment_rounded,
+            message: 'Belum ada perusahaan interview tersedia.',
+            onRetry: onRetry,
+          );
+        }
+        return DropdownButtonFormField<InterviewCompanyOption>(
+          key: const Key('interview-company-field'),
+          initialValue: selectedCompany,
+          isExpanded: true,
+          icon: const Icon(Icons.expand_more_rounded),
+          decoration: _setupFieldDecoration(icon: Icons.apartment_rounded),
+          items: companies
+              .map(
+                (InterviewCompanyOption company) =>
+                    DropdownMenuItem<InterviewCompanyOption>(
+                      value: company,
+                      child: Text(
+                        company.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textStrong,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+              )
+              .toList(growable: false),
+          onChanged: (InterviewCompanyOption? company) {
+            if (company != null) {
+              onChanged(company);
+            }
+          },
+        );
+      },
+      loading: () => const _CompanyCatalogStatus(
+        statusKey: Key('interview-company-loading'),
+        message: 'Memuat daftar perusahaan...',
+        showProgress: true,
+      ),
+      error: (_, _) => _CompanyCatalogStatus(
+        statusKey: const Key('interview-company-error'),
+        icon: Icons.error_outline_rounded,
+        message: 'Daftar perusahaan gagal dimuat.',
+        onRetry: onRetry,
+      ),
+    );
+  }
+}
+
+class _CompanyCatalogStatus extends StatelessWidget {
+  const _CompanyCatalogStatus({
+    required this.statusKey,
+    required this.message,
+    this.icon,
+    this.showProgress = false,
+    this.onRetry,
+  });
+
+  final Key statusKey;
+  final String message;
+  final IconData? icon;
+  final bool showProgress;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: statusKey,
+      constraints: const BoxConstraints(minHeight: 52),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F8FA),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: const Color(0xFFE1E4E9)),
+      ),
+      child: Row(
+        children: <Widget>[
+          if (showProgress)
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            Icon(icon, color: AppColors.warriorNavy, size: 19),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: AppColors.textMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          if (onRetry != null)
+            TextButton(
+              key: const Key('interview-company-retry'),
+              onPressed: onRetry,
+              child: const Text('Coba lagi'),
+            ),
         ],
       ),
     );
@@ -877,10 +964,11 @@ class _SelectCard extends StatelessWidget {
 class _InterviewStartButton extends StatelessWidget {
   const _InterviewStartButton({required this.onPressed});
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
+    final bool enabled = onPressed != null;
     return SizedBox(
       width: double.infinity,
       height: 60,
@@ -890,7 +978,9 @@ class _InterviewStartButton extends StatelessWidget {
             top: 8,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: const Color(0xFFF0A35F),
+                color: enabled
+                    ? const Color(0xFFF0A35F)
+                    : const Color(0xFFC5C8CE),
                 borderRadius: BorderRadius.circular(20),
               ),
             ),
@@ -898,7 +988,9 @@ class _InterviewStartButton extends StatelessWidget {
           Positioned.fill(
             bottom: 8,
             child: Material(
-              color: const Color(0xFFFFD7A3),
+              color: enabled
+                  ? const Color(0xFFFFD7A3)
+                  : const Color(0xFFE2E4E8),
               borderRadius: BorderRadius.circular(20),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
@@ -907,16 +999,20 @@ class _InterviewStartButton extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: <Widget>[
-                    const Icon(
+                    Icon(
                       Icons.auto_awesome_rounded,
-                      color: Color(0xFFC66B24),
+                      color: enabled
+                          ? const Color(0xFFC66B24)
+                          : const Color(0xFF8D929B),
                       size: 19,
                     ),
                     const SizedBox(width: 8),
                     Text(
                       'MULAI INTERVIEW AI',
                       style: GoogleFonts.dmSans(
-                        color: const Color(0xFFC66B24),
+                        color: enabled
+                            ? const Color(0xFFC66B24)
+                            : const Color(0xFF8D929B),
                         fontWeight: FontWeight.w900,
                         fontSize: 14,
                       ),

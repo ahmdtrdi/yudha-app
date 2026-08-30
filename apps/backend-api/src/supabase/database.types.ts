@@ -643,12 +643,14 @@ export type Database = {
           name: string;
           summary: string;
           content_version: string;
+          default_role: Nullable<string>;
         };
         Insert: TimestampedInsert & {
           id: string;
           name: string;
           summary: string;
           content_version?: string;
+          default_role?: Nullable<string>;
         };
         Update: Partial<
           Database['public']['Tables']['interview_company_profiles']['Insert']
