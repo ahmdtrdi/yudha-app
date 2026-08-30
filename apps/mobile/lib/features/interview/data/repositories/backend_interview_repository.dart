@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:yudha_mobile/app/config/app_config.dart';
 import 'package:yudha_mobile/features/interview/data/repositories/interview_repository.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_company_option.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_message.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_session_record.dart';
@@ -31,6 +32,55 @@ class BackendInterviewRepository implements InterviewRepository {
 
   final InterviewApiConfig _config;
   final http.Client _client;
+
+  @override
+  Future<List<InterviewCompanyOption>> listCompanies() async {
+    final Map<String, dynamic> body = await _get(
+      '/interview/companies',
+      timeoutMessage: 'Daftar perusahaan belum berhasil dimuat. Coba lagi.',
+      connectionMessage:
+          'Daftar perusahaan belum dapat dihubungi. Periksa koneksi lalu coba lagi.',
+    );
+    final Object? companiesJson = body['companies'];
+    if (companiesJson is! List) {
+      throw const InterviewApiException(
+        'Daftar perusahaan belum dapat dibaca. Silakan coba lagi.',
+      );
+    }
+
+    return companiesJson
+        .map((Object? rawCompany) {
+          if (rawCompany is! Map<String, dynamic>) {
+            throw const InterviewApiException(
+              'Daftar perusahaan belum dapat dibaca. Silakan coba lagi.',
+            );
+          }
+          final Object? rawId = rawCompany['id'];
+          final Object? rawName = rawCompany['name'];
+          final Object? rawDefaultRole = rawCompany['defaultRole'];
+          if (rawId is! String ||
+              rawId.trim().isEmpty ||
+              rawName is! String ||
+              rawName.trim().isEmpty ||
+              (rawDefaultRole != null && rawDefaultRole is! String)) {
+            throw const InterviewApiException(
+              'Daftar perusahaan belum dapat dibaca. Silakan coba lagi.',
+            );
+          }
+
+          final String? defaultRole = rawDefaultRole is String
+              ? rawDefaultRole.trim()
+              : null;
+          return InterviewCompanyOption(
+            id: rawId.trim(),
+            name: rawName.trim(),
+            defaultRole: defaultRole == null || defaultRole.isEmpty
+                ? null
+                : defaultRole,
+          );
+        })
+        .toList(growable: false);
+  }
 
   @override
   Future<List<InterviewSessionSummaryRecord>> listSessions() async {
@@ -234,7 +284,12 @@ class BackendInterviewRepository implements InterviewRepository {
     return _decodeResponse(response);
   }
 
-  Future<Map<String, dynamic>> _get(String path) async {
+  Future<Map<String, dynamic>> _get(
+    String path, {
+    String timeoutMessage = 'Sesi interview belum berhasil dimuat. Coba lagi.',
+    String connectionMessage =
+        'Sesi interview belum dapat dihubungi. Periksa koneksi lalu coba lagi.',
+  }) async {
     _ensureAuthenticated();
 
     final Uri uri = Uri.parse('${_config.baseUrl}$path');
@@ -244,13 +299,9 @@ class BackendInterviewRepository implements InterviewRepository {
           .get(uri, headers: _headers)
           .timeout(_config.requestTimeout);
     } on TimeoutException {
-      throw const InterviewApiException(
-        'Sesi interview belum berhasil dimuat. Coba lagi.',
-      );
+      throw InterviewApiException(timeoutMessage);
     } on http.ClientException {
-      throw const InterviewApiException(
-        'Sesi interview belum dapat dihubungi. Periksa koneksi lalu coba lagi.',
-      );
+      throw InterviewApiException(connectionMessage);
     }
 
     return _decodeResponse(response);

@@ -1,6 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 
+const defaultRoles = {
+  'adhi-karya': 'Management Trainee',
+  'bank-indonesia': 'Asisten Manajer',
+  'bank-mandiri': 'Officer Development Program',
+  'garuda-indonesia': 'Management Trainee',
+  'kementerian-keuangan': 'Staf Pengelola Keuangan Negara',
+  pertamina: 'Bimbingan Profesi Sarjana',
+};
+
 function escapeSql(text) {
   if (typeof text !== 'string') text = String(text || '');
   return text.replace(/'/g, "''");
@@ -27,13 +36,24 @@ function stringifyVal(val) {
 }
 
 function parseFixture(companyId, json) {
+  const companies = Array.isArray(json.companies) ? json.companies : [];
+  const matchingNestedCompany =
+    companyId === 'perusahaan-listrik-negara'
+      ? companies.find((company) => company.name?.includes('PLN'))
+      : companies[0];
   const name =
     json.company_identity?.full_name ||
+    json.company_identity?.legal_name ||
+    json.company_identity?.brand_name ||
     json.institution_identity?.full_name ||
     json.company?.name ||
+    json.company?.nama_lengkap ||
     json.company_name ||
     json.profile?.name ||
+    matchingNestedCompany?.name ||
     companyId;
+  const defaultRole =
+    json.profile?.defaultTargetRole || defaultRoles[companyId] || null;
 
   const historyBrief =
     json.history?.brief ||
@@ -64,7 +84,7 @@ function parseFixture(companyId, json) {
       });
       priority += 10;
     }
-    return { name, summary, contexts };
+    return { name, summary, defaultRole, contexts };
   }
 
   // 1. History & Overview
@@ -239,7 +259,7 @@ function parseFixture(companyId, json) {
     }
   }
 
-  return { name, summary, contexts };
+  return { name, summary, defaultRole, contexts };
 }
 
 function run() {
@@ -262,19 +282,20 @@ function run() {
     const raw = fs.readFileSync(path.join(fixturesDir, file), 'utf-8');
     const json = JSON.parse(raw);
 
-    const { name, summary, contexts } = parseFixture(companyId, json);
+    const { name, summary, defaultRole, contexts } = parseFixture(companyId, json);
+    const defaultRoleSql = defaultRole == null ? 'NULL' : `'${escapeSql(defaultRole)}'`;
 
     sqlLines.push(`-- ----------------------------------------------------------------------------`);
     sqlLines.push(`-- Company: ${name} (${companyId})`);
     sqlLines.push(`-- ----------------------------------------------------------------------------`);
     sqlLines.push(
-      `INSERT INTO public.interview_company_profiles (id, name, summary, content_version)`
+      `INSERT INTO public.interview_company_profiles (id, name, summary, content_version, default_role)`
     );
     sqlLines.push(
-      `VALUES ('${companyId}', '${escapeSql(name)}', '${escapeSql(summary)}', 'v1')`
+      `VALUES ('${companyId}', '${escapeSql(name)}', '${escapeSql(summary)}', 'v1', ${defaultRoleSql})`
     );
     sqlLines.push(
-      `ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, updated_at = now();`
+      `ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, default_role = COALESCE(EXCLUDED.default_role, interview_company_profiles.default_role), updated_at = now();`
     );
     sqlLines.push('');
     sqlLines.push(`DELETE FROM public.interview_company_contexts WHERE company_id = '${companyId}';`);

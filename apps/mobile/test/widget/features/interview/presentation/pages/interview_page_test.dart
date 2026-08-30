@@ -11,6 +11,7 @@ import 'package:yudha_mobile/features/interview/data/audio/live_interview_audio_
 import 'package:yudha_mobile/features/interview/data/audio/live_interview_audio_player.dart';
 import 'package:yudha_mobile/features/interview/data/repositories/interview_repository.dart';
 import 'package:yudha_mobile/features/interview/data/repositories/live_interview_speech_client.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_company_option.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_message.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_session_record.dart';
@@ -422,6 +423,11 @@ const String _openingQuestion =
 
 class _InterviewPageRepository implements InterviewRepository {
   @override
+  Future<List<InterviewCompanyOption>> listCompanies() async {
+    return const <InterviewCompanyOption>[];
+  }
+
+  @override
   Future<InterviewStartResult> startSession(
     InterviewLaunchConfig config,
   ) async {
@@ -481,6 +487,11 @@ class _InterviewPageRepository implements InterviewRepository {
 
 class _CompletedInterviewRepository implements InterviewRepository {
   const _CompletedInterviewRepository();
+
+  @override
+  Future<List<InterviewCompanyOption>> listCompanies() async {
+    return const <InterviewCompanyOption>[];
+  }
 
   @override
   Future<InterviewSessionDetailRecord> getSession(String sessionId) async {

@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:yudha_mobile/features/interview/application/interview_controller.dart';
 import 'package:yudha_mobile/features/interview/application/interview_state.dart';
 import 'package:yudha_mobile/features/interview/data/repositories/interview_repository.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_company_option.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_message.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_session_record.dart';
@@ -167,6 +168,11 @@ class _FakeInterviewRepository implements InterviewRepository {
   final InterviewSessionDetailRecord? resumedDetail;
   final List<Object> submissionFailures;
   final List<String> submittedKeys = <String>[];
+
+  @override
+  Future<List<InterviewCompanyOption>> listCompanies() async {
+    return const <InterviewCompanyOption>[];
+  }
 
   @override
   Future<InterviewSessionDetailRecord> getSession(String sessionId) async {

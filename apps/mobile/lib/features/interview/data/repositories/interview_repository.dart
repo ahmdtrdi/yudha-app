@@ -1,8 +1,11 @@
+import 'package:yudha_mobile/features/interview/domain/entities/interview_company_option.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_message.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_session_record.dart';
 
 abstract class InterviewRepository {
+  Future<List<InterviewCompanyOption>> listCompanies();
+
   Future<InterviewStartResult> startSession(InterviewLaunchConfig config);
 
   Future<List<InterviewSessionSummaryRecord>> listSessions();

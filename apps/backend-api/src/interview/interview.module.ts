@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseModule } from '../supabase/supabase.module';
 import { INTERVIEW_LLM_CLIENT } from './interview.constants';
+import { InterviewCompanyController } from './interview-company.controller';
 import { InterviewController } from './interview.controller';
 import { InterviewSpeechController } from './interview-speech.controller';
 import { InterviewService } from './interview.service';
@@ -29,7 +30,11 @@ import { InterviewSummaryService } from './services/interview-summary.service';
 
 @Module({
   imports: [SupabaseModule],
-  controllers: [InterviewController, InterviewSpeechController],
+  controllers: [
+    InterviewController,
+    InterviewCompanyController,
+    InterviewSpeechController,
+  ],
   providers: [
     InterviewService,
     InterviewSpeechService,
