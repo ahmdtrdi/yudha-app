@@ -2701,3 +2701,25 @@
 ### The Tech Debt
 - Physical Android validation should confirm long-hold ergonomics and pointer behavior with TalkBack before release.
 
+## 2026-08-30 - Backend-Driven Interview Company Catalog
+
+### The Change
+- Replaced the static, profile-target-filtered interview company list with an authenticated catalog loaded through `InterviewRepository` and a Riverpod `FutureProvider`.
+- Added a nullable `InterviewCompanyOption.defaultRole`, selected the first backend result by default, and preserved automatic role suggestions when the backend provides one.
+- Made every backend company available to CPNS and BUMN users while retaining the profile target only as setup-page context.
+- Added dedicated loading, empty, failure, retry, and disabled-launch states; companies without a suggested role now require explicit role input.
+- Resolved active-session company names from the loaded catalog with humanized IDs as the fallback.
+
+### The Reasoning
+- Interview companies and their display metadata are backend-owned content, so Flutter should not maintain a second catalog that can drift from Supabase.
+- An explicit retry state exposes catalog/API failures instead of silently masking them with an incomplete bundled fallback.
+
+### Verification
+- All 33 interview-focused Flutter unit and widget tests passed, including CPNS visibility, nullable role validation, catalog loading, empty, failure, and retry states.
+- Targeted Dart analysis for `lib/features/interview` passed with no issues.
+- Full Flutter analysis reached only two pre-existing deprecation notices in the unrelated economy payment modal.
+
+### The Tech Debt
+- The catalog currently exposes every company profile because `interview_company_profiles` has no activation flag or target classification. Add explicit metadata before product requirements need draft hiding or CPNS/BUMN segmentation.
+- InJourney, KAI, and PLN intentionally have no default role until curated suggestions are added to backend-owned data.
+
