@@ -40,6 +40,7 @@ class CosmeticItem {
     required this.price,
     this.assetPath,
     this.battleAssetPath,
+    this.destroyedAssetPath,
     this.characterVisuals,
     this.passExclusive = false,
   });
@@ -52,6 +53,7 @@ class CosmeticItem {
   final int price;
   final String? assetPath;
   final String? battleAssetPath;
+  final String? destroyedAssetPath;
   final CharacterVisualAssets? characterVisuals;
   final bool passExclusive;
 }

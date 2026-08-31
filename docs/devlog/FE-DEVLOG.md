@@ -2723,3 +2723,27 @@
 - The catalog currently exposes every company profile because `interview_company_profiles` has no activation flag or target classification. Add explicit metadata before product requirements need draft hiding or CPNS/BUMN segmentation.
 - InJourney, KAI, and PLN intentionally have no default role until curated suggestions are added to backend-owned data.
 
+## 2026-08-31 - Arena Art Rework and Free Visual Arena Selection
+
+### The Change
+- Integrated all 39 supplied art assets: four full arena backgrounds, four poses for each of six characters, seven question-card faces, and intact/destroyed states for both towers.
+- Replaced the legacy Squire/Pip presentation with Ody/Opy art while preserving their stable backend item IDs, and refreshed the remaining character and tower visuals without changing economy ownership.
+- Reworked the PvP arena picker into a four-option grid and separated the selected visual arena from the CPNS/BUMN learning target. The target still owns question content and matchmaking; the arena is now a free visual preference.
+- Rendered the selected background inside the live battle board, mapped every supported question category to its new card art, and switched towers to their dedicated destroyed asset at zero HP.
+- Added the four free arenas to the canonical store contract and a Supabase migration that activates them, grants them to existing players, updates legacy loadouts, and assigns the new default to future players.
+
+### The Reasoning
+- Arena scenery is cosmetic and should not silently change the player's question bank. Keeping the visual choice independent avoids conflating progression content with presentation while preserving the existing two matchmaking pools.
+- Stable character and tower IDs avoid invalidating inventories, Hired Pass rewards, cached loadouts, and server records during the visual replacement.
+- Dedicated destroyed tower sprites communicate battle state more clearly than applying opacity and grayscale to the intact artwork alone.
+
+### Verification
+- All 148 Flutter tests passed, including arena selection independent of profile target, new asset rendering, and destroyed-tower transitions.
+- Flutter release web build completed successfully; analysis found no errors and only the two pre-existing Radio deprecation notices in the payment modal.
+- Gate 0 catalog validation and all eight infra tests passed after adding `arena` to the canonical item-type contract.
+- Static asset audit confirmed all 39 supplied files exist in the bundle and every one is referenced by runtime code; `git diff --check` passed.
+
+### The Tech Debt
+- The supplied character pack does not include replacement projectile art, so battle projectiles still use the existing per-character WebP assets.
+- Automated browser visual inspection was unavailable because the browser runtime could not initialize its Windows kernel assets. A physical-device pass should still confirm final crop and scale across the four background aspect ratios.
+

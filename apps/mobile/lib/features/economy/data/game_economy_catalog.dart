@@ -41,22 +41,22 @@ class PassReward {
 abstract final class GameEconomyCatalog {
   static const String defaultCharacterId = 'character-basic-squire';
   static const String defaultTowerId = 'tower-garda-biru';
-  static const String defaultArenaId = 'arena-cpns';
+  static const String defaultArenaId = 'arena-padang-harmoni';
 
   static const List<CosmeticItem> characters = <CosmeticItem>[
     CosmeticItem(
       id: defaultCharacterId,
-      name: 'Squire',
-      description: 'Ksatria pemula yang tangguh dan selalu siap berlatih.',
+      name: 'Ody',
+      description: 'Ksatria muda yang tangguh dan selalu siap berlatih.',
       type: CosmeticType.character,
       rarity: CosmeticRarity.common,
       price: 0,
-      assetPath: 'assets/game/basic_squire_idle.webp',
+      assetPath: 'assets/game/basic_ody_idle.png',
       characterVisuals: CharacterVisualAssets(
-        idle: 'assets/game/basic_squire_idle.webp',
-        ready: 'assets/game/basic_squire_ready.webp',
-        attack: 'assets/game/basic_squire_attack.webp',
-        hit: 'assets/game/basic_squire_hit.webp',
+        idle: 'assets/game/basic_ody_idle.png',
+        ready: 'assets/game/basic_ody_ready.png',
+        attack: 'assets/game/basic_ody_attack.png',
+        hit: 'assets/game/basic_ody_hit.png',
         projectiles: <String>[
           'assets/game/basic_squire_proj1.webp',
           'assets/game/basic_squire_proj2.webp',
@@ -66,17 +66,17 @@ abstract final class GameEconomyCatalog {
     ),
     CosmeticItem(
       id: 'character-basic-pip',
-      name: 'Pip',
+      name: 'Opy',
       description: 'Pemanah lincah dengan serangan alam yang presisi.',
       type: CosmeticType.character,
       rarity: CosmeticRarity.common,
       price: 500,
-      assetPath: 'assets/game/basic_pip_idle.webp',
+      assetPath: 'assets/game/basic_opy_idle.png',
       characterVisuals: CharacterVisualAssets(
-        idle: 'assets/game/basic_pip_idle.webp',
-        ready: 'assets/game/basic_pip_ready.webp',
-        attack: 'assets/game/basic_pip_attack.webp',
-        hit: 'assets/game/basic_pip_hit.webp',
+        idle: 'assets/game/basic_opy_idle.png',
+        ready: 'assets/game/basic_opy_ready.png',
+        attack: 'assets/game/basic_opy_attack.png',
+        hit: 'assets/game/basic_opy_hit.png',
         projectiles: <String>[
           'assets/game/basic_pip_proj1.webp',
           'assets/game/basic_pip_proj2.webp',
@@ -91,12 +91,12 @@ abstract final class GameEconomyCatalog {
       type: CosmeticType.character,
       rarity: CosmeticRarity.rare,
       price: 900,
-      assetPath: 'assets/game/rare_ignis_idle.webp',
+      assetPath: 'assets/game/rare_ignis_idle.png',
       characterVisuals: CharacterVisualAssets(
-        idle: 'assets/game/rare_ignis_idle.webp',
-        ready: 'assets/game/rare_ignis_ready.webp',
-        attack: 'assets/game/rare_ignis_attack.webp',
-        hit: 'assets/game/rare_ignis_hit.webp',
+        idle: 'assets/game/rare_ignis_idle.png',
+        ready: 'assets/game/rare_ignis_ready.png',
+        attack: 'assets/game/rare_ignis_attack.png',
+        hit: 'assets/game/rare_ignis_hit.png',
         projectiles: <String>[
           'assets/game/rare_ignis_proj1.webp',
           'assets/game/rare_ignis_proj2.webp',
@@ -111,12 +111,12 @@ abstract final class GameEconomyCatalog {
       type: CosmeticType.character,
       rarity: CosmeticRarity.rare,
       price: 1100,
-      assetPath: 'assets/game/rare_brock_idle.webp',
+      assetPath: 'assets/game/rare_brock_idle.png',
       characterVisuals: CharacterVisualAssets(
-        idle: 'assets/game/rare_brock_idle.webp',
-        ready: 'assets/game/rare_brock_ready.webp',
-        attack: 'assets/game/rare_brock_attack.webp',
-        hit: 'assets/game/rare_brock_hit.webp',
+        idle: 'assets/game/rare_brock_idle.png',
+        ready: 'assets/game/rare_brock_ready.png',
+        attack: 'assets/game/rare_brock_attack.png',
+        hit: 'assets/game/rare_brock_hit.png',
         projectiles: <String>[
           'assets/game/rare_brock_proj1.webp',
           'assets/game/rare_brock_proj2.webp',
@@ -131,12 +131,12 @@ abstract final class GameEconomyCatalog {
       type: CosmeticType.character,
       rarity: CosmeticRarity.legendary,
       price: 2200,
-      assetPath: 'assets/game/legend_drakor_idle.webp',
+      assetPath: 'assets/game/legend_drakor_idle.png',
       characterVisuals: CharacterVisualAssets(
-        idle: 'assets/game/legend_drakor_idle.webp',
-        ready: 'assets/game/legend_drakor_ready.webp',
-        attack: 'assets/game/legend_drakor_attack.webp',
-        hit: 'assets/game/legend_drakor_hit.webp',
+        idle: 'assets/game/legend_drakor_idle.png',
+        ready: 'assets/game/legend_drakor_ready.png',
+        attack: 'assets/game/legend_drakor_attack.png',
+        hit: 'assets/game/legend_drakor_hit.png',
         projectiles: <String>[
           'assets/game/legend_drakor_proj1.webp',
           'assets/game/legend_drakor_proj2.webp',
@@ -151,12 +151,12 @@ abstract final class GameEconomyCatalog {
       type: CosmeticType.character,
       rarity: CosmeticRarity.legendary,
       price: 2500,
-      assetPath: 'assets/game/legend_luna_idle.webp',
+      assetPath: 'assets/game/legend_luna_idle.png',
       characterVisuals: CharacterVisualAssets(
-        idle: 'assets/game/legend_luna_idle.webp',
-        ready: 'assets/game/legend_luna_ready.webp',
-        attack: 'assets/game/legend_luna_attack.webp',
-        hit: 'assets/game/legend_luna_hit.webp',
+        idle: 'assets/game/legend_luna_idle.png',
+        ready: 'assets/game/legend_luna_ready.png',
+        attack: 'assets/game/legend_luna_attack.png',
+        hit: 'assets/game/legend_luna_hit.png',
         projectiles: <String>[
           'assets/game/legend_luna_proj1.webp',
           'assets/game/legend_luna_proj2.webp',
@@ -174,39 +174,59 @@ abstract final class GameEconomyCatalog {
       type: CosmeticType.tower,
       rarity: CosmeticRarity.common,
       price: 0,
-      assetPath: 'assets/game/arena_tower_blue.webp',
-      battleAssetPath: 'assets/game/arena_turret_blue.webp',
+      assetPath: 'assets/game/tower_garda_biru.png',
+      battleAssetPath: 'assets/game/tower_garda_biru.png',
+      destroyedAssetPath: 'assets/game/tower_garda_biru_destroyed.png',
     ),
     CosmeticItem(
       id: 'tower-benteng-bara',
       name: 'Benteng Bara',
-      description: 'Menara coral hangat dengan ukiran emas.',
+      description: 'Menara batu hitam yang diperkuat aliran magma.',
       type: CosmeticType.tower,
       rarity: CosmeticRarity.rare,
       price: 650,
-      assetPath: 'assets/game/arena_tower_coral.webp',
-      battleAssetPath: 'assets/game/arena_turret_coral.webp',
+      assetPath: 'assets/game/tower_benteng_bara.png',
+      battleAssetPath: 'assets/game/tower_benteng_bara.png',
+      destroyedAssetPath: 'assets/game/tower_benteng_bara_destroyed.png',
     ),
   ];
 
   static const List<CosmeticItem> arenas = <CosmeticItem>[
     CosmeticItem(
-      id: defaultArenaId,
-      name: 'Arena CPNS',
-      description: 'Uji wawasan kebangsaan, numerik, verbal, dan logika.',
+      id: 'arena-lembah-bara',
+      name: 'Lembah Bara',
+      description: 'Lembah hijau yang berhadapan langsung dengan kawah api.',
       type: CosmeticType.arena,
       rarity: CosmeticRarity.common,
       price: 0,
-      assetPath: 'assets/game/arena_cpns.webp',
+      assetPath: 'assets/game/arena_valley_bara.png',
     ),
     CosmeticItem(
-      id: 'arena-bumn',
-      name: 'Arena BUMN',
-      description: 'Soal AKHLAK, verbal, numerik, dan logika kerja.',
+      id: defaultArenaId,
+      name: 'Padang Harmoni',
+      description: 'Padang bunga cerah untuk duel yang tenang dan sportif.',
       type: CosmeticType.arena,
       rarity: CosmeticRarity.common,
       price: 0,
-      assetPath: 'assets/game/arena_bumn.webp',
+      assetPath: 'assets/game/arena_padang_harmoni.png',
+    ),
+    CosmeticItem(
+      id: 'arena-gurun-cendekia',
+      name: 'Gurun Cendekia',
+      description: 'Arena tandus terbuka untuk adu strategi tanpa gangguan.',
+      type: CosmeticType.arena,
+      rarity: CosmeticRarity.common,
+      price: 0,
+      assetPath: 'assets/game/arena_gurun_cendekia.png',
+    ),
+    CosmeticItem(
+      id: 'arena-rimba-yudha',
+      name: 'Rimba Yudha',
+      description: 'Rimba teduh dengan cahaya alami di tengah medan duel.',
+      type: CosmeticType.arena,
+      rarity: CosmeticRarity.common,
+      price: 0,
+      assetPath: 'assets/game/arena_rimba_yudha.png',
     ),
   ];
 
@@ -278,7 +298,7 @@ abstract final class GameEconomyCatalog {
       id: 'premium-600-character',
       pointsRequired: 600,
       track: PassTrack.premium,
-      label: 'Pip',
+      label: 'Opy',
       cosmeticItemId: 'character-basic-pip',
     ),
     PassReward(
@@ -300,6 +320,7 @@ abstract final class GameEconomyCatalog {
   static List<CosmeticItem> get cosmetics => <CosmeticItem>[
     ...characters,
     ...towers,
+    ...arenas,
   ];
 
   static CosmeticItem? findCosmetic(String itemId) {
