@@ -7,3 +7,4 @@ docs-archive/
 *.tsbuildinfo
 apps/backend-api/src/interview/harness/fixtures
 /motion-graphic
+.vercel
