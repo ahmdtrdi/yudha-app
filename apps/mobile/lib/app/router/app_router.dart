@@ -15,11 +15,13 @@ import 'package:yudha_mobile/features/lobby/presentation/pages/lobby_page.dart';
 import 'package:yudha_mobile/features/onboarding/presentation/pages/splash_page.dart';
 import 'package:yudha_mobile/features/pass/presentation/pages/hired_pass_page.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_history_page.dart';
-import 'package:yudha_mobile/features/practice/presentation/pages/practice_page.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_quiz_page.dart';
 import 'package:yudha_mobile/features/profile/presentation/pages/profile_onboarding_page.dart';
 import 'package:yudha_mobile/features/profile/presentation/pages/profile_page.dart';
 import 'package:yudha_mobile/features/pvp/presentation/pages/pvp_page.dart';
+import 'package:yudha_mobile/features/solo/presentation/pages/solo_loadout_page.dart';
+import 'package:yudha_mobile/features/solo/presentation/pages/solo_setup_page.dart';
+import 'package:yudha_mobile/features/solo/presentation/pages/solo_topic_selection_page.dart';
 import 'package:yudha_mobile/features/store/presentation/pages/store_page.dart';
 
 String? appRedirect({required bool isAuthenticated, required Uri uri}) {
@@ -117,11 +119,15 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
           ),
           GoRoute(
             path: AppRoutes.solo,
-            builder: (context, state) => PracticePage(
-              focusCategory: state.extra is String
-                  ? state.extra as String
-                  : null,
-            ),
+            builder: (context, state) => const SoloSetupPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.soloTopics,
+            builder: (context, state) => const SoloTopicSelectionPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.soloLoadout,
+            builder: (context, state) => const SoloLoadoutPage(),
           ),
           GoRoute(
             path: AppRoutes.soloSession,

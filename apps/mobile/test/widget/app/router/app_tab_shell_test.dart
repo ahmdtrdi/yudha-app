@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/app/router/app_tab_shell.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
+import 'package:yudha_mobile/features/solo/presentation/pages/solo_setup_page.dart';
 
 void main() {
   testWidgets('renders the new icon-only navigation order', (
@@ -129,5 +131,49 @@ void main() {
     await tester.tapAt(const Offset(20, 100));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey<String>('learning-menu')), findsNothing);
+  });
+
+  testWidgets('opens the Solo setup from the Learning menu', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final GoRouter router = GoRouter(
+      initialLocation: AppRoutes.lobby,
+      routes: <RouteBase>[
+        ShellRoute(
+          builder: (BuildContext context, GoRouterState state, Widget child) {
+            return AppTabShell(location: state.uri.path, child: child);
+          },
+          routes: <RouteBase>[
+            GoRoute(
+              path: AppRoutes.lobby,
+              builder: (_, _) => const ColoredBox(color: Colors.white),
+            ),
+            GoRoute(
+              path: AppRoutes.solo,
+              builder: (_, _) => const SoloSetupPage(),
+            ),
+          ],
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(child: MaterialApp.router(routerConfig: router)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey<String>('app-tab-Learning')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('learning-menu-surface-Solo')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(router.routeInformationProvider.value.uri.path, AppRoutes.solo);
+    expect(find.text('PILIH MODE'), findsOneWidget);
   });
 }

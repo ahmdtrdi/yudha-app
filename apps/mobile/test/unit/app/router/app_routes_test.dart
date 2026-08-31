@@ -10,6 +10,8 @@ void main() {
       AppRoutes.leaderboard,
       AppRoutes.analytics,
       AppRoutes.solo,
+      AppRoutes.soloTopics,
+      AppRoutes.soloLoadout,
       AppRoutes.soloHistory,
       AppRoutes.soloSession,
       AppRoutes.profile,

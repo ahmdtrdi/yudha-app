@@ -2776,3 +2776,23 @@
 ### The Tech Debt
 - The models remain intentionally disconnected until the Solo setup UI commit; operational mechanics, selection, recommendation, delivery, rewards, and `/solo` APIs remain gated by the Step 5a decisions.
 
+## 2026-09-01 - Solo Session Setup UI
+
+### The Change
+- Replaced `/solo`'s legacy Practice landing with a clay setup flow for Auto, Balanced, Recommended, and Custom; each option uses an existing PvP arena as its visual identity while unavailable recommendation-backed choices remain explicit.
+- Refined the setup hierarchy with a blue clay top bar and solid dark-blue lower base, a concise mode label, shorter card copy, and a persistent outlined `UTAMA` treatment that makes Auto visually discoverable without hiding its unavailable status.
+- Added `/solo/topics` by adapting the existing Practice taxonomy UI without its AI Interview action or session mutation, then added `/solo/loadout` with a responsive pace sheet, mode-themed arena, large selected-character preview, owned/locked character cards sourced from the PvP economy catalog, and persisted Riverpod setup state.
+- Simplified the loadout into `ATUR LATIHAN`, removed its duplicate configuration preview and selected-name label, compacted the arena and character carousel, grounded the transparent character art with a soft shadow, and reserved navbar clearance so the start action remains visible on standard phone heights.
+- Enlarged the arena to a near-square preview and increased character-card size; locked character art now uses an alpha-preserving grayscale matrix instead of `BlendMode.saturation`, preventing gray image rectangles around transparent PNGs.
+- Made Solo setup state auto-dispose after the whole Solo route stack is exited and reset when Loadout is popped, so returning to `PILIH MODE` starts without a stale selection while setup still survives forward navigation into Topics, Loadout, or Store.
+- Kept the final Start action presentational: it reports that the configuration is saved but performs no API call, grading, timing, reward, or evidence mutation.
+
+### The Reasoning
+- Separating question selection from pace and character preparation keeps each screen focused, while reusing PvP assets and legacy taxonomy reads avoids duplicate catalogs without misrepresenting category filters as stable V2 skill IDs.
+
+### Verification
+- All 25 focused Solo contract/setup, Practice compatibility, router, and navbar tests passed, including a real Learning-menu-to-`/solo` navigation check; targeted Dart analysis reported no issues; responsive tests cover short-screen cards and the scrollable pace sheet; and `git diff --check` completed cleanly.
+
+### The Tech Debt
+- Auto and Recommended remain unavailable until authoritative recommendation data exists; legacy Custom topics remain category/subcategory references; and Focus, Standard, Speed, question selection, character submission, and `/solo/sessions` execution remain intentionally deferred to the approved policy and operational commits.
+

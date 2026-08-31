@@ -10,6 +10,8 @@ abstract final class AppRoutes {
   static const String leaderboard = '/leaderboard';
   static const String analytics = '/analytics';
   static const String solo = '/solo';
+  static const String soloTopics = '/solo/topics';
+  static const String soloLoadout = '/solo/loadout';
   static const String soloHistory = '/solo/history';
   static const String soloSession = '/solo/session';
   static const String profile = '/profile';
@@ -36,6 +38,8 @@ abstract final class AppRoutes {
     leaderboard,
     analytics,
     solo,
+    soloTopics,
+    soloLoadout,
     soloHistory,
     soloSession,
     profile,
