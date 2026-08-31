@@ -24,6 +24,10 @@ class GameEconomyState {
       ownedItemIds: const <String>{
         GameEconomyCatalog.defaultCharacterId,
         GameEconomyCatalog.defaultTowerId,
+        'arena-lembah-bara',
+        GameEconomyCatalog.defaultArenaId,
+        'arena-gurun-cendekia',
+        'arena-rimba-yudha',
       },
       equippedCharacterId: GameEconomyCatalog.defaultCharacterId,
       equippedTowerId: GameEconomyCatalog.defaultTowerId,

@@ -77,7 +77,7 @@ String? _assetName(ImageProvider<Object> provider) {
 }
 
 void main() {
-  testWidgets('locks arenas that do not match the profile target', (
+  testWidgets('allows every arena regardless of the profile target', (
     WidgetTester tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(411, 914));
@@ -109,30 +109,26 @@ void main() {
 
     expect(
       find.text(
-        'Tujuan CPNS aktif. Arena lain terkunci agar materi dan '
-        'lawan tetap sesuai tujuan belajarmu.',
+        'Semua arena bebas dipilih. Materi dan lawan tetap mengikuti target CPNS.',
       ),
       findsOneWidget,
     );
-    expect(find.text('Terkunci'), findsOneWidget);
-    expect(find.text('Arena CPNS'), findsOneWidget);
-    expect(find.text('BUMN'), findsOneWidget);
+    expect(find.text('Terkunci'), findsNothing);
+    expect(find.text('Padang Harmoni'), findsWidgets);
+    expect(find.text('Lembah Bara'), findsOneWidget);
+    expect(find.text('Gurun Cendekia'), findsOneWidget);
+    expect(find.text('Rimba Yudha'), findsOneWidget);
 
-    await tester.tap(
-      find.byKey(const ValueKey<String>('arena-choice-arena-bumn')),
+    final Finder gurunChoice = find.byKey(
+      const ValueKey<String>('arena-choice-arena-gurun-cendekia'),
     );
-    await tester.pump();
+    await tester.ensureVisible(gurunChoice);
+    await tester.tap(gurunChoice);
+    await tester.pumpAndSettle();
 
     expect(
       container.read(gameEconomyProvider).equippedArenaId,
-      GameEconomyCatalog.defaultArenaId,
-    );
-    expect(
-      find.text(
-        'Arena ini terkunci untuk tujuan CPNS. Pindah tujuan Anda di '
-        'Pengaturan jika ingin bermain di Arena BUMN.',
-      ),
-      findsOneWidget,
+      'arena-gurun-cendekia',
     );
 
     container
@@ -141,10 +137,12 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(container.read(gameEconomyProvider).equippedArenaId, 'arena-bumn');
-    expect(find.text('Arena BUMN'), findsOneWidget);
-    expect(find.text('CPNS'), findsOneWidget);
-    expect(find.text('Terkunci'), findsOneWidget);
+    expect(
+      container.read(gameEconomyProvider).equippedArenaId,
+      'arena-gurun-cendekia',
+    );
+    expect(find.textContaining('target BUMN'), findsOneWidget);
+    expect(find.text('Terkunci'), findsNothing);
   });
 
   testWidgets('follows arena, loadout, and mode setup flow', (
@@ -172,8 +170,8 @@ void main() {
     await tester.pump();
 
     expect(find.text('Mau bertanding di mana?'), findsOneWidget);
-    expect(find.text('Arena CPNS'), findsOneWidget);
-    expect(find.text('BUMN'), findsOneWidget);
+    expect(find.text('Padang Harmoni'), findsWidgets);
+    expect(find.text('Lembah Bara'), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('arena-selected-showcase')),
       findsOneWidget,
@@ -188,12 +186,17 @@ void main() {
     );
     expect(tester.getTopLeft(find.text('01  PILIH ARENA')).dy, lessThan(100));
 
-    await tester.tap(
-      find.byKey(const ValueKey<String>('arena-choice-arena-bumn')),
+    final Finder baraChoice = find.byKey(
+      const ValueKey<String>('arena-choice-arena-lembah-bara'),
     );
-    await tester.pump();
+    await tester.ensureVisible(baraChoice);
+    await tester.tap(baraChoice);
+    await tester.pumpAndSettle();
 
-    expect(container.read(gameEconomyProvider).equippedArenaId, 'arena-bumn');
+    expect(
+      container.read(gameEconomyProvider).equippedArenaId,
+      'arena-lembah-bara',
+    );
 
     await tester.tap(find.byKey(const ValueKey<String>('continue-to-loadout')));
     await tester.pumpAndSettle();
@@ -586,7 +589,7 @@ void main() {
       find.byWidgetPredicate(
         (Widget widget) =>
             widget is Image &&
-            _assetName(widget.image) == 'assets/game/rare_ignis_idle.webp',
+            _assetName(widget.image) == 'assets/game/rare_ignis_idle.png',
       ),
       findsWidgets,
     );
@@ -594,7 +597,7 @@ void main() {
       find.byWidgetPredicate(
         (Widget widget) =>
             widget is Image &&
-            _assetName(widget.image) == 'assets/game/arena_turret_coral.webp',
+            _assetName(widget.image) == 'assets/game/tower_benteng_bara.png',
       ),
       findsWidgets,
     );
@@ -602,7 +605,7 @@ void main() {
       find.byWidgetPredicate(
         (Widget widget) =>
             widget is Image &&
-            _assetName(widget.image) == 'assets/game/card_twk.webp',
+            _assetName(widget.image) == 'assets/game/card_twk.png',
       ),
       findsOneWidget,
     );
@@ -688,6 +691,7 @@ void main() {
       ),
     );
     await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
 
     await tester.tap(find.byTooltip('Opsi battle'));
     await tester.pump(const Duration(milliseconds: 300));
@@ -1031,6 +1035,16 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('RONDE SELESAI'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        find.byWidgetPredicate(
+          (Widget widget) =>
+              widget is Image &&
+              _assetName(widget.image) ==
+                  'assets/game/tower_benteng_bara_destroyed.png',
+        ),
+        findsWidgets,
+      );
 
       // Emit match finished
       online.emit(

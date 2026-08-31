@@ -41,7 +41,10 @@ class _InBattleSection extends StatefulWidget {
     required this.playerCharacter,
     required this.opponentCharacter,
     required this.playerTowerAsset,
+    required this.playerDestroyedTowerAsset,
     required this.opponentTowerAsset,
+    required this.opponentDestroyedTowerAsset,
+    required this.arenaAsset,
     required this.arenaTheme,
     required this.soundEnabled,
     required this.hapticsEnabled,
@@ -57,7 +60,10 @@ class _InBattleSection extends StatefulWidget {
   final CharacterVisualAssets playerCharacter;
   final CharacterVisualAssets opponentCharacter;
   final String playerTowerAsset;
+  final String playerDestroyedTowerAsset;
   final String opponentTowerAsset;
+  final String opponentDestroyedTowerAsset;
+  final String arenaAsset;
   final ArenaVisualTheme arenaTheme;
   final bool soundEnabled;
   final bool hapticsEnabled;
@@ -186,7 +192,10 @@ class _InBattleSectionState extends State<_InBattleSection>
     }
     for (final String asset in <String>[
       widget.playerTowerAsset,
+      widget.playerDestroyedTowerAsset,
       widget.opponentTowerAsset,
+      widget.opponentDestroyedTowerAsset,
+      widget.arenaAsset,
     ]) {
       unawaited(
         precacheImage(
@@ -200,6 +209,9 @@ class _InBattleSectionState extends State<_InBattleSection>
       _verbalCardAsset,
       _logikaCardAsset,
       _twkCardAsset,
+      _akhlakCardAsset,
+      _figuralCardAsset,
+      _tkpCardAsset,
     ]) {
       unawaited(
         precacheImage(
@@ -729,7 +741,12 @@ class _InBattleSectionState extends State<_InBattleSection>
                           playerCharacter: widget.playerCharacter,
                           opponentCharacter: widget.opponentCharacter,
                           playerTowerAsset: widget.playerTowerAsset,
+                          playerDestroyedTowerAsset:
+                              widget.playerDestroyedTowerAsset,
                           opponentTowerAsset: widget.opponentTowerAsset,
+                          opponentDestroyedTowerAsset:
+                              widget.opponentDestroyedTowerAsset,
+                          arenaAsset: widget.arenaAsset,
                           playerPose: _playerPose,
                           opponentPose: _opponentPose,
                           arenaTheme: widget.arenaTheme,
@@ -1301,7 +1318,10 @@ class _ArenaBoard extends StatelessWidget {
     required this.playerCharacter,
     required this.opponentCharacter,
     required this.playerTowerAsset,
+    required this.playerDestroyedTowerAsset,
     required this.opponentTowerAsset,
+    required this.opponentDestroyedTowerAsset,
+    required this.arenaAsset,
     required this.playerPose,
     required this.opponentPose,
     required this.arenaTheme,
@@ -1322,7 +1342,10 @@ class _ArenaBoard extends StatelessWidget {
   final CharacterVisualAssets playerCharacter;
   final CharacterVisualAssets opponentCharacter;
   final String playerTowerAsset;
+  final String playerDestroyedTowerAsset;
   final String opponentTowerAsset;
+  final String opponentDestroyedTowerAsset;
+  final String arenaAsset;
   final _CharacterPose playerPose;
   final _CharacterPose opponentPose;
   final ArenaVisualTheme arenaTheme;
@@ -1368,7 +1391,24 @@ class _ArenaBoard extends StatelessWidget {
             return Stack(
               children: <Widget>[
                 Positioned.fill(
-                  child: CustomPaint(painter: _ClayArenaPainter(arenaTheme)),
+                  child: Image.asset(
+                    arenaAsset,
+                    key: const ValueKey<String>('battle-arena-background'),
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
+                    cacheWidth: 1024,
+                    filterQuality: FilterQuality.medium,
+                  ),
+                ),
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: 0.10,
+                      child: CustomPaint(
+                        painter: _ClayArenaPainter(arenaTheme),
+                      ),
+                    ),
+                  ),
                 ),
                 Positioned(
                   top: height * 0.35,
@@ -1402,7 +1442,8 @@ class _ArenaBoard extends StatelessWidget {
                   width: miniSize,
                   height: miniSize,
                   child: _TowerAsset(
-                    asset: opponentTowerAsset,
+                    activeAsset: opponentTowerAsset,
+                    destroyedAsset: opponentDestroyedTowerAsset,
                     destroyed: opponentHp <= 0,
                     ambientAnimation: ambientAnimation,
                   ),
@@ -1413,7 +1454,8 @@ class _ArenaBoard extends StatelessWidget {
                   width: miniSize,
                   height: miniSize,
                   child: _TowerAsset(
-                    asset: opponentTowerAsset,
+                    activeAsset: opponentTowerAsset,
+                    destroyedAsset: opponentDestroyedTowerAsset,
                     destroyed: opponentHp <= 0,
                     ambientAnimation: ambientAnimation,
                   ),
@@ -1424,7 +1466,8 @@ class _ArenaBoard extends StatelessWidget {
                   width: miniSize,
                   height: miniSize,
                   child: _TowerAsset(
-                    asset: playerTowerAsset,
+                    activeAsset: playerTowerAsset,
+                    destroyedAsset: playerDestroyedTowerAsset,
                     destroyed: playerHp <= 0,
                     ambientAnimation: ambientAnimation,
                   ),
@@ -1435,7 +1478,8 @@ class _ArenaBoard extends StatelessWidget {
                   width: miniSize,
                   height: miniSize,
                   child: _TowerAsset(
-                    asset: playerTowerAsset,
+                    activeAsset: playerTowerAsset,
+                    destroyedAsset: playerDestroyedTowerAsset,
                     destroyed: playerHp <= 0,
                     ambientAnimation: ambientAnimation,
                   ),
@@ -1708,12 +1752,14 @@ class _ChampionPodiumPainter extends CustomPainter {
 
 class _TowerAsset extends StatelessWidget {
   const _TowerAsset({
-    required this.asset,
+    required this.activeAsset,
+    required this.destroyedAsset,
     required this.destroyed,
     required this.ambientAnimation,
   });
 
-  final String asset;
+  final String activeAsset;
+  final String destroyedAsset;
   final bool destroyed;
   final Animation<double> ambientAnimation;
 
@@ -1762,11 +1808,15 @@ class _TowerAsset extends StatelessWidget {
           ),
         );
       },
-      child: Image.asset(
-        asset,
-        fit: BoxFit.contain,
-        cacheWidth: 320,
-        filterQuality: FilterQuality.low,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 260),
+        child: Image.asset(
+          destroyed ? destroyedAsset : activeAsset,
+          key: ValueKey<String>(destroyed ? destroyedAsset : activeAsset),
+          fit: BoxFit.contain,
+          cacheWidth: 320,
+          filterQuality: FilterQuality.low,
+        ),
       ),
     );
   }
@@ -2858,7 +2908,9 @@ class _ClayArenaPainter extends CustomPainter {
     );
     paint
       ..style = PaintingStyle.fill
-      ..color = Colors.white.withAlpha(theme.id == 'arena-bumn' ? 10 : 30);
+      ..color = Colors.white.withAlpha(
+        theme.id == 'arena-lembah-bara' ? 10 : 30,
+      );
     canvas.drawRRect(outerCourt, paint);
     paint
       ..style = PaintingStyle.stroke
@@ -2966,8 +3018,10 @@ class _ClayArenaPainter extends CustomPainter {
     paint
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
-      ..color = Colors.white.withAlpha(theme.id == 'arena-bumn' ? 26 : 50);
-    if (theme.id == 'arena-bumn') {
+      ..color = Colors.white.withAlpha(
+        theme.id == 'arena-lembah-bara' ? 26 : 50,
+      );
+    if (theme.id == 'arena-lembah-bara') {
       for (final RRect court in <RRect>[opponentCourt, playerCourt]) {
         final double y = court.center.dy;
         canvas.drawLine(
@@ -3020,8 +3074,11 @@ Color _arenaCategoryColor(String category, QuestionEffect effect) {
     return const Color(0xFF47CFA0);
   }
   return switch (category.trim().toLowerCase()) {
+    'akhlak' || 'core_values' => const Color(0xFFD4A64D),
+    'figural' => const Color(0xFF4CAF78),
     'verbal' => const Color(0xFF8B6FE8),
     'logika' => const Color(0xFFFF9F43),
+    'tkp' || 'karakteristik_pribadi' => const Color(0xFFB878A3),
     'twk' => const Color(0xFF47CFA0),
     _ => const Color(0xFF2878F0),
   };
@@ -3030,22 +3087,27 @@ Color _arenaCategoryColor(String category, QuestionEffect effect) {
 String _arenaCategoryLabel(String category) {
   return switch (category.trim().toLowerCase()) {
     'tiu' || 'numerik' => 'Numerik',
+    'akhlak' || 'core_values' => 'AKHLAK',
+    'figural' => 'Figural',
     'verbal' => 'Verbal',
     'logika' => 'Logika',
+    'tkp' || 'karakteristik_pribadi' => 'TKP',
     'twk' => 'TWK',
     _ => 'Soal',
   };
 }
 
 String _arenaCardAsset(String category, QuestionEffect effect) {
-  if (effect == QuestionEffect.heal) {
-    return _twkCardAsset;
-  }
-  return switch (category.trim().toLowerCase()) {
+  final String normalized = category.trim().toLowerCase();
+  return switch (normalized) {
+    'akhlak' || 'core_values' => _akhlakCardAsset,
+    'figural' => _figuralCardAsset,
     'verbal' => _verbalCardAsset,
     'logika' => _logikaCardAsset,
+    'tkp' || 'karakteristik_pribadi' => _tkpCardAsset,
     'twk' => _twkCardAsset,
-    _ => _numerikCardAsset,
+    'tiu' || 'numerik' => _numerikCardAsset,
+    _ => effect == QuestionEffect.heal ? _akhlakCardAsset : _numerikCardAsset,
   };
 }
 

@@ -75,6 +75,7 @@ class BackendGameEconomyRepository extends GameEconomyRepository {
       price: _int(data['coinPrice'] ?? data['price']),
       assetPath: visual?.assetPath,
       battleAssetPath: visual?.battleAssetPath,
+      destroyedAssetPath: visual?.destroyedAssetPath,
       characterVisuals: visual?.characterVisuals,
       passExclusive: data['passExclusive'] == true,
     );

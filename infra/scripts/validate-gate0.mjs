@@ -100,7 +100,10 @@ export function validateStoreCatalog(catalog) {
   unique(catalog.items, (item) => item.id, 'store item');
   unique([...catalog.betaPackages, ...catalog.disabledPaidPackages], (item) => item.id, 'coin package');
   for (const item of catalog.items) {
-    assert(['character', 'tower'].includes(item.type), `Invalid item type ${item.id}.`);
+    assert(
+      ['character', 'tower', 'arena'].includes(item.type),
+      `Invalid item type ${item.id}.`,
+    );
     assert(['common', 'rare', 'epic', 'legendary'].includes(item.rarity), `Invalid rarity ${item.id}.`);
     assert(Number.isInteger(item.coinPrice) && item.coinPrice >= 0, `Invalid price ${item.id}.`);
   }

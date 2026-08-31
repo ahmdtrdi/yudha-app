@@ -90,7 +90,7 @@ class GameEconomyController extends StateNotifier<GameEconomyState> {
     if (item.type == CosmeticType.arena) {
       return const EconomyActionResult(
         success: false,
-        message: 'Arena tidak dijual. Arena mengikuti target belajar.',
+        message: 'Semua arena tersedia gratis dari menu PvP.',
       );
     }
     if (state.owns(item.id)) return equipAuthoritative(item);
