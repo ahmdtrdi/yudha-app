@@ -9,6 +9,7 @@ import 'package:yudha_mobile/features/interview/data/audio/live_interview_audio_
 import 'package:yudha_mobile/features/interview/data/repositories/backend_interview_repository.dart';
 import 'package:yudha_mobile/features/interview/data/repositories/interview_repository.dart';
 import 'package:yudha_mobile/features/interview/data/repositories/live_interview_speech_client.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_company_option.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_session_record.dart';
 
@@ -53,6 +54,11 @@ interviewSessionsProvider = FutureProvider<List<InterviewSessionSummaryRecord>>(
     return ref.watch(interviewRepositoryProvider).listSessions();
   },
 );
+
+final FutureProvider<List<InterviewCompanyOption>> interviewCompaniesProvider =
+    FutureProvider<List<InterviewCompanyOption>>((Ref ref) {
+      return ref.watch(interviewRepositoryProvider).listCompanies();
+    });
 
 final FutureProviderFamily<InterviewSessionDetailRecord, String>
 interviewSessionDetailProvider =

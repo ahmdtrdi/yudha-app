@@ -1,27 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:yudha_mobile/features/interview/presentation/pages/interview_setup_page.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_company_option.dart';
 
 void main() {
-  test('company picker only exposes reviewed backend company profiles', () {
-    final Set<String> ids = kInterviewCompanies
-        .map((InterviewCompanyOption company) => company.id)
-        .toSet();
-
-    expect(ids, <String>{
-      'adhi-karya',
-      'bank-indonesia',
-      'bank-mandiri',
-      'garuda-indonesia',
-      'kementerian-keuangan',
-      'pertamina',
-    });
-    expect(
-      kInterviewCompanies.every(
-        (InterviewCompanyOption company) =>
-            company.name.trim().isNotEmpty &&
-            company.defaultRole.trim().isNotEmpty,
-      ),
-      isTrue,
+  test('company catalog options support nullable backend role suggestions', () {
+    const InterviewCompanyOption withoutRole = InterviewCompanyOption(
+      id: 'injourney',
+      name: 'PT Aviasi Pariwisata Indonesia (Persero)',
     );
+    const InterviewCompanyOption withRole = InterviewCompanyOption(
+      id: 'bank-mandiri',
+      name: 'PT Bank Mandiri (Persero) Tbk',
+      defaultRole: 'Officer Development Program',
+    );
+
+    expect(withoutRole.defaultRole, isNull);
+    expect(withRole.defaultRole, 'Officer Development Program');
   });
 }

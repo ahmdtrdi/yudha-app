@@ -285,6 +285,14 @@ class InterviewController extends StateNotifier<InterviewState> {
     await _liveCoordinator?.switchToText();
   }
 
+  Future<void> switchLiveTextToVoice() async {
+    state = state.copyWith(
+      useTextFallback: false,
+      clearLiveError: true,
+    );
+    await _startLiveVoiceIfNeeded();
+  }
+
   void updateLivePhase(
     LiveInterviewPhase phase, {
     String? errorMessage,

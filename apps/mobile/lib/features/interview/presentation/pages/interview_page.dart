@@ -321,6 +321,34 @@ class _InterviewPageState extends ConsumerState<InterviewPage>
           ),
           centerTitle: true,
           actions: <Widget>[
+            if (isVoiceMode && state.status != InterviewViewStatus.completed)
+              IconButton(
+                key: ValueKey<String>(
+                  state.useTextFallback
+                      ? 'live-interview-voice-fallback'
+                      : 'live-interview-text-fallback',
+                ),
+                tooltip: state.useTextFallback
+                    ? 'Beralih ke suara'
+                    : 'Beralih ke teks',
+                icon: Icon(
+                  state.useTextFallback
+                      ? Icons.mic_rounded
+                      : Icons.chat_bubble_outline_rounded,
+                ),
+                onPressed: () {
+                  final notifier = ref.read(
+                    interviewControllerProvider(
+                      widget.config,
+                    ).notifier,
+                  );
+                  if (state.useTextFallback) {
+                    notifier.switchLiveTextToVoice();
+                  } else {
+                    notifier.switchLiveVoiceToText();
+                  }
+                },
+              ),
             IconButton(
               tooltip: 'Riwayat chat',
               icon: const Icon(Icons.history_rounded),
@@ -543,99 +571,101 @@ class _InterviewHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool completed = status == InterviewViewStatus.completed;
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-      padding: const EdgeInsets.all(18),
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: AppColors.warriorNavy,
-        borderRadius: BorderRadius.circular(22),
+        color: Colors.white.withAlpha(28),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withAlpha(65), width: 1.2),
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: AppColors.warriorNavy.withAlpha(35),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+            color: const Color(0xFF002966).withAlpha(60),
+            blurRadius: 0,
+            offset: const Offset(0, 5),
+          ),
+          BoxShadow(
+            color: Colors.black.withAlpha(20),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AppColors.levelUpTeal.withAlpha(25),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.levelUpTeal, width: 2),
-                ),
-                child: const Icon(
-                  Icons.smart_toy_outlined,
-                  color: AppColors.levelUpTeal,
-                ),
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: <Color>[
+                  AppColors.levelUpTeal,
+                  AppColors.warriorNavy,
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withAlpha(90), width: 1.5),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: Colors.black.withAlpha(25),
+                  blurRadius: 5,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.smart_toy_outlined,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
                   children: <Widget>[
-                    const Text(
+                    Text(
                       'Pewawancara AI',
-                      style: TextStyle(
+                      style: GoogleFonts.fredoka(
                         color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2,
                       ),
                     ),
-                    Text(
-                      '${config.targetRole} - ${_humanizeInterviewMode(config.mode)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withAlpha(180),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.growthLime.withAlpha(45),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.growthLime.withAlpha(90)),
+                      ),
+                      child: Text(
+                        'ONLINE',
+                        style: GoogleFonts.jetBrainsMono(
+                          color: AppColors.growthLime,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2563EB),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
+                const SizedBox(height: 2),
                 Text(
-                  completed ? 'RINGKASAN SESI' : 'PERTANYAAN SAAT INI',
+                  '${config.targetRole} • ${_humanizeInterviewMode(config.mode)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.dmSans(
-                    color: Colors.white.withAlpha(160),
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  completed && finalSummary != null
-                      ? 'Skor akhir ${finalSummary!.overallScore.toStringAsFixed(1)} dari ${finalSummary!.answerCount} jawaban.'
-                      : currentQuestion?.text ??
-                            'Menyiapkan sesi interview AI...',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
+                    color: Colors.white.withAlpha(200),
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w600,
-                    height: 1.45,
                   ),
                 ),
               ],
@@ -725,31 +755,99 @@ class _VoiceRoomPanel extends StatelessWidget {
     return Container(
       key: const ValueKey<String>('interview-voice-stage'),
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
       child: Column(
         children: <Widget>[
+          if (state.liveErrorMessage != null) ...<Widget>[
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF8B1A1A).withAlpha(220),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFFFFB4A9).withAlpha(120),
+                  width: 1.2,
+                ),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: Colors.black.withAlpha(25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: <Widget>[
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    color: Color(0xFFFFE0C2),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      state.liveErrorMessage!,
+                      style: GoogleFonts.dmSans(
+                        color: const Color(0xFFFFE0C2),
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           Container(
             key: const ValueKey<String>('interview-voice-mode-card'),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withAlpha(22),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white.withAlpha(38)),
+              color: Colors.white.withAlpha(28),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withAlpha(65), width: 1.2),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: const Color(0xFF002966).withAlpha(60),
+                  blurRadius: 0,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Colors.black.withAlpha(20),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
             child: Row(
               children: <Widget>[
                 Container(
-                  width: 38,
-                  height: 38,
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(24),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: <Color>[
+                        AppColors.levelUpTeal,
+                        AppColors.warriorNavy,
+                      ],
+                    ),
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withAlpha(45)),
+                    border: Border.all(color: Colors.white.withAlpha(90), width: 1.5),
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: Colors.black.withAlpha(25),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: const Icon(
                     Icons.record_voice_over_rounded,
                     color: Colors.white,
-                    size: 20,
+                    size: 18,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -757,107 +855,149 @@ class _VoiceRoomPanel extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      const Text(
-                        'Interview Suara',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                        ),
+                      Row(
+                        children: <Widget>[
+                          Flexible(
+                            child: Text(
+                              'Interview Suara',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.fredoka(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.growthLime.withAlpha(45),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: AppColors.growthLime.withAlpha(90)),
+                            ),
+                            child: Text(
+                              'LIVE AI',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: AppColors.growthLime,
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 2),
                       Text(
                         copy.subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withAlpha(185),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 10,
+                        style: GoogleFonts.dmSans(
+                          color: Colors.white.withAlpha(200),
+                          fontWeight: FontWeight.w500,
+                          fontSize: 11,
                         ),
                       ),
                     ],
                   ),
                 ),
-                Icon(
-                  state.livePhase == LiveInterviewPhase.degraded
-                      ? Icons.wifi_off_rounded
-                      : Icons.graphic_eq_rounded,
-                  color: Colors.white,
-                  size: 22,
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(20),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    state.livePhase == LiveInterviewPhase.degraded
+                        ? Icons.wifi_off_rounded
+                        : Icons.graphic_eq_rounded,
+                    color: state.livePhase == LiveInterviewPhase.degraded
+                        ? const Color(0xFFFFB4A9)
+                        : AppColors.fireGold,
+                    size: 18,
+                  ),
                 ),
               ],
             ),
           ),
           const Spacer(),
-          Text(
-            copy.title,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.fredoka(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              fontSize: 17,
-              letterSpacing: 0,
-            ),
-          ),
-          const SizedBox(height: 22),
           _VoiceVisualizerOrb(isActive: isActive),
-          const SizedBox(height: 24),
-          Flexible(
-            child: Container(
-              key: const ValueKey<String>('interview-question-surface'),
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(22),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.white.withAlpha(36)),
-              ),
-              child: _ScrollableInterviewQuestion(
-                text:
-                    currentQuestion?.text ??
-                    'Menyiapkan pertanyaan interview...',
-              ),
+          const Spacer(),
+          Container(
+            key: const ValueKey<String>('interview-question-surface'),
+            width: double.infinity,
+            constraints: const BoxConstraints(minHeight: 85, maxHeight: 130),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(26),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: Colors.white.withAlpha(60), width: 1.2),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: const Color(0xFF002966).withAlpha(50),
+                  blurRadius: 0,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Colors.black.withAlpha(15),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: _ScrollableInterviewQuestion(
+              text:
+                  currentQuestion?.text ??
+                  'Menyiapkan pertanyaan interview...',
             ),
           ),
           if (latestCandidateAnswer != null) ...<Widget>[
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
               decoration: BoxDecoration(
-                color: Colors.white.withAlpha(25),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.white.withAlpha(35)),
+                color: AppColors.warriorNavy.withAlpha(110),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.levelUpTeal.withAlpha(80), width: 1),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: const Color(0xFF001944).withAlpha(70),
+                    blurRadius: 0,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
-              child: Text(
-                latestCandidateAnswer!.text,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Colors.white.withAlpha(220),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  height: 1.35,
-                ),
+              child: Row(
+                children: <Widget>[
+                  const Icon(
+                    Icons.chat_bubble_outline_rounded,
+                    color: AppColors.fireGold,
+                    size: 14,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      latestCandidateAnswer!.text,
+                      textAlign: TextAlign.left,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.dmSans(
+                        color: Colors.white.withAlpha(235),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
-          if (state.liveErrorMessage != null) ...<Widget>[
-            const SizedBox(height: 10),
-            Text(
-              state.liveErrorMessage!,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFFFFE0C2),
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           _LiveCallControls(
             phase: state.livePhase,
             recordingDuration: state.liveRecordingDuration,
@@ -869,7 +1009,6 @@ class _VoiceRoomPanel extends StatelessWidget {
             onTextFallback: onTextFallback,
             onEndCall: onEndCall,
           ),
-          const SizedBox(height: 6),
         ],
       ),
     );
@@ -914,8 +1053,8 @@ _LiveVoiceCopy _liveVoiceCopy(LiveInterviewPhase phase) {
       'Jawaban yang belum selesai tetap dijaga di perangkat.',
     ),
     LiveInterviewPhase.degraded => const _LiveVoiceCopy(
-      'Panggilan terputus',
-      'Sambungkan lagi atau lanjutkan sesi yang sama lewat teks.',
+      'Mode Suara',
+      'Sambungkan lagi atau lanjutkan sesi lewat teks.',
     ),
     LiveInterviewPhase.completed => const _LiveVoiceCopy(
       'Interview selesai',
@@ -953,46 +1092,37 @@ class _LiveCallControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
-        _PushToTalkButton(
-          canStart: phase == LiveInterviewPhase.readyToAnswer,
-          isSpeaking: phase == LiveInterviewPhase.candidateSpeaking,
-          recordingDuration: recordingDuration,
-          onStart: onPushToTalkStart,
-          onEnd: onPushToTalkEnd,
-          onCancel: onPushToTalkCancel,
+        _LiveCallButton(
+          key: const ValueKey<String>('live-interview-reconnect'),
+          icon: Icons.refresh_rounded,
+          label: 'Sambung',
+          background: AppColors.levelUpTeal,
+          shadowColor: const Color(0xFF006575),
+          enabled: showReconnect,
+          onPressed: showReconnect ? onReconnect : null,
         ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            _LiveCallButton(
-              key: const ValueKey<String>('live-interview-end-call'),
-              icon: Icons.call_end_rounded,
-              label: 'Akhiri',
-              background: const Color(0xFFE94D4D),
-              onPressed: onEndCall,
-            ),
-            if (showReconnect) ...<Widget>[
-              const SizedBox(width: 20),
-              _LiveCallButton(
-                key: const ValueKey<String>('live-interview-reconnect'),
-                icon: Icons.refresh_rounded,
-                label: 'Sambung',
-                background: const Color(0xFF159A9C),
-                onPressed: onReconnect,
-              ),
-            ],
-          ],
+        const SizedBox(width: 10),
+        Expanded(
+          child: _PushToTalkButton(
+            canStart: phase == LiveInterviewPhase.readyToAnswer,
+            isSpeaking: phase == LiveInterviewPhase.candidateSpeaking,
+            recordingDuration: recordingDuration,
+            onStart: onPushToTalkStart,
+            onEnd: onPushToTalkEnd,
+            onCancel: onPushToTalkCancel,
+          ),
         ),
-        TextButton.icon(
-          key: const ValueKey<String>('live-interview-text-fallback'),
-          onPressed: onTextFallback,
-          icon: const Icon(Icons.keyboard_alt_outlined, size: 17),
-          label: const Text('Beralih ke teks'),
-          style: TextButton.styleFrom(foregroundColor: Colors.white),
+        const SizedBox(width: 10),
+        _LiveCallButton(
+          key: const ValueKey<String>('live-interview-end-call'),
+          icon: Icons.call_end_rounded,
+          label: 'Akhiri',
+          background: const Color(0xFFE94D4D),
+          shadowColor: const Color(0xFFB52A2A),
+          onPressed: onEndCall,
         ),
       ],
     );
@@ -1077,6 +1207,23 @@ class _PushToTalkButtonState extends State<_PushToTalkButton> {
       widget.recordingDuration,
     );
 
+    // Claymorphism colors adapted from Home Lobby Clay Buttons
+    final Color topFaceColor = recording
+        ? const Color(0xFFFF5252)
+        : enabled
+            ? const Color(0xFFFFD8A6)
+            : Colors.white.withAlpha(28);
+    final Color shadowBaseColor = recording
+        ? const Color(0xFFC62828)
+        : enabled
+            ? const Color(0xFFF2A45E)
+            : const Color(0xFF002966).withAlpha(50);
+    final Color contentColor = recording
+        ? Colors.white
+        : enabled
+            ? const Color(0xFF8A4A12)
+            : Colors.white60;
+
     return Semantics(
       button: true,
       enabled: enabled,
@@ -1090,70 +1237,106 @@ class _PushToTalkButtonState extends State<_PushToTalkButton> {
         onPointerDown: _handleDown,
         onPointerUp: _handleUp,
         onPointerCancel: _handleCancel,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          width: 228,
-          height: 68,
-          decoration: BoxDecoration(
-            color: recording
-                ? const Color(0xFFE94D4D)
-                : enabled
-                ? Colors.white.withAlpha(38)
-                : Colors.white.withAlpha(18),
-            borderRadius: BorderRadius.circular(34),
-            border: Border.all(
-              color: recording
-                  ? const Color(0xFFFFD4D4)
-                  : Colors.white.withAlpha(enabled ? 85 : 35),
-              width: 1.5,
-            ),
-            boxShadow: recording
-                ? <BoxShadow>[
-                    BoxShadow(
-                      color: const Color(0xFFE94D4D).withAlpha(90),
-                      blurRadius: 18,
-                      spreadRadius: 2,
-                    ),
-                  ]
-                : const <BoxShadow>[],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+        child: SizedBox(
+          width: double.infinity,
+          height: 64,
+          child: Stack(
+            clipBehavior: Clip.none,
             children: <Widget>[
-              Icon(
-                recording ? Icons.mic_rounded : Icons.touch_app_rounded,
-                color: Colors.white,
-                size: 24,
+              // Bottom 3D Clay Shadow Layer
+              Positioned.fill(
+                top: recording ? 2 : 5,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: shadowBaseColor,
+                    borderRadius: BorderRadius.circular(32),
+                    boxShadow: recording
+                        ? <BoxShadow>[
+                            BoxShadow(
+                              color: const Color(0xFFFF5252).withAlpha(120),
+                              blurRadius: 16,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : <BoxShadow>[
+                            BoxShadow(
+                              color: Colors.black.withAlpha(30),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                  ),
+                ),
               ),
-              const SizedBox(width: 10),
-              Flexible(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
+              // Top Face Interactive Container
+              Positioned.fill(
+                bottom: recording ? 2 : 5,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: topFaceColor,
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(
+                      color: recording
+                          ? const Color(0xFFFFCDD2)
+                          : enabled
+                              ? Colors.white.withAlpha(210)
+                              : Colors.white.withAlpha(45),
+                      width: 1.8,
                     ),
-                    if (recording)
-                      Text(
-                        '$elapsed / 01:30',
-                        key: const ValueKey<String>(
-                          'live-interview-recording-duration',
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: recording
+                              ? Colors.white.withAlpha(45)
+                              : enabled
+                                  ? const Color(0xFFF2A45E).withAlpha(60)
+                                  : Colors.white.withAlpha(15),
+                          shape: BoxShape.circle,
                         ),
-                        style: TextStyle(
-                          color: Colors.white.withAlpha(210),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
+                        child: Icon(
+                          recording ? Icons.mic_rounded : Icons.touch_app_rounded,
+                          color: contentColor,
+                          size: 19,
                         ),
                       ),
-                  ],
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.fredoka(
+                                color: contentColor,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            if (recording)
+                              Text(
+                                '$elapsed / 01:30',
+                                key: const ValueKey<String>(
+                                  'live-interview-recording-duration',
+                                ),
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: Colors.white.withAlpha(235),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -1178,34 +1361,71 @@ class _LiveCallButton extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.background,
+    this.shadowColor,
+    this.enabled = true,
     required this.onPressed,
   });
 
   final IconData icon;
   final String label;
   final Color background;
-  final VoidCallback onPressed;
+  final Color? shadowColor;
+  final bool enabled;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
+    final Color shadow = shadowColor ?? const Color(0xFF002966);
+    final Color effectiveBg =
+        enabled ? background : Colors.white.withAlpha(20);
+    final Color effectiveShadow =
+        enabled ? shadow : const Color(0xFF001944).withAlpha(40);
+    final Color iconColor =
+        enabled ? Colors.white : Colors.white.withAlpha(80);
+    final Color textColor =
+        enabled ? Colors.white.withAlpha(230) : Colors.white.withAlpha(80);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        Material(
-          color: background,
-          shape: const CircleBorder(),
-          child: IconButton(
-            tooltip: label,
-            onPressed: onPressed,
-            icon: Icon(icon, color: Colors.white),
+        SizedBox(
+          width: 52,
+          height: 52,
+          child: Stack(
+            children: <Widget>[
+              Positioned.fill(
+                top: 4,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: effectiveShadow,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                bottom: 4,
+                child: Material(
+                  color: effectiveBg,
+                  shape: const CircleBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: Tooltip(
+                    message: label,
+                    child: InkWell(
+                      onTap: enabled ? onPressed : null,
+                      child: Icon(icon, color: iconColor, size: 22),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 9,
+          style: GoogleFonts.dmSans(
+            color: textColor,
+            fontSize: 10,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -1296,11 +1516,11 @@ class _ScrollableInterviewQuestionState
         child: Text(
           widget.text,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: GoogleFonts.dmSans(
             color: Colors.white,
             fontSize: 15,
-            fontWeight: FontWeight.w700,
-            height: 1.38,
+            fontWeight: FontWeight.w600,
+            height: 1.45,
           ),
         ),
       ),
@@ -1343,7 +1563,7 @@ class _VoiceVisualizerOrbState extends State<_VoiceVisualizerOrb>
       builder: (BuildContext context, Widget? child) {
         return CustomPaint(
           key: const ValueKey<String>('interview-voice-orb'),
-          size: const Size.square(180),
+          size: const Size.square(230),
           painter: _VoiceOrbPainter(
             progress: _controller.value,
             isActive: widget.isActive,
@@ -1363,66 +1583,165 @@ class _VoiceOrbPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final Offset center = size.center(Offset.zero);
-    final double baseRadius = size.shortestSide * 0.31;
-    final Paint glowPaint = Paint()
-      ..color = AppColors.levelUpTeal.withAlpha(isActive ? 55 : 32)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18);
-    canvas.drawCircle(center, baseRadius * 1.45, glowPaint);
+    final double baseRadius = size.shortestSide * 0.28;
+    final double intensity = isActive ? 1.0 : 0.45;
 
+    // 1. Ambient Dynamic Glows
+    final Path ambientGlowPath = _generateFluidBlobPath(
+      center: center,
+      baseRadius: baseRadius * (1.35 + (isActive ? 0.12 : 0.05) * math.sin(progress * 2 * math.pi)),
+      phase: progress,
+      distortion: isActive ? 0.18 : 0.09,
+      frequencyMultiplier: 1.0,
+      rotationOffset: progress * math.pi,
+    );
+    final Paint glowPaintTeal = Paint()
+      ..color = AppColors.levelUpTeal.withAlpha((50 * intensity).round())
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 22);
+    canvas.drawPath(ambientGlowPath, glowPaintTeal);
+
+    final Paint glowPaintGold = Paint()
+      ..color = AppColors.fireGold.withAlpha((40 * intensity).round())
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14);
+    canvas.drawCircle(center, baseRadius * 1.15, glowPaintGold);
+
+    // 2. Main Fluid Organic Core Body
+    final Path coreBlobPath = _generateFluidBlobPath(
+      center: center,
+      baseRadius: baseRadius,
+      phase: progress,
+      distortion: isActive ? 0.13 : 0.06,
+      frequencyMultiplier: 1.2,
+      rotationOffset: -progress * 2 * math.pi,
+    );
+
+    // 3D Spherical Radial Depth Gradient
+    final Offset lightSource = Offset(
+      center.dx - baseRadius * 0.28,
+      center.dy - baseRadius * 0.28,
+    );
     final Paint corePaint = Paint()
       ..shader = RadialGradient(
+        center: const Alignment(-0.35, -0.35),
+        radius: 1.1,
         colors: <Color>[
-          Colors.white.withAlpha(210),
-          AppColors.fireGold.withAlpha(135),
-          AppColors.levelUpTeal.withAlpha(90),
+          Colors.white.withAlpha(245),
+          AppColors.scholarCream.withAlpha(235),
+          AppColors.fireGold.withAlpha(210),
+          AppColors.levelUpTeal.withAlpha(200),
+          const Color(0xFF00387A).withAlpha(220),
         ],
-      ).createShader(Rect.fromCircle(center: center, radius: baseRadius * 1.2));
-    canvas.drawCircle(center, baseRadius, corePaint);
+        stops: const <double>[0.0, 0.22, 0.52, 0.82, 1.0],
+      ).createShader(
+        Rect.fromCircle(center: center, radius: baseRadius * 1.3),
+      );
+    canvas.drawPath(coreBlobPath, corePaint);
 
-    for (int ring = 0; ring < 4; ring += 1) {
-      final double phase = progress + ring * 0.19;
-      final double radius = baseRadius + ring * 8;
-      final Path path = Path();
-      for (int step = 0; step <= 96; step += 1) {
-        final double angle = step / 96 * 6.283185307179586;
-        final double wave =
-            (isActive ? 7 : 3) *
-            (0.65 + ring * 0.12) *
-            (0.5 + 0.5 * _wave(angle * (ring + 2) + phase * 6.283185307179586));
-        final double r = radius + wave;
-        final Offset point = Offset(
-          center.dx + r * _cos(angle),
-          center.dy + r * _sin(angle),
-        );
-        if (step == 0) {
-          path.moveTo(point.dx, point.dy);
-        } else {
-          path.lineTo(point.dx, point.dy);
-        }
-      }
-      path.close();
+    // 3. Secondary Inner Plasma Swirl (Layered for visual richness)
+    final Path innerSwirlPath = _generateFluidBlobPath(
+      center: center,
+      baseRadius: baseRadius * 0.72,
+      phase: progress * 1.4,
+      distortion: isActive ? 0.16 : 0.08,
+      frequencyMultiplier: 1.8,
+      rotationOffset: progress * 2.5 * math.pi,
+    );
+    final Paint innerSwirlPaint = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(0.2, 0.2),
+        radius: 0.9,
+        colors: <Color>[
+          AppColors.growthLime.withAlpha((140 * intensity).round()),
+          AppColors.fireGold.withAlpha((100 * intensity).round()),
+          Colors.transparent,
+        ],
+        stops: const <double>[0.0, 0.55, 1.0],
+      ).createShader(
+        Rect.fromCircle(center: center, radius: baseRadius),
+      );
+    canvas.drawPath(innerSwirlPath, innerSwirlPaint);
+
+    // 4. Fluid Harmonic Wave Ribbons
+    final int ringCount = isActive ? 4 : 3;
+    for (int ring = 0; ring < ringCount; ring += 1) {
+      final double ringPhase = progress + (ring * 0.22);
+      final double ringBaseRadius = baseRadius + (ring + 1) * (isActive ? 7.5 : 5.5);
+      final double ringDistortion = (isActive ? 0.12 : 0.06) * (1.0 + ring * 0.25);
+
+      final Path ringPath = _generateFluidBlobPath(
+        center: center,
+        baseRadius: ringBaseRadius,
+        phase: ringPhase,
+        distortion: ringDistortion,
+        frequencyMultiplier: 1.0 + (ring * 0.4),
+        rotationOffset: (ring.isEven ? 1 : -1) * progress * 2 * math.pi,
+      );
+
+      final double colorT = ring / (ringCount > 1 ? (ringCount - 1) : 1);
+      final Color strokeColor = Color.lerp(
+        AppColors.levelUpTeal,
+        AppColors.fireGold,
+        colorT,
+      )!;
+
       final Paint ringPaint = Paint()
-        ..color = Color.lerp(
-          AppColors.levelUpTeal,
-          AppColors.fireGold,
-          ring / 4,
-        )!.withAlpha(isActive ? 175 - ring * 24 : 105 - ring * 16)
+        ..color = strokeColor.withAlpha(
+          (isActive ? (180 - ring * 28) : (100 - ring * 20)).clamp(20, 255),
+        )
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.2;
-      canvas.drawPath(path, ringPaint);
+        ..strokeWidth = isActive ? (2.4 - ring * 0.3) : 1.6;
+      canvas.drawPath(ringPath, ringPaint);
     }
+
+    // 5. Specular Organic Glaze (Top-left Highlight Sheen)
+    final Path specularPath = Path();
+    final double specRadius = baseRadius * 0.55;
+    specularPath.addOval(
+      Rect.fromCenter(
+        center: Offset(lightSource.dx + 4, lightSource.dy + 4),
+        width: specRadius * 1.1,
+        height: specRadius * 0.65,
+      ),
+    );
+    final Paint specPaint = Paint()
+      ..color = Colors.white.withAlpha(isActive ? 110 : 60)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    canvas.drawPath(specularPath, specPaint);
   }
 
-  double _wave(double value) {
-    return _sin(value) * 0.65 + _sin(value * 1.7) * 0.35;
-  }
+  Path _generateFluidBlobPath({
+    required Offset center,
+    required double baseRadius,
+    required double phase,
+    required double distortion,
+    required double frequencyMultiplier,
+    required double rotationOffset,
+  }) {
+    final Path path = Path();
+    const int steps = 96;
+    for (int i = 0; i <= steps; i += 1) {
+      final double angle = (i / steps) * 2 * math.pi;
+      final double sampleAngle = angle + rotationOffset;
 
-  double _sin(double value) {
-    return math.sin(value);
-  }
+      // Harmonic fluid sinusoidal deformation
+      final double wave1 = math.sin(sampleAngle * 2 * frequencyMultiplier + phase * 2 * math.pi) * 0.45;
+      final double wave2 = math.cos(sampleAngle * 3 * frequencyMultiplier - phase * 2 * math.pi * 1.2) * 0.35;
+      final double wave3 = math.sin(sampleAngle * 5 * frequencyMultiplier + phase * 2 * math.pi * 0.8) * 0.20;
 
-  double _cos(double value) {
-    return math.cos(value);
+      final double deform = (wave1 + wave2 + wave3) * distortion;
+      final double r = baseRadius * (1.0 + deform);
+
+      final double x = center.dx + r * math.cos(angle);
+      final double y = center.dy + r * math.sin(angle);
+
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    path.close();
+    return path;
   }
 
   @override
@@ -1466,20 +1785,32 @@ class _ChatBubble extends StatelessWidget {
           ],
           Flexible(
             child: Container(
-              padding: const EdgeInsets.all(15),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: isUser ? AppColors.warriorNavy : Colors.white,
+                color: isUser ? const Color(0xFF0D49B5) : Colors.white,
                 borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(20),
-                  topRight: const Radius.circular(20),
-                  bottomLeft: Radius.circular(isUser ? 20 : 4),
-                  bottomRight: Radius.circular(isUser ? 4 : 20),
+                  topLeft: const Radius.circular(22),
+                  topRight: const Radius.circular(22),
+                  bottomLeft: Radius.circular(isUser ? 22 : 6),
+                  bottomRight: Radius.circular(isUser ? 6 : 22),
+                ),
+                border: Border.all(
+                  color: isUser
+                      ? Colors.white.withAlpha(50)
+                      : Colors.white.withAlpha(200),
+                  width: 1.5,
                 ),
                 boxShadow: <BoxShadow>[
                   BoxShadow(
-                    color: AppColors.warriorNavy.withAlpha(10),
-                    blurRadius: 10,
+                    color: isUser
+                        ? const Color(0xFF00225E).withAlpha(120)
+                        : const Color(0xFF002966).withAlpha(45),
                     offset: const Offset(0, 4),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withAlpha(18),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
                   ),
                 ],
               ),
@@ -1488,51 +1819,83 @@ class _ChatBubble extends StatelessWidget {
                 children: <Widget>[
                   Text(
                     message.text,
-                    style: TextStyle(
+                    style: GoogleFonts.dmSans(
                       color: isUser ? Colors.white : AppColors.textStrong,
                       fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      height: 1.4,
+                      fontWeight: FontWeight.w600,
+                      height: 1.45,
                     ),
                   ),
                   if (isUser && message.evaluation != null) ...<Widget>[
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: () => _showFeedback(context),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.scholarCream,
-                        padding: EdgeInsets.zero,
-                        visualDensity: VisualDensity.compact,
+                    const SizedBox(height: 10),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withAlpha(35),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.white.withAlpha(60),
+                          width: 1,
+                        ),
                       ),
-                      icon: const Icon(Icons.insights_outlined, size: 16),
-                      label: const Text(
-                        'Lihat umpan balik',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                      child: TextButton.icon(
+                        onPressed: () => _showFeedback(context),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.fireGold,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        icon: const Icon(
+                          Icons.insights_outlined,
+                          size: 15,
+                          color: AppColors.fireGold,
+                        ),
+                        label: Text(
+                          'Lihat Umpan Balik',
+                          style: GoogleFonts.fredoka(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.3,
+                          ),
                         ),
                       ),
                     ),
                   ],
                   if (audioUrl != null && !isUser) ...<Widget>[
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        _AudioPlayButton(
-                          audioUrl: audioUrl!,
-                          accessToken: accessToken,
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.scholarCream,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.levelUpTeal.withAlpha(60),
+                          width: 1,
                         ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'Dengarkan Audio',
-                          style: TextStyle(
-                            color: AppColors.levelUpTeal,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          _AudioPlayButton(
+                            audioUrl: audioUrl!,
+                            accessToken: accessToken,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          Text(
+                            'Dengarkan Audio',
+                            style: GoogleFonts.fredoka(
+                              color: AppColors.levelUpTeal,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ],
@@ -1714,15 +2077,30 @@ class _DotsBubble extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withAlpha(210),
+          width: 1.5,
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: const Color(0xFF002966).withAlpha(45),
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withAlpha(18),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
-      child: const Text(
+      child: Text(
         '...',
-        style: TextStyle(
-          color: AppColors.textMuted,
+        style: GoogleFonts.fredoka(
+          color: AppColors.levelUpTeal,
           fontSize: 24,
           height: 0.6,
-          letterSpacing: 0,
+          letterSpacing: 2,
         ),
       ),
     );
@@ -1760,61 +2138,124 @@ class _EvaluationStrip extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.levelUpTeal.withAlpha(70)),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withAlpha(220),
+          width: 1.5,
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: const Color(0xFF002966).withAlpha(50),
+            offset: const Offset(0, 5),
+          ),
+          BoxShadow(
+            color: Colors.black.withAlpha(20),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: InkWell(
-        onTap: () => _showDetails(context),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(
-            children: <Widget>[
-              CircleAvatar(
-                backgroundColor: AppColors.scholarCream,
-                child: Text(
-                  evaluation.overallScore.toStringAsFixed(0),
-                  style: const TextStyle(
-                    color: AppColors.warriorNavy,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 14,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showDetails(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppColors.scholarCream,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppColors.levelUpTeal.withAlpha(80),
+                      width: 1.5,
+                    ),
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: AppColors.levelUpTeal.withAlpha(40),
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    evaluation.overallScore.toStringAsFixed(0),
+                    style: GoogleFonts.fredoka(
+                      color: AppColors.warriorNavy,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const Text(
-                      'Umpan Balik Jawaban',
-                      style: TextStyle(
-                        color: AppColors.warriorNavy,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          Text(
+                            'Umpan Balik Jawaban',
+                            style: GoogleFonts.fredoka(
+                              color: AppColors.warriorNavy,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.levelUpTeal.withAlpha(25),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'AI Coach',
+                              style: GoogleFonts.fredoka(
+                                color: AppColors.levelUpTeal,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      note,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textStrong,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        height: 1.35,
+                      const SizedBox(height: 3),
+                      Text(
+                        note,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmSans(
+                          color: AppColors.textStrong,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          height: 1.35,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.chevron_right_rounded,
-                size: 19,
-                color: AppColors.warriorNavy,
-              ),
-            ],
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: AppColors.scholarCream,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: AppColors.warriorNavy,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1839,43 +2280,72 @@ class _EvaluationDetailsSheet extends StatelessWidget {
           widthFactor: 1,
           child: Material(
             color: Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: <Widget>[
                 Container(
-                  width: 42,
-                  height: 4,
-                  margin: const EdgeInsets.only(top: 10),
+                  width: 46,
+                  height: 5,
+                  margin: const EdgeInsets.only(top: 12),
                   decoration: BoxDecoration(
-                    color: AppColors.textMuted.withAlpha(70),
+                    color: AppColors.warriorNavy.withAlpha(40),
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 8, 10),
+                  padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
                   child: Row(
                     children: <Widget>[
-                      CircleAvatar(
-                        backgroundColor: AppColors.scholarCream,
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppColors.scholarCream,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.levelUpTeal.withAlpha(80),
+                            width: 1.5,
+                          ),
+                          boxShadow: <BoxShadow>[
+                            BoxShadow(
+                              color: AppColors.levelUpTeal.withAlpha(40),
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
                         child: Text(
                           evaluation.overallScore.toStringAsFixed(0),
-                          style: const TextStyle(
+                          style: GoogleFonts.fredoka(
                             color: AppColors.warriorNavy,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Umpan Balik Jawaban',
-                          style: TextStyle(
-                            color: AppColors.warriorNavy,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                          ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              'Umpan Balik Jawaban',
+                              style: GoogleFonts.fredoka(
+                                color: AppColors.warriorNavy,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              'Evaluasi performa & rekomendasi',
+                              style: GoogleFonts.dmSans(
+                                color: AppColors.textMuted,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       IconButton(
@@ -1895,13 +2365,43 @@ class _EvaluationDetailsSheet extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         if (note != null && note.isNotEmpty) ...<Widget>[
-                          Text(
-                            note,
-                            style: const TextStyle(
-                              color: AppColors.textStrong,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              height: 1.45,
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.scholarCream,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: AppColors.fireGold.withAlpha(80),
+                                width: 1.2,
+                              ),
+                              boxShadow: <BoxShadow>[
+                                BoxShadow(
+                                  color: AppColors.fireGold.withAlpha(35),
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                const Icon(
+                                  Icons.lightbulb_outline_rounded,
+                                  color: AppColors.fireGold,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    note,
+                                    style: GoogleFonts.dmSans(
+                                      color: AppColors.textStrong,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.45,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 18),
@@ -2002,7 +2502,17 @@ class _DimensionTile extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.scholarCream,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.white.withAlpha(200),
+          width: 1.2,
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: const Color(0xFF002966).withAlpha(20),
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2012,29 +2522,29 @@ class _DimensionTile extends StatelessWidget {
               Expanded(
                 child: Text(
                   score.label,
-                  style: const TextStyle(
+                  style: GoogleFonts.fredoka(
                     color: AppColors.textMuted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
               Text(
                 score.value.toStringAsFixed(0),
-                style: const TextStyle(
+                style: GoogleFonts.fredoka(
                   color: AppColors.warriorNavy,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(6),
             child: LinearProgressIndicator(
               value: normalized,
-              minHeight: 5,
+              minHeight: 6,
               color: score.value >= 75
                   ? AppColors.levelUpTeal
                   : AppColors.fireGold,
@@ -2254,33 +2764,48 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
       return Container(
         key: const ValueKey<String>('interview-recording-composer'),
         width: double.infinity,
-        margin: const EdgeInsets.fromLTRB(20, 8, 20, 18),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        margin: const EdgeInsets.fromLTRB(16, 8, 16, 18),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: Colors.redAccent.withAlpha(60)),
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(
+            color: const Color(0xFFFF8A80).withAlpha(120),
+            width: 1.5,
+          ),
           boxShadow: <BoxShadow>[
             BoxShadow(
-              color: AppColors.warriorNavy.withAlpha(38),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
+              color: const Color(0xFFD32F2F).withAlpha(50),
+              offset: const Offset(0, 5),
+            ),
+            BoxShadow(
+              color: Colors.black.withAlpha(25),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Row(
           children: <Widget>[
-            const Icon(
-              Icons.fiber_manual_record,
-              color: Colors.redAccent,
-              size: 20,
+            Container(
+              width: 28,
+              height: 28,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFEBEE),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.fiber_manual_record,
+                color: Color(0xFFD32F2F),
+                size: 18,
+              ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Text(
               'Merekam Suara... $timeStr',
-              style: const TextStyle(
-                color: Colors.redAccent,
-                fontWeight: FontWeight.bold,
+              style: GoogleFonts.fredoka(
+                color: const Color(0xFFD32F2F),
+                fontWeight: FontWeight.w600,
                 fontSize: 14,
               ),
             ),
@@ -2311,16 +2836,24 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
     return Container(
       key: const ValueKey<String>('interview-floating-composer'),
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(20, 8, 20, 18),
-      padding: const EdgeInsets.fromLTRB(8, 4, 4, 4),
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 18),
+      padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(
+          color: Colors.white.withAlpha(230),
+          width: 1.5,
+        ),
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: AppColors.warriorNavy.withAlpha(42),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            color: const Color(0xFF002966).withAlpha(55),
+            offset: const Offset(0, 5),
+          ),
+          BoxShadow(
+            color: Colors.black.withAlpha(20),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -2329,54 +2862,73 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           if (isVoice && _voiceMessage != null) ...<Widget>[
-            Row(
-              children: <Widget>[
-                Icon(
-                  _pendingAudioBytes == null
-                      ? Icons.info_outline_rounded
-                      : Icons.refresh_rounded,
-                  size: 17,
-                  color: AppColors.levelUpTeal,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _voiceMessage!,
-                    style: const TextStyle(
-                      color: AppColors.textStrong,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+              child: Row(
+                children: <Widget>[
+                  Icon(
+                    _pendingAudioBytes == null
+                        ? Icons.info_outline_rounded
+                        : Icons.refresh_rounded,
+                    size: 17,
+                    color: AppColors.levelUpTeal,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _voiceMessage!,
+                      style: GoogleFonts.dmSans(
+                        color: AppColors.textStrong,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-                if (_pendingAudioBytes != null && !_isTranscribing)
-                  TextButton(
-                    onPressed: _transcribePendingAudio,
-                    child: const Text('Coba lagi'),
-                  ),
-              ],
+                  if (_pendingAudioBytes != null && !_isTranscribing)
+                    TextButton(
+                      onPressed: _transcribePendingAudio,
+                      child: Text(
+                        'Coba lagi',
+                        style: GoogleFonts.fredoka(
+                          color: AppColors.levelUpTeal,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
           ],
           Row(
             children: <Widget>[
               if (isVoice) ...<Widget>[
-                IconButton(
-                  tooltip: 'Rekam jawaban',
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.all(6),
-                  constraints: const BoxConstraints.tightFor(
-                    width: 40,
-                    height: 40,
-                  ),
-                  icon: Icon(
-                    Icons.mic_rounded,
-                    size: 20,
+                Container(
+                  margin: const EdgeInsets.only(right: 4),
+                  decoration: BoxDecoration(
                     color: widget.enabled && !isBusy
-                        ? AppColors.levelUpTeal
-                        : AppColors.textMuted,
+                        ? AppColors.scholarCream
+                        : Colors.transparent,
+                    shape: BoxShape.circle,
                   ),
-                  onPressed: widget.enabled && !isBusy ? _startRecording : null,
+                  child: IconButton(
+                    tooltip: 'Rekam jawaban',
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.all(6),
+                    constraints: const BoxConstraints.tightFor(
+                      width: 40,
+                      height: 40,
+                    ),
+                    icon: Icon(
+                      Icons.mic_rounded,
+                      size: 20,
+                      color: widget.enabled && !isBusy
+                          ? AppColors.levelUpTeal
+                          : AppColors.textMuted,
+                    ),
+                    onPressed: widget.enabled && !isBusy ? _startRecording : null,
+                  ),
                 ),
               ],
               Expanded(
@@ -2386,9 +2938,9 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
                   enabled: widget.enabled && !_isTranscribing,
                   minLines: 1,
                   maxLines: 1,
-                  style: const TextStyle(
+                  style: GoogleFonts.dmSans(
                     color: AppColors.textStrong,
-                    fontSize: 12.5,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
                   inputFormatters: <TextInputFormatter>[
@@ -2411,13 +2963,13 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
                     filled: false,
                     isDense: true,
                     hintMaxLines: 1,
-                    hintStyle: const TextStyle(
+                    hintStyle: GoogleFonts.dmSans(
                       color: AppColors.textMuted,
-                      fontSize: 11.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
                     contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 6,
+                      horizontal: 8,
                       vertical: 10,
                     ),
                     border: OutlineInputBorder(
@@ -2441,15 +2993,52 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
                   ),
                 )
               else
-                FilledButton(
-                  onPressed: widget.enabled && !isBusy ? widget.onSubmit : null,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF0D49B5),
-                    shape: const CircleBorder(),
-                    minimumSize: const Size.square(42),
-                    padding: const EdgeInsets.all(10),
+                Container(
+                  height: 40,
+                  width: 40,
+                  decoration: BoxDecoration(
+                    color: widget.enabled && !isBusy
+                        ? const Color(0xFF00225E)
+                        : Colors.transparent,
+                    shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.send_rounded),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: <Widget>[
+                      if (widget.enabled && !isBusy)
+                        Positioned.fill(
+                          top: 2,
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF00225E),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                      Positioned.fill(
+                        bottom: widget.enabled && !isBusy ? 2 : 0,
+                        child: Material(
+                          color: widget.enabled && !isBusy
+                              ? const Color(0xFF0D49B5)
+                              : Colors.grey.withAlpha(50),
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: widget.enabled && !isBusy ? widget.onSubmit : null,
+                            child: Center(
+                              child: Icon(
+                                Icons.arrow_upward_rounded,
+                                color: widget.enabled && !isBusy
+                                    ? Colors.white
+                                    : AppColors.textMuted,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
             ],
           ),
@@ -3904,23 +4493,29 @@ class _AvatarIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 26,
-      height: 26,
+      width: 30,
+      height: 30,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: isUser
-            ? AppColors.levelUpTeal.withAlpha(20)
-            : Colors.grey.withAlpha(20),
+        color: isUser ? const Color(0xFF0D49B5) : AppColors.scholarCream,
         border: Border.all(
           color: isUser
-              ? AppColors.levelUpTeal.withAlpha(100)
-              : Colors.grey.withAlpha(100),
+              ? Colors.white.withAlpha(180)
+              : AppColors.levelUpTeal.withAlpha(120),
+          width: 1.5,
         ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: (isUser ? const Color(0xFF00225E) : AppColors.levelUpTeal)
+                .withAlpha(50),
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Icon(
-        isUser ? Icons.person_outline : Icons.smart_toy_outlined,
-        size: 15,
-        color: isUser ? AppColors.levelUpTeal : Colors.grey,
+        isUser ? Icons.person_rounded : Icons.smart_toy_rounded,
+        size: 16,
+        color: isUser ? Colors.white : AppColors.levelUpTeal,
       ),
     );
   }

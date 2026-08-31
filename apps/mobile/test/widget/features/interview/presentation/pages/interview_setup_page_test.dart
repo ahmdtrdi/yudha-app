@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/features/interview/application/interview_providers.dart';
+import 'package:yudha_mobile/features/interview/domain/entities/interview_company_option.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_session_record.dart';
 import 'package:yudha_mobile/features/interview/presentation/pages/interview_setup_page.dart';
@@ -101,12 +104,143 @@ void main() {
     expect(launchedConfig?.targetRole, 'Asisten Manajer');
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('shows every backend company to a CPNS user', (
+    WidgetTester tester,
+  ) async {
+    await _pumpSetup(tester, target: ProfileTarget.cpns, onLaunch: (_) {});
+
+    expect(find.text('PERSIAPAN CPNS'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('interview-company-field')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bank Indonesia'), findsWidgets);
+    expect(find.text('Kementerian Keuangan Republik Indonesia'), findsWidgets);
+    expect(find.text('PT Aviasi Pariwisata Indonesia (Persero)'), findsWidgets);
+  });
+
+  testWidgets('requires a role when the company has no suggestion', (
+    WidgetTester tester,
+  ) async {
+    InterviewLaunchConfig? launchedConfig;
+    await _pumpSetup(
+      tester,
+      companies: const <InterviewCompanyOption>[
+        InterviewCompanyOption(
+          id: 'injourney',
+          name: 'PT Aviasi Pariwisata Indonesia (Persero)',
+        ),
+      ],
+      onLaunch: (InterviewLaunchConfig config) => launchedConfig = config,
+    );
+
+    await tester.ensureVisible(find.byKey(const Key('start-interview-button')));
+    await tester.tap(find.byKey(const Key('start-interview-button')));
+    await tester.pump();
+    expect(find.text('Masukkan posisi yang dilamar.'), findsOneWidget);
+    expect(launchedConfig, isNull);
+
+    await tester.enterText(
+      find.byKey(const Key('interview-role-field')),
+      'Management Trainee',
+    );
+    await tester.tap(find.byKey(const Key('start-interview-button')));
+    await tester.pumpAndSettle();
+    expect(launchedConfig?.companyId, 'injourney');
+    expect(launchedConfig?.targetRole, 'Management Trainee');
+  });
+
+  testWidgets('disables launch while the company catalog is loading', (
+    WidgetTester tester,
+  ) async {
+    final Completer<List<InterviewCompanyOption>> completer =
+        Completer<List<InterviewCompanyOption>>();
+    await _pumpSetup(
+      tester,
+      loadCompanies: () => completer.future,
+      settle: false,
+      onLaunch: (_) {},
+    );
+    await tester.pump();
+
+    expect(find.byKey(const Key('interview-company-loading')), findsOneWidget);
+    final InkWell startButton = tester.widget<InkWell>(
+      find.byKey(const Key('start-interview-button')),
+    );
+    expect(startButton.onTap, isNull);
+
+    completer.complete(kTestCompanies);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('shows an empty catalog state with retry', (
+    WidgetTester tester,
+  ) async {
+    await _pumpSetup(
+      tester,
+      companies: const <InterviewCompanyOption>[],
+      onLaunch: (_) {},
+    );
+
+    expect(find.byKey(const Key('interview-company-empty')), findsOneWidget);
+    expect(find.byKey(const Key('interview-company-retry')), findsOneWidget);
+  });
+
+  testWidgets('retries after the company catalog fails', (
+    WidgetTester tester,
+  ) async {
+    int attempts = 0;
+    await _pumpSetup(
+      tester,
+      loadCompanies: () async {
+        attempts += 1;
+        if (attempts == 1) {
+          throw Exception('offline');
+        }
+        return kTestCompanies;
+      },
+      onLaunch: (_) {},
+    );
+
+    expect(find.byKey(const Key('interview-company-error')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('interview-company-retry')));
+    await tester.pumpAndSettle();
+
+    expect(attempts, 2);
+    expect(find.byKey(const Key('interview-company-field')), findsOneWidget);
+  });
 }
+
+const List<InterviewCompanyOption> kTestCompanies = <InterviewCompanyOption>[
+  InterviewCompanyOption(
+    id: 'adhi-karya',
+    name: 'PT Adhi Karya (Persero) Tbk',
+    defaultRole: 'Management Trainee',
+  ),
+  InterviewCompanyOption(
+    id: 'bank-indonesia',
+    name: 'Bank Indonesia',
+    defaultRole: 'Asisten Manajer',
+  ),
+  InterviewCompanyOption(
+    id: 'kementerian-keuangan',
+    name: 'Kementerian Keuangan Republik Indonesia',
+    defaultRole: 'Staf Pengelola Keuangan Negara',
+  ),
+  InterviewCompanyOption(
+    id: 'injourney',
+    name: 'PT Aviasi Pariwisata Indonesia (Persero)',
+  ),
+];
 
 Future<void> _pumpSetup(
   WidgetTester tester, {
   List<InterviewSessionSummaryRecord> sessions =
       const <InterviewSessionSummaryRecord>[],
+  List<InterviewCompanyOption> companies = kTestCompanies,
+  Future<List<InterviewCompanyOption>> Function()? loadCompanies,
+  ProfileTarget target = ProfileTarget.bumn,
+  bool settle = true,
   required ValueChanged<InterviewLaunchConfig> onLaunch,
 }) async {
   tester.view.devicePixelRatio = 1;
@@ -136,24 +270,31 @@ Future<void> _pumpSetup(
     ProviderScope(
       overrides: <Override>[
         profileSettingsStorageProvider.overrideWithValue(
-          const _BumnProfileStorage(),
+          _ProfileStorage(target),
+        ),
+        interviewCompaniesProvider.overrideWith(
+          (_) => loadCompanies?.call() ?? Future.value(companies),
         ),
         interviewSessionsProvider.overrideWith((_) async => sessions),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),
   );
-  await tester.pumpAndSettle();
+  if (settle) {
+    await tester.pumpAndSettle();
+  }
 }
 
-class _BumnProfileStorage implements ProfileSettingsStorage {
-  const _BumnProfileStorage();
+class _ProfileStorage implements ProfileSettingsStorage {
+  const _ProfileStorage(this.target);
+
+  final ProfileTarget target;
 
   @override
   Future<ProfileSettings> load() async {
-    return const ProfileSettings(
+    return ProfileSettings(
       displayName: 'Yudha',
-      target: ProfileTarget.bumn,
+      target: target,
       soundEnabled: true,
       hapticsEnabled: true,
     );

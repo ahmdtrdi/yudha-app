@@ -319,6 +319,7 @@ create table if not exists public.interview_company_profiles (
   name text not null,
   summary text not null,
   content_version text not null default 'v1',
+  default_role text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

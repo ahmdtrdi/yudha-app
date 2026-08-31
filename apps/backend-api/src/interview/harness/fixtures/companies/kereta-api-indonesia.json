@@ -1,0 +1,207 @@
+{
+    "company": {
+        "nama_lengkap": "PT Kereta Api Indonesia (Persero)",
+        "singkatan": "KAI",
+        "tipe": "Badan Usaha Milik Negara (BUMN) - Persero",
+        "kantor_pusat": {
+            "alamat": "Jl. Perintis Kemerdekaan No. 1, Babakanciamis, Sumur Bandung, Bandung, Jawa Barat 40117",
+            "telepon": "022-4230031",
+            "website": "https://www.kai.id"
+        },
+        "pendiri": "Pemerintah Republik Indonesia",
+        "tanggal_pendirian": "1999-06-01 (sebagai PT Kereta Api (Persero), kemudian diubah nama menjadi PT Kereta Api Indonesia (Persero) pada 2010/2011)",
+        "status_hukum": "Didirikan berdasarkan Akta Notaris Imas Fatimah SH No. 2 tanggal 1 Juni 1999, dengan perubahan terakhir Akta Nomor 04 tanggal 2 Februari 2026",
+        "pemegang_saham": [
+            {
+                "pemegang": "Negara Republik Indonesia (Seri A Dwiwarna)",
+                "jumlah_saham": "261.687 lembar",
+                "persentase": "Mayoritas pengendali"
+            },
+            {
+                "pemegang": "PT Danantara Asset Management (Persero) (Seri B)",
+                "jumlah_saham": "25.907.056 lembar (per data terbaru)",
+                "persentase": "Mayoritas"
+            }
+        ],
+        "karyawan": {
+            "jumlah": "Sekitar 27.000 - 28.000 (data 2024/2025)",
+            "komposisi": "Mayoritas SMA, dengan distribusi jabatan dan usia yang beragam"
+        },
+        "kinerja_terbaru": {
+            "tahun": "2025",
+            "pendapatan": "Rp35.76 triliun (konsolidasian)",
+            "laba": "Rp2.28 triliun",
+            "pelanggan": "503.549.740 orang",
+            "angkutan_barang": "69.791.691 ton",
+            "aset": "Rp105.43 triliun (KAI Group)"
+        }
+    },
+    "sejarah": {
+        "ringkasan": "Perkeretaapian Indonesia dimulai era kolonial Belanda (1864). Setelah kemerdekaan, dikelola oleh negara melalui serangkaian transformasi hingga menjadi PT KAI (Persero).",
+        "timeline": [
+            {
+                "periode": "1864",
+                "perusahaan": "Nederlansch Indische Spoorweg Maatschappij (NISM) dan Staatssporwegen (SS), serta perusahaan swasta lainnya",
+                "keterangan": "Pembangunan jalur pertama Semarang-Solo"
+            },
+            {
+                "periode": "1942-1945",
+                "perusahaan": "Rikuyu Sokyuku (Jepang)",
+                "keterangan": "Penggunaan untuk kepentingan perang"
+            },
+            {
+                "periode": "1945",
+                "perusahaan": "Djawatan Kereta Api Republik Indonesia (DKARI)",
+                "keterangan": "Pengambilalihan 28 September 1945 (Hari Kereta Api)"
+            },
+            {
+                "periode": "1950-1963",
+                "perusahaan": "Djawatan Kereta Api (DKA)"
+            },
+            {
+                "periode": "1963-1971",
+                "perusahaan": "Perusahaan Negara Kereta Api (PNKA)",
+                "dasar_hukum": "PP No. 22 Tahun 1963"
+            },
+            {
+                "periode": "1971-1991",
+                "perusahaan": "Perusahaan Jawatan Kereta Api (PJKA)",
+                "dasar_hukum": "PP No. 61 Tahun 1971"
+            },
+            {
+                "periode": "1991-1998",
+                "perusahaan": "Perusahaan Umum Kereta Api (Perumka)",
+                "dasar_hukum": "PP No. 57 Tahun 1990"
+            },
+            {
+                "periode": "1998-sekarang",
+                "perusahaan": "PT Kereta Api Indonesia (Persero)",
+                "dasar_hukum": "PP No. 19 Tahun 1998, dengan perubahan nama 2010/2011"
+            }
+        ]
+    },
+    "visi_misi": {
+        "visi": "Menggerakkan transportasi berkelanjutan, meningkatkan kualitas hidup masyarakat. (Versi sebelumnya: Menjadi solusi ekosistem transportasi terbaik untuk Indonesia.)",
+        "misi": [
+            "Menyediakan jasa yang mengedepankan keselamatan, ketepatan waktu, dan kenyamanan.",
+            "Mengembangkan sumber daya dan teknologi dengan mengedepankan ESG (Environmental, Social, Governance).",
+            "Berperan aktif dalam pengembangan transportasi antarmoda berkelanjutan bersama pemangku kepentingan."
+        ],
+        "pilar_utama": [
+            "Keselamatan",
+            "Ketepatan Waktu",
+            "Pelayanan",
+            "Kenyamanan"
+        ]
+    },
+    "corporate_culture": {
+        "nama_program": "AKHLAK (Budaya Kerja BUMN)",
+        "deskripsi": "AKHLAK adalah nilai-nilai inti yang diterapkan di seluruh insan KAI sebagai panduan perilaku sehari-hari dalam melaksanakan tugas dan tanggung jawab. Dicanangkan oleh Kementerian BUMN dan diadopsi penuh oleh KAI untuk mendukung transformasi perusahaan menjadi penyedia layanan transportasi berkelas dunia.",
+        "nilai_utama": [
+            {
+                "nilai": "Amanah",
+                "penjelasan": "Memegang teguh kepercayaan yang diberikan. Menjaga integritas, bertanggung jawab, dan dapat diandalkan dalam setiap tugas."
+            },
+            {
+                "nilai": "Kompeten",
+                "penjelasan": "Terus belajar dan mengembangkan kapabilitas. Fokus pada peningkatan kompetensi, inovasi, dan profesionalisme."
+            },
+            {
+                "nilai": "Harmonis",
+                "penjelasan": "Saling peduli dan menghargai perbedaan. Membangun kerjasama yang baik, inklusif, dan harmonis antar karyawan serta stakeholder."
+            },
+            {
+                "nilai": "Loyal",
+                "penjelasan": "Berdedikasi dan mengutamakan kepentingan Bangsa dan Negara. Setia pada tugas, perusahaan, dan nilai-nilai Pancasila."
+            },
+            {
+                "nilai": "Adaptif",
+                "penjelasan": "Terus berinovasi dan antusias dalam menggerakkan ataupun menghadapi perubahan. Cepat menyesuaikan diri dengan teknologi dan dinamika lingkungan."
+            },
+            {
+                "nilai": "Kolaboratif",
+                "penjelasan": "Membangun kerja sama yang sinergis. Kerja tim yang solid, baik internal maupun dengan mitra eksternal."
+            }
+        ],
+        "implementasi": [
+            "Integrasi AKHLAK dalam proses rekrutmen, penilaian kinerja (KPI), pelatihan, dan pengembangan karyawan.",
+            "Program sosialisasi dan internalisasi nilai melalui kegiatan rutin, leadership program, dan budaya organisasi.",
+            "Dukungan terhadap transformasi digital, keselamatan, dan pelayanan prima.",
+            "Penghargaan bagi karyawan yang menunjukkan penerapan nilai AKHLAK secara konsisten."
+        ],
+        "logo_dan_slogan": "Didukung oleh logo KAI yang melambangkan gerakan dinamis dan integritas."
+    },
+    "anak_perusahaan_dan_affiliates": [
+        {
+            "nama": "PT Reska Multi Usaha (KAI Services)",
+            "tahun": 2003,
+            "kepemilikan": "99.74%",
+            "bidang": "On Board Services (restoran, cleaning), Integrated Facility Management (security, parking, outsourcing), Commercial Services"
+        },
+        {
+            "nama": "PT Railink (KAI Bandara)",
+            "tahun": 2006,
+            "kepemilikan": "60%",
+            "bidang": "Kereta Api Bandara (airport rail link)"
+        },
+        {
+            "nama": "PT Kereta Commuter Indonesia (KAI Commuter / KCI)",
+            "tahun": 2008,
+            "kepemilikan": "99.78%",
+            "bidang": "Commuter Line (KRL Jabodetabek, Yogyakarta-Solo, dll.)"
+        },
+        {
+            "nama": "PT KA Pariwisata (KAI Wisata)",
+            "tahun": 2009,
+            "kepemilikan": "99.90%",
+            "bidang": "Pariwisata berbasis kereta api"
+        },
+        {
+            "nama": "PT KA Logistik (KALOG)",
+            "tahun": 2009,
+            "kepemilikan": "99.30%",
+            "bidang": "Logistik dan distribusi barang berbasis kereta api"
+        },
+        {
+            "nama": "PT KA Properti Manajemen (KAI Properti)",
+            "tahun": 2009,
+            "kepemilikan": "99.63%",
+            "bidang": "Pengelolaan aset properti dan komersialisasi lahan stasiun"
+        },
+        {
+            "nama": "PT Pilar Sinergi BUMN Indonesia (PSBI)",
+            "tahun": 2015,
+            "kepemilikan": "Joint Venture (termasuk KAI)",
+            "bidang": "Pengembangan infrastruktur transportasi (terkait Whoosh/kereta cepat)"
+        }
+    ],
+    "layanan_utama": {
+        "penumpang": [
+            "KA Jarak Jauh (Eksekutif, Bisnis, Ekonomi)",
+            "KA Lokal dan Commuter Line (KRL)",
+            "KA Wisata dan Panoramic",
+            "Kereta Bandara"
+        ],
+        "barang": "Angkutan retail, korporat, batu bara, komoditas non-batu bara",
+        "lainnya": "Pengusahaan aset (komersial stasiun, iklan, properti), on-board services, digital (Access by KAI)"
+    },
+    "wilayah_operasi": "Jawa, Sumatra (Aceh, Sumut, Sumbar, Sumsel, Lampung), Sulawesi Selatan, dengan fokus integrasi antarmoda",
+    "tugas_dan_fungsi": {
+        "maksud_tujuan": "Usaha di bidang transportasi kereta api, optimalisasi sumber daya untuk keuntungan dan pelayanan publik",
+        "tugas": [
+            "Menyediakan barang/jasa transportasi",
+            "Alat pemerintah dalam kebijakan ekonomi",
+            "Pelayanan kebutuhan masyarakat",
+            "Pengembangan usaha kecil dan ekonomi nasional"
+        ]
+    },
+    "program_inisiatif": [
+        "Digitalisasi (Access by KAI app)",
+        "Keselamatan (penutupan perlintasan, edukasi)",
+        "TJSL (Tanggung Jawab Sosial dan Lingkungan) - Rp32+ Miliar (data 2025)",
+        "Integrasi antarmoda",
+        "Pembangunan infrastruktur dan modernisasi rolling stock",
+        "Program pemerintah seperti PSO (Public Service Obligation)"
+    ],
+    "sumber": "Situs resmi kai.id, PPID KAI, Company Profile PDF, Laporan Keuangan, dan berita resmi terkini (2025-2026)"
+}

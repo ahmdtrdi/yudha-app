@@ -9,6 +9,119 @@ import 'package:yudha_mobile/features/interview/domain/entities/interview_launch
 
 void main() {
   group('BackendInterviewRepository', () {
+    test(
+      'maps the authenticated company catalog with nullable roles',
+      () async {
+        final BackendInterviewRepository repository =
+            BackendInterviewRepository(
+              config: const InterviewApiConfig(
+                baseUrl: 'https://api.example.com',
+                accessToken: 'token-123',
+              ),
+              client: MockClient((http.Request request) async {
+                expect(request.method, 'GET');
+                expect(request.url.path, '/interview/companies');
+                expect(request.headers['authorization'], 'Bearer token-123');
+                return http.Response(
+                  jsonEncode(<String, Object?>{
+                    'companies': <Map<String, Object?>>[
+                      <String, Object?>{
+                        'id': 'bank-indonesia',
+                        'name': 'Bank Indonesia',
+                        'defaultRole': 'Asisten Manajer',
+                      },
+                      <String, Object?>{
+                        'id': 'injourney',
+                        'name': 'PT Aviasi Pariwisata Indonesia (Persero)',
+                        'defaultRole': null,
+                      },
+                    ],
+                  }),
+                  200,
+                );
+              }),
+            );
+
+        final companies = await repository.listCompanies();
+
+        expect(companies, hasLength(2));
+        expect(companies.first.id, 'bank-indonesia');
+        expect(companies.first.defaultRole, 'Asisten Manajer');
+        expect(companies.last.defaultRole, isNull);
+      },
+    );
+
+    test('returns an empty company catalog', () async {
+      final BackendInterviewRepository repository = BackendInterviewRepository(
+        config: const InterviewApiConfig(
+          baseUrl: 'https://api.example.com',
+          accessToken: 'token-123',
+        ),
+        client: MockClient(
+          (_) async =>
+              http.Response(jsonEncode({'companies': <Object?>[]}), 200),
+        ),
+      );
+
+      await expectLater(repository.listCompanies(), completion(isEmpty));
+    });
+
+    test('rejects malformed company catalog responses', () async {
+      final BackendInterviewRepository repository = BackendInterviewRepository(
+        config: const InterviewApiConfig(
+          baseUrl: 'https://api.example.com',
+          accessToken: 'token-123',
+        ),
+        client: MockClient(
+          (_) async => http.Response(jsonEncode({'companies': 'invalid'}), 200),
+        ),
+      );
+
+      await expectLater(
+        repository.listCompanies(),
+        throwsA(isA<InterviewApiException>()),
+      );
+    });
+
+    test('requires authentication before loading companies', () async {
+      final BackendInterviewRepository repository = BackendInterviewRepository(
+        config: const InterviewApiConfig(baseUrl: 'https://api.example.com'),
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+
+      await expectLater(
+        repository.listCompanies(),
+        throwsA(
+          isA<InterviewApiException>().having(
+            (InterviewApiException error) => error.message,
+            'message',
+            contains('Sesi login'),
+          ),
+        ),
+      );
+    });
+
+    test('reports company-specific connection failures', () async {
+      final BackendInterviewRepository repository = BackendInterviewRepository(
+        config: const InterviewApiConfig(
+          baseUrl: 'https://api.example.com',
+          accessToken: 'token-123',
+        ),
+        client: MockClient((_) async => throw http.ClientException('offline')),
+      );
+
+      await expectLater(
+        repository.listCompanies(),
+        throwsA(
+          isA<InterviewApiException>().having(
+            (InterviewApiException error) => error.message,
+            'message',
+            contains('Daftar perusahaan'),
+          ),
+        ),
+      );
+    });
+
     test('maps the complete text interview lifecycle contract', () async {
       final List<String> requestedPaths = <String>[];
       final BackendInterviewRepository repository = BackendInterviewRepository(

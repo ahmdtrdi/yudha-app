@@ -664,6 +664,28 @@
 **The Tech Debt:**
 - No server-side gesture concept is introduced; the backend intentionally remains transport-oriented and trusts explicit client finish/cancel events.
 
+## 2026-08-30 - Authenticated Interview Company Catalog
+
+**The Change:**
+- Added authenticated `GET /interview/companies`, backed by `interview_company_profiles` and ordered alphabetically by company name.
+- Added nullable `default_role` profile metadata, generated database types, bootstrap support, and a forward migration that backfills the six existing role suggestions.
+- Updated the TypeScript/JavaScript SQL generators and automated Supabase seeder to preserve backend-owned default roles without overwriting manually configured nullable values.
+- Normalized fixture parsing for InJourney, PT Kereta Api Indonesia (Persero), and PT PLN (Persero) so regenerated seeds no longer use slug-like display names.
+- Added service and controller coverage for catalog projection, nullable roles, empty results, Supabase errors, and the guarded response contract.
+
+**The Reasoning:**
+- Supabase already owns company profiles and interview context, so exposing a small authenticated catalog removes the stale Flutter source of truth while keeping service-role database access behind the API.
+- Nullable role metadata preserves existing convenience without inventing suggestions for companies that have not been curated.
+
+**Verification:**
+- All 26 backend test suites passed: 97 tests.
+- The NestJS production build and TypeScript checks passed.
+- The scoped Supabase dry-run showed five older unrelated migrations are also pending, so the new migration was not pushed through the normal workdir.
+
+**The Tech Debt:**
+- `20260829010000_add_interview_company_default_role.sql` must be run manually in the target Supabase project before deploying the new API.
+- The backend must be redeployed or restarted after the schema migration. The fixture seeder was updated but intentionally not run against remote content because it replaces company context rows.
+
 
 
 

@@ -1,7 +1,7 @@
 -- ============================================================================
 -- SQL SEED SCRIPT: Interview Company Profiles & Contexts
 -- Target Tables: public.interview_company_profiles & public.interview_company_contexts
--- Generated at: 2026-07-21T10:21:52.641Z
+-- Generated at: 2026-08-29T04:52:40.477Z
 -- ============================================================================
 
 BEGIN;
@@ -9,9 +9,9 @@ BEGIN;
 -- ----------------------------------------------------------------------------
 -- Company: PT Adhi Karya (Persero) Tbk (adhi-karya)
 -- ----------------------------------------------------------------------------
-INSERT INTO public.interview_company_profiles (id, name, summary, content_version)
-VALUES ('adhi-karya', 'PT Adhi Karya (Persero) Tbk', 'PT Adhi Karya (Persero) Tbk. Didirikan dari nasionalisasi perusahaan Belanda (Architecten-Ingenicure-en Annemersbedrijf Associatie Selleen de Bruyn, Reyerse en de Vries N.V.) pada 11 Maret 1960 menjadi PN Adhi Karya. Menjadi PT (Persero) pada 1 Juni 1974. IPO pada 18 Maret 2004. Lebih dari 60+ tahun pengalaman di konstruksi infrastruktur Indonesia. Visi: Menjadi Korporasi Inovatif dan Berbudaya Unggul untuk Pertumbuhan Berkelanjutan.', 'v1')
-ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, updated_at = now();
+INSERT INTO public.interview_company_profiles (id, name, summary, content_version, default_role)
+VALUES ('adhi-karya', 'PT Adhi Karya (Persero) Tbk', 'PT Adhi Karya (Persero) Tbk. Didirikan dari nasionalisasi perusahaan Belanda (Architecten-Ingenicure-en Annemersbedrijf Associatie Selleen de Bruyn, Reyerse en de Vries N.V.) pada 11 Maret 1960 menjadi PN Adhi Karya. Menjadi PT (Persero) pada 1 Juni 1974. IPO pada 18 Maret 2004. Lebih dari 60+ tahun pengalaman di konstruksi infrastruktur Indonesia. Visi: Menjadi Korporasi Inovatif dan Berbudaya Unggul untuk Pertumbuhan Berkelanjutan.', 'v1', 'Management Trainee')
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, default_role = COALESCE(EXCLUDED.default_role, interview_company_profiles.default_role), updated_at = now();
 
 DELETE FROM public.interview_company_contexts WHERE company_id = 'adhi-karya';
 INSERT INTO public.interview_company_contexts (company_id, category, content, priority)
@@ -74,9 +74,9 @@ VALUES ('adhi-karya', 'Inisiatif Strategis, Digital & ESG', 'Komitmen ESG: Komit
 -- ----------------------------------------------------------------------------
 -- Company: Bank Indonesia (bank-indonesia)
 -- ----------------------------------------------------------------------------
-INSERT INTO public.interview_company_profiles (id, name, summary, content_version)
-VALUES ('bank-indonesia', 'Bank Indonesia', 'Bank Indonesia. Bank Indonesia adalah bank sentral Republik Indonesia yang bertugas menjaga stabilitas nilai rupiah, menjaga stabilitas sistem keuangan, dan mendukung pembangunan ekonomi berkelanjutan. BI berperan sebagai otoritas moneter, regulator perbankan (sebagian), dan pengelola cadangan devisa. Visi: Menjadi bank sentral yang kredibel dan terbaik di kawasan melalui penguatan nilai-nilai strategis berlandaskan integritas, profesionalisme, dan inovasi untuk mendukung stabilitas dan pembangunan ekonomi nasional yang berkelanjutan.', 'v1')
-ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, updated_at = now();
+INSERT INTO public.interview_company_profiles (id, name, summary, content_version, default_role)
+VALUES ('bank-indonesia', 'Bank Indonesia', 'Bank Indonesia. Bank Indonesia adalah bank sentral Republik Indonesia yang bertugas menjaga stabilitas nilai rupiah, menjaga stabilitas sistem keuangan, dan mendukung pembangunan ekonomi berkelanjutan. BI berperan sebagai otoritas moneter, regulator perbankan (sebagian), dan pengelola cadangan devisa. Visi: Menjadi bank sentral yang kredibel dan terbaik di kawasan melalui penguatan nilai-nilai strategis berlandaskan integritas, profesionalisme, dan inovasi untuk mendukung stabilitas dan pembangunan ekonomi nasional yang berkelanjutan.', 'v1', 'Asisten Manajer')
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, default_role = COALESCE(EXCLUDED.default_role, interview_company_profiles.default_role), updated_at = now();
 
 DELETE FROM public.interview_company_contexts WHERE company_id = 'bank-indonesia';
 INSERT INTO public.interview_company_contexts (company_id, category, content, priority)
@@ -104,9 +104,9 @@ VALUES ('bank-indonesia', 'Inisiatif Strategis, Digital & ESG', 'Komitmen ESG: M
 -- ----------------------------------------------------------------------------
 -- Company: PT Bank Mandiri (Persero) Tbk (bank-mandiri)
 -- ----------------------------------------------------------------------------
-INSERT INTO public.interview_company_profiles (id, name, summary, content_version)
-VALUES ('bank-mandiri', 'PT Bank Mandiri (Persero) Tbk', 'PT Bank Mandiri (Persero) Tbk. PT Bank Mandiri (Persero) Tbk adalah bank terbesar di Indonesia yang berfokus pada layanan perbankan komersial, ritel, dan digital. Didirikan melalui merger empat bank BUMN pada 1998, Bank Mandiri menjadi salah satu pilar utama perekonomian Indonesia dengan transformasi digital yang kuat. Visi: Menjadi The Best Financial Institution in Southeast Asia melalui fondasi operasional kelas dunia, kapabilitas digital terdepan, dan budaya inovasi berkelanjutan.', 'v1')
-ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, updated_at = now();
+INSERT INTO public.interview_company_profiles (id, name, summary, content_version, default_role)
+VALUES ('bank-mandiri', 'PT Bank Mandiri (Persero) Tbk', 'PT Bank Mandiri (Persero) Tbk. PT Bank Mandiri (Persero) Tbk adalah bank terbesar di Indonesia yang berfokus pada layanan perbankan komersial, ritel, dan digital. Didirikan melalui merger empat bank BUMN pada 1998, Bank Mandiri menjadi salah satu pilar utama perekonomian Indonesia dengan transformasi digital yang kuat. Visi: Menjadi The Best Financial Institution in Southeast Asia melalui fondasi operasional kelas dunia, kapabilitas digital terdepan, dan budaya inovasi berkelanjutan.', 'v1', 'Officer Development Program')
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, default_role = COALESCE(EXCLUDED.default_role, interview_company_profiles.default_role), updated_at = now();
 
 DELETE FROM public.interview_company_contexts WHERE company_id = 'bank-mandiri';
 INSERT INTO public.interview_company_contexts (company_id, category, content, priority)
@@ -129,9 +129,9 @@ Budaya Kerja: Budaya kerja Bank Mandiri dibangun di atas semangat profesionalism
 -- ----------------------------------------------------------------------------
 -- Company: PT Garuda Indonesia (Persero) Tbk (garuda-indonesia)
 -- ----------------------------------------------------------------------------
-INSERT INTO public.interview_company_profiles (id, name, summary, content_version)
-VALUES ('garuda-indonesia', 'PT Garuda Indonesia (Persero) Tbk', 'PT Garuda Indonesia (Persero) Tbk. Sejarah penerbangan komersial Indonesia dimulai saat bangsa Indonesia sedang mempertahankan kemerdekaannya. Penerbangan sipil pertama atas inisiatif AURI dengan menyewakan pesawat ''Indonesian Airways'' ke Burma pada 26 Januari 1949. Visi: TO BECOME A SUSTAINABLE AVIATION GROUP BY CONNECTING INDONESIA ARCHIPELAGO AND BEYOND WHILE PASSIONATELY DELIVER INDONESIAN HOSPITALITY TO THE WORLD', 'v1')
-ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, updated_at = now();
+INSERT INTO public.interview_company_profiles (id, name, summary, content_version, default_role)
+VALUES ('garuda-indonesia', 'PT Garuda Indonesia (Persero) Tbk', 'PT Garuda Indonesia (Persero) Tbk. Sejarah penerbangan komersial Indonesia dimulai saat bangsa Indonesia sedang mempertahankan kemerdekaannya. Penerbangan sipil pertama atas inisiatif AURI dengan menyewakan pesawat ''Indonesian Airways'' ke Burma pada 26 Januari 1949. Visi: TO BECOME A SUSTAINABLE AVIATION GROUP BY CONNECTING INDONESIA ARCHIPELAGO AND BEYOND WHILE PASSIONATELY DELIVER INDONESIAN HOSPITALITY TO THE WORLD', 'v1', 'Management Trainee')
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, default_role = COALESCE(EXCLUDED.default_role, interview_company_profiles.default_role), updated_at = now();
 
 DELETE FROM public.interview_company_contexts WHERE company_id = 'garuda-indonesia';
 INSERT INTO public.interview_company_contexts (company_id, category, content, priority)
@@ -200,11 +200,11 @@ Penghargaan Utama:
 - Platinum ASRRAT 2025', 70);
 
 -- ----------------------------------------------------------------------------
--- Company: injourney (injourney)
+-- Company: PT Aviasi Pariwisata Indonesia (Persero) (injourney)
 -- ----------------------------------------------------------------------------
-INSERT INTO public.interview_company_profiles (id, name, summary, content_version)
-VALUES ('injourney', 'injourney', 'injourney. InJourney adalah holding BUMN pertama yang mengintegrasikan aset aviasi dan pariwisata nasional pasca-pandemi untuk kebangkitan sektor.', 'v1')
-ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, updated_at = now();
+INSERT INTO public.interview_company_profiles (id, name, summary, content_version, default_role)
+VALUES ('injourney', 'PT Aviasi Pariwisata Indonesia (Persero)', 'PT Aviasi Pariwisata Indonesia (Persero). InJourney adalah holding BUMN pertama yang mengintegrasikan aset aviasi dan pariwisata nasional pasca-pandemi untuk kebangkitan sektor.', 'v1', NULL)
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, default_role = COALESCE(EXCLUDED.default_role, interview_company_profiles.default_role), updated_at = now();
 
 DELETE FROM public.interview_company_contexts WHERE company_id = 'injourney';
 INSERT INTO public.interview_company_contexts (company_id, category, content, priority)
@@ -225,9 +225,9 @@ VALUES ('injourney', 'Budaya Kerja & Core Values', 'Budaya Kerja: Budaya transfo
 -- ----------------------------------------------------------------------------
 -- Company: Kementerian Keuangan Republik Indonesia (kementerian-keuangan)
 -- ----------------------------------------------------------------------------
-INSERT INTO public.interview_company_profiles (id, name, summary, content_version)
-VALUES ('kementerian-keuangan', 'Kementerian Keuangan Republik Indonesia', 'Kementerian Keuangan Republik Indonesia. Kementerian Keuangan adalah kementerian yang menyelenggarakan urusan pemerintahan di bidang keuangan negara untuk membantu Presiden dalam menyelenggarakan pemerintahan negara.', 'v1')
-ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, updated_at = now();
+INSERT INTO public.interview_company_profiles (id, name, summary, content_version, default_role)
+VALUES ('kementerian-keuangan', 'Kementerian Keuangan Republik Indonesia', 'Kementerian Keuangan Republik Indonesia. Kementerian Keuangan adalah kementerian yang menyelenggarakan urusan pemerintahan di bidang keuangan negara untuk membantu Presiden dalam menyelenggarakan pemerintahan negara.', 'v1', 'Staf Pengelola Keuangan Negara')
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, default_role = COALESCE(EXCLUDED.default_role, interview_company_profiles.default_role), updated_at = now();
 
 DELETE FROM public.interview_company_contexts WHERE company_id = 'kementerian-keuangan';
 INSERT INTO public.interview_company_contexts (company_id, category, content, priority)
@@ -240,20 +240,20 @@ INSERT INTO public.interview_company_contexts (company_id, category, content, pr
 VALUES ('kementerian-keuangan', 'Interview focus', 'Gunakan konteks kementerian hanya saat relevan. Untuk tahap awal, gali latar belakang, motivasi pelayanan publik, pengalaman umum, integritas, kemampuan belajar, dan kolaborasi.', 40);
 
 -- ----------------------------------------------------------------------------
--- Company: kereta-api-indonesia (kereta-api-indonesia)
+-- Company: PT Kereta Api Indonesia (Persero) (kereta-api-indonesia)
 -- ----------------------------------------------------------------------------
-INSERT INTO public.interview_company_profiles (id, name, summary, content_version)
-VALUES ('kereta-api-indonesia', 'kereta-api-indonesia', 'kereta-api-indonesia.', 'v1')
-ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, updated_at = now();
+INSERT INTO public.interview_company_profiles (id, name, summary, content_version, default_role)
+VALUES ('kereta-api-indonesia', 'PT Kereta Api Indonesia (Persero)', 'PT Kereta Api Indonesia (Persero).', 'v1', NULL)
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, default_role = COALESCE(EXCLUDED.default_role, interview_company_profiles.default_role), updated_at = now();
 
 DELETE FROM public.interview_company_contexts WHERE company_id = 'kereta-api-indonesia';
 
 -- ----------------------------------------------------------------------------
 -- Company: PT Pertamina (Persero) (pertamina)
 -- ----------------------------------------------------------------------------
-INSERT INTO public.interview_company_profiles (id, name, summary, content_version)
-VALUES ('pertamina', 'PT Pertamina (Persero)', 'PT Pertamina (Persero). PT Pertamina (Persero) adalah perusahaan energi terintegrasi milik negara Indonesia yang beroperasi dari hulu hingga hilir, termasuk pengembangan energi baru dan terbarukan. Lebih dari enam dekade menyediakan energi untuk seluruh Indonesia dan beberapa wilayah luar negeri. Visi: Menjadi perusahaan energi yang mengedepankan ketahanan, ketersediaan, dan keberlanjutan energi.', 'v1')
-ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, updated_at = now();
+INSERT INTO public.interview_company_profiles (id, name, summary, content_version, default_role)
+VALUES ('pertamina', 'PT Pertamina (Persero)', 'PT Pertamina (Persero). PT Pertamina (Persero) adalah perusahaan energi terintegrasi milik negara Indonesia yang beroperasi dari hulu hingga hilir, termasuk pengembangan energi baru dan terbarukan. Lebih dari enam dekade menyediakan energi untuk seluruh Indonesia dan beberapa wilayah luar negeri. Visi: Menjadi perusahaan energi yang mengedepankan ketahanan, ketersediaan, dan keberlanjutan energi.', 'v1', 'Bimbingan Profesi Sarjana')
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, default_role = COALESCE(EXCLUDED.default_role, interview_company_profiles.default_role), updated_at = now();
 
 DELETE FROM public.interview_company_contexts WHERE company_id = 'pertamina';
 INSERT INTO public.interview_company_contexts (company_id, category, content, priority)
@@ -272,11 +272,11 @@ VALUES ('pertamina', 'Budaya Kerja & Core Values', 'Nilai Utama & Budaya (AKHLAK
 Budaya Kerja: Tata Nilai AKHLAK adalah core values utama yang diinternalisasi oleh seluruh Perwira Pertamina.', 40);
 
 -- ----------------------------------------------------------------------------
--- Company: perusahaan-listrik-negara (perusahaan-listrik-negara)
+-- Company: PT PLN (Persero) (perusahaan-listrik-negara)
 -- ----------------------------------------------------------------------------
-INSERT INTO public.interview_company_profiles (id, name, summary, content_version)
-VALUES ('perusahaan-listrik-negara', 'perusahaan-listrik-negara', 'perusahaan-listrik-negara.', 'v1')
-ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, updated_at = now();
+INSERT INTO public.interview_company_profiles (id, name, summary, content_version, default_role)
+VALUES ('perusahaan-listrik-negara', 'PT PLN (Persero)', 'PT PLN (Persero).', 'v1', NULL)
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, default_role = COALESCE(EXCLUDED.default_role, interview_company_profiles.default_role), updated_at = now();
 
 DELETE FROM public.interview_company_contexts WHERE company_id = 'perusahaan-listrik-negara';
 

@@ -1,14 +1,29 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+const defaultRoles: Record<string, string> = {
+  'adhi-karya': 'Management Trainee',
+  'bank-indonesia': 'Asisten Manajer',
+  'bank-mandiri': 'Officer Development Program',
+  'garuda-indonesia': 'Management Trainee',
+  'kementerian-keuangan': 'Staf Pengelola Keuangan Negara',
+  pertamina: 'Bimbingan Profesi Sarjana',
+};
+
 interface CompanyFixture {
   company_identity?: {
     full_name?: string;
+    legal_name?: string;
+    brand_name?: string;
     nickname?: string;
     status?: string;
     establishment_date?: string;
     head_office?: { address?: string; website?: string };
   };
+  company?: { name?: string; nama_lengkap?: string };
+  company_name?: string;
+  companies?: Array<{ name?: string }>;
+  profile?: { name?: string; defaultTargetRole?: string };
   institution_identity?: {
     full_name?: string;
     nickname?: string;
@@ -19,7 +34,11 @@ interface CompanyFixture {
   summary?: string;
   history?: { brief?: string; milestones?: string[] };
   vision_mission?: { vision?: string; mission?: string[] };
-  core_values?: { akhlak?: string[]; additional_culture?: string; core_values?: string[] };
+  core_values?: {
+    akhlak?: string[];
+    additional_culture?: string;
+    core_values?: string[];
+  };
   business_lines?: Array<{ name: string; description: string }>;
   work_culture?: { description?: string };
   esg_and_sustainability?: { commitment?: string; key_pillars?: string[] };
@@ -35,11 +54,25 @@ function escapeSql(text: string): string {
 }
 
 function formatCompany(companyId: string, json: CompanyFixture) {
+  const companies = json.companies ?? [];
+  const matchingNestedCompany =
+    companyId === 'perusahaan-listrik-negara'
+      ? companies.find((company) => company.name?.includes('PLN'))
+      : companies[0];
   const name =
     json.company_identity?.full_name ||
+    json.company_identity?.legal_name ||
+    json.company_identity?.brand_name ||
     json.institution_identity?.full_name ||
+    json.company?.name ||
+    json.company?.nama_lengkap ||
+    json.company_name ||
+    json.profile?.name ||
+    matchingNestedCompany?.name ||
     json.name ||
     companyId;
+  const defaultRole =
+    json.profile?.defaultTargetRole || defaultRoles[companyId] || null;
 
   const historyBrief = json.history?.brief || '';
   const visionStr = json.vision_mission?.vision || '';
@@ -51,14 +84,20 @@ function formatCompany(companyId: string, json: CompanyFixture) {
     .filter(Boolean)
     .join(' ');
 
-  const contexts: Array<{ category: string; content: string; priority: number }> = [];
+  const contexts: Array<{
+    category: string;
+    content: string;
+    priority: number;
+  }> = [];
   let priority = 10;
 
   // 1. History & Identity
   if (json.history?.brief || json.history?.milestones) {
     const content = [
       json.history?.brief ? `Sejarah: ${json.history.brief}` : '',
-      json.history?.milestones ? `Milestones:\n- ${json.history.milestones.join('\n- ')}` : '',
+      json.history?.milestones
+        ? `Milestones:\n- ${json.history.milestones.join('\n- ')}`
+        : '',
     ]
       .filter(Boolean)
       .join('\n\n');
@@ -66,7 +105,7 @@ function formatCompany(companyId: string, json: CompanyFixture) {
     contexts.push({
       category: 'Sejarah & Profil Utama',
       content,
-      priority: priority += 10,
+      priority: (priority += 10),
     });
   }
 
@@ -74,7 +113,9 @@ function formatCompany(companyId: string, json: CompanyFixture) {
   if (json.vision_mission) {
     const content = [
       json.vision_mission.vision ? `Visi:\n${json.vision_mission.vision}` : '',
-      json.vision_mission.mission ? `Misi:\n- ${json.vision_mission.mission.join('\n- ')}` : '',
+      json.vision_mission.mission
+        ? `Misi:\n- ${json.vision_mission.mission.join('\n- ')}`
+        : '',
     ]
       .filter(Boolean)
       .join('\n\n');
@@ -82,17 +123,24 @@ function formatCompany(companyId: string, json: CompanyFixture) {
     contexts.push({
       category: 'Visi & Misi',
       content,
-      priority: priority += 10,
+      priority: (priority += 10),
     });
   }
 
   // 3. Core Values & Work Culture
   if (json.core_values || json.work_culture) {
-    const akhlakList = json.core_values?.akhlak || json.core_values?.core_values;
+    const akhlakList =
+      json.core_values?.akhlak || json.core_values?.core_values;
     const content = [
-      akhlakList ? `Core Values (AKHLAK/Nilai Utama):\n- ${akhlakList.join('\n- ')}` : '',
-      json.core_values?.additional_culture ? `Budaya Tambahan: ${json.core_values.additional_culture}` : '',
-      json.work_culture?.description ? `Budaya Kerja: ${json.work_culture.description}` : '',
+      akhlakList
+        ? `Core Values (AKHLAK/Nilai Utama):\n- ${akhlakList.join('\n- ')}`
+        : '',
+      json.core_values?.additional_culture
+        ? `Budaya Tambahan: ${json.core_values.additional_culture}`
+        : '',
+      json.work_culture?.description
+        ? `Budaya Kerja: ${json.work_culture.description}`
+        : '',
     ]
       .filter(Boolean)
       .join('\n\n');
@@ -100,7 +148,7 @@ function formatCompany(companyId: string, json: CompanyFixture) {
     contexts.push({
       category: 'Budaya Kerja & Core Values',
       content,
-      priority: priority += 10,
+      priority: (priority += 10),
     });
   }
 
@@ -112,7 +160,7 @@ function formatCompany(companyId: string, json: CompanyFixture) {
     contexts.push({
       category: 'Lini Bisnis & Operasional',
       content: `Lini Bisnis Utama:\n${linesStr}`,
-      priority: priority += 10,
+      priority: (priority += 10),
     });
   }
 
@@ -136,7 +184,7 @@ function formatCompany(companyId: string, json: CompanyFixture) {
       contexts.push({
         category: 'Struktur Kepemimpinan & Direksi',
         content,
-        priority: priority += 10,
+        priority: (priority += 10),
       });
     }
   }
@@ -144,8 +192,12 @@ function formatCompany(companyId: string, json: CompanyFixture) {
   // 6. ESG & Initiatives
   if (json.esg_and_sustainability) {
     const content = [
-      json.esg_and_sustainability.commitment ? `Komitmen ESG: ${json.esg_and_sustainability.commitment}` : '',
-      json.esg_and_sustainability.key_pillars ? `Pilar ESG:\n- ${json.esg_and_sustainability.key_pillars.join('\n- ')}` : '',
+      json.esg_and_sustainability.commitment
+        ? `Komitmen ESG: ${json.esg_and_sustainability.commitment}`
+        : '',
+      json.esg_and_sustainability.key_pillars
+        ? `Pilar ESG:\n- ${json.esg_and_sustainability.key_pillars.join('\n- ')}`
+        : '',
     ]
       .filter(Boolean)
       .join('\n\n');
@@ -153,11 +205,11 @@ function formatCompany(companyId: string, json: CompanyFixture) {
     contexts.push({
       category: 'ESG & Keberlanjutan',
       content,
-      priority: priority += 10,
+      priority: (priority += 10),
     });
   }
 
-  return { name, summary, contexts };
+  return { name, summary, defaultRole, contexts };
 }
 
 function main() {
@@ -178,22 +230,29 @@ function main() {
     const raw = fs.readFileSync(path.join(dir, file), 'utf-8');
     const json = JSON.parse(raw) as CompanyFixture;
 
-    const { name, summary, contexts } = formatCompany(companyId, json);
+    const { name, summary, defaultRole, contexts } = formatCompany(
+      companyId,
+      json,
+    );
+    const defaultRoleSql =
+      defaultRole == null ? 'NULL' : `'${escapeSql(defaultRole)}'`;
 
     sqlLines.push(`-- Company Profile: ${name} (${companyId})`);
     sqlLines.push(
-      `INSERT INTO public.interview_company_profiles (id, name, summary, content_version)`,
+      `INSERT INTO public.interview_company_profiles (id, name, summary, content_version, default_role)`,
     );
     sqlLines.push(
-      `VALUES ('${companyId}', '${escapeSql(name)}', '${escapeSql(summary)}', 'v1')`,
+      `VALUES ('${companyId}', '${escapeSql(name)}', '${escapeSql(summary)}', 'v1', ${defaultRoleSql})`,
     );
     sqlLines.push(
-      `ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, updated_at = now();`,
+      `ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, summary = EXCLUDED.summary, default_role = COALESCE(EXCLUDED.default_role, interview_company_profiles.default_role), updated_at = now();`,
     );
     sqlLines.push('');
 
     // Clean existing contexts for re-seed
-    sqlLines.push(`DELETE FROM public.interview_company_contexts WHERE company_id = '${companyId}';`);
+    sqlLines.push(
+      `DELETE FROM public.interview_company_contexts WHERE company_id = '${companyId}';`,
+    );
 
     for (const ctx of contexts) {
       sqlLines.push(
@@ -209,7 +268,10 @@ function main() {
 
   sqlLines.push('COMMIT;');
 
-  const outputPath = path.join(__dirname, '../../../../../infra/supabase/seed_interview_companies.sql');
+  const outputPath = path.join(
+    __dirname,
+    '../../../../../infra/supabase/seed_interview_companies.sql',
+  );
   fs.writeFileSync(outputPath, sqlLines.join('\n'), 'utf-8');
   console.log(`Generated seed script at ${outputPath}`);
 }

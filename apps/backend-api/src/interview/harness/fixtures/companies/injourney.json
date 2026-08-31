@@ -1,0 +1,229 @@
+{
+    "company_identity": {
+        "legal_name": "PT Aviasi Pariwisata Indonesia (Persero)",
+        "brand_name": "InJourney",
+        "tagline": "Bringing Indonesian Hospitality To The World",
+        "established_date": "2021-10-06",
+        "rebranding_date": "2022-01-13",
+        "previous_names": [
+            "PT Survai Udara Penas (Persero) (1991–2021)",
+            "Perusahaan Umum Survai Udara (Penas) (1974–1991)",
+            "Perusahaan Negara Aerial Survey (1961–1974)"
+        ],
+        "root_history": "Berakar sejak 1945 sebagai penyedia jasa potret udara dan pemetaan untuk kebutuhan militer menggunakan peralatan peninggalan Jepang.",
+        "headquarters": {
+            "address": "Gedung Sarinah Lantai 14, Jl. M.H. Thamrin No. 11, Jakarta Pusat, 10350",
+            "phone": "021-2139654",
+            "email": "corsec@injourney.id",
+            "website": "https://injourney.id"
+        },
+        "ownership": "100% dimiliki Pemerintah Republik Indonesia melalui Danantara Indonesia (sovereign wealth fund)",
+        "type": "Holding Company BUMN sektor aviasi dan pariwisata",
+        "industry": "Aviasi, Pariwisata, Hospitality, Retail, Destination Management",
+        "employees": {
+            "total_consolidated_2024": 50251,
+            "holding_level": "Sekitar 75 orang",
+            "note": "Termasuk karyawan outsourced dan PKWT; peningkatan drastis dari ~18.500 pada 2023"
+        },
+        "key_metrics_2024": {
+            "airports": 37,
+            "passengers": "156 juta",
+            "aircraft_movements": "1.2 juta",
+            "cargo": "1.5 juta ton",
+            "destination_tourists": "9.2 juta",
+            "events": 540,
+            "hotel_rooms": "4.6 ribu",
+            "estimated_economic_impact": "Rp 5.3 Triliun"
+        }
+    },
+    "vision_mission_goals": {
+        "vision": "Menjadi ekosistem pariwisata terdepan di kawasan regional untuk memberikan pengalaman berkesan melalui keramahan tamu Indonesia. (To be the leading tourism ecosystem in the region, delivering unforgettable experiences through the warmth of Indonesian hospitality.)",
+        "mission": "Mempercepat pemulihan dan perkembangan pariwisata Indonesia melalui kolaborasi antar pelaku utama industri dan sektor swasta di lingkungan yang inklusif.",
+        "additional_goals": [
+            "Leaving a Legacy for the Nation",
+            "Preserving Indonesian Culture and Heritage",
+            "Providing authentic world-class experiences",
+            "Driving sustainable tourism economy"
+        ]
+    },
+    "history": {
+        "overview": "InJourney adalah holding BUMN pertama yang mengintegrasikan aset aviasi dan pariwisata nasional pasca-pandemi untuk kebangkitan sektor.",
+        "key_milestones": [
+            "1945: Awal operasi survei udara",
+            "1961: Pendirian resmi sebagai perusahaan negara survei udara",
+            "1991: Transformasi menjadi Persero",
+            "2021-10-06: Pendirian PT Aviasi Pariwisata Indonesia (Persero)",
+            "2022: Rebranding ke InJourney dan mulai operasional holding",
+            "2023: Pembentukan dua subholding utama (InJourney Airports dan InJourney Aviation Services)",
+            "2024: Fokus pada transformasi berkelanjutan, InJourney Green, dan pencapaian keuangan sehat"
+        ]
+    },
+    "business_structure": {
+        "pillars": [
+            {
+                "name": "InJourney Airports",
+                "description": "Pengelolaan 37 bandara dengan standar internasional, fokus keselamatan, kenyamanan, dan keberlanjutan."
+            },
+            {
+                "name": "InJourney Aviation Services",
+                "description": "Ground handling, cargo, logistics, hospitality support, dan operational services di 55 kota."
+            },
+            {
+                "name": "InJourney Hospitality",
+                "description": "Manajemen hotel BUMN dan swasta dengan keramahan Indonesia."
+            },
+            {
+                "name": "InJourney Retail",
+                "description": "Melalui PT Sarinah, promosi produk kreatif dan UMKM Indonesia."
+            },
+            {
+                "name": "InJourney Destination Management",
+                "description": "Pengelolaan destinasi wisata ikonik."
+            },
+            {
+                "name": "InJourney Tourism Development",
+                "description": "Pengembangan kawasan super prioritas seperti Nusa Dua, Mandalika, Golo Mori, Borobudur, dll."
+            }
+        ],
+        "key_subsidiaries": [
+            "PT Angkasa Pura Indonesia",
+            "PT Integrasi Aviasi Solusi",
+            "PT Hotel Indonesia Natour",
+            "PT Sarinah",
+            "PT Taman Wisata Candi Borobudur, Prambanan & Ratu Boko",
+            "PT Pengembangan Pariwisata Indonesia (ITDC)"
+        ]
+    },
+    "leadership": {
+        "commissioners": [
+            {
+                "name": "Iwan Setyawan",
+                "role": "Komisaris Utama & Komisaris Independen"
+            },
+            {
+                "name": "Ni Luh Enik Ermawati",
+                "role": "Komisaris"
+            },
+            {
+                "name": "Tubagus Fiki Chikara Satari",
+                "role": "Komisaris"
+            },
+            {
+                "name": "Allan Tandiono",
+                "role": "Komisaris"
+            },
+            {
+                "name": "Dameria Chaterina Magdalena",
+                "role": "Komisaris"
+            }
+        ],
+        "directors": [
+            {
+                "name": "Maya Watono",
+                "role": "Direktur Utama"
+            },
+            {
+                "name": "Herdy Harman",
+                "role": "Direktur SDM dan Digital"
+            },
+            {
+                "name": "Yudi Rizkyardie Darun",
+                "role": "Direktur Keuangan dan Manajemen Risiko"
+            },
+            {
+                "name": "Veronica H. Sisilia",
+                "role": "Direktur Komersial"
+            }
+        ]
+    },
+    "work_culture": {
+        "core": "AKHLAK (Amanah, Kompeten, Harmonis, Loyal, Adaptif, Kolaboratif) sebagai nilai BUMN",
+        "supplement": "HEROES InJourney; penekanan pada harmoni, kolaborasi, pelestarian budaya, dan meninggalkan legacy positif bagi bangsa.",
+        "description": "Budaya transformasi yang inklusif, inovatif, berbasis talenta lokal, dan berorientasi hospitality Indonesia."
+    },
+    "injourney_green_program": {
+        "overview": "Gerakan kolektif InJourney Group untuk membangun ekosistem pariwisata berkelanjutan di Indonesia melalui penerapan prinsip green environment di seluruh lini operasional. Diluncurkan sebagai payung inisiatif ESG utama.",
+        "launch_year": 2024,
+        "duration": "Program 4 tahunan (2024-2027)",
+        "phases": [
+            {
+                "phase": 1,
+                "year": 2024,
+                "name": "Inisiasi (Initiation)",
+                "focus": "Peluncuran, penanaman massal, dan kesadaran dasar"
+            },
+            {
+                "phase": 2,
+                "year": 2025,
+                "name": "Pengembangan (Development)",
+                "focus": "Ekspansi inisiatif dan kolaborasi"
+            },
+            {
+                "phase": 3,
+                "year": 2026,
+                "name": "Keberlanjutan (Sustainability)",
+                "focus": "Pengukuran dampak dan optimalisasi"
+            },
+            {
+                "phase": 4,
+                "year": 2027,
+                "name": "Kemandirian (Independence)",
+                "focus": "Model mandiri dan legacy jangka panjang"
+            }
+        ],
+        "three_pillars": [
+            {
+                "pillar": "Sustainable Operations",
+                "description": "Penerapan green practices di operasional sehari-hari (bandara, hospitality, retail, dll.): energi terbarukan, efisiensi energi, pengelolaan limbah sirkular, elektrifikasi kendaraan."
+            },
+            {
+                "pillar": "Sustainable Tourism Destinations",
+                "description": "Pengembangan destinasi wisata yang ramah lingkungan, pelestarian budaya, dan pemberdayaan masyarakat lokal."
+            },
+            {
+                "pillar": "Sustainable Environment",
+                "description": "Konservasi darat, pesisir, dan laut: penanaman pohon/mangrove, restorasi terumbu karang, perlindungan biodiversitas."
+            }
+        ],
+        "key_achievements_2024": {
+            "tree_planting": "15.000 pohon serentak (total grup >46.000 pohon & mangrove)",
+            "carbon_absorption_potential": "Sekitar 1.103 ton CO₂e per tahun dari penanaman",
+            "coral_transplantation": "1.504 unit terumbu karang",
+            "other": [
+                "Penanaman mangrove dalam skala besar",
+                "Beach clean-up dan pengelolaan sampah",
+                "Instalasi PLTS di bandara dan destinasi",
+                "Elektrifikasi operasional (716 unit kendaraan listrik)",
+                "Pengelolaan limbah padat ribuan m³ dan air daur ulang"
+            ]
+        },
+        "targets": {
+            "emission_reduction": "Minimal 4.000 ton CO₂e",
+            "alignment": "Net Zero Emission 2060 pemerintah, SDGs (khususnya 13, 14, 15)",
+            "broader_impact": "Rehabilitasi lingkungan, edukasi masyarakat, pemberdayaan UMKM, dan ketahanan destinasi wisata"
+        },
+        "activities_examples": [
+            "Penanaman massal di TMII dan seluruh wilayah operasional",
+            "Restorasi terumbu karang di Bali dan lokasi lain",
+            "Beach clean-up kolaborasi dengan komunitas",
+            "Green talks, fun walk, fun bike",
+            "Integrasi green building, LED lighting, SCADA systems di bandara"
+        ],
+        "significance": "Wujud nyata komitmen ESG, TJSL, dan peran InJourney sebagai orchestrator pariwisata berkelanjutan yang memberikan dampak ekonomi, sosial, dan lingkungan jangka panjang."
+    },
+    "esg_sustainability": {
+        "overall_vision": "Sustainable Tourism Economy – membangun industri pariwisata & aviasi yang mendukung pertumbuhan ekonomi, kesejahteraan masyarakat, dan pelestarian alam.",
+        "main_pillars": {
+            "environmental": "InJourney Green + pengelolaan energi, emisi, air, limbah, biodiversitas",
+            "social_economy": "Pemberdayaan UMKM, pendidikan hospitality, kesehatan, pengentasan kemiskinan",
+            "governance": "GCG, AKHLAK, risk management, transparansi"
+        },
+        "other_flagship_programs": [
+            "InJourney Hospitality House",
+            "InJourney Sustainable Tourism",
+            "InJourney Creativity House"
+        ]
+    },
+    "financial_performance_note": "Data detail lengkap di Sustainability Report 2024. Fokus pada pemulihan pasca-pandemi dan pertumbuhan berkelanjutan.",
+    "sources": "Situs resmi injourney.id, Sustainability Report 2024, berita resmi InJourney Group."
+}

@@ -15,6 +15,12 @@ interface CompanyProfileRow {
   content_version: string;
 }
 
+interface CompanyCatalogRow {
+  id: string;
+  name: string;
+  default_role: string | null;
+}
+
 interface CompanyContextRow {
   category: string;
   content: string;
@@ -39,6 +45,27 @@ export class CompanyContextService {
       'INTERVIEW_CONTEXT_MAX_CHARS',
       6000,
     );
+  }
+
+  async listCompanies() {
+    const supabase = this.supabaseService.getClient();
+    const { data: companies, error } = await supabase
+      .from('interview_company_profiles')
+      .select('id, name, default_role')
+      .order('name', { ascending: true })
+      .returns<CompanyCatalogRow[]>();
+
+    if (error) {
+      throw new InternalServerErrorException(error.message);
+    }
+
+    return {
+      companies: (companies ?? []).map((company) => ({
+        id: company.id,
+        name: company.name,
+        defaultRole: company.default_role,
+      })),
+    };
   }
 
   async resolveSnapshot(companyId: string): Promise<CompanyContextSnapshot> {
