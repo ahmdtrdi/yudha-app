@@ -2761,3 +2761,18 @@
 ### The Tech Debt
 - Analytics remains an intentional placeholder, and Solo continues to open the existing Practice page until the next commit introduces its setup flow.
 
+## 2026-09-01 - Solo Draft Compatibility Models
+
+### The Change
+- Added Flutter models for the proposed Solo mechanic and question-selection vocabulary, strict JSON serialization/validation, requested-versus-effective configuration, compatibility warnings, and a legacy Practice adapter that intentionally leaves V2 mechanic and selection unknown.
+- Mirrored the language-neutral non-operational draft contract without connecting it to repositories, providers, routes, or the existing Practice session flow.
+
+### The Reasoning
+- The upcoming Solo setup UI can use typed full-stack vocabulary without implying that Auto is a fourth selection type or that legacy untimed Practice already produces Focus, timing, or V2 learning evidence.
+
+### Verification
+- All 14 focused Solo-contract and existing Practice Flutter tests passed; targeted Dart analysis reported no issues; and `git diff --check` completed cleanly.
+
+### The Tech Debt
+- The models remain intentionally disconnected until the Solo setup UI commit; operational mechanics, selection, recommendation, delivery, rewards, and `/solo` APIs remain gated by the Step 5a decisions.
+
