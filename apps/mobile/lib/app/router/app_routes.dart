@@ -8,14 +8,20 @@ abstract final class AppRoutes {
   static const String lobby = '/';
   static const String pvp = '/pvp';
   static const String leaderboard = '/leaderboard';
-  static const String practice = '/practice';
-  static const String practiceHistory = '/practice/history';
-  static const String practiceQuiz = '/practice/quiz';
+  static const String analytics = '/analytics';
+  static const String solo = '/solo';
+  static const String soloHistory = '/solo/history';
+  static const String soloSession = '/solo/session';
   static const String profile = '/profile';
-  static const String interviewSetup = '/interview/setup';
   static const String interview = '/interview';
+  static const String interviewSession = '/interview/session';
   static const String store = '/store';
   static const String hiredPass = '/hired-pass';
+
+  static const String legacyPractice = '/practice';
+  static const String legacyPracticeHistory = '/practice/history';
+  static const String legacyPracticeQuiz = '/practice/quiz';
+  static const String legacyInterviewSetup = '/interview/setup';
 
   static const Set<String> publicPaths = <String>{
     splash,
@@ -28,17 +34,35 @@ abstract final class AppRoutes {
     lobby,
     pvp,
     leaderboard,
-    practice,
-    practiceHistory,
-    practiceQuiz,
+    analytics,
+    solo,
+    soloHistory,
+    soloSession,
     profile,
-    interviewSetup,
     interview,
+    interviewSession,
     store,
     hiredPass,
+    legacyPractice,
+    legacyPracticeHistory,
+    legacyPracticeQuiz,
+    legacyInterviewSetup,
   };
 
   static bool isPrivate(Uri uri) => privatePaths.contains(uri.path);
+
+  static String? canonicalLocation(Uri uri) {
+    final String? canonicalPath = switch (uri.path) {
+      legacyPractice => solo,
+      legacyPracticeHistory => soloHistory,
+      legacyPracticeQuiz => soloSession,
+      legacyInterviewSetup => interview,
+      _ => null,
+    };
+    return canonicalPath == null
+        ? null
+        : uri.replace(path: canonicalPath).toString();
+  }
 
   static String loginFor(Uri intendedDestination) {
     return Uri(

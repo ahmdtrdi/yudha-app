@@ -2723,3 +2723,17 @@
 - The catalog currently exposes every company profile because `interview_company_profiles` has no activation flag or target classification. Add explicit metadata before product requirements need draft hiding or CPNS/BUMN segmentation.
 - InJourney, KAI, and PLN intentionally have no default role until curated suggestions are added to backend-owned data.
 
+## 2026-08-31 - App Navigation and Learning Menu
+
+### The Change
+- Redesigned the clay navbar into Lobby, Leaderboard, Learning, Analytics, and Profile; added the star-centered Learning fan linked to `/solo`, `/pvp`, and `/interview`; added an empty Analytics route; kept Interview Setup inside the shell with a safe Lobby back fallback; and redirected legacy Practice and Interview Setup links to their canonical destinations without dropping query parameters.
+
+### The Reasoning
+- Learning acts as a shared navigation action instead of an empty intermediate page, while explicit glow, navbar, and floating-action layers preserve the clay composition without clipping.
+
+### Verification
+- All 26 focused router, navbar, Practice, and Interview tests passed; targeted analysis reported no issues; and `git diff --check` completed cleanly.
+
+### The Tech Debt
+- Analytics remains an intentional placeholder, and Solo continues to open the existing Practice page until the next commit introduces its setup flow.
+

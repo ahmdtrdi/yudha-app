@@ -202,18 +202,18 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       final GoRouter router = GoRouter(
-        initialLocation: AppRoutes.interview,
+        initialLocation: AppRoutes.interviewSession,
         routes: <RouteBase>[
           GoRoute(
-            path: AppRoutes.interview,
+            path: AppRoutes.interviewSession,
             builder: (_, _) => const InterviewPage(config: _completedConfig),
           ),
           GoRoute(
-            path: AppRoutes.interviewSetup,
+            path: AppRoutes.interview,
             builder: (_, _) => const Scaffold(body: Text('Setup destination')),
           ),
           GoRoute(
-            path: AppRoutes.practice,
+            path: AppRoutes.solo,
             builder: (_, _) =>
                 const Scaffold(body: Text('Practice destination')),
           ),
@@ -291,7 +291,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Setup destination'), findsOneWidget);
 
-      router.go(AppRoutes.interview);
+      router.go(AppRoutes.interviewSession);
       await tester.pumpAndSettle();
       await tester.ensureVisible(
         find.byKey(const ValueKey<String>('result-back-practice')),

@@ -70,7 +70,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
         return;
       }
       if (started) {
-        context.push(AppRoutes.practiceQuiz);
+        context.push(AppRoutes.soloSession);
         return;
       }
       final String message =
@@ -82,7 +82,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
     }
 
     void openInterviewPractice() {
-      context.push(AppRoutes.interviewSetup);
+      context.push(AppRoutes.interview);
     }
 
     return Scaffold(
@@ -157,7 +157,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
                               height: 44,
                               child: TextButton(
                                 onPressed: () =>
-                                    context.push(AppRoutes.practiceHistory),
+                                    context.push(AppRoutes.soloHistory),
                                 style: TextButton.styleFrom(
                                   foregroundColor: AppColors.warriorNavy,
                                   padding: const EdgeInsets.symmetric(
@@ -265,7 +265,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
         return;
       }
       if (started) {
-        context.push(AppRoutes.practiceQuiz);
+        context.push(AppRoutes.soloSession);
         return;
       }
       final String message =

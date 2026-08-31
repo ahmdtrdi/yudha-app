@@ -858,15 +858,15 @@ void main() {
     WidgetTester tester,
   ) async {
     final GoRouter router = GoRouter(
-      initialLocation: AppRoutes.practice,
+      initialLocation: AppRoutes.solo,
       routes: <RouteBase>[
         GoRoute(
-          path: AppRoutes.practice,
+          path: AppRoutes.solo,
           builder: (context, state) =>
               const PracticePage(focusCategory: 'logika'),
         ),
         GoRoute(
-          path: AppRoutes.practiceQuiz,
+          path: AppRoutes.soloSession,
           builder: (context, state) => const PracticeQuizPage(),
         ),
       ],

@@ -142,7 +142,7 @@ class LobbyPage extends ConsumerWidget {
                           compact: compact,
                           practiceMission: practiceMission,
                           pvpMission: pvpMission,
-                          onPracticeTap: () => context.go(AppRoutes.practice),
+                          onPracticeTap: () => context.go(AppRoutes.solo),
                           onPvpTap: () => context.go(AppRoutes.pvp),
                           onBattleTap: () => context.go(AppRoutes.pvp),
                         ),

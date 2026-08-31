@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/app/router/app_tab_shell.dart';
+import 'package:yudha_mobile/features/analytics/presentation/pages/analytics_page.dart';
 import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
 import 'package:yudha_mobile/features/auth/presentation/pages/email_confirmation_pending_page.dart';
 import 'package:yudha_mobile/features/auth/presentation/pages/login_page.dart';
@@ -83,6 +84,16 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
           email: state.extra is String ? state.extra as String : null,
         ),
       ),
+      for (final String legacyPath in <String>[
+        AppRoutes.legacyPractice,
+        AppRoutes.legacyPracticeHistory,
+        AppRoutes.legacyPracticeQuiz,
+        AppRoutes.legacyInterviewSetup,
+      ])
+        GoRoute(
+          path: legacyPath,
+          redirect: (context, state) => AppRoutes.canonicalLocation(state.uri),
+        ),
       ShellRoute(
         builder: (context, state, child) {
           return AppTabShell(location: state.uri.path, child: child);
@@ -101,7 +112,11 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
             builder: (context, state) => const LeaderboardPage(),
           ),
           GoRoute(
-            path: AppRoutes.practice,
+            path: AppRoutes.analytics,
+            builder: (context, state) => const AnalyticsPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.solo,
             builder: (context, state) => PracticePage(
               focusCategory: state.extra is String
                   ? state.extra as String
@@ -109,12 +124,16 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
             ),
           ),
           GoRoute(
-            path: AppRoutes.practiceQuiz,
+            path: AppRoutes.soloSession,
             builder: (context, state) => const PracticeQuizPage(),
           ),
           GoRoute(
-            path: AppRoutes.practiceHistory,
+            path: AppRoutes.soloHistory,
             builder: (context, state) => const PracticeHistoryPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.interview,
+            builder: (context, state) => const InterviewSetupPage(),
           ),
           GoRoute(
             path: AppRoutes.profile,
@@ -123,11 +142,7 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
         ],
       ),
       GoRoute(
-        path: AppRoutes.interviewSetup,
-        builder: (context, state) => const InterviewSetupPage(),
-      ),
-      GoRoute(
-        path: AppRoutes.interview,
+        path: AppRoutes.interviewSession,
         builder: (context, state) {
           final Object? extra = state.extra;
           return InterviewPage(
