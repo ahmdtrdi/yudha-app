@@ -803,8 +803,8 @@ class _RoadmapQuestStep extends StatelessWidget {
                       onTap: onTap,
                       child: Padding(
                         padding: EdgeInsets.symmetric(
-                          horizontal: compact ? 14 : 16,
-                          vertical: compact ? 11 : 13,
+                          horizontal: compact ? 10 : 16,
+                          vertical: compact ? 8 : 13,
                         ),
                         child: Row(
                           children: <Widget>[
@@ -819,7 +819,7 @@ class _RoadmapQuestStep extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis,
                                     style: GoogleFonts.dmSans(
                                       color: AppColors.warriorNavy,
-                                      fontSize: compact ? 14 : 15,
+                                      fontSize: compact ? 13 : 15,
                                       fontWeight: FontWeight.w800,
                                     ),
                                   ),
@@ -830,14 +830,14 @@ class _RoadmapQuestStep extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis,
                                     style: GoogleFonts.dmSans(
                                       color: AppColors.textMuted,
-                                      fontSize: compact ? 11 : 12,
+                                      fontSize: compact ? 10.5 : 12,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 6),
                             Text(
                               xpReward,
                               style: GoogleFonts.jetBrainsMono(

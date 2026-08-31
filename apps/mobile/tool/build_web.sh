@@ -24,18 +24,11 @@ for variable_name in "${required_defines[@]}"; do
     echo "Missing required build environment variable: ${variable_name}" >&2
     exit 1
   fi
-  if [[ "${variable_name}" == "YUDHA_API_BASE_URL" && "${VERCEL:-}" == "1" ]]; then
-    variable_value="/api-proxy"
-  fi
   printf '%s=%s\n' "${variable_name}" "${variable_value}" >> "${defines_file}"
 done
 
-if [[ "${VERCEL:-}" == "1" && -z "${FIREBASE_WEB_VAPID_KEY:-}" ]]; then
-  echo "Missing required build environment variable: FIREBASE_WEB_VAPID_KEY" >&2
-  exit 1
-fi
 if [[ -n "${FIREBASE_WEB_VAPID_KEY:-}" ]]; then
-  printf 'FIREBASE_WEB_VAPID_KEY=%s\n' "${FIREBASE_WEB_VAPID_KEY}" >> "${defines_file}"
+  printf '%s=%s\n' "FIREBASE_WEB_VAPID_KEY" "${FIREBASE_WEB_VAPID_KEY}" >> "${defines_file}"
 fi
 
 "${flutter_bin}" build web \
