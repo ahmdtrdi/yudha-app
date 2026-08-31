@@ -88,6 +88,70 @@ class _AppRootState extends ConsumerState<AppRoot> with WidgetsBindingObserver {
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.light,
       routerConfig: router,
+      builder: (BuildContext context, Widget? child) {
+        if (!kIsWeb) return child ?? const SizedBox.shrink();
+
+        final Size screenSize = MediaQuery.sizeOf(context);
+        // On actual mobile browser viewport, render full screen without container framing
+        if (screenSize.width <= 480) {
+          return child ?? const SizedBox.shrink();
+        }
+
+        // Modern standard phone frame (iPhone 15 Pro Max / Galaxy S24+)
+        const double targetPhoneWidth = 412.0;
+        const double targetPhoneHeight = 890.0;
+        const Size targetPhoneSize = Size(targetPhoneWidth, targetPhoneHeight);
+
+        return ColoredBox(
+          color: const Color(0xFF070E18),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+              child: FittedBox(
+                fit: BoxFit.contain,
+                child: Container(
+                  width: targetPhoneWidth,
+                  height: targetPhoneHeight,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(44),
+                    border: Border.all(
+                      color: const Color(0xFF223249),
+                      width: 4,
+                    ),
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.65),
+                        blurRadius: 40,
+                        spreadRadius: 2,
+                        offset: const Offset(0, 16),
+                      ),
+                      BoxShadow(
+                        color: const Color(0xFF0D49B5).withValues(alpha: 0.2),
+                        blurRadius: 60,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(40),
+                    child: MediaQuery(
+                      data: MediaQuery.of(context).copyWith(
+                        size: targetPhoneSize,
+                      ),
+                      child: SizedBox(
+                        width: targetPhoneWidth,
+                        height: targetPhoneHeight,
+                        child: child ?? const SizedBox.shrink(),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

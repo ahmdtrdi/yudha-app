@@ -22,7 +22,7 @@
     { "id": "free-300-coins", "track": "free", "pointsRequired": 300, "label": "150 Y-Coin", "coins": 150 },
     { "id": "premium-300-tower", "track": "premium", "pointsRequired": 300, "label": "150 Y-Coin + Benteng Bara", "coins": 150, "itemId": "tower-benteng-bara" },
     { "id": "free-600-coins", "track": "free", "pointsRequired": 600, "label": "300 Y-Coin", "coins": 300 },
-    { "id": "premium-600-character", "track": "premium", "pointsRequired": 600, "label": "300 Y-Coin + Pip", "coins": 300, "itemId": "character-basic-pip" },
+    { "id": "premium-600-character", "track": "premium", "pointsRequired": 600, "label": "300 Y-Coin + Opy", "coins": 300, "itemId": "character-basic-pip" },
     { "id": "free-1000-coins", "track": "free", "pointsRequired": 1000, "label": "500 Y-Coin", "coins": 500 },
     { "id": "premium-1000-coins", "track": "premium", "pointsRequired": 1000, "label": "1.000 Y-Coin", "coins": 1000 }
   ]

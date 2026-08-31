@@ -39,7 +39,7 @@ void main() {
                   'equipped': <String, Object?>{
                     'characterId': 'character-basic-pip',
                     'towerId': 'tower-garda-biru',
-                    'arenaId': 'arena-cpns',
+                    'arenaId': GameEconomyCatalog.defaultArenaId,
                   },
                 },
               }),
@@ -83,12 +83,12 @@ void main() {
                       'character-basic-squire',
                       'character-basic-pip',
                       'tower-garda-biru',
-                      'arena-cpns',
+                      GameEconomyCatalog.defaultArenaId,
                     ],
                     'equipped': <String, Object?>{
                       'characterId': 'character-basic-pip',
                       'towerId': 'tower-garda-biru',
-                      'arenaId': 'arena-cpns',
+                      'arenaId': GameEconomyCatalog.defaultArenaId,
                     },
                   },
                 }),

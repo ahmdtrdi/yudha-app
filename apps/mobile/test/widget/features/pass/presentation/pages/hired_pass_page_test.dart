@@ -101,7 +101,7 @@ void main() {
       const Size.square(46),
     );
     expect(
-      find.descendant(of: premiumCharacter, matching: find.text('Pip')),
+      find.descendant(of: premiumCharacter, matching: find.text('Opy')),
       findsOneWidget,
     );
     expect(
@@ -201,7 +201,7 @@ HiredPassStatus _status() {
         id: 'premium-600-character',
         track: 'premium',
         pointsRequired: 600,
-        label: '300 Y-Coin + Pip',
+        label: '300 Y-Coin + Opy',
         coins: 300,
         itemId: 'character-basic-pip',
       ),

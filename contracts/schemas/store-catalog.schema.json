@@ -15,7 +15,7 @@
         "required": ["id", "type", "name", "rarity", "coinPrice", "active", "passExclusive"],
         "properties": {
           "id": { "type": "string", "minLength": 1 },
-          "type": { "enum": ["character", "tower"] },
+          "type": { "enum": ["character", "tower", "arena"] },
           "rarity": { "enum": ["common", "rare", "epic", "legendary"] },
           "coinPrice": { "type": "integer", "minimum": 0 },
           "active": { "type": "boolean" },

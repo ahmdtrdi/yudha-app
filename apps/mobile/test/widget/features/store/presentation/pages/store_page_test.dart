@@ -42,7 +42,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey<String>('top-up-beta-100')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey<String>('confirm-dummy-payment-button')));
+    await tester.tap(
+      find.byKey(const ValueKey<String>('confirm-dummy-payment-button')),
+    );
     await tester.pumpAndSettle();
 
     expect(container.read(gameEconomyProvider).yCoins, 3100);
@@ -83,7 +85,7 @@ void main() {
       find.byKey(const ValueKey<String>('store-transaction-loading')),
       findsOneWidget,
     );
-    expect(find.text('Memproses pembelian Pip...'), findsOneWidget);
+    expect(find.text('Memproses pembelian Opy...'), findsOneWidget);
 
     repository.completePurchase();
     await tester.pumpAndSettle();

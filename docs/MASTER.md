@@ -26,12 +26,14 @@ Perubahan kontrak REST/Socket, model inti, atau scope fitur harus dicatat di `PR
 ```text
 docs/
 ├─ PRD.md                         # sumber utama keputusan produk dan arsitektur
+├─ LEARNING-SYSTEM-V2-DRAFT.md    # proposal V2; tidak mengalahkan PRD sebelum disetujui
 ├─ MASTER.md                      # peta repo, dokumentasi, dan cara menjalankan app
 ├─ AGENTS.md                      # aturan kerja umum agent/developer
 ├─ devlog/
 │  ├─ AI-DEVLOG.md                # riwayat pekerjaan AI
 │  ├─ BE-DEVLOG.md                # riwayat pekerjaan backend
-│  └─ FE-DEVLOG.md                # riwayat pekerjaan frontend
+│  ├─ FE-DEVLOG.md                # riwayat pekerjaan frontend
+│  └─ PRODUCT-DEVLOG.md           # riwayat keputusan dan perubahan produk
 ├─ agent/
 │  └─ FE-AGENTS.md                # aturan kerja khusus frontend
 ├─ design/
@@ -47,8 +49,9 @@ Urutan prioritas ketika dokumen berbeda:
 
 1. `PRD.md` untuk keputusan produk, arsitektur, data, dan kontrak.
 2. Kode serta migration terbaru untuk perilaku yang sudah benar-benar berjalan.
-3. Dokumen di `design/` untuk aturan desain dan `misc/` untuk panduan khusus lainnya.
-4. `devlog/` untuk riwayat dan konteks keputusan, bukan spesifikasi terbaru.
+3. `LEARNING-SYSTEM-V2-DRAFT.md` untuk proposal dan pengambilan keputusan Learning System V2 saja; dokumen ini belum menjadi kontrak implementasi, tidak menggambarkan perilaku aktif, dan tetap tunduk pada PRD.
+4. Dokumen di `design/` untuk aturan desain dan `misc/` untuk panduan khusus lainnya.
+5. `devlog/` untuk riwayat dan konteks keputusan, bukan spesifikasi terbaru.
 
 `AGENTS.md` mengatur cara kerja umum contributor/agent, sedangkan file di `agent/` berisi aturan khusus per role. Saat struktur atau aturan dokumentasi berubah, perbarui `MASTER.md` dan referensi operasional yang terkait.
 

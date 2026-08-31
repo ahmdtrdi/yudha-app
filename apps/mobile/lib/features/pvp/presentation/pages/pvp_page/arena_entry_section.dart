@@ -13,7 +13,6 @@ class _ArenaEntrySection extends StatelessWidget {
     required this.profileTarget,
     required this.onSelectCosmetic,
     required this.onSelectArena,
-    required this.onLockedArenaTap,
     required this.onOpenStore,
     required this.onTopUp,
     required this.onBack,
@@ -29,7 +28,6 @@ class _ArenaEntrySection extends StatelessWidget {
   final ProfileTarget? profileTarget;
   final ValueChanged<CosmeticItem> onSelectCosmetic;
   final ValueChanged<CosmeticItem> onSelectArena;
-  final ValueChanged<CosmeticItem> onLockedArenaTap;
   final VoidCallback onOpenStore;
   final VoidCallback onTopUp;
   final VoidCallback onBack;
@@ -70,7 +68,6 @@ class _ArenaEntrySection extends StatelessWidget {
                         profileTarget: profileTarget,
                         compact: compact,
                         onSelect: onSelectArena,
-                        onLockedTap: onLockedArenaTap,
                       )
                     : _LoadoutPickerView(
                         key: const ValueKey<String>('loadout-step'),
@@ -303,7 +300,6 @@ class _ArenaPickerView extends StatelessWidget {
     required this.profileTarget,
     required this.compact,
     required this.onSelect,
-    required this.onLockedTap,
     super.key,
   });
 
@@ -311,7 +307,6 @@ class _ArenaPickerView extends StatelessWidget {
   final ProfileTarget? profileTarget;
   final bool compact;
   final ValueChanged<CosmeticItem> onSelect;
-  final ValueChanged<CosmeticItem> onLockedTap;
 
   @override
   Widget build(BuildContext context) {
@@ -345,9 +340,8 @@ class _ArenaPickerView extends StatelessWidget {
           const SizedBox(height: 7),
           Text(
             profileTarget == null
-                ? 'Setiap arena memiliki kelompok soal yang berbeda.'
-                : 'Tujuan ${profileTarget!.label} aktif. Arena lain terkunci '
-                      'agar materi dan lawan tetap sesuai tujuan belajarmu.',
+                ? 'Semua arena bebas dipilih. Target belajar menentukan materi pertandingan.'
+                : 'Semua arena bebas dipilih. Materi dan lawan tetap mengikuti target ${profileTarget!.label}.',
             textAlign: TextAlign.center,
             style: GoogleFonts.dmSans(
               color: const Color(0xFF667085),
@@ -359,28 +353,24 @@ class _ArenaPickerView extends StatelessWidget {
           SizedBox(height: compact ? 12 : 18),
           _ArenaShowcase(arena: selectedArena, compact: compact),
           SizedBox(height: compact ? 12 : 16),
-          Row(
-            children: <Widget>[
-              for (int index = 0; index < arenas.length; index++) ...<Widget>[
-                Expanded(
-                  child: _ArenaOptionTile(
-                    arena: arenas[index],
-                    selected: arenas[index].id == selectedArena.id,
-                    locked:
-                        profileTarget != null &&
-                        !profileTarget!.allowsArena(arenas[index].id),
-                    onTap: () {
-                      final CosmeticItem arena = arenas[index];
-                      final bool locked =
-                          profileTarget != null &&
-                          !profileTarget!.allowsArena(arena.id);
-                      locked ? onLockedTap(arena) : onSelect(arena);
-                    },
-                  ),
-                ),
-                if (index < arenas.length - 1) const SizedBox(width: 10),
-              ],
-            ],
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 2.15,
+            ),
+            itemCount: arenas.length,
+            itemBuilder: (BuildContext context, int index) {
+              final CosmeticItem arena = arenas[index];
+              return _ArenaOptionTile(
+                arena: arena,
+                selected: arena.id == selectedArena.id,
+                onTap: () => onSelect(arena),
+              );
+            },
           ),
         ],
       ),
@@ -472,21 +462,18 @@ class _ArenaOptionTile extends StatelessWidget {
   const _ArenaOptionTile({
     required this.arena,
     required this.selected,
-    required this.locked,
     required this.onTap,
   });
 
   final CosmeticItem arena;
   final bool selected;
-  final bool locked;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      enabled: !locked,
-      label: locked ? '${arena.name}, terkunci' : arena.name,
+      label: arena.name,
       child: SizedBox(
         height: 78,
         child: Stack(
@@ -524,13 +511,10 @@ class _ArenaOptionTile extends StatelessWidget {
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Opacity(
-                            opacity: locked ? 0.42 : 1,
-                            child: Image.asset(
-                              arena.assetPath!,
-                              fit: BoxFit.cover,
-                              cacheWidth: 180,
-                            ),
+                          child: Image.asset(
+                            arena.assetPath!,
+                            fit: BoxFit.cover,
+                            cacheWidth: 180,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -544,23 +528,15 @@ class _ArenaOptionTile extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.fredoka(
-                                  color: locked
-                                      ? const Color(0xFF7E8490)
-                                      : const Color(0xFF173A67),
+                                  color: const Color(0xFF173A67),
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
                               Text(
-                                locked
-                                    ? 'Terkunci'
-                                    : selected
-                                    ? 'Terpilih'
-                                    : 'Pilih',
+                                selected ? 'Terpilih' : 'Pilih',
                                 style: GoogleFonts.dmSans(
-                                  color: locked
-                                      ? const Color(0xFF9A6A50)
-                                      : selected
+                                  color: selected
                                       ? const Color(0xFF2878F0)
                                       : const Color(0xFF7A8290),
                                   fontSize: 9,
@@ -571,14 +547,10 @@ class _ArenaOptionTile extends StatelessWidget {
                           ),
                         ),
                         Icon(
-                          locked
-                              ? Icons.lock_rounded
-                              : selected
+                          selected
                               ? Icons.check_circle_rounded
                               : Icons.radio_button_unchecked_rounded,
-                          color: locked
-                              ? const Color(0xFF8A8F9C)
-                              : selected
+                          color: selected
                               ? const Color(0xFF2878F0)
                               : const Color(0xFF9AA1AD),
                           size: 18,

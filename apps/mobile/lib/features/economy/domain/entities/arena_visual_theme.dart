@@ -25,36 +25,64 @@ class ArenaVisualTheme {
   final Color playerWash;
   final Color opponentWash;
 
-  static const ArenaVisualTheme cpns = ArenaVisualTheme(
-    id: 'arena-cpns',
-    field: Color(0xFFDDD0B5),
-    fieldAccent: Color(0xFFB9A98B),
-    river: Color(0xFF55AFC7),
-    riverEdge: Color(0xFF8B806A),
-    bridge: Color(0xFFEEDDBD),
-    bridgeLine: Color(0xFFC0A679),
-    boundary: Color(0xFFE8D6B5),
+  static const ArenaVisualTheme lembahBara = ArenaVisualTheme(
+    id: 'arena-lembah-bara',
+    field: Color(0xFFE56B2E),
+    fieldAccent: Color(0xFF7A271F),
+    river: Color(0xFFFF9A3C),
+    riverEdge: Color(0xFF68211C),
+    bridge: Color(0xFFD99B65),
+    bridgeLine: Color(0xFF784D35),
+    boundary: Color(0xFFFFB65F),
     playerWash: Color(0x38284F8F),
     opponentWash: Color(0x38B74A45),
   );
 
-  static const ArenaVisualTheme bumn = ArenaVisualTheme(
-    id: 'arena-bumn',
-    field: Color(0xFF384B4E),
-    fieldAccent: Color(0xFF26383C),
-    river: Color(0xFF2E91A2),
-    riverEdge: Color(0xFF1F626D),
-    bridge: Color(0xFF9DA5A4),
-    bridgeLine: Color(0xFF626D6F),
-    boundary: Color(0xFF7B8584),
+  static const ArenaVisualTheme padangHarmoni = ArenaVisualTheme(
+    id: 'arena-padang-harmoni',
+    field: Color(0xFFA9D957),
+    fieldAccent: Color(0xFF4C8B45),
+    river: Color(0xFF7BC9B5),
+    riverEdge: Color(0xFF367963),
+    bridge: Color(0xFFEAD596),
+    bridgeLine: Color(0xFF9B7D45),
+    boundary: Color(0xFFE9F4B2),
     playerWash: Color(0x3828A5AC),
     opponentWash: Color(0x38D1903D),
   );
 
+  static const ArenaVisualTheme gurunCendekia = ArenaVisualTheme(
+    id: 'arena-gurun-cendekia',
+    field: Color(0xFFE6B873),
+    fieldAccent: Color(0xFFB66C3E),
+    river: Color(0xFF86BFC1),
+    riverEdge: Color(0xFF4B8586),
+    bridge: Color(0xFFD9A866),
+    bridgeLine: Color(0xFF8F633C),
+    boundary: Color(0xFFF5D49D),
+    playerWash: Color(0x38284F8F),
+    opponentWash: Color(0x38B74A45),
+  );
+
+  static const ArenaVisualTheme rimbaYudha = ArenaVisualTheme(
+    id: 'arena-rimba-yudha',
+    field: Color(0xFF78B85A),
+    fieldAccent: Color(0xFF235C3D),
+    river: Color(0xFF54A89C),
+    riverEdge: Color(0xFF28645C),
+    bridge: Color(0xFF9B7548),
+    bridgeLine: Color(0xFF5C422C),
+    boundary: Color(0xFFB9DC82),
+    playerWash: Color(0x38284F8F),
+    opponentWash: Color(0x38B74A45),
+  );
+
   static ArenaVisualTheme fromId(String id) {
     return switch (id) {
-      'arena-bumn' => bumn,
-      _ => cpns,
+      'arena-lembah-bara' => lembahBara,
+      'arena-gurun-cendekia' => gurunCendekia,
+      'arena-rimba-yudha' => rimbaYudha,
+      _ => padangHarmoni,
     };
   }
 }

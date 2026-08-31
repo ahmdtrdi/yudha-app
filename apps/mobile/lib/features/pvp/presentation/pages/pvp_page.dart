@@ -39,11 +39,16 @@ part 'pvp_page/arena_menu_section.dart';
 part 'pvp_page/in_battle_section.dart';
 part 'pvp_page/result_status_section.dart';
 
-const String _enemyMiniTowerAsset = 'assets/game/arena_turret_coral.webp';
-const String _numerikCardAsset = 'assets/game/card_numerik.webp';
-const String _verbalCardAsset = 'assets/game/card_verbal.webp';
-const String _logikaCardAsset = 'assets/game/card_logika.webp';
-const String _twkCardAsset = 'assets/game/card_twk.webp';
+const String _enemyMiniTowerAsset = 'assets/game/tower_benteng_bara.png';
+const String _enemyDestroyedTowerAsset =
+    'assets/game/tower_benteng_bara_destroyed.png';
+const String _akhlakCardAsset = 'assets/game/card_akhlak.png';
+const String _figuralCardAsset = 'assets/game/card_figural.png';
+const String _logikaCardAsset = 'assets/game/card_logika.png';
+const String _numerikCardAsset = 'assets/game/card_numerik.png';
+const String _tkpCardAsset = 'assets/game/card_tkp.png';
+const String _twkCardAsset = 'assets/game/card_twk.png';
+const String _verbalCardAsset = 'assets/game/card_verbal.png';
 
 String _firstName(String value, {required String fallback}) {
   final String normalized = value.trim();
@@ -132,7 +137,6 @@ class PvpPage extends ConsumerStatefulWidget {
 
 class _PvpPageState extends ConsumerState<PvpPage> {
   _ArenaSetupStep _setupStep = _ArenaSetupStep.arena;
-  String? _scheduledArenaSyncId;
   final ResultExitAdSession _resultAdSession = ResultExitAdSession();
   bool _allowResultPop = false;
   bool _resultEconomyRefreshed = false;
@@ -206,11 +210,8 @@ class _PvpPageState extends ConsumerState<PvpPage> {
         );
     final CosmeticItem savedArena =
         GameEconomyCatalog.findArena(economy.equippedArenaId) ??
-        GameEconomyCatalog.arenas.first;
-    final CosmeticItem selectedArena =
-        GameEconomyCatalog.findArena(profileTarget?.arenaId ?? '') ??
-        savedArena;
-    _ensureArenaMatchesTarget(profileTarget, economy);
+        GameEconomyCatalog.findArena(GameEconomyCatalog.defaultArenaId)!;
+    final CosmeticItem selectedArena = savedArena;
     final bool useServerSnapshot =
         state.mode == BattleMode.online &&
         (state.isMatchActive || state.isBattleFinished);
@@ -239,11 +240,7 @@ class _PvpPageState extends ConsumerState<PvpPage> {
               : 'tower-benteng-bara',
         ) ??
         GameEconomyCatalog.towers.last;
-    final CosmeticItem battleArena =
-        useServerSnapshot && state.battleTarget != null
-        ? GameEconomyCatalog.findArena('arena-${state.battleTarget!.name}') ??
-              selectedArena
-        : selectedArena;
+    final CosmeticItem battleArena = selectedArena;
 
     if (state.phase != BattlePhase.preBattle) {
       final bool needsDark =
@@ -402,20 +399,6 @@ class _PvpPageState extends ConsumerState<PvpPage> {
           );
           unawaited(economyController.selectArenaAuthoritative(arena));
         },
-        onLockedArenaTap: (CosmeticItem arena) {
-          final String targetLabel = profileTarget?.label ?? '';
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Arena ini terkunci untuk tujuan $targetLabel. '
-                  'Pindah tujuan Anda di Pengaturan jika ingin bermain '
-                  'di ${arena.name}.',
-                ),
-              ),
-            );
-        },
         onOpenStore: () => context.push(AppRoutes.store),
         onTopUp: () => showYCoinTopUpSheet(context),
         onBack: () {
@@ -538,7 +521,12 @@ class _PvpPageState extends ConsumerState<PvpPage> {
       playerCharacter: selectedCharacter.characterVisuals!,
       opponentCharacter: opponentCharacter.characterVisuals!,
       playerTowerAsset: selectedTower.battleAssetPath ?? _enemyMiniTowerAsset,
+      playerDestroyedTowerAsset:
+          selectedTower.destroyedAssetPath ?? _enemyDestroyedTowerAsset,
       opponentTowerAsset: opponentTower.battleAssetPath ?? _enemyMiniTowerAsset,
+      opponentDestroyedTowerAsset:
+          opponentTower.destroyedAssetPath ?? _enemyDestroyedTowerAsset,
+      arenaAsset: selectedArena.assetPath!,
       arenaTheme: ArenaVisualTheme.fromId(selectedArena.id),
       soundEnabled: soundEnabled,
       hapticsEnabled: hapticsEnabled,
@@ -588,47 +576,6 @@ class _PvpPageState extends ConsumerState<PvpPage> {
       ref.read(adPlacementGateProvider),
       AdPlacement.publicPvpResultExit,
     );
-  }
-
-  void _ensureArenaMatchesTarget(
-    ProfileTarget? target,
-    GameEconomyState economy,
-  ) {
-    final String? targetArenaId = target?.arenaId;
-    if (targetArenaId == null ||
-        economy.equippedArenaId == targetArenaId ||
-        _scheduledArenaSyncId == targetArenaId) {
-      return;
-    }
-
-    final CosmeticItem? arena = GameEconomyCatalog.findArena(targetArenaId);
-    if (arena == null) {
-      return;
-    }
-    _scheduledArenaSyncId = targetArenaId;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-      final ProfileTarget? latestTarget = ref
-          .read(profileSettingsProvider)
-          .target;
-      if (latestTarget?.arenaId != targetArenaId) {
-        _scheduledArenaSyncId = null;
-        return;
-      }
-
-      final GameEconomyController controller = ref.read(
-        gameEconomyProvider.notifier,
-      );
-      unawaited(
-        controller.selectArenaAuthoritative(arena).whenComplete(() {
-          if (_scheduledArenaSyncId == targetArenaId) {
-            _scheduledArenaSyncId = null;
-          }
-        }),
-      );
-    });
   }
 
   Future<void> _showQuestionSheet({
