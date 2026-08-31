@@ -44,3 +44,31 @@ No product feature code was changed in this documentation-only consolidation.
 - The latest mobile/backend source must be redeployed to Railway before beta activation is available through the production API URL.
 - Real payment checkout and entitlement purchase remain post-beta work; the beta button is intentionally not a payment simulation.
 - A duplicate question in the full content sync still needs separate content cleanup, although the dedicated Hired Pass sync is available.
+
+## 2026-08-31 — Consolidate the Learning System V2 draft contract
+
+### Change
+
+- Added `docs/LEARNING-SYSTEM-V2-DRAFT.md` as the consolidated product-and-technical proposal for skill-level evidence, Solo mechanics, learner state, deterministic recommendations, mobile learning analytics, future web Assessment evidence, and internal content-quality operations.
+- Resolved conflicting source terminology and policy proposals: Solo is the V2 domain name, Assessment is a separate web validation lane, PvP remains Competition evidence, the primary recommendation is Solo-only, and Solo secure status remains separate from Assessment validation.
+- Defined the proposed `learning-v1` formulas, latest-20 state window, 10-versus-10 trend, exhaustive confidence rules, 85% Speed eligibility, seven-day review, personal Speed baseline, server timeout authority, append-only attempt ledger, and additive compatibility path.
+- Added an explicit delivery-policy debt register rather than treating the current five-question Practice implementation as a permanent V2 invariant.
+- Updated `docs/MASTER.md` so the draft is discoverable while remaining subordinate to the approved PRD.
+
+### Product reasoning
+
+- A single review document prevents the analytics blueprint, API examples, formula flow, and delivery-debt discussion from becoming competing specifications.
+- Separating raw immutable evidence from versioned learner state allows formula calibration without rewriting learning history.
+- Separating Solo, PvP, and Assessment preserves the meaning and strength of each environment while still allowing qualified context comparisons.
+- Keeping the current Practice flow behind compatibility adapters lets evidence and analytics foundations progress without silently deciding the unresolved V2 delivery policy.
+- Making numerator, denominator, unique-question count, confidence, and evidence source visible prevents short or assisted sessions from being presented as mastery.
+
+### Remaining decision and implementation debt
+
+- Product research must decide V2 stopping rules, session length, topic allocation, difficulty progression, repetition, inventory fallback, resume behavior, and continue-after-completion behavior before the canonical Solo builder can ship.
+- Content/SME must approve stable CPNS and BUMN skill catalogs and later calibrate question-quality thresholds.
+- A separate web Assessment contract must define its blueprint, delivery, security, and ingestion implementation.
+- The draft must be reviewed and adopted into `docs/PRD.md` before any V2 behavior or public contract becomes authoritative.
+- OpenAPI, shared types, migrations, source ingestion, projections, Mobile/Web surfaces, compatibility telemetry, and automated acceptance tests remain implementation work after approval.
+
+No product feature code or approved PRD behavior was changed in this documentation-only consolidation.
