@@ -686,6 +686,30 @@
 - `20260829010000_add_interview_company_default_role.sql` must be run manually in the target Supabase project before deploying the new API.
 - The backend must be redeployed or restarted after the schema migration. The fixture seeder was updated but intentionally not run against remote content because it replaces company context rows.
 
+## 2026-09-01 - Learning Analytics V2 Database Foundation (Phase 1)
+
+**The Change:**
+- Added the transaction-safe `20260901090000_learning_v2_analytics_foundation.sql` Supabase migration for versioned taxonomy, immutable question revisions and mappings, canonical learning attempts and classifications, auditable invalidations, fixture/backfill runs, prepared skill/retention state, deterministic recommendation snapshots and lifecycle events, projection jobs, and the minimal Assessment import boundary.
+- Extended the fixed-five Practice compatibility tables with nullable recommendation, taxonomy, revision, skill, exposure, authoritative hint, evidence-capture-version, and canonical-attempt references without fabricating historical evidence.
+- Added source-attempt uniqueness, active-recommendation and projection-queue deduplication, approved vocabulary checks, append-only mutation guards, invalidation-triggered rebuild queueing, ownership RLS, and service-role-only Learning V2 writes.
+- Preserved legacy authenticated Practice column writes while explicitly denying authenticated writes to every new server-authoritative compatibility field.
+- Added a Cloud SQL postcheck, 52 structural pgTAP assertions, and a documented manual migration checkpoint.
+
+**The Reasoning:**
+- The PRD requires immutable raw evidence and versioned derived classifications so formula changes, question invalidations, and honest lower-fidelity backfills never rewrite history.
+- Classification eligibility is intentionally stored separately from attempts; unknown legacy hint, exposure, revision, timing, or skill data therefore remains null and cannot silently enter unsupported proficiency metrics.
+- The migration is additive and does not enable the unresolved Gate 5 Solo delivery policy, replace the fixed-five Practice contract, seed provisional skills, backfill learner data, or alter `/analytics`.
+
+**Verification:**
+- Existing infrastructure tests passed: 8/8.
+- Gate 0 content validation passed with 250 CPNS and 100 BUMN questions and correctly reported that the banks remain development-only and not SME-approved.
+- SQL artifact checks passed: no diff whitespace errors, 52 declared/implemented pgTAP assertions, balanced dollar-quote markers, and one top-level transaction.
+- Local database execution was not available because Docker/Supabase was not running. Cloud migration and postcheck execution remain the required gate before Phase 2.
+
+**The Tech Debt:**
+- Phase 2 still needs taxonomy/revision synchronization, honest Practice/PvP backfill, disposable-user fixtures and invalidation, versioned calculators, projection workers, recommendation APIs/events, server hint tracking, atomic Practice ingestion, OpenAPI/types, and backend tests.
+- Phase 3 still needs the sixth mobile Learning tab, Lobby card, dashboard, Profile migration, Practice integration, Flutter tests, rollout flag activation, and the cloud end-to-end smoke test.
+
 
 
 

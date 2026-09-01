@@ -13,6 +13,8 @@ Use it when:
 
 - `bootstrap.sql`: base schema for a fresh Supabase project.
 - `migrations/`: ordered schema changes that must be applied after the base schema.
+- `postchecks/`: read-only verification queries paired with manual cloud migrations.
+- `tests/`: pgTAP database contract tests for local Supabase and CI.
 - `schema-reference.md`: human-readable explanation of the tables, views, policies, and intended implementation order.
 - `auth-and-match-smoke-test.md`: manual register/login/profile/match verification steps.
 
@@ -30,11 +32,32 @@ Use it when:
 7. Confirm a row is automatically created in `public.profiles`.
 8. Follow `auth-and-match-smoke-test.md` to verify register, login, profile fetch, and match socket auth.
 
+## Learning V2 Manual Cloud Checkpoint
+
+Learning Analytics + Recommendation V2 is intentionally gated before any
+taxonomy synchronization, backfill, fixture insertion, or API rollout:
+
+1. In Supabase Cloud SQL Editor, paste and run the complete transaction in
+   `migrations/20260901090000_learning_v2_analytics_foundation.sql`.
+2. In a new SQL Editor query, run
+   `postchecks/20260901090000_learning_v2_analytics_foundation.sql`.
+3. Confirm every row returns `passed = true`. The final informational row should
+   report zero rows in the new tables before Phase 2 seeds or backfills them.
+4. Save or share the complete postcheck result before enabling backend reads.
+
+Do not run development fixtures against a real learner. Phase 2 requires an
+explicit disposable cloud user ID and records the owning fixture run so the
+evidence can be invalidated and rebuilt without deleting ledger rows.
+
 ## Important Security Notes
 
 - `auth.users` is the source user table. Do not create a custom `users` table.
 - `public.questions` contains `correct_option_index`, so frontend clients should not read it directly.
 - `public.public_questions` hides answer metadata and is safe for client-facing reads.
+- Learning V2 question revisions, canonical attempts, classifications,
+  invalidations, projections, recommendations, and events are written only by
+  the service role. Authenticated users can read only safe taxonomy data and
+  their own learner records.
 - Backend services using the service role key can bypass RLS when needed.
 
 ## Suggested Implementation Order
