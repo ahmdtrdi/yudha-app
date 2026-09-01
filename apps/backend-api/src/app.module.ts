@@ -15,6 +15,7 @@ import { StoreModule } from './store/store.module';
 import { LobbyModule } from './lobby/lobby.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { NotificationsModule } from './notifications/notifications.module';
+import { SoloModule } from './solo/solo.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     ProfileModule,
     LeaderboardModule,
     PracticeModule,
+    SoloModule,
     InterviewModule,
     MatchesModule,
     AnalyticsModule,

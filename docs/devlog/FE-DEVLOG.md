@@ -2812,3 +2812,24 @@
 ### The Tech Debt
 - Recommended selection remains unavailable until authoritative recommendation data exists, and Custom still carries legacy category/subcategory references until stable skill-ID delivery is implemented.
 
+## 2026-09-01 - Balanced Standard Solo End-to-End
+
+### The Change
+- Added `questionCount` as a required cross-platform Solo configuration value limited to 20, 35, or 50, with no implicit manual default.
+- Versioned the initial Balanced allocation policy: CPNS temporarily uses TWK:TIU = 6:7 because no active TKP content exists, while BUMN uses TKD:AKHLAK = 3:1.
+- Added deterministic largest-remainder allocation and exact contract tests for every supported target/count combination.
+- Reconciled the canonical PRD with the approved tower completion states, resumable fixed-count delivery, no Solo rank mutation, idempotent Y-Coin outcomes, and remaining deferred policy scope.
+- Added an authenticated `/solo` API and atomic Supabase persistence for session creation, question opening, answer/timeout resolution, early stopping, active-session resume, completion, tower HP, and daily-capped Solo coin rewards.
+- Replaced `/solo/session`'s legacy Practice destination with a Solo arena where the selected character attacks a 100-HP tower on correct answers and uses its hit reaction on wrong answers or timeouts; the learner has no HP.
+- Added fixed 20/35/50 setup choices with no default, enabled only Standard + Seimbang for this delivery slice, connected character Loadout to real session creation, and added completed/stopped result states.
+- Preserved the legacy five-question Practice quiz on its original compatibility route.
+
+### The Reasoning
+- The backend needs an explicit count and target-specific weights to build a reproducible session. Treating missing TKP inventory as an equal or hidden category would produce misleading CPNS coverage.
+
+### Verification
+- All 166 Flutter tests passed and targeted Solo/router analysis reported no issues. All 19 focused backend Solo tests and all 8 Gate 0 infra tests passed; the full backend run passed 28 of 29 suites and all 109 executed tests, with the unrelated Interview speech suite unable to load because the local `@nestjs/websockets` package is missing. Added pgTAP coverage for the migration boundary; local database execution was unavailable because the Supabase CLI is not installed. `git diff --check` completed cleanly.
+
+### The Tech Debt
+- CPNS must move to a new versioned Balanced policy when approved TKP inventory exists. Focus, Speed, Recommended/Custom delivery, canonical learning-attempt ingestion, difficulty progression, mission/Pass integration, and intentional cross-session repetition remain deferred to the improvement PR.
+

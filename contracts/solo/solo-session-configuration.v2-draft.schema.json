@@ -43,10 +43,12 @@
     }
   },
   "type": "object",
-  "required": ["idempotencyKey", "mechanicMode", "questionSelection"],
+  "required": ["idempotencyKey", "mechanicMode", "questionCount", "questionSelection", "characterId"],
   "properties": {
     "idempotencyKey": { "type": "string", "minLength": 1, "maxLength": 160 },
     "mechanicMode": { "$ref": "#/$defs/mechanicMode" },
+    "questionCount": { "enum": [20, 35, 50] },
+    "characterId": { "type": "string", "minLength": 1, "maxLength": 160 },
     "questionSelection": { "$ref": "#/$defs/questionSelection" },
     "recommendationId": { "type": "string", "minLength": 1, "maxLength": 160 }
   },

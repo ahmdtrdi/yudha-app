@@ -20,6 +20,7 @@ import 'package:yudha_mobile/features/profile/presentation/pages/profile_onboard
 import 'package:yudha_mobile/features/profile/presentation/pages/profile_page.dart';
 import 'package:yudha_mobile/features/pvp/presentation/pages/pvp_page.dart';
 import 'package:yudha_mobile/features/solo/presentation/pages/solo_loadout_page.dart';
+import 'package:yudha_mobile/features/solo/presentation/pages/solo_session_page.dart';
 import 'package:yudha_mobile/features/solo/presentation/pages/solo_setup_page.dart';
 import 'package:yudha_mobile/features/solo/presentation/pages/solo_topic_selection_page.dart';
 import 'package:yudha_mobile/features/store/presentation/pages/store_page.dart';
@@ -89,13 +90,16 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
       for (final String legacyPath in <String>[
         AppRoutes.legacyPractice,
         AppRoutes.legacyPracticeHistory,
-        AppRoutes.legacyPracticeQuiz,
         AppRoutes.legacyInterviewSetup,
       ])
         GoRoute(
           path: legacyPath,
           redirect: (context, state) => AppRoutes.canonicalLocation(state.uri),
         ),
+      GoRoute(
+        path: AppRoutes.legacyPracticeQuiz,
+        builder: (context, state) => const PracticeQuizPage(),
+      ),
       ShellRoute(
         builder: (context, state, child) {
           return AppTabShell(location: state.uri.path, child: child);
@@ -131,7 +135,7 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
           ),
           GoRoute(
             path: AppRoutes.soloSession,
-            builder: (context, state) => const PracticeQuizPage(),
+            builder: (context, state) => const SoloSessionPage(),
           ),
           GoRoute(
             path: AppRoutes.soloHistory,

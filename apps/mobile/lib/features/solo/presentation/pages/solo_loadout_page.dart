@@ -8,6 +8,7 @@ import 'package:yudha_mobile/features/economy/application/game_economy_providers
 import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
+import 'package:yudha_mobile/features/solo/application/solo_session_providers.dart';
 import 'package:yudha_mobile/features/solo/application/solo_setup_providers.dart';
 import 'package:yudha_mobile/features/solo/application/solo_setup_state.dart';
 import 'package:yudha_mobile/features/solo/domain/solo_contract.dart';
@@ -20,9 +21,12 @@ class SoloLoadoutPage extends ConsumerWidget {
     final SoloSetupState setup = ref.watch(soloSetupControllerProvider);
     final GameEconomyState economy = ref.watch(gameEconomyProvider);
     final controller = ref.read(soloSetupControllerProvider.notifier);
+    final sessionState = ref.watch(soloSessionControllerProvider);
     final SoloSetupMode? mode = setup.mode;
 
-    if (mode == null) {
+    if (mode == null ||
+        setup.mechanicMode == null ||
+        setup.questionCount == null) {
       return _MissingSoloSetup(onBack: () => context.go(AppRoutes.solo));
     }
 
@@ -75,7 +79,8 @@ class SoloLoadoutPage extends ConsumerWidget {
                   children: <Widget>[
                     _LoadoutSetupSummary(
                       mode: mode,
-                      mechanicMode: setup.mechanicMode,
+                      mechanicMode: setup.mechanicMode!,
+                      questionCount: setup.questionCount!,
                       topicName: setup.legacyTopic?.name,
                       onChange: context.pop,
                     ),
@@ -84,7 +89,7 @@ class SoloLoadoutPage extends ConsumerWidget {
                       arena: arena,
                       character: selectedCharacter,
                       mode: mode,
-                      mechanicMode: setup.mechanicMode,
+                      mechanicMode: setup.mechanicMode!,
                       topicName: setup.legacyTopic?.name,
                       compact: compact,
                     ),
@@ -131,14 +136,25 @@ class SoloLoadoutPage extends ConsumerWidget {
                     ),
                     const SizedBox(height: 14),
                     _StartSoloButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Setup tersimpan. Sesi Solo belum diaktifkan pada commit ini.',
-                            ),
-                          ),
-                        );
+                      loading: sessionState.loading,
+                      onPressed: () async {
+                        final started = await ref
+                            .read(soloSessionControllerProvider.notifier)
+                            .start(
+                              count: setup.questionCount!,
+                              characterId: selectedCharacter.id,
+                            );
+                        if (!context.mounted) return;
+                        if (started) {
+                          context.go(AppRoutes.soloSession);
+                        } else {
+                          final message =
+                              ref.read(soloSessionControllerProvider).error ??
+                              'Sesi Solo gagal dimulai.';
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text(message)));
+                        }
                       },
                     ),
                   ],
@@ -156,12 +172,14 @@ class _LoadoutSetupSummary extends StatelessWidget {
   const _LoadoutSetupSummary({
     required this.mode,
     required this.mechanicMode,
+    required this.questionCount,
     required this.topicName,
     required this.onChange,
   });
 
   final SoloSetupMode mode;
   final SoloMechanicMode mechanicMode;
+  final SoloQuestionCount questionCount;
   final String? topicName;
   final VoidCallback onChange;
 
@@ -208,7 +226,7 @@ class _LoadoutSetupSummary extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${_mechanicLabel(mechanicMode)} · ${topicName ?? _modeLabel(mode)}',
+                  '${_mechanicLabel(mechanicMode)} · ${topicName ?? _modeLabel(mode)} · ${questionCount.value} soal',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.fredoka(
@@ -550,9 +568,10 @@ class _CharacterThumbnail extends StatelessWidget {
 }
 
 class _StartSoloButton extends StatelessWidget {
-  const _StartSoloButton({required this.onPressed});
+  const _StartSoloButton({required this.onPressed, required this.loading});
 
   final VoidCallback onPressed;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -577,16 +596,21 @@ class _StartSoloButton extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               child: InkWell(
                 key: const ValueKey<String>('solo-start-preview'),
-                onTap: onPressed,
+                onTap: loading ? null : onPressed,
                 child: Center(
-                  child: Text(
-                    'MULAI LATIHAN',
-                    style: GoogleFonts.fredoka(
-                      color: const Color(0xFFB85C1E),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
+                  child: loading
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(
+                          'MULAI LATIHAN',
+                          style: GoogleFonts.fredoka(
+                            color: const Color(0xFFB85C1E),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                 ),
               ),
             ),

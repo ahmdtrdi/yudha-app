@@ -52,9 +52,12 @@ void main() {
     expect(find.text('Seimbang'), findsOneWidget);
     expect(find.text('Rekomendasi'), findsNWidgets(2));
     expect(find.text('Pilih topik'), findsOneWidget);
-    expect(find.text('Tanpa waktu'), findsOneWidget);
+    expect(find.text('Segera hadir'), findsNWidgets(2));
     expect(find.text('Tempo normal'), findsOneWidget);
-    expect(find.text('Lebih cepat'), findsOneWidget);
+    expect(find.text('JUMLAH SOAL'), findsOneWidget);
+    expect(find.text('20 soal'), findsOneWidget);
+    expect(find.text('35 soal'), findsOneWidget);
+    expect(find.text('50 soal'), findsOneWidget);
     expect(find.text('Semua materi'), findsOneWidget);
     expect(find.text('Topik terlemah'), findsOneWidget);
     expect(find.text('Atur materi'), findsOneWidget);
@@ -75,6 +78,13 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey<String>('solo-mode-balanced')));
     await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('solo-mechanic-standard')),
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('solo-question-count-20')),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey<String>('solo-setup-continue')));
     await tester.pumpAndSettle();
 
@@ -85,7 +95,7 @@ void main() {
       find.byKey(const ValueKey<String>('solo-loadout-summary')),
       findsOneWidget,
     );
-    expect(find.text('Focus · Seimbang'), findsWidgets);
+    expect(find.text('Standard · Seimbang · 20 soal'), findsWidgets);
     expect(
       find.byKey(const ValueKey<String>('solo-mode-arena-balanced')),
       findsOneWidget,
@@ -186,7 +196,12 @@ void main() {
       );
     }
 
-    await tester.tap(find.byKey(const ValueKey<String>('solo-mechanic-speed')));
+    await tester.tap(
+      find.byKey(const ValueKey<String>('solo-mechanic-standard')),
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('solo-question-count-35')),
+    );
     await tester.pumpAndSettle();
 
     expect(
@@ -200,7 +215,7 @@ void main() {
     expect(
       tester
           .widget<Semantics>(
-            find.byKey(const ValueKey<String>('solo-mechanic-card-speed')),
+            find.byKey(const ValueKey<String>('solo-mechanic-card-standard')),
           )
           .properties
           .selected,
@@ -216,48 +231,56 @@ void main() {
     );
   });
 
-  testWidgets('selects pace before opening the character loadout', (
-    WidgetTester tester,
-  ) async {
-    final GoRouter router = GoRouter(
-      initialLocation: AppRoutes.solo,
-      routes: <RouteBase>[
-        GoRoute(path: AppRoutes.solo, builder: (_, _) => const SoloSetupPage()),
-        GoRoute(
-          path: AppRoutes.soloLoadout,
-          builder: (_, _) => const SoloLoadoutPage(),
-        ),
-      ],
-    );
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      ProviderScope(child: MaterialApp.router(routerConfig: router)),
-    );
-    await tester.pumpAndSettle();
+  testWidgets(
+    'selects count and Standard before opening the character loadout',
+    (WidgetTester tester) async {
+      final GoRouter router = GoRouter(
+        initialLocation: AppRoutes.solo,
+        routes: <RouteBase>[
+          GoRoute(
+            path: AppRoutes.solo,
+            builder: (_, _) => const SoloSetupPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.soloLoadout,
+            builder: (_, _) => const SoloLoadoutPage(),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(child: MaterialApp.router(routerConfig: router)),
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey<String>('solo-mechanic-speed')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey<String>('solo-mode-balanced')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey<String>('solo-setup-continue')));
-    await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey<String>('solo-mechanic-standard')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey<String>('solo-question-count-35')),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey<String>('solo-mode-balanced')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey<String>('solo-setup-continue')),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('Speed · Seimbang'), findsWidgets);
-    expect(
-      find.byKey(const ValueKey<String>('solo-mechanic-selector')),
-      findsNothing,
-    );
+      expect(find.text('Standard · Seimbang · 35 soal'), findsWidgets);
+      expect(
+        find.byKey(const ValueKey<String>('solo-mechanic-selector')),
+        findsNothing,
+      );
 
-    await tester.ensureVisible(
-      find.byKey(const ValueKey<String>('solo-start-preview')),
-    );
-    await tester.tap(find.byKey(const ValueKey<String>('solo-start-preview')));
-    await tester.pump();
-    expect(
-      find.text('Setup tersimpan. Sesi Solo belum diaktifkan pada commit ini.'),
-      findsOneWidget,
-    );
-  });
+      expect(
+        find.byKey(const ValueKey<String>('solo-start-preview')),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('resets mode selection after leaving the Solo flow', (
     WidgetTester tester,
@@ -276,6 +299,12 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey<String>('solo-mode-balanced')));
+    await tester.tap(
+      find.byKey(const ValueKey<String>('solo-mechanic-standard')),
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('solo-question-count-20')),
+    );
     await tester.pumpAndSettle();
     expect(
       tester
@@ -320,6 +349,12 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey<String>('solo-mode-balanced')));
+    await tester.tap(
+      find.byKey(const ValueKey<String>('solo-mechanic-standard')),
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('solo-question-count-20')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey<String>('solo-setup-continue')));
     await tester.pumpAndSettle();

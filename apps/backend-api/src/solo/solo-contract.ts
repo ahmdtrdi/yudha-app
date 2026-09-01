@@ -1,5 +1,6 @@
 import {
   SOLO_MECHANIC_MODES,
+  SOLO_QUESTION_COUNTS,
   SOLO_QUESTION_SELECTION_TYPES,
   type LegacyPracticeCompatibility,
   type SoloContractErrorCode,
@@ -30,15 +31,23 @@ export function parseSoloDraftSessionRequest(
   rejectUnknownKeys(request, 'request', [
     'idempotencyKey',
     'mechanicMode',
+    'questionCount',
     'questionSelection',
     'recommendationId',
+    'characterId',
   ]);
 
   const idempotencyKey = requireText(request.idempotencyKey, 'idempotencyKey');
+  const characterId = requireText(request.characterId, 'characterId');
   const mechanicMode = requireEnum(
     request.mechanicMode,
     'mechanicMode',
     SOLO_MECHANIC_MODES,
+  );
+  const questionCount = requireNumberEnum(
+    request.questionCount,
+    'questionCount',
+    SOLO_QUESTION_COUNTS,
   );
   const questionSelection = parseQuestionSelection(request.questionSelection);
   const recommendationId = optionalText(
@@ -61,7 +70,9 @@ export function parseSoloDraftSessionRequest(
 
   return {
     idempotencyKey,
+    characterId,
     mechanicMode,
+    questionCount,
     questionSelection,
     ...(recommendationId ? { recommendationId } : {}),
   };
@@ -125,6 +136,17 @@ function requireEnum<T extends string>(
   allowed: readonly T[],
 ): T {
   if (typeof value !== 'string' || !allowed.includes(value as T)) {
+    throw invalid(field, `${field} must be one of: ${allowed.join(', ')}.`);
+  }
+  return value as T;
+}
+
+function requireNumberEnum<T extends number>(
+  value: unknown,
+  field: string,
+  allowed: readonly T[],
+): T {
+  if (typeof value !== 'number' || !allowed.includes(value as T)) {
     throw invalid(field, `${field} must be one of: ${allowed.join(', ')}.`);
   }
   return value as T;

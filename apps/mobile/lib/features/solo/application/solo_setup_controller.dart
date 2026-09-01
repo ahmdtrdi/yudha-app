@@ -11,6 +11,8 @@ class SoloSetupController extends StateNotifier<SoloSetupState> {
       mode: mode,
       clearRecommendation: mode != SoloSetupMode.auto,
       clearLegacyTopic: mode != SoloSetupMode.custom,
+      clearMechanic: mode == SoloSetupMode.auto,
+      clearQuestionCount: mode == SoloSetupMode.auto,
     );
   }
 
@@ -30,6 +32,14 @@ class SoloSetupController extends StateNotifier<SoloSetupState> {
   void selectMechanic(SoloMechanicMode mechanicMode) {
     state = state.copyWith(
       mechanicMode: mechanicMode,
+      clearMode: state.mode == SoloSetupMode.auto,
+      clearRecommendation: state.mode == SoloSetupMode.auto,
+    );
+  }
+
+  void selectQuestionCount(SoloQuestionCount questionCount) {
+    state = state.copyWith(
+      questionCount: questionCount,
       clearMode: state.mode == SoloSetupMode.auto,
       clearRecommendation: state.mode == SoloSetupMode.auto,
     );

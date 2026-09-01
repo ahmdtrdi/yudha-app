@@ -11,6 +11,10 @@ export const SOLO_QUESTION_SELECTION_TYPES = [
 export type SoloQuestionSelectionType =
   (typeof SOLO_QUESTION_SELECTION_TYPES)[number];
 
+export const SOLO_QUESTION_COUNTS = [20, 35, 50] as const;
+
+export type SoloQuestionCount = (typeof SOLO_QUESTION_COUNTS)[number];
+
 export interface SoloBalancedQuestionSelection {
   type: 'balanced';
 }
@@ -31,12 +35,14 @@ export type SoloQuestionSelection =
 
 export interface SoloSessionConfiguration {
   mechanicMode: SoloMechanicMode;
+  questionCount: SoloQuestionCount;
   questionSelection: SoloQuestionSelection;
   recommendationId?: string;
 }
 
 export interface SoloDraftSessionRequest extends SoloSessionConfiguration {
   idempotencyKey: string;
+  characterId: string;
 }
 
 export const SOLO_COMPATIBILITY_WARNING_CODES = [

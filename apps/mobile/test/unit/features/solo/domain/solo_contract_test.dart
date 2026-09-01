@@ -7,18 +7,24 @@ void main() {
       final List<Map<String, dynamic>> payloads = <Map<String, dynamic>>[
         <String, dynamic>{
           'idempotencyKey': 'solo-balanced-1',
+          'characterId': 'character-basic-squire',
           'mechanicMode': 'focus',
+          'questionCount': 20,
           'questionSelection': <String, dynamic>{'type': 'balanced'},
         },
         <String, dynamic>{
           'idempotencyKey': 'solo-recommended-1',
+          'characterId': 'character-basic-squire',
           'mechanicMode': 'standard',
+          'questionCount': 35,
           'questionSelection': <String, dynamic>{'type': 'recommended'},
           'recommendationId': 'rec-1',
         },
         <String, dynamic>{
           'idempotencyKey': 'solo-custom-1',
+          'characterId': 'character-basic-squire',
           'mechanicMode': 'speed',
+          'questionCount': 50,
           'questionSelection': <String, dynamic>{
             'type': 'custom',
             'skillIds': <String>['cpns.tiu.numerik.percentage-increase'],
@@ -32,6 +38,16 @@ void main() {
     });
 
     test('rejects unknown mechanic and question-selection values', () {
+      expect(
+        () => SoloQuestionCount.parse(25),
+        throwsA(
+          isA<SoloContractException>().having(
+            (SoloContractException error) => error.field,
+            'field',
+            'questionCount',
+          ),
+        ),
+      );
       expect(
         () => SoloMechanicMode.parse('untimed'),
         throwsA(
@@ -78,6 +94,7 @@ void main() {
       expect(
         () => SoloSessionConfiguration(
           mechanicMode: SoloMechanicMode.focus,
+          questionCount: SoloQuestionCount.twenty,
           questionSelection: const SoloRecommendedQuestionSelection(),
         ),
         throwsA(
@@ -91,6 +108,7 @@ void main() {
       expect(
         () => SoloSessionConfiguration(
           mechanicMode: SoloMechanicMode.focus,
+          questionCount: SoloQuestionCount.twenty,
           questionSelection: const SoloBalancedQuestionSelection(),
           recommendationId: 'rec-1',
         ),

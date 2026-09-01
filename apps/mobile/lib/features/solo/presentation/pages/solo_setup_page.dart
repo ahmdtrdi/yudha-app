@@ -6,6 +6,7 @@ import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
+import 'package:yudha_mobile/features/solo/application/solo_session_providers.dart';
 import 'package:yudha_mobile/features/solo/application/solo_setup_providers.dart';
 import 'package:yudha_mobile/features/solo/application/solo_setup_state.dart';
 import 'package:yudha_mobile/features/solo/domain/solo_contract.dart';
@@ -17,6 +18,7 @@ class SoloSetupPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final SoloSetupState state = ref.watch(soloSetupControllerProvider);
     final controller = ref.read(soloSetupControllerProvider.notifier);
+    final activeSession = ref.watch(activeSoloSessionProvider).asData?.value;
 
     void continueSetup() {
       final SoloSetupMode? mode = state.mode;
@@ -35,6 +37,16 @@ class SoloSetupPage extends ConsumerWidget {
         context.push(AppRoutes.soloTopics);
         return;
       }
+      if (!state.canOpenLoadout) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Saat ini tersedia Seimbang + Standard. Pilih juga jumlah soal.',
+            ),
+          ),
+        );
+        return;
+      }
       context.push(AppRoutes.soloLoadout);
     }
 
@@ -42,6 +54,7 @@ class SoloSetupPage extends ConsumerWidget {
       SoloSetupMode.custom when state.legacyTopic == null => 'PILIH TOPIK',
       SoloSetupMode.auto ||
       SoloSetupMode.recommended => 'REKOMENDASI BELUM TERSEDIA',
+      SoloSetupMode.balanced when !state.canOpenLoadout => 'LENGKAPI SETUP',
       _ => 'LANJUT PILIH KARAKTER',
     };
 
@@ -57,6 +70,20 @@ class SoloSetupPage extends ConsumerWidget {
         scrolledUnderElevation: 0,
         toolbarHeight: 68,
         centerTitle: true,
+        actions: <Widget>[
+          if (activeSession != null)
+            IconButton(
+              key: const ValueKey<String>('solo-resume-session'),
+              tooltip: 'Lanjutkan sesi',
+              icon: const Icon(Icons.play_circle_fill_rounded),
+              onPressed: () async {
+                await ref
+                    .read(soloSessionControllerProvider.notifier)
+                    .resume(activeSession.id);
+                if (context.mounted) context.go(AppRoutes.soloSession);
+              },
+            ),
+        ],
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
@@ -171,7 +198,19 @@ class SoloSetupPage extends ConsumerWidget {
                               compact: dense,
                               onSelected: controller.selectMechanic,
                             ),
-                            SizedBox(height: compact ? 8 : 12),
+                            SizedBox(height: compact ? 6 : 8),
+                            _ControlLabel(
+                              label: 'JUMLAH SOAL',
+                              compact: compact,
+                            ),
+                            SizedBox(height: compact ? 3 : 5),
+                            _QuestionCountSelector(
+                              selected: state.mode == SoloSetupMode.auto
+                                  ? null
+                                  : state.questionCount,
+                              onSelected: controller.selectQuestionCount,
+                            ),
+                            SizedBox(height: compact ? 6 : 8),
                             _ControlLabel(label: 'MATERI', compact: compact),
                             SizedBox(height: compact ? 4 : 6),
                             SizedBox(
@@ -203,7 +242,9 @@ class SoloSetupPage extends ConsumerWidget {
                             SizedBox(height: compact ? 8 : 12),
                             _SoloSetupButton(
                               label: actionLabel,
-                              enabled: state.mode != null,
+                              enabled:
+                                  state.canOpenLoadout ||
+                                  state.mode == SoloSetupMode.custom,
                               unavailable: state.usesUnavailableRecommendation,
                               compact: dense,
                               onPressed: continueSetup,
@@ -546,6 +587,8 @@ class _MechanicSelector extends StatelessWidget {
               child: _MechanicChoice(
                 mode: SoloMechanicMode.values[index],
                 selected: selected == SoloMechanicMode.values[index],
+                enabled:
+                    SoloMechanicMode.values[index] == SoloMechanicMode.standard,
                 onTap: () => onSelected(SoloMechanicMode.values[index]),
               ),
             ),
@@ -562,11 +605,13 @@ class _MechanicChoice extends StatelessWidget {
   const _MechanicChoice({
     required this.mode,
     required this.selected,
+    required this.enabled,
     required this.onTap,
   });
 
   final SoloMechanicMode mode;
   final bool selected;
+  final bool enabled;
   final VoidCallback onTap;
 
   @override
@@ -590,6 +635,7 @@ class _MechanicChoice extends StatelessWidget {
     return Semantics(
       key: ValueKey<String>('solo-mechanic-card-${mode.wireValue}'),
       button: true,
+      enabled: enabled,
       selected: selected,
       child: Stack(
         children: <Widget>[
@@ -614,7 +660,7 @@ class _MechanicChoice extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               child: InkWell(
                 key: ValueKey<String>('solo-mechanic-${mode.wireValue}'),
-                onTap: onTap,
+                onTap: enabled ? onTap : null,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
                   decoration: BoxDecoration(
@@ -650,7 +696,7 @@ class _MechanicChoice extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        description,
+                        enabled ? description : 'Segera hadir',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -667,6 +713,52 @@ class _MechanicChoice extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _QuestionCountSelector extends StatelessWidget {
+  const _QuestionCountSelector({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final SoloQuestionCount? selected;
+  final ValueChanged<SoloQuestionCount> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      key: const ValueKey<String>('solo-question-count-selector'),
+      children: <Widget>[
+        for (final SoloQuestionCount count in SoloQuestionCount.values) ...[
+          Expanded(
+            child: ChoiceChip(
+              key: ValueKey<String>('solo-question-count-${count.value}'),
+              label: Text('${count.value} soal'),
+              selected: selected == count,
+              onSelected: (_) => onSelected(count),
+              showCheckmark: false,
+              backgroundColor: Colors.white,
+              selectedColor: const Color(0xFFE5EEFF),
+              side: BorderSide(
+                color: selected == count
+                    ? const Color(0xFF2878F0)
+                    : const Color(0xFFD5D9E1),
+                width: selected == count ? 2 : 1,
+              ),
+              labelStyle: TextStyle(
+                color: selected == count
+                    ? const Color(0xFF1B5FC4)
+                    : AppColors.textMuted,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          if (count != SoloQuestionCount.values.last) const SizedBox(width: 7),
+        ],
+      ],
     );
   }
 }

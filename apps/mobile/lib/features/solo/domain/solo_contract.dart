@@ -38,6 +38,26 @@ enum SoloQuestionSelectionType {
   }
 }
 
+enum SoloQuestionCount {
+  twenty(20),
+  thirtyFive(35),
+  fifty(50);
+
+  const SoloQuestionCount(this.value);
+
+  final int value;
+
+  static SoloQuestionCount parse(Object? value) {
+    return values.firstWhere(
+      (SoloQuestionCount count) => count.value == value,
+      orElse: () => throw SoloContractException(
+        field: 'questionCount',
+        message: 'Unknown Solo question count: $value',
+      ),
+    );
+  }
+}
+
 sealed class SoloQuestionSelection {
   const SoloQuestionSelection();
 
@@ -111,6 +131,7 @@ final class SoloCustomQuestionSelection extends SoloQuestionSelection {
 class SoloSessionConfiguration {
   SoloSessionConfiguration({
     required this.mechanicMode,
+    required this.questionCount,
     required this.questionSelection,
     String? recommendationId,
   }) : recommendationId = _validateRecommendationIdentity(
@@ -121,11 +142,13 @@ class SoloSessionConfiguration {
   factory SoloSessionConfiguration.fromJson(Map<String, dynamic> json) {
     _rejectUnknownKeys(json, 'configuration', const <String>{
       'mechanicMode',
+      'questionCount',
       'questionSelection',
       'recommendationId',
     });
     return SoloSessionConfiguration(
       mechanicMode: SoloMechanicMode.parse(json['mechanicMode']),
+      questionCount: SoloQuestionCount.parse(json['questionCount']),
       questionSelection: SoloQuestionSelection.fromJson(
         json['questionSelection'],
       ),
@@ -137,11 +160,13 @@ class SoloSessionConfiguration {
   }
 
   final SoloMechanicMode mechanicMode;
+  final SoloQuestionCount questionCount;
   final SoloQuestionSelection questionSelection;
   final String? recommendationId;
 
   Map<String, Object> toJson() => <String, Object>{
     'mechanicMode': mechanicMode.wireValue,
+    'questionCount': questionCount.value,
     'questionSelection': questionSelection.toJson(),
     'recommendationId': ?recommendationId,
   };
@@ -150,20 +175,26 @@ class SoloSessionConfiguration {
 class SoloDraftSessionRequest {
   SoloDraftSessionRequest({
     required String idempotencyKey,
+    required String characterId,
     required this.configuration,
-  }) : idempotencyKey = _requireText(idempotencyKey, 'idempotencyKey');
+  }) : idempotencyKey = _requireText(idempotencyKey, 'idempotencyKey'),
+       characterId = _requireText(characterId, 'characterId');
 
   factory SoloDraftSessionRequest.fromJson(Map<String, dynamic> json) {
     _rejectUnknownKeys(json, 'request', const <String>{
       'idempotencyKey',
       'mechanicMode',
+      'questionCount',
       'questionSelection',
       'recommendationId',
+      'characterId',
     });
     return SoloDraftSessionRequest(
       idempotencyKey: _requireText(json['idempotencyKey'], 'idempotencyKey'),
+      characterId: _requireText(json['characterId'], 'characterId'),
       configuration: SoloSessionConfiguration.fromJson(<String, dynamic>{
         'mechanicMode': json['mechanicMode'],
+        'questionCount': json['questionCount'],
         'questionSelection': json['questionSelection'],
         if (json.containsKey('recommendationId'))
           'recommendationId': json['recommendationId'],
@@ -172,10 +203,12 @@ class SoloDraftSessionRequest {
   }
 
   final String idempotencyKey;
+  final String characterId;
   final SoloSessionConfiguration configuration;
 
   Map<String, Object> toJson() => <String, Object>{
     'idempotencyKey': idempotencyKey,
+    'characterId': characterId,
     ...configuration.toJson(),
   };
 }

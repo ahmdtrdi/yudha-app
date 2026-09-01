@@ -11,19 +11,25 @@ describe('Solo draft compatibility contract', () => {
     expect(
       parseSoloDraftSessionRequest({
         idempotencyKey: 'solo-balanced-1',
+        characterId: 'character-basic-squire',
         mechanicMode: 'focus',
+        questionCount: 20,
         questionSelection: { type: 'balanced' },
       }),
     ).toEqual({
       idempotencyKey: 'solo-balanced-1',
+      characterId: 'character-basic-squire',
       mechanicMode: 'focus',
+      questionCount: 20,
       questionSelection: { type: 'balanced' },
     });
 
     expect(
       parseSoloDraftSessionRequest({
         idempotencyKey: 'solo-recommended-1',
+        characterId: 'character-basic-squire',
         mechanicMode: 'standard',
+        questionCount: 35,
         questionSelection: { type: 'recommended' },
         recommendationId: 'rec-1',
       }),
@@ -36,7 +42,9 @@ describe('Solo draft compatibility contract', () => {
     expect(
       parseSoloDraftSessionRequest({
         idempotencyKey: 'solo-custom-1',
+        characterId: 'character-basic-squire',
         mechanicMode: 'speed',
+        questionCount: 50,
         questionSelection: {
           type: 'custom',
           skillIds: ['cpns.tiu.numerik.percentage-increase'],
@@ -53,6 +61,7 @@ describe('Solo draft compatibility contract', () => {
 
   it.each([
     [{ mechanicMode: 'calm' }, 'mechanicMode'],
+    [{ questionCount: 25 }, 'questionCount'],
     [{ questionSelection: { type: 'weak_topics' } }, 'questionSelection.type'],
     [
       { questionSelection: { type: 'custom', skillIds: [] } },
@@ -70,7 +79,9 @@ describe('Solo draft compatibility contract', () => {
   ])('rejects invalid draft input %p', (override, expectedField) => {
     const request = {
       idempotencyKey: 'solo-1',
+      characterId: 'character-basic-squire',
       mechanicMode: 'focus',
+      questionCount: 20,
       questionSelection: { type: 'balanced' },
       ...override,
     };
@@ -86,7 +97,9 @@ describe('Solo draft compatibility contract', () => {
       () =>
         parseSoloDraftSessionRequest({
           idempotencyKey: 'solo-1',
+          characterId: 'character-basic-squire',
           mechanicMode: 'focus',
+          questionCount: 20,
           questionSelection: { type: 'recommended' },
         }),
       'recommendationId',
@@ -96,7 +109,9 @@ describe('Solo draft compatibility contract', () => {
       () =>
         parseSoloDraftSessionRequest({
           idempotencyKey: 'solo-1',
+          characterId: 'character-basic-squire',
           mechanicMode: 'focus',
+          questionCount: 20,
           questionSelection: { type: 'balanced' },
           recommendationId: 'rec-1',
         }),
