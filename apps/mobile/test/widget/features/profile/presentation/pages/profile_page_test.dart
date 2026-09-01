@@ -24,7 +24,10 @@ void main() {
     expect(find.text('Raka Saputra'), findsOneWidget);
     expect(find.text('Performa PvP'), findsOneWidget);
     expect(find.text('Learning'), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('profile-learning-link')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('profile-learning-link')),
+      findsOneWidget,
+    );
     await tester.scrollUntilVisible(
       find.text('Pengaturan Profil'),
       300,
@@ -211,7 +214,7 @@ class _FakeLearningRepository implements LearningRepository {
       'assessment': <String, dynamic>{'status': 'not_available'},
       'activity': <String, dynamic>{},
       'competition': <String, dynamic>{'accuracy': <String, dynamic>{}},
-    );
+    });
   }
 
   @override

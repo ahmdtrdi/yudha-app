@@ -8,6 +8,7 @@ abstract final class AppRoutes {
   static const String pvp = '/pvp';
   static const String leaderboard = '/leaderboard';
   static const String analytics = '/analytics';
+  static const String learning = '/learning';
   static const String solo = '/solo';
   static const String soloTopics = '/solo/topics';
   static const String soloLoadout = '/solo/loadout';
@@ -35,6 +36,7 @@ abstract final class AppRoutes {
     pvp,
     leaderboard,
     analytics,
+    learning,
     solo,
     soloTopics,
     soloLoadout,

@@ -2851,4 +2851,22 @@
 ### The Tech Debt
 - Post-session diagnostic result screen still uses legacy Practice quiz summary until Gate 5 Solo delivery migration.
 
+## 2026-09-02 - Restore Learning Route After Solo Merge
+
+### The Change
+- Restored the private `/learning` route and its `LearningPage` registration after the Solo route migration dropped that half of the earlier merge.
+- Updated stale Learning-to-Practice navigation and router tests to use the canonical Solo and explicitly named legacy compatibility routes.
+- Included `/learning` in the Learning navigation-tab active state and repaired the malformed Learning dashboard fixture in the Profile widget test.
+
+### The Reasoning
+- The Profile summary must open the dedicated Learning dashboard required by the PRD, while new navigation uses canonical Solo names and keeps `/practice` names isolated as compatibility surfaces.
+
+### Verification
+- All 18 focused router, navigation-shell, Learning, and Profile tests passed.
+- `flutter build web --debug` completed successfully and produced `build/web`; `git diff --check` completed cleanly.
+- Full Flutter analysis has no compiler errors, but still reports six unrelated pre-existing lint/deprecation findings in economy, learning/practice repositories, PvP, and a Practice test.
+
+### The Tech Debt
+- Learning recommendation launch metadata still uses the legacy `PracticeLaunchRequest` payload while `/solo` currently opens the generic Solo setup; recommendation-prefilled Solo setup remains a future contract alignment task.
+
 

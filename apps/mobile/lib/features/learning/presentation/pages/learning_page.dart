@@ -47,7 +47,7 @@ class _LearningPageState extends ConsumerState<LearningPage> {
               state.errorMessage ??
               'Analitik baru sedang disiapkan. Practice tetap dapat digunakan.',
           actionLabel: 'Buka Practice',
-          onAction: () => context.go(AppRoutes.practice),
+          onAction: () => context.go(AppRoutes.solo),
         ),
         (LearningViewStatus.error, null) => _LearningMessage(
           icon: Icons.cloud_off_rounded,
@@ -162,7 +162,7 @@ class _LearningPageState extends ConsumerState<LearningPage> {
       return;
     }
     context.go(
-      AppRoutes.practice,
+      AppRoutes.solo,
       extra: PracticeLaunchRequest(
         focus:
             recommendation.subcategory ??
