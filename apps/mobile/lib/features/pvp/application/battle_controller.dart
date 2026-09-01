@@ -677,8 +677,6 @@ class BattleController extends StateNotifier<BattleState> {
           statusMessage: _statusForPlayResult(
             isSelfAction: update.isSelfAction,
             isCorrect: isCorrect,
-            effect: effect,
-            effectValue: update.effectValue,
           ),
           clearErrorMessage: true,
           clearBattleEvent: effect == null,
@@ -830,25 +828,9 @@ class BattleController extends StateNotifier<BattleState> {
   String _statusForPlayResult({
     required bool isSelfAction,
     required bool isCorrect,
-    required QuestionEffect? effect,
-    required int effectValue,
   }) {
-    if (!isCorrect) {
-      return isSelfAction
-          ? 'Jawaban belum tepat.'
-          : '${state.opponentName} belum menjawab dengan tepat.';
-    }
-    if (effect == QuestionEffect.heal) {
-      return isSelfAction
-          ? 'Jawaban benar. HP pulih $effectValue poin.'
-          : '${state.opponentName} memulihkan $effectValue HP.';
-    }
-    if (effect == QuestionEffect.damage) {
-      return isSelfAction
-          ? 'Jawaban benar. Serangan masuk $effectValue damage.'
-          : '${state.opponentName} menyerang $effectValue damage.';
-    }
-    return 'Jawaban diproses arena.';
+    if (!isSelfAction) return 'Battle sedang berlangsung.';
+    return isCorrect ? 'Benar!' : 'Salah!';
   }
 
   String _resultMessage(BattleOutcome outcome, String reason) {

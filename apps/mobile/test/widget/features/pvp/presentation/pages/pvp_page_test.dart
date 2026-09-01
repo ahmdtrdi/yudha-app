@@ -124,6 +124,18 @@ void main() {
     );
     await tester.ensureVisible(gurunChoice);
     await tester.tap(gurunChoice);
+    await tester.pump();
+
+    final Iterable<String?> showcaseAssets = tester
+        .widgetList<Image>(
+          find.descendant(
+            of: find.byKey(const ValueKey<String>('arena-selected-showcase')),
+            matching: find.byType(Image),
+          ),
+        )
+        .map((Image image) => _assetName(image.image));
+    expect(showcaseAssets, contains('assets/game/arena_gurun_cendekia.png'));
+
     await tester.pumpAndSettle();
 
     expect(
@@ -611,6 +623,101 @@ void main() {
     );
   });
 
+  testWidgets('keeps an exhausted deck grey and shakes it on tap', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(411, 914));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final _LiveOnlineBattleRepository online = _LiveOnlineBattleRepository();
+    final ProviderContainer container = ProviderContainer(
+      overrides: <Override>[
+        onlineBattleRepositoryProvider.overrideWithValue(online),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final controller = container.read(battleControllerProvider.notifier);
+    controller.enterArena();
+    controller.setMode(BattleMode.online);
+    await controller.startBattle();
+    online.emit(
+      const GameStateUpdated(
+        roomId: 'room-exhausted',
+        phase: 'active',
+        playerHp: 100,
+        opponentHp: 100,
+        playerPoints: 0,
+        opponentPoints: 0,
+        playerComboLevel: 1,
+        currentRound: 1,
+        roundSecondsRemaining: 180,
+        playerRoundWins: 0,
+        opponentRoundWins: 0,
+        lastRoundOutcome: null,
+        availableQuestions: <BattleQuestion>[
+          BattleQuestion(
+            id: 'twk-exhausted',
+            prompt: 'TWK sudah mencapai batas ronde.',
+            options: <String>['A', 'B'],
+            weight: 1,
+            effect: QuestionEffect.damage,
+            category: 'twk',
+            isExhausted: true,
+          ),
+          BattleQuestion(
+            id: 'tiu-active',
+            prompt: 'TIU aktif',
+            options: <String>['A', 'B'],
+            weight: 1,
+            effect: QuestionEffect.damage,
+            category: 'tiu',
+          ),
+          BattleQuestion(
+            id: 'tkp-active',
+            prompt: 'TKP aktif',
+            options: <String>['A', 'B'],
+            weight: 1,
+            effect: QuestionEffect.heal,
+            category: 'tkp',
+          ),
+        ],
+        answeredQuestionIds: <String>['twk-exhausted'],
+        playerDisplayName: 'Kamu',
+        opponentDisplayName: 'BOT YUDHA',
+      ),
+    );
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: PvpPage()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
+
+    expect(
+      find.byKey(const ValueKey<String>('question-card-filter-twk-exhausted')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('question-card-twk-exhausted')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 40));
+
+    expect(find.text('TWK habis'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('question-battle-sheet')),
+      findsNothing,
+    );
+    final Transform shake = tester.widget<Transform>(
+      find.byKey(const ValueKey<String>('exhausted-card-shake-twk-exhausted')),
+    );
+    expect(shake.transform.getTranslation().x.abs(), greaterThan(0));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'clicking Lawan Bot starts session with OnlineMatchmakingMode.bot',
     (WidgetTester tester) async {
@@ -765,7 +872,8 @@ void main() {
               correctOptionIndex: 0,
               weight: 4,
               effect: QuestionEffect.damage,
-              category: 'numerik',
+              category: 'tiu',
+              subcategory: 'verbal',
             ),
             BattleQuestion(
               id: 'q2',
@@ -777,6 +885,24 @@ void main() {
               weight: 4,
               effect: QuestionEffect.damage,
               category: 'wawasan_kebangsaan',
+            ),
+            BattleQuestion(
+              id: 'q3',
+              prompt: 'Soal ketiga',
+              options: <String>['A', 'B'],
+              correctOptionIndex: 0,
+              weight: 3,
+              effect: QuestionEffect.heal,
+              category: 'twk',
+            ),
+            BattleQuestion(
+              id: 'q4',
+              prompt: 'Soal keempat',
+              options: <String>['A', 'B'],
+              correctOptionIndex: 0,
+              weight: 2,
+              effect: QuestionEffect.damage,
+              category: 'tkp',
             ),
           ],
           answeredQuestionIds: <String>[],
@@ -799,8 +925,49 @@ void main() {
       );
       expect(
         find.byKey(const ValueKey<String>('question-card-q2')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('question-card-q3')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const ValueKey<String>('question-card-q4')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .getTopLeft(find.byKey(const ValueKey<String>('question-card-q3')))
+            .dx,
+        lessThan(
+          tester
+              .getTopLeft(
+                find.byKey(const ValueKey<String>('question-card-q1')),
+              )
+              .dx,
+        ),
+      );
+      expect(
+        tester
+            .getTopLeft(find.byKey(const ValueKey<String>('question-card-q1')))
+            .dx,
+        lessThan(
+          tester
+              .getTopLeft(
+                find.byKey(const ValueKey<String>('question-card-q4')),
+              )
+              .dx,
+        ),
+      );
+      final Image q1CardArt = tester.widget<Image>(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('question-card-q1')),
+          matching: find.byType(Image),
+        ),
+      );
+      expect(_assetName(q1CardArt.image), 'assets/game/card_numerik.png');
+      expect(find.text('SERANG'), findsNothing);
+      expect(find.text('PULIHKAN'), findsNothing);
       expect(find.text('BOT'), findsWidgets);
       expect(find.text('Kamu'), findsOneWidget);
       expect(find.byKey(const ValueKey<String>('combo-meter')), findsOneWidget);
@@ -827,6 +994,25 @@ void main() {
           battleHand.decoration! as BoxDecoration;
       expect(battleHandDecoration.borderRadius, isNull);
       expect(battleHandDecoration.boxShadow, isNull);
+      final Finder deckPanelFinder = find.byKey(
+        const ValueKey<String>('battle-deck-panel'),
+      );
+      final Container deckPanel = tester.widget<Container>(deckPanelFinder);
+      final BoxDecoration deckPanelDecoration =
+          deckPanel.decoration! as BoxDecoration;
+      expect(deckPanelDecoration.border, isNotNull);
+      expect(
+        tester.getSize(deckPanelFinder).width,
+        lessThan(
+          tester.getSize(find.byKey(const ValueKey('battle-hand'))).width,
+        ),
+      );
+      for (final String id in <String>['q3', 'q1', 'q4']) {
+        final Ink cardSurface = tester.widget<Ink>(
+          find.byKey(ValueKey<String>('question-card-surface-$id')),
+        );
+        expect(cardSurface.decoration, isNull);
+      }
       final Container playerHud = tester.widget<Container>(
         find.byKey(const ValueKey<String>('battle-hud-player')),
       );
@@ -881,17 +1067,17 @@ void main() {
       );
       expect(
         find.byKey(const ValueKey<String>('battle-status-banner')),
-        findsOneWidget,
+        findsNothing,
       );
 
       online.emit(const BattleErrorUpdate(message: 'Arena sedang terganggu.'));
       await tester.pump();
       expect(
         find.byKey(const ValueKey<String>('battle-error-banner')),
-        findsOneWidget,
+        findsNothing,
       );
 
-      await tester.tap(find.byKey(const ValueKey<String>('question-card-q2')));
+      await tester.tap(find.byKey(const ValueKey<String>('question-card-q1')));
       await tester.pump();
       expect(
         find.byKey(const ValueKey<String>('battle-card-processing')),
@@ -908,6 +1094,8 @@ void main() {
         find.byKey(const ValueKey<String>('question-sheet-scroll-view')),
         findsOneWidget,
       );
+      expect(find.text('TIU'), findsOneWidget);
+      expect(find.textContaining('Verbal'), findsOneWidget);
       final Container questionHeader = tester.widget<Container>(
         find.byKey(const ValueKey<String>('question-sheet-header')),
       );
@@ -974,6 +1162,11 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('BENAR'), findsOneWidget);
+      expect(find.text('Benar!'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('battle-status-banner')),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const ValueKey<String>('battle-hand-helper')),
         findsNothing,
@@ -997,6 +1190,11 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('SALAH'), findsOneWidget);
+      expect(find.text('Salah!'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('battle-error-banner')),
+        findsOneWidget,
+      );
 
       await tester.pump(const Duration(milliseconds: 1600));
       await tester.pump(const Duration(milliseconds: 200));

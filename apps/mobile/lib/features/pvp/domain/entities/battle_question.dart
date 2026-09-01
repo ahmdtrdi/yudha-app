@@ -9,7 +9,9 @@ class BattleQuestion {
     required this.effect,
     this.correctOptionIndex,
     this.category = 'numerik',
+    this.subcategory,
     this.timeLimitSeconds = 10,
+    this.isExhausted = false,
   });
 
   final String id;
@@ -19,5 +21,7 @@ class BattleQuestion {
   final int weight;
   final QuestionEffect effect;
   final String category;
+  final String? subcategory;
   final int timeLimitSeconds;
+  final bool isExhausted;
 }

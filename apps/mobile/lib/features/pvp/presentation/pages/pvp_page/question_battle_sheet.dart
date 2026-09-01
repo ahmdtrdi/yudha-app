@@ -145,6 +145,9 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
     final Color categoryColor = _categoryColor(widget.question.category);
     final int comboLevel = widget.comboLevel.clamp(1, 3);
     final int impact = BattleStateMachine.effectFromCombo(comboLevel);
+    final String? subcategoryLabel = _subcategoryLabel(
+      widget.question.subcategory,
+    );
     final double timerProgress = _remainingSeconds / _maxSeconds;
     final double bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final double screenHeight = MediaQuery.sizeOf(context).height;
@@ -221,7 +224,12 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${isDamage ? 'Serang' : 'Pulihkan'}  |  Combo x$comboLevel  |  $impact dampak',
+                                <String>[
+                                  ?subcategoryLabel,
+                                  isDamage ? 'Serang' : 'Pulihkan',
+                                  'Combo x$comboLevel',
+                                  '$impact dampak',
+                                ].join('  |  '),
                                 style: GoogleFonts.dmSans(
                                   color: _mutedInk,
                                   fontSize: 12,
@@ -406,12 +414,31 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
 
   String _categoryLabel(String category) {
     return switch (category.trim().toLowerCase()) {
-      'tiu' || 'numerik' => 'Numerik',
+      'tiu' => 'TIU',
+      'tkp' => 'TKP',
+      'twk' => 'TWK',
+      'tkd' => 'TKD',
+      'akhlak' => 'AKHLAK',
+      'wawasan_kebangsaan' => 'Wawasan Kebangsaan',
+      'numerik' => 'Numerik',
       'verbal' => 'Verbal',
       'logika' => 'Logika',
-      'twk' => 'TWK',
       _ => category.trim().isEmpty ? 'Kartu soal' : category.trim(),
     };
+  }
+
+  String? _subcategoryLabel(String? subcategory) {
+    final String normalized = subcategory?.trim() ?? '';
+    if (normalized.isEmpty) return null;
+    return normalized
+        .split('_')
+        .where((part) => part.isNotEmpty)
+        .map(
+          (part) => part.length == 1
+              ? part.toUpperCase()
+              : '${part[0].toUpperCase()}${part.substring(1)}',
+        )
+        .join(' ');
   }
 
   IconData _categoryIcon(String category) {
