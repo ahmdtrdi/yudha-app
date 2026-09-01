@@ -19,22 +19,17 @@ set
     when 'pengambilan_keputusan_kinerja' then 'pengambilan_keputusan_dan_kinerja'
     else subcategory
   end,
+  category = case
+    when target = 'cpns' and subcategory in ('pancasila_dan_ideologi', 'pancasila_ideologi', 'konstitusi_dan_negara', 'konstitusi_negara', 'sejarah_dan_kebangsaan', 'sejarah_kebangsaan', 'bhinneka_tunggal_ika') then 'twk'
+    when target = 'cpns' and subcategory in ('verbal', 'kemampuan_verbal', 'numerik', 'kemampuan_numerik', 'logis', 'logika', 'kemampuan_logis', 'kemampuan_logika', 'figural', 'kemampuan_figural') then 'tiu'
+    when target = 'cpns' and subcategory in ('pelayanan_dan_integritas', 'pelayanan_integritas', 'kerja_sama_dan_komunikasi', 'kerja_sama_komunikasi', 'adaptasi_dan_pengembangan_diri', 'adaptasi_pengembangan_diri', 'pengambilan_keputusan_dan_kinerja', 'pengambilan_keputusan_kinerja') then 'tkp'
+    when target = 'bumn' and subcategory in ('pancasila', 'uud_1945', 'nkri', 'bhinneka_tunggal_ika') then 'wawasan_kebangsaan'
+    when target = 'bumn' and subcategory in ('verbal', 'kemampuan_verbal', 'numerik', 'kemampuan_numerik', 'logis', 'logika', 'kemampuan_logis', 'kemampuan_logika', 'figural', 'kemampuan_figural') then 'tkd'
+    when target = 'bumn' and subcategory in ('amanah', 'kompeten', 'harmonis', 'loyal') then 'akhlak'
+    else category
+  end,
   updated_at = now()
-where subcategory in (
-  'kemampuan_verbal',
-  'kemampuan_numerik',
-  'kemampuan_logis',
-  'kemampuan_logika',
-  'logika',
-  'kemampuan_figural',
-  'pancasila_ideologi',
-  'konstitusi_negara',
-  'sejarah_kebangsaan',
-  'pelayanan_integritas',
-  'kerja_sama_komunikasi',
-  'adaptasi_pengembangan_diri',
-  'pengambilan_keputusan_kinerja'
-);
+where target in ('cpns', 'bumn');
 
 -- The old source only marked these records as TWK/AKHLAK. Their content is
 -- classified explicitly so repeatable imports never have to guess by keyword.

@@ -21,6 +21,28 @@ export class QuestionDealer {
     bumn: ['wawasan kebangsaan', 'tkd', 'akhlak'],
   };
 
+  private static readonly CATEGORY_ALIASES: Record<
+    BattleTarget,
+    Readonly<Record<string, string>>
+  > = {
+    cpns: {
+      wk: 'twk',
+      'wawasan kebangsaan': 'twk',
+      tkd: 'tiu',
+      'tes intelegensia umum': 'tiu',
+      'tes karakteristik pribadi': 'tkp',
+    },
+    bumn: {
+      wk: 'wawasan kebangsaan',
+      twk: 'wawasan kebangsaan',
+      tiu: 'tkd',
+      'tes kemampuan dasar': 'tkd',
+      akhlah: 'akhlak',
+      'core values': 'akhlak',
+      'core values akhlak': 'akhlak',
+    },
+  };
+
   private static readonly CPNS_ROUND_CAST_LIMITS: Record<string, number> = {
     twk: 30,
     tiu: 35,
@@ -56,6 +78,24 @@ export class QuestionDealer {
       tkd: ['verbal', 'numerik', 'logis', 'figural'],
       akhlak: ['amanah', 'kompeten', 'harmonis', 'loyal'],
     },
+  };
+
+  private static readonly SUBCATEGORY_ALIASES: Readonly<
+    Record<string, string>
+  > = {
+    kemampuan_verbal: 'verbal',
+    kemampuan_numerik: 'numerik',
+    kemampuan_logis: 'logis',
+    kemampuan_logika: 'logis',
+    logika: 'logis',
+    kemampuan_figural: 'figural',
+    pancasila_ideologi: 'pancasila_dan_ideologi',
+    konstitusi_negara: 'konstitusi_dan_negara',
+    sejarah_kebangsaan: 'sejarah_dan_kebangsaan',
+    pelayanan_integritas: 'pelayanan_dan_integritas',
+    kerja_sama_komunikasi: 'kerja_sama_dan_komunikasi',
+    adaptasi_pengembangan_diri: 'adaptasi_dan_pengembangan_diri',
+    pengambilan_keputusan_kinerja: 'pengambilan_keputusan_dan_kinerja',
   };
 
   private static readonly BASE_WEIGHT = 0.25;
@@ -183,8 +223,13 @@ export class QuestionDealer {
     return distribution[this.categoryKey(category)];
   }
 
-  createSharedQueue(cards: InternalCard[]): InternalCard[] {
-    return cards.map((card) => ({ ...card, options: [...card.options] }));
+  createSharedQueue(
+    cards: InternalCard[],
+    target?: BattleTarget,
+  ): InternalCard[] {
+    return cards.map((card) =>
+      target ? this.canonicalizeCard(card, target) : this.cloneCard(card),
+    );
   }
 
   createStartingHand(sharedQueue: InternalCard[]): InternalCard[] {
@@ -221,9 +266,10 @@ export class QuestionDealer {
   ): Record<string, InternalCategoryDeckState> | undefined {
     const grouped = new Map<string, InternalCard[]>();
     for (const card of sharedQueue) {
-      const key = this.categoryKey(card.category);
+      const canonicalCard = this.canonicalizeCard(card, target);
+      const key = this.categoryKey(canonicalCard.category);
       const cards = grouped.get(key) ?? [];
-      cards.push(this.cloneCard(card));
+      cards.push(canonicalCard);
       grouped.set(key, cards);
     }
 
@@ -299,7 +345,28 @@ export class QuestionDealer {
       .toLowerCase()
       .replace(/[\s-]+/g, '_')
       .replace(/_+/g, '_');
-    return normalized || '__uncategorized__';
+    if (!normalized) return '__uncategorized__';
+    return QuestionDealer.SUBCATEGORY_ALIASES[normalized] ?? normalized;
+  }
+
+  deckCategoryKey(
+    target: BattleTarget,
+    category?: string,
+    subcategory?: string,
+  ): string {
+    const normalizedCategory = this.categoryKey(category);
+    const normalizedSubcategory = this.subcategoryKey(subcategory);
+    const subcategoryDeck = QuestionDealer.CATEGORY_ORDER[target].find(
+      (candidate) =>
+        QuestionDealer.SUBCATEGORY_ORDER[target][candidate]?.includes(
+          normalizedSubcategory,
+        ),
+    );
+    if (subcategoryDeck) return subcategoryDeck;
+    return (
+      QuestionDealer.CATEGORY_ALIASES[target][normalizedCategory] ??
+      normalizedCategory
+    );
   }
 
   private emptyDistribution(target: BattleTarget): MatchTopicDistribution {
@@ -324,6 +391,28 @@ export class QuestionDealer {
     const subcategory = this.subcategoryKey(recommendation.subcategory);
     const allowed = QuestionDealer.SUBCATEGORY_ORDER[target][category];
     return allowed?.includes(subcategory) ? { category, subcategory } : null;
+  }
+
+  private categoryKeyForCard(
+    card: Pick<InternalCard, 'category' | 'subcategory'>,
+    target: BattleTarget,
+  ): string {
+    return this.deckCategoryKey(target, card.category, card.subcategory);
+  }
+
+  private canonicalizeCard(
+    card: InternalCard,
+    target: BattleTarget,
+  ): InternalCard {
+    const category = this.categoryKeyForCard(card, target).replace(/\s+/g, '_');
+    const subcategory = this.subcategoryKey(card.subcategory);
+    return {
+      ...card,
+      category,
+      subcategory:
+        subcategory === '__uncategorized__' ? undefined : subcategory,
+      options: [...card.options],
+    };
   }
 
   private refillCategoryDeck(

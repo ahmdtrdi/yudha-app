@@ -328,7 +328,7 @@ describe('GameEngine', () => {
 
       for (let cast = 0; cast < 30; cast += 1) {
         const card = room.players.playerA.hand.find(
-          (candidate) => candidate.category === 'TWK',
+          (candidate) => candidate.category === 'twk',
         );
         expect(card).toBeDefined();
         engine.openCard(room, 'a', card!.id);
@@ -336,21 +336,21 @@ describe('GameEngine', () => {
       }
 
       expect(
-        room.players.playerA.hand.find((card) => card.category === 'TWK')
+        room.players.playerA.hand.find((card) => card.category === 'twk')
           ?.isExhausted,
       ).toBe(true);
       expect(room.players.playerA.categoryDecks?.twk.castCount).toBe(30);
       expect(room.players.playerA.categoryDecks?.twk.castLimit).toBe(30);
       expect(
         room.players.playerA.hand.map((card) => card.category).sort(),
-      ).toEqual(['TIU', 'TKP', 'TWK']);
+      ).toEqual(['tiu', 'tkp', 'twk']);
 
       const exhaustedTwk = room.players.playerA.hand.find(
-        (card) => card.category === 'TWK',
+        (card) => card.category === 'twk',
       )!;
       const publicTwk = engine
         .buildPublicState(room, 'a')
-        .self.hand.find((card) => card.category === 'TWK');
+        .self.hand.find((card) => card.category === 'twk');
       expect(publicTwk?.isExhausted).toBe(true);
       const openResult = engine.openCard(room, 'a', exhaustedTwk.id);
       expect(openResult.ok).toBe(false);
@@ -362,7 +362,7 @@ describe('GameEngine', () => {
       expect(engine.startNextRound(room)).toBe(true);
       expect(room.players.playerA.categoryDecks?.twk.castCount).toBe(0);
       expect(
-        room.players.playerA.hand.some((card) => card.category === 'TWK'),
+        room.players.playerA.hand.some((card) => card.category === 'twk'),
       ).toBe(true);
     });
 
