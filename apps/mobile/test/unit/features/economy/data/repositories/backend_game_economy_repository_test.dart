@@ -55,7 +55,7 @@ void main() {
     expect(snapshot.characterId, 'character-basic-pip');
     expect(snapshot.towerId, 'tower-garda-biru');
     expect(snapshot.ownedItemIds, contains('character-basic-pip'));
-    expect(snapshot.items.single.name, 'Pip Server');
+    expect(snapshot.items.single.name, 'Opy');
     expect(snapshot.items.single.price, 777);
     expect(snapshot.items.single.passExclusive, isTrue);
     expect(snapshot.items.single.assetPath, isNotNull);

@@ -377,9 +377,15 @@ void main() {
     );
 
     expect(find.text('Siap bertanding, Kamu?'), findsOneWidget);
-    expect(find.text('Lawan Bot'), findsOneWidget);
-    expect(find.text('Lawan Player'), findsOneWidget);
-    expect(find.text('Ranked Match'), findsOneWidget);
+    expect(find.text('Bot'), findsOneWidget);
+    expect(find.text('Casual'), findsOneWidget);
+    expect(find.text('Ranked'), findsOneWidget);
+    expect(find.text('Private'), findsOneWidget);
+    expect(find.text('Mulai langsung untuk latihan mandiri.'), findsNothing);
+    expect(
+      find.text('Casual match tanpa perubahan rating atau hadiah.'),
+      findsNothing,
+    );
     expect(
       find.byKey(const ValueKey<String>('mode-selected-showcase')),
       findsOneWidget,

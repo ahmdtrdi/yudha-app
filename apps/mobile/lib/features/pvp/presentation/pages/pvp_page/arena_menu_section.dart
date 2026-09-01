@@ -41,8 +41,7 @@ class _ArenaMenuSectionState extends State<_ArenaMenuSection> {
     final List<_BattleModeOption> options = <_BattleModeOption>[
       _BattleModeOption(
         id: 'bot',
-        title: 'Lawan Bot',
-        description: 'Mulai langsung untuk latihan mandiri.',
+        title: 'Bot',
         actionLabel: 'MULAI LATIHAN',
         accent: const Color(0xFF2878F0),
         surface: const Color(0xFFE7F0FF),
@@ -51,20 +50,8 @@ class _ArenaMenuSectionState extends State<_ArenaMenuSection> {
         onStart: widget.onStartBot,
       ),
       _BattleModeOption(
-        id: 'online',
-        title: 'Lawan Player',
-        description: 'Casual match tanpa perubahan rating atau hadiah.',
-        actionLabel: 'MULAI CASUAL',
-        accent: const Color(0xFF7559D4),
-        surface: const Color(0xFFF0EBFF),
-        shadow: const Color(0xFFB9A9E8),
-        illustrationAsset: 'assets/icons/mode_casual.svg',
-        onStart: widget.onStartCasual,
-      ),
-      _BattleModeOption(
         id: 'ranked',
-        title: 'Ranked Match',
-        description: 'Pertandingan kompetitif dengan rating dan Y-Coin.',
+        title: 'Ranked',
         actionLabel: 'MULAI RANKED',
         accent: const Color(0xFFE0922F),
         surface: const Color(0xFFFFEEDB),
@@ -73,9 +60,18 @@ class _ArenaMenuSectionState extends State<_ArenaMenuSection> {
         onStart: widget.onStartRanked,
       ),
       _BattleModeOption(
+        id: 'online',
+        title: 'Casual',
+        actionLabel: 'MULAI CASUAL',
+        accent: const Color(0xFF7559D4),
+        surface: const Color(0xFFF0EBFF),
+        shadow: const Color(0xFFB9A9E8),
+        illustrationAsset: 'assets/icons/mode_casual.svg',
+        onStart: widget.onStartCasual,
+      ),
+      _BattleModeOption(
         id: 'private',
-        title: 'Room Privat',
-        description: 'Buat room atau gabung teman pakai kode 6 digit.',
+        title: 'Private',
         actionLabel: 'BUKA ROOM PRIVAT',
         accent: const Color(0xFF2FAE7D),
         surface: const Color(0xFFE7F8F1),
@@ -185,7 +181,6 @@ class _BattleModeOption {
   const _BattleModeOption({
     required this.id,
     required this.title,
-    required this.description,
     required this.actionLabel,
     required this.accent,
     required this.surface,
@@ -196,7 +191,6 @@ class _BattleModeOption {
 
   final String id;
   final String title;
-  final String description;
   final String actionLabel;
   final Color accent;
   final Color surface;
@@ -439,18 +433,6 @@ class _ModePortraitCard extends StatelessWidget {
                                 fontSize: compact ? 14 : 15,
                                 height: 1.05,
                                 fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              option.description,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.dmSans(
-                                color: const Color(0xFF667085),
-                                fontSize: compact ? 9 : 9.5,
-                                height: 1.25,
-                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],

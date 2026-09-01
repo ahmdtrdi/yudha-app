@@ -68,7 +68,7 @@ class BackendGameEconomyRepository extends GameEconomyRepository {
     };
     return CosmeticItem(
       id: id,
-      name: _text(data['name']) ?? visual?.name ?? id,
+      name: visual?.name ?? _text(data['name']) ?? id,
       description: _text(data['description']) ?? visual?.description ?? '',
       type: type,
       rarity: rarity,
