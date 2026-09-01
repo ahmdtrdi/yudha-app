@@ -16,6 +16,7 @@ import { LobbyModule } from './lobby/lobby.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { NotificationsModule } from './notifications/notifications.module';
 import { LearningModule } from './learning/learning.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { LearningModule } from './learning/learning.module';
     LobbyModule,
     NotificationsModule,
     LearningModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],
