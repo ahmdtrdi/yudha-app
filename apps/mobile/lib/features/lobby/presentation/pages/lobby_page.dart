@@ -11,7 +11,6 @@ import 'package:yudha_mobile/features/economy/presentation/widgets/economy_widge
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/learning/application/learning_providers.dart';
 import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
-import 'package:yudha_mobile/features/practice/domain/entities/practice_launch_request.dart';
 
 class LobbyPage extends ConsumerStatefulWidget {
   const LobbyPage({super.key});
@@ -156,40 +155,37 @@ class _LobbyPageState extends ConsumerState<LobbyPage> {
                                 compact: compact,
                                 practiceMission: practiceMission,
                                 pvpMission: pvpMission,
-                                onPracticeTap: () =>
-                                    context.go(AppRoutes.practice),
+                                onPracticeTap: () => context.go(AppRoutes.solo),
                                 onPvpTap: () => context.go(AppRoutes.pvp),
                                 onBattleTap: () => context.go(AppRoutes.pvp),
                               ),
                             )
                           : SingleChildScrollView(
                               child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: <Widget>[
-                            if (learningNextAction != null) ...<Widget>[
-                              _LobbyLearningCard(
-                                recommendation: learningNextAction,
-                                compact: compact,
-                                onDashboard: () =>
-                                    context.go(AppRoutes.learning),
-                                onStart: learningNextAction.runnable
-                                    ? () => _startRecommendation(
-                                        learningNextAction,
-                                      )
-                                    : null,
-                              ),
-                              SizedBox(height: compact ? 12 : 16),
-                            ],
-                            _QuestRoadmapSheet(
-                              compact: compact,
-                              practiceMission: practiceMission,
-                              pvpMission: pvpMission,
-                              onPracticeTap: () =>
-                                  context.go(AppRoutes.practice),
-                              onPvpTap: () => context.go(AppRoutes.pvp),
-                              onBattleTap: () => context.go(AppRoutes.pvp),
-                            ),
-                          ],
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: <Widget>[
+                                  _LobbyLearningCard(
+                                    recommendation: learningNextAction,
+                                    compact: compact,
+                                    onDashboard: () =>
+                                        context.go(AppRoutes.analytics),
+                                    onStart: learningNextAction.runnable
+                                        ? () => _startRecommendation(
+                                            learningNextAction,
+                                          )
+                                        : null,
+                                  ),
+                                  SizedBox(height: compact ? 12 : 16),
+                                  _QuestRoadmapSheet(
+                                    compact: compact,
+                                    practiceMission: practiceMission,
+                                    pvpMission: pvpMission,
+                                    onPracticeTap: () =>
+                                        context.go(AppRoutes.solo),
+                                    onPvpTap: () => context.go(AppRoutes.pvp),
+                                    onBattleTap: () => context.go(AppRoutes.pvp),
+                                  ),
+                                ],
                               ),
                             ),
                     ),
@@ -227,16 +223,12 @@ class _LobbyPageState extends ConsumerState<LobbyPage> {
       );
       return;
     }
-    context.go(
-      AppRoutes.practice,
-      extra: PracticeLaunchRequest(
-        focus:
-            recommendation.subcategory ??
-            recommendation.category ??
-            recommendation.skillLabel,
-        recommendationId: recommendation.id,
-      ),
-    );
+    context.go(AppRoutes.solo);
+    // TODO: Solo setup doesn't accept a focus/recommendationId deep link
+    // yet. Wire recommendation.subcategory/category + recommendation.id
+    // through once SoloSetupPage supports a launch request, so "Mulai"
+    // starts the recommended topic directly instead of landing on generic
+    // setup.
   }
 }
 

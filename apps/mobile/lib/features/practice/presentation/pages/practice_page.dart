@@ -24,10 +24,16 @@ abstract final class _PracticeColors {
 enum _PracticeCategoryTone { cyan, lime, orange }
 
 class PracticePage extends ConsumerStatefulWidget {
-  const PracticePage({super.key, this.focusCategory, this.launchRequest});
+  const PracticePage({
+    super.key,
+    this.focusCategory,
+    this.launchRequest,
+    this.onTopicSelected,
+  });
 
   final String? focusCategory;
   final PracticeLaunchRequest? launchRequest;
+  final ValueChanged<PracticeTopic>? onTopicSelected;
 
   @override
   ConsumerState<PracticePage> createState() => _PracticePageState();
@@ -68,12 +74,18 @@ class _PracticePageState extends ConsumerState<PracticePage> {
     _scheduleFocusedPractice(state);
 
     Future<void> openQuiz(PracticeTopic topic) async {
+      final ValueChanged<PracticeTopic>? onTopicSelected =
+          widget.onTopicSelected;
+      if (onTopicSelected != null) {
+        onTopicSelected(topic);
+        return;
+      }
       final bool started = await controller.startTopic(topic);
       if (!context.mounted) {
         return;
       }
       if (started) {
-        context.push(AppRoutes.practiceQuiz);
+        context.push(AppRoutes.soloSession);
         return;
       }
       final String message =
@@ -85,7 +97,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
     }
 
     void openInterviewPractice() {
-      context.push(AppRoutes.interviewSetup);
+      context.push(AppRoutes.interview);
     }
 
     return Scaffold(
@@ -94,7 +106,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
         backgroundColor: const Color(0xFF0D49B5),
         elevation: 0,
         title: Text(
-          'LATIHAN',
+          widget.onTopicSelected == null ? 'LATIHAN' : 'PILIH TOPIK',
           style: GoogleFonts.fredoka(
             fontWeight: FontWeight.w800,
             fontSize: 18,
@@ -129,16 +141,23 @@ class _PracticePageState extends ConsumerState<PracticePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      _InterviewPracticeCard(
-                        config: interviewConfig,
-                        onTap: openInterviewPractice,
-                      ),
-                      const SizedBox(height: 24),
+                      if (widget.onTopicSelected == null) ...<Widget>[
+                        _InterviewPracticeCard(
+                          config: interviewConfig,
+                          onTap: openInterviewPractice,
+                        ),
+                        const SizedBox(height: 24),
+                      ],
                       _PracticeTaxonomySection(
-                        title: isCpns
-                            ? 'LATIHAN SOAL CPNS'
-                            : 'LATIHAN SOAL BUMN',
+                        title: widget.onTopicSelected == null
+                            ? isCpns
+                                  ? 'LATIHAN SOAL CPNS'
+                                  : 'LATIHAN SOAL BUMN'
+                            : isCpns
+                            ? 'PILIH TOPIK CPNS'
+                            : 'PILIH TOPIK BUMN',
                         groups: categoryGroups,
+                        selectionMode: widget.onTopicSelected != null,
                         onTapTopic: openQuiz,
                       ),
                       const SizedBox(height: 24),
@@ -160,7 +179,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
                               height: 44,
                               child: TextButton(
                                 onPressed: () =>
-                                    context.push(AppRoutes.practiceHistory),
+                                    context.push(AppRoutes.soloHistory),
                                 style: TextButton.styleFrom(
                                   foregroundColor: AppColors.warriorNavy,
                                   padding: const EdgeInsets.symmetric(
@@ -248,6 +267,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
   }
 
   void _scheduleFocusedPractice(PracticeState state) {
+    if (widget.onTopicSelected != null) return;
     final String focusCategory =
         widget.launchRequest?.focus.trim() ??
         widget.focusCategory?.trim() ??
@@ -274,7 +294,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
         return;
       }
       if (started) {
-        context.push(AppRoutes.practiceQuiz);
+        context.push(AppRoutes.soloSession);
         return;
       }
       final String message =
@@ -641,11 +661,13 @@ class _PracticeTaxonomySection extends StatelessWidget {
   const _PracticeTaxonomySection({
     required this.title,
     required this.groups,
+    required this.selectionMode,
     required this.onTapTopic,
   });
 
   final String title;
   final List<_PracticeCategoryGroup> groups;
+  final bool selectionMode;
   final ValueChanged<PracticeTopic> onTapTopic;
 
   @override
@@ -665,6 +687,7 @@ class _PracticeTaxonomySection extends StatelessWidget {
         for (int index = 0; index < groups.length; index++) ...<Widget>[
           _PracticeCategorySection(
             group: groups[index],
+            selectionMode: selectionMode,
             onTapTopic: onTapTopic,
           ),
           if (index < groups.length - 1) const SizedBox(height: 22),
@@ -677,10 +700,12 @@ class _PracticeTaxonomySection extends StatelessWidget {
 class _PracticeCategorySection extends StatelessWidget {
   const _PracticeCategorySection({
     required this.group,
+    required this.selectionMode,
     required this.onTapTopic,
   });
 
   final _PracticeCategoryGroup group;
+  final bool selectionMode;
   final ValueChanged<PracticeTopic> onTapTopic;
 
   @override
@@ -698,7 +723,9 @@ class _PracticeCategorySection extends StatelessWidget {
         ),
         const SizedBox(height: 3),
         Text(
-          '${group.topics.length} subkategori \u2022 5 soal per sesi',
+          selectionMode
+              ? '${group.topics.length} subkategori tersedia'
+              : '${group.topics.length} subkategori \u2022 5 soal per sesi',
           style: AppTypography.body(
             color: AppColors.textMuted,
             fontSize: 10.5,
@@ -722,6 +749,7 @@ class _PracticeCategorySection extends StatelessWidget {
               key: ValueKey<String>('practice-topic-${item.id}'),
               topic: item,
               palette: group.palette,
+              selectionMode: selectionMode,
               onTap: () => onTapTopic(item),
             );
           },
@@ -736,11 +764,13 @@ class _PracticeTopicCard extends StatefulWidget {
     super.key,
     required this.topic,
     required this.palette,
+    required this.selectionMode,
     required this.onTap,
   });
 
   final PracticeTopic topic;
   final _TopicPalette palette;
+  final bool selectionMode;
   final VoidCallback onTap;
 
   @override
@@ -759,7 +789,9 @@ class _PracticeTopicCardState extends State<_PracticeTopicCard> {
 
     return Semantics(
       button: true,
-      label: '${widget.topic.name}. 5 soal per sesi.',
+      label: widget.selectionMode
+          ? 'Pilih ${widget.topic.name}.'
+          : '${widget.topic.name}. 5 soal per sesi.',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,

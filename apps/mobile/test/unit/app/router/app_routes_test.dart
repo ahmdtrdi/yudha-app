@@ -8,13 +8,19 @@ void main() {
       AppRoutes.lobby,
       AppRoutes.pvp,
       AppRoutes.leaderboard,
+      AppRoutes.analytics,
+      AppRoutes.solo,
+      AppRoutes.soloTopics,
+      AppRoutes.soloLoadout,
+      AppRoutes.soloHistory,
+      AppRoutes.soloSession,
       AppRoutes.practice,
       AppRoutes.practiceHistory,
       AppRoutes.practiceQuiz,
       AppRoutes.learning,
       AppRoutes.profile,
-      AppRoutes.interviewSetup,
       AppRoutes.interview,
+      AppRoutes.interviewSession,
       AppRoutes.store,
       AppRoutes.hiredPass,
     ]) {
@@ -26,6 +32,21 @@ void main() {
     for (final String path in AppRoutes.publicPaths) {
       expect(AppRoutes.isPrivate(Uri.parse(path)), isFalse, reason: path);
     }
+  });
+
+  test('legacy learning routes preserve their query when canonicalized', () {
+    expect(
+      AppRoutes.canonicalLocation(Uri.parse('/practice?category=twk')),
+      '/solo?category=twk',
+    );
+    expect(
+      AppRoutes.canonicalLocation(Uri.parse('/practice/history?offset=20')),
+      '/solo/history?offset=20',
+    );
+    expect(
+      AppRoutes.canonicalLocation(Uri.parse('/interview/setup?resume=one')),
+      '/interview?resume=one',
+    );
   });
 
   test('login round-trip preserves a private path and query', () {
@@ -49,13 +70,13 @@ void main() {
   test('session loss redirects the current feature route to Login', () {
     final String? redirect = appRedirect(
       isAuthenticated: false,
-      uri: Uri.parse(AppRoutes.interviewSetup),
+      uri: Uri.parse(AppRoutes.interview),
     );
 
     expect(Uri.parse(redirect!).path, AppRoutes.login);
     expect(
       Uri.parse(redirect).queryParameters[AppRoutes.returnToQueryParameter],
-      AppRoutes.interviewSetup,
+      AppRoutes.interview,
     );
   });
 

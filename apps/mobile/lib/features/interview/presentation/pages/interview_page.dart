@@ -215,7 +215,7 @@ class _InterviewPageState extends ConsumerState<InterviewPage>
       return;
     }
     context.pushReplacement(
-      AppRoutes.interview,
+      AppRoutes.interviewSession,
       extra: InterviewLaunchConfig(
         companyId: session.companyId,
         companyName: _humanizeCompanyId(session.companyId),
@@ -338,9 +338,7 @@ class _InterviewPageState extends ConsumerState<InterviewPage>
                 ),
                 onPressed: () {
                   final notifier = ref.read(
-                    interviewControllerProvider(
-                      widget.config,
-                    ).notifier,
+                    interviewControllerProvider(widget.config).notifier,
                   );
                   if (state.useTextFallback) {
                     notifier.switchLiveTextToVoice();
@@ -396,8 +394,8 @@ class _InterviewPageState extends ConsumerState<InterviewPage>
                     config: widget.config,
                     summary: state.finalSummary,
                     latestEvaluation: state.latestEvaluation,
-                    onStartNew: () => context.go(AppRoutes.interviewSetup),
-                    onBackToPractice: () => context.go(AppRoutes.practice),
+                    onStartNew: () => context.go(AppRoutes.interview),
+                    onBackToPractice: () => context.go(AppRoutes.solo),
                   )
                 : Column(
                     children: <Widget>[
@@ -601,10 +599,7 @@ class _InterviewHeader extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: <Color>[
-                  AppColors.levelUpTeal,
-                  AppColors.warriorNavy,
-                ],
+                colors: <Color>[AppColors.levelUpTeal, AppColors.warriorNavy],
               ),
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white.withAlpha(90), width: 1.5),
@@ -640,11 +635,16 @@ class _InterviewHeader extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.growthLime.withAlpha(45),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: AppColors.growthLime.withAlpha(90)),
+                        border: Border.all(
+                          color: AppColors.growthLime.withAlpha(90),
+                        ),
                       ),
                       child: Text(
                         'ONLINE',
@@ -835,7 +835,10 @@ class _VoiceRoomPanel extends StatelessWidget {
                       ],
                     ),
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withAlpha(90), width: 1.5),
+                    border: Border.all(
+                      color: Colors.white.withAlpha(90),
+                      width: 1.5,
+                    ),
                     boxShadow: <BoxShadow>[
                       BoxShadow(
                         color: Colors.black.withAlpha(25),
@@ -872,11 +875,16 @@ class _VoiceRoomPanel extends StatelessWidget {
                           ),
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.growthLime.withAlpha(45),
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: AppColors.growthLime.withAlpha(90)),
+                              border: Border.all(
+                                color: AppColors.growthLime.withAlpha(90),
+                              ),
                             ),
                             child: Text(
                               'LIVE AI',
@@ -950,8 +958,7 @@ class _VoiceRoomPanel extends StatelessWidget {
             ),
             child: _ScrollableInterviewQuestion(
               text:
-                  currentQuestion?.text ??
-                  'Menyiapkan pertanyaan interview...',
+                  currentQuestion?.text ?? 'Menyiapkan pertanyaan interview...',
             ),
           ),
           if (latestCandidateAnswer != null) ...<Widget>[
@@ -962,7 +969,10 @@ class _VoiceRoomPanel extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.warriorNavy.withAlpha(110),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.levelUpTeal.withAlpha(80), width: 1),
+                border: Border.all(
+                  color: AppColors.levelUpTeal.withAlpha(80),
+                  width: 1,
+                ),
                 boxShadow: <BoxShadow>[
                   BoxShadow(
                     color: const Color(0xFF001944).withAlpha(70),
@@ -1211,18 +1221,18 @@ class _PushToTalkButtonState extends State<_PushToTalkButton> {
     final Color topFaceColor = recording
         ? const Color(0xFFFF5252)
         : enabled
-            ? const Color(0xFFFFD8A6)
-            : Colors.white.withAlpha(28);
+        ? const Color(0xFFFFD8A6)
+        : Colors.white.withAlpha(28);
     final Color shadowBaseColor = recording
         ? const Color(0xFFC62828)
         : enabled
-            ? const Color(0xFFF2A45E)
-            : const Color(0xFF002966).withAlpha(50);
+        ? const Color(0xFFF2A45E)
+        : const Color(0xFF002966).withAlpha(50);
     final Color contentColor = recording
         ? Colors.white
         : enabled
-            ? const Color(0xFF8A4A12)
-            : Colors.white60;
+        ? const Color(0xFF8A4A12)
+        : Colors.white60;
 
     return Semantics(
       button: true,
@@ -1279,8 +1289,8 @@ class _PushToTalkButtonState extends State<_PushToTalkButton> {
                       color: recording
                           ? const Color(0xFFFFCDD2)
                           : enabled
-                              ? Colors.white.withAlpha(210)
-                              : Colors.white.withAlpha(45),
+                          ? Colors.white.withAlpha(210)
+                          : Colors.white.withAlpha(45),
                       width: 1.8,
                     ),
                   ),
@@ -1294,12 +1304,14 @@ class _PushToTalkButtonState extends State<_PushToTalkButton> {
                           color: recording
                               ? Colors.white.withAlpha(45)
                               : enabled
-                                  ? const Color(0xFFF2A45E).withAlpha(60)
-                                  : Colors.white.withAlpha(15),
+                              ? const Color(0xFFF2A45E).withAlpha(60)
+                              : Colors.white.withAlpha(15),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
-                          recording ? Icons.mic_rounded : Icons.touch_app_rounded,
+                          recording
+                              ? Icons.mic_rounded
+                              : Icons.touch_app_rounded,
                           color: contentColor,
                           size: 19,
                         ),
@@ -1376,14 +1388,14 @@ class _LiveCallButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color shadow = shadowColor ?? const Color(0xFF002966);
-    final Color effectiveBg =
-        enabled ? background : Colors.white.withAlpha(20);
-    final Color effectiveShadow =
-        enabled ? shadow : const Color(0xFF001944).withAlpha(40);
-    final Color iconColor =
-        enabled ? Colors.white : Colors.white.withAlpha(80);
-    final Color textColor =
-        enabled ? Colors.white.withAlpha(230) : Colors.white.withAlpha(80);
+    final Color effectiveBg = enabled ? background : Colors.white.withAlpha(20);
+    final Color effectiveShadow = enabled
+        ? shadow
+        : const Color(0xFF001944).withAlpha(40);
+    final Color iconColor = enabled ? Colors.white : Colors.white.withAlpha(80);
+    final Color textColor = enabled
+        ? Colors.white.withAlpha(230)
+        : Colors.white.withAlpha(80);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1589,7 +1601,9 @@ class _VoiceOrbPainter extends CustomPainter {
     // 1. Ambient Dynamic Glows
     final Path ambientGlowPath = _generateFluidBlobPath(
       center: center,
-      baseRadius: baseRadius * (1.35 + (isActive ? 0.12 : 0.05) * math.sin(progress * 2 * math.pi)),
+      baseRadius:
+          baseRadius *
+          (1.35 + (isActive ? 0.12 : 0.05) * math.sin(progress * 2 * math.pi)),
       phase: progress,
       distortion: isActive ? 0.18 : 0.09,
       frequencyMultiplier: 1.0,
@@ -1632,9 +1646,7 @@ class _VoiceOrbPainter extends CustomPainter {
           const Color(0xFF00387A).withAlpha(220),
         ],
         stops: const <double>[0.0, 0.22, 0.52, 0.82, 1.0],
-      ).createShader(
-        Rect.fromCircle(center: center, radius: baseRadius * 1.3),
-      );
+      ).createShader(Rect.fromCircle(center: center, radius: baseRadius * 1.3));
     canvas.drawPath(coreBlobPath, corePaint);
 
     // 3. Secondary Inner Plasma Swirl (Layered for visual richness)
@@ -1656,17 +1668,17 @@ class _VoiceOrbPainter extends CustomPainter {
           Colors.transparent,
         ],
         stops: const <double>[0.0, 0.55, 1.0],
-      ).createShader(
-        Rect.fromCircle(center: center, radius: baseRadius),
-      );
+      ).createShader(Rect.fromCircle(center: center, radius: baseRadius));
     canvas.drawPath(innerSwirlPath, innerSwirlPaint);
 
     // 4. Fluid Harmonic Wave Ribbons
     final int ringCount = isActive ? 4 : 3;
     for (int ring = 0; ring < ringCount; ring += 1) {
       final double ringPhase = progress + (ring * 0.22);
-      final double ringBaseRadius = baseRadius + (ring + 1) * (isActive ? 7.5 : 5.5);
-      final double ringDistortion = (isActive ? 0.12 : 0.06) * (1.0 + ring * 0.25);
+      final double ringBaseRadius =
+          baseRadius + (ring + 1) * (isActive ? 7.5 : 5.5);
+      final double ringDistortion =
+          (isActive ? 0.12 : 0.06) * (1.0 + ring * 0.25);
 
       final Path ringPath = _generateFluidBlobPath(
         center: center,
@@ -1724,9 +1736,21 @@ class _VoiceOrbPainter extends CustomPainter {
       final double sampleAngle = angle + rotationOffset;
 
       // Harmonic fluid sinusoidal deformation
-      final double wave1 = math.sin(sampleAngle * 2 * frequencyMultiplier + phase * 2 * math.pi) * 0.45;
-      final double wave2 = math.cos(sampleAngle * 3 * frequencyMultiplier - phase * 2 * math.pi * 1.2) * 0.35;
-      final double wave3 = math.sin(sampleAngle * 5 * frequencyMultiplier + phase * 2 * math.pi * 0.8) * 0.20;
+      final double wave1 =
+          math.sin(
+            sampleAngle * 2 * frequencyMultiplier + phase * 2 * math.pi,
+          ) *
+          0.45;
+      final double wave2 =
+          math.cos(
+            sampleAngle * 3 * frequencyMultiplier - phase * 2 * math.pi * 1.2,
+          ) *
+          0.35;
+      final double wave3 =
+          math.sin(
+            sampleAngle * 5 * frequencyMultiplier + phase * 2 * math.pi * 0.8,
+          ) *
+          0.20;
 
       final double deform = (wave1 + wave2 + wave3) * distortion;
       final double r = baseRadius * (1.0 + deform);
@@ -2078,10 +2102,7 @@ class _DotsBubble extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withAlpha(210),
-          width: 1.5,
-        ),
+        border: Border.all(color: Colors.white.withAlpha(210), width: 1.5),
         boxShadow: <BoxShadow>[
           BoxShadow(
             color: const Color(0xFF002966).withAlpha(45),
@@ -2139,10 +2160,7 @@ class _EvaluationStrip extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withAlpha(220),
-          width: 1.5,
-        ),
+        border: Border.all(color: Colors.white.withAlpha(220), width: 1.5),
         boxShadow: <BoxShadow>[
           BoxShadow(
             color: const Color(0xFF002966).withAlpha(50),
@@ -2503,10 +2521,7 @@ class _DimensionTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.scholarCream,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: Colors.white.withAlpha(200),
-          width: 1.2,
-        ),
+        border: Border.all(color: Colors.white.withAlpha(200), width: 1.2),
         boxShadow: <BoxShadow>[
           BoxShadow(
             color: const Color(0xFF002966).withAlpha(20),
@@ -2841,10 +2856,7 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(
-          color: Colors.white.withAlpha(230),
-          width: 1.5,
-        ),
+        border: Border.all(color: Colors.white.withAlpha(230), width: 1.5),
         boxShadow: <BoxShadow>[
           BoxShadow(
             color: const Color(0xFF002966).withAlpha(55),
@@ -2927,7 +2939,9 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
                           ? AppColors.levelUpTeal
                           : AppColors.textMuted,
                     ),
-                    onPressed: widget.enabled && !isBusy ? _startRecording : null,
+                    onPressed: widget.enabled && !isBusy
+                        ? _startRecording
+                        : null,
                   ),
                 ),
               ],
@@ -3024,7 +3038,9 @@ class _AnswerComposerState extends ConsumerState<_AnswerComposer>
                           shape: const CircleBorder(),
                           child: InkWell(
                             customBorder: const CircleBorder(),
-                            onTap: widget.enabled && !isBusy ? widget.onSubmit : null,
+                            onTap: widget.enabled && !isBusy
+                                ? widget.onSubmit
+                                : null,
                             child: Center(
                               child: Icon(
                                 Icons.arrow_upward_rounded,

@@ -3,14 +3,36 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/app/router/app_tab_shell.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
+import 'package:yudha_mobile/features/solo/presentation/pages/solo_setup_page.dart';
 
 void main() {
-  testWidgets('renders an icon-only capsule with a tapered active indicator', (
+  testWidgets('hides navigation during an active Solo session', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: AppTabShell(
+            location: AppRoutes.soloSession,
+            child: ColoredBox(color: Colors.white),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const ValueKey<String>('app-tab-capsule')), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('app-tab-clay-base')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('renders the new icon-only navigation order', (
     WidgetTester tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
@@ -20,84 +42,53 @@ void main() {
       const ProviderScope(
         child: MaterialApp(
           home: AppTabShell(
-            location: AppRoutes.practiceHistory,
+            location: AppRoutes.analytics,
             child: ColoredBox(color: Colors.white),
           ),
         ),
       ),
     );
-    await tester.pump();
 
+    expect(find.byKey(const ValueKey<String>('app-tab-capsule')), findsOne);
+    expect(find.byKey(const ValueKey<String>('app-tab-clay-base')), findsOne);
     expect(
-      find.byKey(const ValueKey<String>('app-tab-capsule')),
-      findsOneWidget,
+      find.byKey(const ValueKey<String>('app-tab-indicator-Analytics')),
+      findsOne,
     );
-    expect(
-      find.byKey(const ValueKey<String>('app-tab-clay-base')),
-      findsOneWidget,
-    );
-    expect(find.byType(SvgPicture), findsNWidgets(6));
-    final ColoredBox practiceNavBackground = tester.widget<ColoredBox>(
+    expect(find.text('Lobby'), findsNothing);
+    expect(find.text('Leaderboard'), findsNothing);
+    expect(find.text('Learning'), findsNothing);
+    expect(find.text('Analytics'), findsNothing);
+    expect(find.text('Profile'), findsNothing);
+    expect(find.byIcon(Icons.star_rounded), findsOne);
+
+    final ColoredBox background = tester.widget<ColoredBox>(
       find.byKey(const ValueKey<String>('app-tab-background')),
     );
-    expect(practiceNavBackground.color, AppColors.scholarCream);
-    expect(find.text('Lobby'), findsNothing);
-    expect(find.text('PvP'), findsNothing);
-    expect(find.text('Rank'), findsNothing);
-    expect(find.text('Practice'), findsNothing);
-    expect(find.text('Learning'), findsNothing);
-    expect(find.text('Profile'), findsNothing);
-    expect(
-      find.byKey(const ValueKey<String>('app-tab-indicator-Practice')),
-      findsOneWidget,
-    );
-    final DecoratedBox highlight = tester.widget<DecoratedBox>(
-      find.byKey(const ValueKey<String>('app-tab-highlight-gradient')),
-    );
-    final LinearGradient highlightGradient =
-        (highlight.decoration as BoxDecoration).gradient! as LinearGradient;
-    expect(highlightGradient.begin, Alignment.bottomCenter);
-    expect(highlightGradient.end, Alignment.topCenter);
-    expect(highlightGradient.colors, hasLength(3));
-    expect(highlightGradient.stops, <double>[0, 0.42, 1]);
-    expect(highlightGradient.colors.last.a, 0);
-    final Rect clayBaseRect = tester.getRect(
-      find.byKey(const ValueKey<String>('app-tab-clay-base')),
-    );
+    expect(background.color, AppColors.scholarCream);
     final Rect capsuleRect = tester.getRect(
       find.byKey(const ValueKey<String>('app-tab-capsule')),
     );
-    final Rect indicatorRect = tester.getRect(
-      find.byKey(const ValueKey<String>('app-tab-indicator-Practice')),
+    final Rect learningButtonRect = tester.getRect(
+      find.byKey(const ValueKey<String>('learning-tab-button')),
     );
-    expect(clayBaseRect.top, lessThan(capsuleRect.top));
-    expect(indicatorRect.top, closeTo(capsuleRect.top + 1, 1));
-    expect(indicatorRect.bottom, closeTo(capsuleRect.bottom - 1, 1));
-    final SemanticsNode practiceSemantics = tester.getSemantics(
-      find.byKey(const ValueKey<String>('app-tab-Practice')),
-    );
-    final SemanticsData practiceData = practiceSemantics.getSemanticsData();
-    expect(practiceData.label, 'Practice');
-    expect(practiceData.flagsCollection.isButton, isTrue);
-    expect(practiceData.flagsCollection.isSelected, ui.Tristate.isTrue);
+    expect(learningButtonRect.top, lessThan(capsuleRect.top));
+    expect(learningButtonRect.bottom, greaterThan(capsuleRect.bottom - 16));
 
-    final SemanticsNode lobbySemantics = tester.getSemantics(
-      find.byKey(const ValueKey<String>('app-tab-Lobby')),
+    final SemanticsNode analyticsSemantics = tester.getSemantics(
+      find.byKey(const ValueKey<String>('app-tab-Analytics')),
     );
-    final SemanticsData lobbyData = lobbySemantics.getSemanticsData();
-    expect(lobbyData.label, 'Lobby');
-    expect(lobbyData.flagsCollection.isButton, isTrue);
-    expect(lobbyData.flagsCollection.isSelected, ui.Tristate.isFalse);
-
-    final SemanticsNode learningSemantics = tester.getSemantics(
-      find.byKey(const ValueKey<String>('app-tab-Learning')),
-    );
-    expect(learningSemantics.getSemanticsData().label, 'Learning');
     expect(
-      learningSemantics.getSemanticsData().flagsCollection.isSelected,
-      ui.Tristate.isFalse,
+      analyticsSemantics.getSemanticsData().flagsCollection.isSelected,
+      ui.Tristate.isTrue,
     );
-    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('opens a labeled radial Learning menu and dismisses it', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
       const ProviderScope(
@@ -109,27 +100,101 @@ void main() {
         ),
       ),
     );
-    await tester.pump();
 
-    final ColoredBox lobbyNavBackground = tester.widget<ColoredBox>(
-      find.byKey(const ValueKey<String>('app-tab-background')),
+    expect(find.byKey(const ValueKey<String>('learning-menu')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey<String>('app-tab-Learning')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey<String>('learning-menu')), findsOne);
+    expect(find.text('Solo'), findsOne);
+    expect(find.text('PvP'), findsOne);
+    expect(find.text('Interview'), findsOne);
+    expect(
+      find.byKey(const ValueKey<String>('learning-menu-shared-glow')),
+      findsOne,
     );
-    expect(lobbyNavBackground.color, AppColors.scholarCream);
+    final DecoratedBox sharedGlow = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('learning-menu-shared-glow')),
+    );
+    final RadialGradient sharedGradient =
+        (sharedGlow.decoration as BoxDecoration).gradient! as RadialGradient;
+    expect(sharedGradient.center, const Alignment(0, 1.35));
+    final ModalBarrier barrier = tester.widget<ModalBarrier>(
+      find.byKey(const ValueKey<String>('learning-menu-barrier')),
+    );
+    expect(barrier.color, Colors.transparent);
+    final List<Color> actionColors = <String>['Solo', 'PvP', 'Interview']
+        .map(
+          (String label) => tester
+              .widget<Material>(
+                find.byKey(ValueKey<String>('learning-menu-surface-$label')),
+              )
+              .color!,
+        )
+        .toList(growable: false);
+    expect(actionColors.toSet(), hasLength(3));
+    final Rect menuRect = tester.getRect(
+      find.byKey(const ValueKey<String>('learning-menu')),
+    );
+    final Rect capsuleRect = tester.getRect(
+      find.byKey(const ValueKey<String>('app-tab-capsule')),
+    );
+    expect(menuRect.bottom, lessThan(capsuleRect.top));
+
+    final SemanticsNode learningSemantics = tester.getSemantics(
+      find.byKey(const ValueKey<String>('app-tab-Learning')),
+    );
+    expect(
+      learningSemantics.getSemanticsData().flagsCollection.isSelected,
+      ui.Tristate.isTrue,
+    );
+
+    await tester.tapAt(const Offset(20, 100));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('learning-menu')), findsNothing);
+  });
+
+  testWidgets('opens the Solo setup from the Learning menu', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final GoRouter router = GoRouter(
+      initialLocation: AppRoutes.lobby,
+      routes: <RouteBase>[
+        ShellRoute(
+          builder: (BuildContext context, GoRouterState state, Widget child) {
+            return AppTabShell(location: state.uri.path, child: child);
+          },
+          routes: <RouteBase>[
+            GoRoute(
+              path: AppRoutes.lobby,
+              builder: (_, _) => const ColoredBox(color: Colors.white),
+            ),
+            GoRoute(
+              path: AppRoutes.solo,
+              builder: (_, _) => const SoloSetupPage(),
+            ),
+          ],
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
 
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
-          home: AppTabShell(
-            location: AppRoutes.learning,
-            child: ColoredBox(color: Colors.white),
-          ),
-        ),
-      ),
+      ProviderScope(child: MaterialApp.router(routerConfig: router)),
     );
-    await tester.pump();
-    expect(
-      find.byKey(const ValueKey<String>('app-tab-indicator-Learning')),
-      findsOneWidget,
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey<String>('app-tab-Learning')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('learning-menu-surface-Solo')),
     );
+    await tester.pumpAndSettle();
+
+    expect(router.routeInformationProvider.value.uri.path, AppRoutes.solo);
+    expect(find.text('SESI UNTUKMU'), findsOneWidget);
   });
 }

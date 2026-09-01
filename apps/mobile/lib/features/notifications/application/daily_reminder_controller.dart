@@ -7,6 +7,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:yudha_mobile/app/config/app_config.dart';
+import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/features/notifications/data/daily_reminder_repository.dart';
 import 'package:yudha_mobile/features/notifications/domain/daily_reminder_state.dart';
 
@@ -248,8 +249,9 @@ class DailyReminderController extends StateNotifier<DailyReminderState> {
 
   String _safeRoute(String? route) {
     return switch (route) {
-      '/' || '/practice' || '/pvp' => route!,
-      _ => '/',
+      AppRoutes.lobby || AppRoutes.solo || AppRoutes.pvp => route!,
+      AppRoutes.legacyPractice => AppRoutes.solo,
+      _ => AppRoutes.lobby,
     };
   }
 

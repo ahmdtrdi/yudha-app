@@ -249,14 +249,14 @@ Future<void> _pumpSetup(
   addTearDown(tester.view.resetPhysicalSize);
 
   final GoRouter router = GoRouter(
-    initialLocation: AppRoutes.interviewSetup,
+    initialLocation: AppRoutes.interview,
     routes: <RouteBase>[
       GoRoute(
-        path: AppRoutes.interviewSetup,
+        path: AppRoutes.interview,
         builder: (_, _) => const InterviewSetupPage(),
       ),
       GoRoute(
-        path: AppRoutes.interview,
+        path: AppRoutes.interviewSession,
         builder: (_, GoRouterState state) {
           onLaunch(state.extra! as InterviewLaunchConfig);
           return const Scaffold(body: Text('Interview launched'));

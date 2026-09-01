@@ -295,6 +295,19 @@ class _SuccessPracticeRepository implements PracticeRepository {
   }
 }
 
+class _TrackingPracticeRepository extends _SuccessPracticeRepository {
+  int startCount = 0;
+
+  @override
+  Future<PracticeSession> startSession({
+    required String category,
+    String? subcategory,
+  }) {
+    startCount += 1;
+    return super.startSession(category: category, subcategory: subcategory);
+  }
+}
+
 class _RecordingPlayerProgressRepository extends PlayerProgressRepository {
   int fetchCount = 0;
 
@@ -611,6 +624,45 @@ void main() {
     expect((interviewSurface.decoration! as BoxDecoration).color, Colors.white);
   });
 
+  testWidgets('selects a Solo topic without showing Interview or starting', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 1400);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    PracticeTopic? selectedTopic;
+    final _TrackingPracticeRepository repository =
+        _TrackingPracticeRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          practiceRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: MaterialApp(
+          home: PracticePage(
+            onTopicSelected: (PracticeTopic topic) => selectedTopic = topic,
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('PILIH TOPIK'), findsOneWidget);
+    expect(find.text('Simulasi Wawancara AI'), findsNothing);
+    expect(find.text('PILIH TOPIK CPNS'), findsOneWidget);
+    expect(find.text('4 subkategori tersedia'), findsNWidgets(3));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('practice-topic-tiu::kemampuan_logis')),
+    );
+    await tester.pump();
+
+    expect(selectedTopic?.id, _SuccessPracticeRepository.topic.id);
+    expect(repository.startCount, 0);
+  });
+
   testWidgets('renders server session and unlocks its hint', (
     WidgetTester tester,
   ) async {
@@ -865,15 +917,15 @@ void main() {
     WidgetTester tester,
   ) async {
     final GoRouter router = GoRouter(
-      initialLocation: AppRoutes.practice,
+      initialLocation: AppRoutes.solo,
       routes: <RouteBase>[
         GoRoute(
-          path: AppRoutes.practice,
+          path: AppRoutes.solo,
           builder: (context, state) =>
               const PracticePage(focusCategory: 'logika'),
         ),
         GoRoute(
-          path: AppRoutes.practiceQuiz,
+          path: AppRoutes.soloSession,
           builder: (context, state) => const PracticeQuizPage(),
         ),
       ],

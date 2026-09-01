@@ -505,7 +505,7 @@ class _PvpPageState extends ConsumerState<PvpPage> {
           _triggerResultExitAd(state);
           claimReward();
           controller.resetBattle();
-          context.go(AppRoutes.practice, extra: category);
+          context.go(AppRoutes.solo, extra: category);
         },
         onReplay: () {
           _triggerResultExitAd(state);

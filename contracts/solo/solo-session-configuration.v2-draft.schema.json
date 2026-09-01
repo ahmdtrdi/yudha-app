@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yudha.local/contracts/solo/solo-session-configuration.v2-draft.schema.json",
+  "title": "Non-operational Solo session configuration draft",
+  "description": "Shared vocabulary only. This schema does not authorize an operational /solo/sessions endpoint.",
+  "$defs": {
+    "mechanicMode": {
+      "enum": ["focus", "standard", "speed"]
+    },
+    "questionSelection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "balanced" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "recommended" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["type", "skillIds"],
+          "properties": {
+            "type": { "const": "custom" },
+            "skillIds": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1, "maxLength": 160 }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "required": ["idempotencyKey", "mechanicMode", "questionCount", "questionSelection", "characterId"],
+  "properties": {
+    "idempotencyKey": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "mechanicMode": { "$ref": "#/$defs/mechanicMode" },
+    "questionCount": { "enum": [20, 35, 50] },
+    "characterId": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "questionSelection": { "$ref": "#/$defs/questionSelection" },
+    "recommendationId": { "type": "string", "minLength": 1, "maxLength": 160 }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "questionSelection": {
+            "properties": { "type": { "const": "recommended" } },
+            "required": ["type"]
+          }
+        }
+      },
+      "then": { "required": ["recommendationId"] },
+      "else": { "not": { "required": ["recommendationId"] } }
+    }
+  ],
+  "additionalProperties": false
+}

@@ -66,7 +66,7 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
       responseStyle: _responseStyle,
     );
 
-    context.push(AppRoutes.interview, extra: config);
+    context.push(AppRoutes.interviewSession, extra: config);
   }
 
   void _resumeInterview(
@@ -81,7 +81,7 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
       }
     }
     context.push(
-      AppRoutes.interview,
+      AppRoutes.interviewSession,
       extra: InterviewLaunchConfig(
         companyId: session.companyId,
         companyName: company?.name ?? _humanizeCompanyId(session.companyId),
@@ -141,7 +141,13 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
         leading: IconButton(
           key: const Key('interview-setup-back'),
           icon: const Icon(Icons.chevron_left),
-          onPressed: () => context.pop(),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+              return;
+            }
+            context.go(AppRoutes.lobby);
+          },
         ),
         title: Text(
           'SETUP INTERVIEW AI',

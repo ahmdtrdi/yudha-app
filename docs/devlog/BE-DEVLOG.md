@@ -686,6 +686,20 @@
 - `20260829010000_add_interview_company_default_role.sql` must be run manually in the target Supabase project before deploying the new API.
 - The backend must be redeployed or restarted after the schema migration. The fixture seeder was updated but intentionally not run against remote content because it replaces company context rows.
 
+## 2026-09-01 - Solo Draft Compatibility Contract
+
+**The Change:**
+- Added a non-operational Solo contract for Focus, Standard, Speed and Balanced, Recommended, Custom configuration, including strict request parsing, stable validation/unsupported error vocabulary, requested-versus-effective resolution types, and compatibility warnings.
+- Added an explicit legacy Practice adapter that preserves category filters while leaving effective V2 mechanic and question selection unknown, plus a language-neutral draft schema outside the authoritative OpenAPI contract.
+
+**The Reasoning:**
+- Mobile and App Backend need identical Solo vocabulary before building the setup flow, but the draft's unresolved delivery policies do not authorize `/solo` mutations or reinterpretation of current fixed-five Practice evidence.
+
+**Verification:**
+- Solo and existing Practice backend suites passed: 12 tests across 2 suites; focused ESLint and TypeScript checks passed; the draft JSON schema parsed successfully.
+
+**The Tech Debt:**
+- `/solo/sessions`, delivery policy, selection algorithms, mechanic behavior, database changes, and authoritative OpenAPI adoption remain deferred until the Step 5a product/backend decisions are approved. The full Nest build remains locally blocked by pulled websocket dependencies that npm could not update while a Windows file lock held `node_modules`.
 ## 2026-09-01 - Learning Analytics V2 Database Foundation (Phase 1)
 
 **The Change:**

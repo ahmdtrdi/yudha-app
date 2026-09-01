@@ -2747,6 +2747,89 @@
 - The supplied character pack does not include replacement projectile art, so battle projectiles still use the existing per-character WebP assets.
 - Automated browser visual inspection was unavailable because the browser runtime could not initialize its Windows kernel assets. A physical-device pass should still confirm final crop and scale across the four background aspect ratios.
 
+## 2026-08-31 - App Navigation and Learning Menu
+
+### The Change
+- Redesigned the clay navbar into Lobby, Leaderboard, Learning, Analytics, and Profile; added the star-centered Learning fan linked to `/solo`, `/pvp`, and `/interview`; added an empty Analytics route; kept Interview Setup inside the shell with a safe Lobby back fallback; and redirected legacy Practice and Interview Setup links to their canonical destinations without dropping query parameters.
+
+### The Reasoning
+- Learning acts as a shared navigation action instead of an empty intermediate page, while explicit glow, navbar, and floating-action layers preserve the clay composition without clipping.
+
+### Verification
+- All 26 focused router, navbar, Practice, and Interview tests passed; targeted analysis reported no issues; and `git diff --check` completed cleanly.
+
+### The Tech Debt
+- Analytics remains an intentional placeholder, and Solo continues to open the existing Practice page until the next commit introduces its setup flow.
+
+## 2026-09-01 - Solo Draft Compatibility Models
+
+### The Change
+- Added Flutter models for the proposed Solo mechanic and question-selection vocabulary, strict JSON serialization/validation, requested-versus-effective configuration, compatibility warnings, and a legacy Practice adapter that intentionally leaves V2 mechanic and selection unknown.
+- Mirrored the language-neutral non-operational draft contract without connecting it to repositories, providers, routes, or the existing Practice session flow.
+
+### The Reasoning
+- The upcoming Solo setup UI can use typed full-stack vocabulary without implying that Auto is a fourth selection type or that legacy untimed Practice already produces Focus, timing, or V2 learning evidence.
+
+### Verification
+- All 14 focused Solo-contract and existing Practice Flutter tests passed; targeted Dart analysis reported no issues; and `git diff --check` completed cleanly.
+
+### The Tech Debt
+- The models remain intentionally disconnected until the Solo setup UI commit; operational mechanics, selection, recommendation, delivery, rewards, and `/solo` APIs remain gated by the Step 5a decisions.
+
+## 2026-09-01 - Solo Session Setup UI
+
+### The Change
+- Replaced `/solo`'s legacy Practice landing with a clay setup flow for Auto, Balanced, Recommended, and Custom; each option uses an existing PvP arena as its visual identity while unavailable recommendation-backed choices remain explicit.
+- Refined the setup hierarchy with a blue clay top bar and solid dark-blue lower base, a concise mode label, shorter card copy, and a persistent outlined `UTAMA` treatment that makes Auto visually discoverable without hiding its unavailable status.
+- Added `/solo/topics` by adapting the existing Practice taxonomy UI without its AI Interview action or session mutation, then added `/solo/loadout` with a responsive pace sheet, mode-themed arena, large selected-character preview, owned/locked character cards sourced from the PvP economy catalog, and persisted Riverpod setup state.
+- Simplified the loadout into `ATUR LATIHAN`, removed its duplicate configuration preview and selected-name label, compacted the arena and character carousel, grounded the transparent character art with a soft shadow, and reserved navbar clearance so the start action remains visible on standard phone heights.
+- Enlarged the arena to a near-square preview and increased character-card size; locked character art now uses an alpha-preserving grayscale matrix instead of `BlendMode.saturation`, preventing gray image rectangles around transparent PNGs.
+- Made Solo setup state auto-dispose after the whole Solo route stack is exited and reset when Loadout is popped, so returning to `PILIH MODE` starts without a stale selection while setup still survives forward navigation into Topics, Loadout, or Store.
+- Kept the final Start action presentational: it reports that the configuration is saved but performs no API call, grading, timing, reward, or evidence mutation.
+
+### The Reasoning
+- Separating question selection from pace and character preparation keeps each screen focused, while reusing PvP assets and legacy taxonomy reads avoids duplicate catalogs without misrepresenting category filters as stable V2 skill IDs.
+
+### Verification
+- All 25 focused Solo contract/setup, Practice compatibility, router, and navbar tests passed, including a real Learning-menu-to-`/solo` navigation check; targeted Dart analysis reported no issues; responsive tests cover short-screen cards and the scrollable pace sheet; and `git diff --check` completed cleanly.
+
+### The Tech Debt
+- Auto and Recommended remain unavailable until authoritative recommendation data exists; legacy Custom topics remain category/subcategory references; and Focus, Standard, Speed, question selection, character submission, and `/solo/sessions` execution remain intentionally deferred to the approved policy and operational commits.
+
+## 2026-09-01 - Solo Setup PRD Alignment
+
+### The Change
+- Reworked the setup into the PRD hierarchy of one recommended `SESI UNTUKMU` and an `ATUR SENDIRI` path combining Focus/Standard/Speed with Seimbang/Rekomendasi/Pilih topik.
+- Kept the setup fixed within one viewport, enlarged the image-led recommended action, restored clay depth to the mechanic controls, and added concise descriptions to every manual option while retaining arena artwork for material selection.
+- Made recommended and manual selections visually exclusive in both directions, styled unavailable recommendation actions in gray, and reduced the character screen to a compact read-only configuration summary before loadout selection.
+
+### The Reasoning
+- The PRD treats the recommended session as a complete preset and manual configuration as an alternative path, so presenting both as simultaneously selected would misrepresent the user's active configuration.
+
+### Verification
+- All 8 focused Solo setup, state-reset, router, and navbar widget tests passed; targeted Flutter analysis reported no issues; and `git diff --check` completed cleanly.
+
+### The Tech Debt
+- Recommended selection remains unavailable until authoritative recommendation data exists, and Custom still carries legacy category/subcategory references until stable skill-ID delivery is implemented.
+
+## 2026-09-01 - Balanced Standard Solo End-to-End Session
+
+### The Change
+- Delivered the initial Standard + Seimbang Solo flow end to end with required 20/35/50 question counts, deterministic CPNS TWK:TIU `6:7` and BUMN TKD:AKHLAK `3:1` allocation, authenticated `/solo` APIs, atomic Supabase session persistence, resumable progress, early stopping, authoritative deadlines, tower HP, completion states, and daily-capped Y-Coin rewards without rank mutation.
+- Connected setup and character Loadout to a full PvP-style Solo arena where the selected character attacks a 100-HP tower after correct answers and uses its hit reaction after wrong answers or timeouts; the learner has no HP and the app navbar is hidden during the session.
+- Added a server-owned three-card hand that allows the learner to choose among dealt questions, retains each opened card's answer, hint, and Standard deadline, replenishes after resolution, and naturally reduces from three to two, one, and empty without exposing locked future prompts.
+- Added a bottom-attached question sheet with direct answer submission, persistent hint access, correct-answer feedback, and post-answer explanations; hint use is stored with the operational answer.
+- Added a clay active-session decision that lets the learner resume or explicitly end the previous attempt before starting another, plus safely rerunnable hand migration, PostgREST schema-cache refresh, and nested backend-error handling.
+- Preserved the legacy five-question Practice quiz on its compatibility route.
+
+### The Reasoning
+- Explicit counts and target-specific weights make the first delivery policy reproducible, while the three-card hand adds tryout-like question choice without surrendering server authority over inventory, timing, resolution, rewards, or resume behavior.
+
+### Verification
+- The initial slice passed all 166 Flutter tests, all 19 focused backend Solo tests, and all 8 Gate 0 infra tests. The finalized arena/session changes passed focused Dart analysis, all 19 focused Flutter Solo/navigation tests, and all 20 focused Nest Solo tests; `git diff --check` completed cleanly. Local pgTAP execution remains unavailable because neither Supabase CLI nor `psql` is installed.
+
+### The Tech Debt
+- CPNS must adopt a new versioned allocation when approved TKP inventory exists. Opened cards currently retain independent per-question deadlines rather than a global tryout timer; Focus, Speed, Recommended/Custom delivery, the canonical hint endpoint and `learning_attempts` ingestion, difficulty progression, mission/Pass integration, and intentional cross-session repetition remain deferred.
 ## 2026-09-01 - Learning Analytics Dashboard & Lobby Next-Action Card (Phase 3)
 
 ### The Change

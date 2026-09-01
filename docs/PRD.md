@@ -2,7 +2,7 @@
 
 > **Status:** Approved product contract; Learning V2 Gate 5 remains blocked by explicit decision debt
 > **Version:** 2.0
-> **Last updated:** 2026-08-31
+> **Last updated:** 2026-09-01
 > **Product timezone:** `Asia/Jakarta` (WIB, UTC+7)
 > **User-facing language:** Indonesian
 > **Audience:** Product, Mobile, Web, App Backend, Game Backend, Data, AI, Security, DevOps, Content, and QA
@@ -47,7 +47,7 @@ The MVP serves Indonesian CPNS and BUMN candidates who want repeatable practice,
 | **Solo** | The canonical learner-controlled question-practice lane. Legacy logical and public names containing `practice` are compatibility surfaces only. |
 | **Mechanic** | The timing behavior of a Solo session: `focus`, `standard`, or `speed`. |
 | **Question selection** | The independent content-selection strategy: `balanced`, `recommended`, or `custom`. |
-| **Delivery policy** | The versioned server policy that decides how a Solo session stops; its V2 length and stopping rules remain explicit decision debt. |
+| **Delivery policy** | The versioned server policy that decides how a Solo session stops. The initial Solo slice uses a learner-selected fixed count of 20, 35, or 50 questions. |
 | **Skill** | A versioned SME-approved learning-taxonomy node used to classify questions and aggregate evidence. The actual CPNS/BUMN catalog is a separate approved artifact. |
 | **Attempt** | One immutable, server-authoritative answer outcome in the canonical learning ledger. |
 | **Assessment** | A future web-based validation lane. Mobile displays imported results only; Assessment never becomes the primary next action. |
@@ -192,7 +192,9 @@ The canonical target taxonomy is:
 - Focus has no deadline. Standard uses the authoritative question limit. Speed targets `90%` of the learner's recent comparable median and requires at least five valid pace attempts; otherwise it behaves as Standard with a warning and does not produce true Speed evidence.
 - Manual Speed is permitted below `85%` smoothed independent accuracy with a warning, but the server never recommends it below that threshold.
 - Standard and Speed timeouts are server-authoritative, race-safe, and idempotent. Answer and reconciliation retries cannot create duplicate attempts.
-- V2 session length, stopping rules, allocation, progression, repetition, inventory fallback, and resume behavior remain blocked decision debt. Five questions is not a V2 invariant.
+- The initial Solo slice has an approved learner-selected fixed count, target-specific Balanced allocation, no within-session duplicates, deterministic inventory fallback, explicit early stop, and resumable session behavior. Difficulty progression, adaptive delivery, final taxonomy weights, and intentional cross-session repetition remain deferred. Five questions is not a V2 invariant.
+- The initial arena deals a server-owned hand of the next three unresolved questions. A learner may choose any card in that hand; resolving it immediately replenishes the hand from the remaining locked set, so the final cards naturally reduce from three to two, one, and empty. The client cannot open an arbitrary future question or receive its prompt before it enters the hand.
+- Returning to the hand does not pause an opened card's authoritative deadline. The learner may inspect another dealt card, while every opened Standard card continues toward its own timeout and is reconciled authoritatively when revisited or answered.
 - Until that debt closes and Gate 5 passes, the existing Practice adapter retains its locked five-question behavior, score, completion, and client contract. Its answers are backfilled into the canonical ledger only with evidence the source actually captured; missing timing, exposure, hint, version, or skill data is never fabricated.
 - Only future Solo sessions completed with `policy_completed` qualify for daily mission, streak, Hired Pass, or normal-completion effects. All retries return the original committed result without duplicating attempts, activity, or rewards.
 
@@ -202,10 +204,11 @@ Daily Lobby missions are a separate system from Hired Pass missions. The two fix
 
 | Mission | Completion condition | Automatic reward |
 |---|---|---:|
-| Daily Solo | Complete an eligible learning session | `+50 rank_points` |
+| Daily Solo | Complete an eligible learning session | No rank-point reward |
 | Daily PvP | Normally complete one public Casual or Ranked match, regardless of outcome | `+80 rank_points` |
 
 - Each mission can reward a user once per `Asia/Jakarta` business date.
+- Solo never mutates competitive rank points. Its initial direct result reward is server-authoritative Y-Coin: `+10` when every question is correct and the tower is destroyed, `+3` when all questions are resolved but the tower remains, and `0` when the learner stops early. Direct Solo rewards are capped at `30` Y-Coin per WIB business date.
 - A mission date runs from `00:00:00` inclusive to the next `00:00:00` exclusive in `Asia/Jakarta`; an activity belongs to the date containing its server completion timestamp.
 - Rewards apply automatically from idempotent server completion events; there is no manual claim button.
 - For a Ranked match, the result delta applies first and is floored at zero, then the first-of-day `+80` mission reward applies.
@@ -972,7 +975,7 @@ The detailed acceptance criteria are in Section 11.20. Delivery is ordered as fo
 5. new Solo mechanics only after delivery-policy debt closes; and
 6. Assessment ingestion and internal content-quality operations.
 
-Gates 1–4 approve implementation of evidence, state, recommendation, and dashboard foundations without changing the current five-question Practice delivery. Gate 5 is blocked until every stopping-rule dependency listed in Section 11.22 is approved. Gate 6 does not authorize a detailed public Assessment implementation beyond the boundary in this PRD.
+Gates 1–4 approve implementation of evidence, state, recommendation, and dashboard foundations without changing the current five-question Practice delivery. Gate 5 may begin with the approved Balanced + Standard fixed-count slice; deferred adaptive, difficulty, recommendation, and final-taxonomy behavior cannot be silently folded into that slice. Gate 6 does not authorize a detailed public Assessment implementation beyond the boundary in this PRD.
 
 ---
 
@@ -1069,7 +1072,7 @@ A release candidate is rejected unless all items are true:
 | Provider cost/reliability | Fixed `100 Y-Coin` access, one pending answer, bounded context, timeout/cancel, schema validation, one fallback, and text degradation |
 | Question obsolescence or bad answers | Stable source keys, structured taxonomy, soft deactivation, import reports, minimum coverage, and SME approval |
 | Misleading learning state | Separate evidence lanes, append-only attempts, transparent denominators/confidence, versioned calculations, and no fabricated backfill data |
-| Premature Solo delivery policy | Gate 5 remains blocked until the explicit stopping-rule, allocation, progression, repetition, fallback, and resume debts are approved |
+| Premature Solo delivery policy | Gate 5 is limited to the approved Balanced + Standard fixed-count policy; versioned contracts and tests prevent deferred adaptive, difficulty, recommendation, repetition, or taxonomy behavior from appearing implicitly |
 | Beta currency inflation | Explicit beta banner, separate ledger reason, feature flag, disabled paid packs, and no claim that beta balance represents real-money value |
 | Season/reward drift | Checked-in manifest validation, non-overlapping windows, immutable claim snapshots, and deployment failure without an active valid season |
 | Client/server divergence | Server authority, shared contract fixtures, no production local fallbacks, and two-client acceptance tests |
@@ -1144,7 +1147,7 @@ V2 must not:
 
 - Detailed web Assessment UX, session delivery, and public Assessment APIs.
 - The final CPNS/BUMN skill catalog; it remains an SME-owned versioned artifact.
-- A final V2 Solo session length or stopping rule.
+- Adaptive or mastery-based Solo stopping rules beyond the approved initial fixed-count slice.
 - Automated machine-learning recommendations, IRT, Elo-style ability estimation, or population benchmarking.
 - Automatic question deactivation.
 - Shipping behavior outside the approved delivery gates or silently resolving registered decision debt.
@@ -1160,7 +1163,7 @@ V2 must not:
 | Session choice | Category and subcategory | Independent mechanic and question-selection choices |
 | Mechanics | One untimed Practice flow | Focus, Standard, and Speed |
 | Question selection | Server-selected category pool | Balanced, Recommended, and Custom |
-| Session length | Exactly five questions | Versioned delivery policy; final policy remains decision debt |
+| Session length | Exactly five questions | Learner selects 20, 35, or 50 questions; no option is preselected in manual setup |
 | Hints | Hint content is delivered with the question and client reports use | Hint content is returned only by a server-tracked hint endpoint |
 | Timer | No automatic Solo timeout | Focus has no deadline; Standard and effective Speed use server-authoritative deadlines |
 | Response time | Client response time is accepted | Server elapsed time is authoritative for timed modes; validated client active time supports Focus |
@@ -1498,6 +1501,7 @@ Indonesian example:
 - Hints and post-answer explanations are available.
 - Requesting a hint does not pause the timer.
 - Primary metrics: accuracy, timeout rate, and completion within the Standard limit.
+- The arena presents up to three selectable question cards. Opening a card reveals its question and starts its authoritative timer; after resolution, the server replenishes the visible hand while locked future prompts remain undisclosed.
 
 #### 7.4 Speed
 
@@ -1546,6 +1550,10 @@ Example warning:
 - Prevents learners from selecting only familiar skills.
 - Supports broad evidence collection and coverage maintenance.
 - Must use stable curriculum weights, not equal random category selection.
+- The initial CPNS content policy is temporarily two-category because the checked-in bank has no TKP inventory: TWK : TIU uses `6 : 7`. For 20, 35, and 50 questions, deterministic largest-remainder allocation produces `9 : 11`, `16 : 19`, and `23 : 27` respectively.
+- The initial BUMN content policy uses TKD : AKHLAK = `3 : 1`. For 20, 35, and 50 questions, allocation produces `15 : 5`, `26 : 9`, and `38 : 12` respectively.
+- These weights are versioned delivery content policy, not a replacement for the final SME-approved taxonomy. CPNS must add TKP through a later policy version once active TKP inventory exists and is approved.
+- A session contains no duplicate question. If one category cannot satisfy its quota, the server deterministically redistributes the deficit across eligible categories. If total unique active inventory still cannot satisfy the selected count, session creation fails with an insufficient-inventory response and suggests a smaller supported count.
 
 **Recommended**
 
@@ -1614,7 +1622,17 @@ Focus never produces an automatic timeout.
 
 #### 7.10 Session completion and product rewards
 
-Future Solo session completion is defined by the active delivery policy, not a hardcoded question count.
+The initial Solo delivery policy uses the learner-selected fixed count of `20`, `35`, or `50` questions. Manual setup has no default count. A session normally completes after all selected questions resolve; the learner may stop early through an explicit confirmation.
+
+The tower has a normalized maximum of `100` HP. Tower HP is derived from committed results rather than accumulated rounded damage:
+
+    remainingTowerHp = ceil(100 * (questionCount - correctCount) / questionCount)
+
+A correct answer animates the selected character attacking the tower. A wrong answer or timeout leaves tower HP unchanged and uses the character's existing `hit` reaction. The learner has no HP bar. The result presentation distinguishes:
+
+- `tower_destroyed`: all selected questions resolved correctly and tower HP reached zero;
+- `questions_completed`: all selected questions resolved but tower HP remains; and
+- `user_stopped`: the learner confirmed an early stop and receives a partial result.
 
 Only completion reason **policy_completed** qualifies for:
 
@@ -1624,7 +1642,9 @@ Only completion reason **policy_completed** qualifies for:
 - a normal completed-session result; and
 - the result-exit ad safe break defined by the approved PRD after adoption.
 
-User-stopped, inventory-exhausted, and abandoned outcomes do not qualify. When a fixed-duration, mastery-evidence, adaptive, or other approved stopping rule is fully satisfied, the completion reason is policy_completed and a separate policyStopTrigger records the condition that stopped the session.
+For the initial fixed-count policy, both `tower_destroyed` and `questions_completed` map to completion reason `policy_completed`, with the visible result stored as `policyStopTrigger`. `user_stopped`, inventory-exhausted, and abandoned outcomes do not qualify. Early-stop attempts remain valid learning evidence, but early stop grants no direct Y-Coin, mission, streak, or Hired Pass progression.
+
+The direct Solo result reward is idempotent and never changes competitive rank: `tower_destroyed` grants `10` Y-Coin, `questions_completed` grants `3`, and `user_stopped` grants `0`, subject to a `30` Y-Coin Solo cap per WIB business date.
 
 **Current compatibility:** The current five-question Practice flow continues to use the approved PRD completion and reward behavior until V2 delivery is approved and migrated.
 
@@ -1634,19 +1654,19 @@ User-stopped, inventory-exhausted, and abandoned outcomes do not qualify. When a
 
 The analytics foundation operates per attempt and does not require a fixed session length.
 
-V2 must represent delivery through a policy object:
+V2 represents initial Solo delivery through a policy object:
 
     {
-      "policyId": "policy-reference",
+      "policyId": "solo-fixed-count-v1",
       "policyVersion": 1,
       "stoppingRule": "fixed_count",
-      "minimumQuestions": 5,
-      "maximumQuestions": 5,
-      "resolvedQuestionCount": 5,
+      "minimumQuestions": 20,
+      "maximumQuestions": 50,
+      "resolvedQuestionCount": 20,
       "resolvedDurationMinutes": null
     }
 
-The fields illustrate the contract only. They do not approve a five-question V2 default.
+`resolvedQuestionCount` is the learner's explicit choice from `20`, `35`, or `50`; there is no manual default.
 
 Every session must snapshot:
 
@@ -1659,22 +1679,9 @@ Every session must snapshot:
 - policy stop trigger when the policy completed; and
 - whether the result qualifies as policy completion.
 
-**Decision debt:** No V2 policy ID, default question count, default duration, adaptive stopping rule, or per-mechanic session length is approved.
+The initial slice approves fixed-count delivery, no within-session duplicates, the target-specific Balanced allocations in Section 7.5, deterministic insufficient-inventory handling, explicit early stopping, and resumable unfinished sessions. Standard deadlines continue while the app is backgrounded; returning to a session reconciles any elapsed deadline with the server.
 
-The following decisions remain open:
-
-- fixed count versus fixed duration;
-- ideal length for each mechanic;
-- whether learners may continue after policy completion;
-- evidence required for an adaptive stop;
-- within-session topic allocation;
-- difficulty progression;
-- maximum repetition and intentional-review repetition;
-- insufficient-inventory behavior;
-- unfinished-session resume behavior; and
-- whether Speed sessions should normally be shorter than Focus sessions.
-
-These decisions block the new V2 Solo session builder. They do not block taxonomy work, canonical attempts, backfill, evidence classification, learner-state calculations, compatibility APIs, or dashboard work based on current data.
+Difficulty progression, adaptive/mastery stopping, intentional cross-session repetition policy, final CPNS/BUMN taxonomy weights, and Speed personalization remain deferred. They do not block the initial Balanced + Standard delivery slice.
 
 ---
 
@@ -2817,7 +2824,9 @@ Recommended request:
 
     {
       "idempotencyKey": "mobile-solo-session-01928",
+      "characterId": "character-basic-squire",
       "mechanicMode": "focus",
+      "questionCount": 20,
       "questionSelection": {
         "type": "recommended"
       },
@@ -2828,7 +2837,9 @@ Custom request:
 
     {
       "idempotencyKey": "mobile-solo-session-01930",
+      "characterId": "character-basic-squire",
       "mechanicMode": "standard",
+      "questionCount": 35,
       "questionSelection": {
         "type": "custom",
         "skillIds": [
@@ -2841,10 +2852,12 @@ Custom request:
 Validation:
 
 - custom requires at least one stable skill ID;
+- characterId must identify an owned, active character; character choice is visual and never changes grading or damage;
+- questionCount must be exactly `20`, `35`, or `50`;
 - all skills must be enabled and match the learner's target;
 - recommendationId is required when accepting a recommendation;
 - the server determines resolved skills, inventory, mechanic, timing, and delivery;
-- clients do not submit question count as a V2 invariant;
+- clients submit the learner's explicit question-count choice; manual setup has no implicit default;
 - requested Speed may resolve to Standard baseline collection; and
 - a runnable V2 session requires an approved delivery policy.
 
@@ -2866,12 +2879,12 @@ Response shape:
           ]
         },
         "deliveryPolicy": {
-          "policyId": "approved-policy-id",
+          "policyId": "solo-fixed-count-v1",
           "policyVersion": 1,
-          "stoppingRule": "approved-rule",
-          "minimumQuestions": null,
-          "maximumQuestions": null,
-          "resolvedQuestionCount": null,
+          "stoppingRule": "fixed_count",
+          "minimumQuestions": 20,
+          "maximumQuestions": 50,
+          "resolvedQuestionCount": 20,
           "resolvedDurationMinutes": null
         },
         "timerPolicy": {
@@ -2884,15 +2897,16 @@ Response shape:
       }
     }
 
-The placeholder values above must be replaced by an approved policy before the endpoint becomes the canonical V2 builder.
+The initial operational slice supports Balanced + Standard. Other combinations remain contract-compatible but unavailable until their named policy dependencies are implemented.
 
 #### 17.5 Read and resume boundary
 
+    GET /solo/active-session
     GET /solo/sessions/:sessionId
 
-Returns the owned session, accepted attempts, current authoritative progress, effective policies, and any safe current question.
+The active-session endpoint returns the learner's latest active session or null. The owned-session endpoint returns accepted attempts, current authoritative progress, effective policies, and any safe current question.
 
-**Decision debt:** Whether an unfinished V2 session is resumable and how policy time behaves across resume is unresolved.
+Unfinished Solo sessions are resumable. Focus has no deadline. Standard and effective Speed retain their server-owned question deadline while the app is backgrounded; resume returns the committed timeout/result or the remaining authoritative deadline and never restarts it.
 
 #### 17.6 Open question
 
@@ -3365,15 +3379,10 @@ These are acceptance gates, not calendar estimates.
 
 | ID | Decision debt | Blocked capability | Required exit evidence |
 |---|---|---|---|
-| D1 | Fixed count, duration, or another stopping rule | Canonical V2 Solo builder | Product decision supported by user research and prototype results |
-| D2 | Default length by mechanic | Delivery-policy values and duration copy | Completion, abandonment, learning, and fatigue evidence |
-| D3 | Continue-after-completion behavior | Session lifecycle and reward boundary | UX decision plus abuse/reward analysis |
 | D4 | Adaptive/mastery stopping criteria | Adaptive policy | Validated evidence rule and deterministic tests |
-| D5 | Within-session skill distribution | Recommended/Balanced/Custom builder | Curriculum and learning validation |
+| D5 | Final taxonomy weights and Recommended/Custom skill distribution | Delivery beyond the initial target-specific Balanced policy | Curriculum and learning validation |
 | D6 | Difficulty progression | Session question sequence | Content/SME policy and inventory analysis |
-| D7 | Maximum repetition | Exposure controls | Retention/reinforcement study and content capacity |
-| D8 | Insufficient-inventory fallback | Candidate selection and completion reason | Minimum inventory standard and UX decision |
-| D9 | Resume/abandon behavior | GET/finish session semantics | Mobile lifecycle design, policy timing, and reward safety |
+| D7 | Intentional cross-session repetition | Exposure controls beyond no duplicates within one session | Retention/reinforcement study and content capacity |
 | D10 | Whether Speed sessions are shorter | Speed delivery policy | Pace-training prototype data |
 | D11 | Final skill catalogs | Skill-level production analytics | Versioned SME approval for CPNS and BUMN |
 | D12 | Detailed web Assessment product/API | Assessment creation and execution | Separate approved web Assessment contract and blueprint |

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/app/router/app_tab_shell.dart';
+import 'package:yudha_mobile/features/analytics/presentation/pages/analytics_page.dart';
 import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
 import 'package:yudha_mobile/features/auth/presentation/pages/email_confirmation_pending_page.dart';
 import 'package:yudha_mobile/features/auth/presentation/pages/login_page.dart';
@@ -10,17 +11,18 @@ import 'package:yudha_mobile/features/interview/domain/entities/interview_launch
 import 'package:yudha_mobile/features/interview/presentation/pages/interview_page.dart';
 import 'package:yudha_mobile/features/interview/presentation/pages/interview_setup_page.dart';
 import 'package:yudha_mobile/features/leaderboard/presentation/pages/leaderboard_page.dart';
-import 'package:yudha_mobile/features/learning/presentation/pages/learning_page.dart';
 import 'package:yudha_mobile/features/lobby/presentation/pages/lobby_page.dart';
 import 'package:yudha_mobile/features/onboarding/presentation/pages/splash_page.dart';
 import 'package:yudha_mobile/features/pass/presentation/pages/hired_pass_page.dart';
-import 'package:yudha_mobile/features/practice/domain/entities/practice_launch_request.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_history_page.dart';
-import 'package:yudha_mobile/features/practice/presentation/pages/practice_page.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_quiz_page.dart';
 import 'package:yudha_mobile/features/profile/presentation/pages/profile_onboarding_page.dart';
 import 'package:yudha_mobile/features/profile/presentation/pages/profile_page.dart';
 import 'package:yudha_mobile/features/pvp/presentation/pages/pvp_page.dart';
+import 'package:yudha_mobile/features/solo/presentation/pages/solo_loadout_page.dart';
+import 'package:yudha_mobile/features/solo/presentation/pages/solo_session_page.dart';
+import 'package:yudha_mobile/features/solo/presentation/pages/solo_setup_page.dart';
+import 'package:yudha_mobile/features/solo/presentation/pages/solo_topic_selection_page.dart';
 import 'package:yudha_mobile/features/store/presentation/pages/store_page.dart';
 
 String? appRedirect({required bool isAuthenticated, required Uri uri}) {
@@ -85,6 +87,19 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
           email: state.extra is String ? state.extra as String : null,
         ),
       ),
+      for (final String legacyPath in <String>[
+        AppRoutes.legacyPractice,
+        AppRoutes.legacyPracticeHistory,
+        AppRoutes.legacyInterviewSetup,
+      ])
+        GoRoute(
+          path: legacyPath,
+          redirect: (context, state) => AppRoutes.canonicalLocation(state.uri),
+        ),
+      GoRoute(
+        path: AppRoutes.legacyPracticeQuiz,
+        builder: (context, state) => const PracticeQuizPage(),
+      ),
       ShellRoute(
         builder: (context, state, child) {
           return AppTabShell(location: state.uri.path, child: child);
@@ -103,27 +118,32 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
             builder: (context, state) => const LeaderboardPage(),
           ),
           GoRoute(
-            path: AppRoutes.practice,
-            builder: (context, state) => PracticePage(
-              launchRequest: state.extra is PracticeLaunchRequest
-                  ? state.extra as PracticeLaunchRequest
-                  : null,
-              focusCategory: state.extra is String
-                  ? state.extra as String
-                  : null,
-            ),
+            path: AppRoutes.analytics,
+            builder: (context, state) => const AnalyticsPage(),
           ),
           GoRoute(
-            path: AppRoutes.practiceQuiz,
-            builder: (context, state) => const PracticeQuizPage(),
+            path: AppRoutes.solo,
+            builder: (context, state) => const SoloSetupPage(),
           ),
           GoRoute(
-            path: AppRoutes.practiceHistory,
+            path: AppRoutes.soloTopics,
+            builder: (context, state) => const SoloTopicSelectionPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.soloLoadout,
+            builder: (context, state) => const SoloLoadoutPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.soloSession,
+            builder: (context, state) => const SoloSessionPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.soloHistory,
             builder: (context, state) => const PracticeHistoryPage(),
           ),
           GoRoute(
-            path: AppRoutes.learning,
-            builder: (context, state) => const LearningPage(),
+            path: AppRoutes.interview,
+            builder: (context, state) => const InterviewSetupPage(),
           ),
           GoRoute(
             path: AppRoutes.profile,
@@ -132,11 +152,7 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
         ],
       ),
       GoRoute(
-        path: AppRoutes.interviewSetup,
-        builder: (context, state) => const InterviewSetupPage(),
-      ),
-      GoRoute(
-        path: AppRoutes.interview,
+        path: AppRoutes.interviewSession,
         builder: (context, state) {
           final Object? extra = state.extra;
           return InterviewPage(
