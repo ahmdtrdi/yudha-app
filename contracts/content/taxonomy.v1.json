@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contentVersion": "development-2026-08",
+  "contentVersion": "development-2026-09-taxonomy-v2",
   "approvalStatus": "development",
   "smeApproved": false,
   "approverReference": null,
@@ -10,10 +10,43 @@
       "id": "cpns",
       "skills": [
         {
-          "id": "cpns.twk",
+          "id": "cpns.twk.pancasila_dan_ideologi",
           "category": "twk",
-          "subcategory": null,
-          "label": "Tes Wawasan Kebangsaan",
+          "subcategory": "pancasila_dan_ideologi",
+          "label": "TWK Pancasila dan Ideologi",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "cpns.twk.konstitusi_dan_negara",
+          "category": "twk",
+          "subcategory": "konstitusi_dan_negara",
+          "label": "TWK Konstitusi dan Negara",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "cpns.twk.sejarah_dan_kebangsaan",
+          "category": "twk",
+          "subcategory": "sejarah_dan_kebangsaan",
+          "label": "TWK Sejarah dan Kebangsaan",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "cpns.twk.bhinneka_tunggal_ika",
+          "category": "twk",
+          "subcategory": "bhinneka_tunggal_ika",
+          "label": "TWK Bhinneka Tunggal Ika",
           "enabled": true,
           "disabledReason": null,
           "curriculumWeight": 1,
@@ -43,10 +76,65 @@
           "required": true
         },
         {
-          "id": "cpns.tiu.logika",
+          "id": "cpns.tiu.logis",
           "category": "tiu",
-          "subcategory": "logika",
-          "label": "TIU Logika",
+          "subcategory": "logis",
+          "label": "TIU Logis",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "cpns.tiu.figural",
+          "category": "tiu",
+          "subcategory": "figural",
+          "label": "TIU Figural",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "cpns.tkp.pelayanan_dan_integritas",
+          "category": "tkp",
+          "subcategory": "pelayanan_dan_integritas",
+          "label": "TKP Pelayanan dan Integritas",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "cpns.tkp.kerja_sama_dan_komunikasi",
+          "category": "tkp",
+          "subcategory": "kerja_sama_dan_komunikasi",
+          "label": "TKP Kerja Sama dan Komunikasi",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "cpns.tkp.adaptasi_dan_pengembangan_diri",
+          "category": "tkp",
+          "subcategory": "adaptasi_dan_pengembangan_diri",
+          "label": "TKP Adaptasi dan Pengembangan Diri",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "cpns.tkp.pengambilan_keputusan_dan_kinerja",
+          "category": "tkp",
+          "subcategory": "pengambilan_keputusan_dan_kinerja",
+          "label": "TKP Pengambilan Keputusan dan Kinerja",
           "enabled": true,
           "disabledReason": null,
           "curriculumWeight": 1,
@@ -55,34 +143,41 @@
         }
       ],
       "categories": [
-        { "id": "twk", "enabled": true, "subcategories": [] },
+        {
+          "id": "twk",
+          "enabled": true,
+          "subcategories": [
+            "pancasila_dan_ideologi",
+            "konstitusi_dan_negara",
+            "sejarah_dan_kebangsaan",
+            "bhinneka_tunggal_ika"
+          ]
+        },
         {
           "id": "tiu",
           "enabled": true,
-          "subcategories": ["verbal", "numerik", "logika"]
+          "subcategories": [
+            "verbal",
+            "numerik",
+            "logis",
+            "figural"
+          ]
         },
         {
           "id": "tkp",
-          "enabled": false,
-          "disabledReason": "awaiting_sme_content",
-          "subcategories": ["service", "teamwork", "integrity"]
+          "enabled": true,
+          "subcategories": [
+            "pelayanan_dan_integritas",
+            "kerja_sama_dan_komunikasi",
+            "adaptasi_dan_pengembangan_diri",
+            "pengambilan_keputusan_dan_kinerja"
+          ]
         }
       ]
     },
     {
       "id": "bumn",
       "skills": [
-        {
-          "id": "bumn.akhlak",
-          "category": "akhlak",
-          "subcategory": null,
-          "label": "AKHLAK",
-          "enabled": true,
-          "disabledReason": null,
-          "curriculumWeight": 1,
-          "prerequisiteSkillIds": [],
-          "required": true
-        },
         {
           "id": "bumn.tkd.verbal",
           "category": "tkd",
@@ -106,10 +201,109 @@
           "required": true
         },
         {
-          "id": "bumn.tkd.logika",
+          "id": "bumn.tkd.logis",
           "category": "tkd",
-          "subcategory": "logika",
-          "label": "TKD Logika",
+          "subcategory": "logis",
+          "label": "TKD Logis",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "bumn.tkd.figural",
+          "category": "tkd",
+          "subcategory": "figural",
+          "label": "TKD Figural",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "bumn.akhlak.amanah",
+          "category": "akhlak",
+          "subcategory": "amanah",
+          "label": "AKHLAK Amanah",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "bumn.akhlak.kompeten",
+          "category": "akhlak",
+          "subcategory": "kompeten",
+          "label": "AKHLAK Kompeten",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "bumn.akhlak.harmonis",
+          "category": "akhlak",
+          "subcategory": "harmonis",
+          "label": "AKHLAK Harmonis",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "bumn.akhlak.loyal",
+          "category": "akhlak",
+          "subcategory": "loyal",
+          "label": "AKHLAK Loyal",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "bumn.wawasan_kebangsaan.pancasila",
+          "category": "wawasan_kebangsaan",
+          "subcategory": "pancasila",
+          "label": "Wawasan Kebangsaan Pancasila",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "bumn.wawasan_kebangsaan.uud_1945",
+          "category": "wawasan_kebangsaan",
+          "subcategory": "uud_1945",
+          "label": "Wawasan Kebangsaan UUD 1945",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "bumn.wawasan_kebangsaan.nkri",
+          "category": "wawasan_kebangsaan",
+          "subcategory": "nkri",
+          "label": "Wawasan Kebangsaan NKRI",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "bumn.wawasan_kebangsaan.bhinneka_tunggal_ika",
+          "category": "wawasan_kebangsaan",
+          "subcategory": "bhinneka_tunggal_ika",
+          "label": "Wawasan Kebangsaan Bhinneka Tunggal Ika",
           "enabled": true,
           "disabledReason": null,
           "curriculumWeight": 1,
@@ -121,9 +315,33 @@
         {
           "id": "tkd",
           "enabled": true,
-          "subcategories": ["verbal", "numerik", "logika"]
+          "subcategories": [
+            "verbal",
+            "numerik",
+            "logis",
+            "figural"
+          ]
         },
-        { "id": "akhlak", "enabled": true, "subcategories": [] }
+        {
+          "id": "akhlak",
+          "enabled": true,
+          "subcategories": [
+            "amanah",
+            "kompeten",
+            "harmonis",
+            "loyal"
+          ]
+        },
+        {
+          "id": "wawasan_kebangsaan",
+          "enabled": true,
+          "subcategories": [
+            "pancasila",
+            "uud_1945",
+            "nkri",
+            "bhinneka_tunggal_ika"
+          ]
+        }
       ]
     }
   ]

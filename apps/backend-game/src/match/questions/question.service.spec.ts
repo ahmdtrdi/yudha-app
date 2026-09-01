@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { QuestionService } from './question.service';
 import { SupabaseService } from '../../supabase/supabase.service';
+import { QuestionDealer } from '../engine/question-dealer';
 import type { SupabaseQuestionRow } from './question.types';
 
 /** Create stub question rows resembling Supabase data */
@@ -28,6 +29,18 @@ function makeQuestionRows(
   }));
 }
 
+function makeTopicRows(
+  count: number,
+  category: string,
+  subcategory: string,
+): SupabaseQuestionRow[] {
+  return makeQuestionRows(count, category).map((row, index) => ({
+    ...row,
+    id: `q_${category}_${subcategory}_${index}`,
+    subcategory,
+  }));
+}
+
 describe('QuestionService', () => {
   let service: QuestionService;
   let mockSelect: jest.Mock;
@@ -47,6 +60,7 @@ describe('QuestionService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         QuestionService,
+        QuestionDealer,
         {
           provide: SupabaseService,
           useValue: {
@@ -322,6 +336,99 @@ describe('QuestionService', () => {
 
       expect(cards).toHaveLength(12);
       expect(mockEqTarget).toHaveBeenCalledWith('target', 'bumn');
+    });
+
+    it('loads two active topics and applies their averaged PvP mix', async () => {
+      const rows = [
+        ...[
+          'pancasila_dan_ideologi',
+          'konstitusi_dan_negara',
+          'sejarah_dan_kebangsaan',
+          'bhinneka_tunggal_ika',
+        ].flatMap((subcategory) => makeTopicRows(50, 'TWK', subcategory)),
+        ...['verbal', 'numerik', 'logis', 'figural'].flatMap((subcategory) =>
+          makeTopicRows(50, 'TIU', subcategory),
+        ),
+        ...[
+          'pelayanan_dan_integritas',
+          'kerja_sama_dan_komunikasi',
+          'adaptasi_dan_pengembangan_diri',
+          'pengambilan_keputusan_dan_kinerja',
+        ].flatMap((subcategory) => makeTopicRows(50, 'TKP', subcategory)),
+      ];
+      const questionEqActive = jest.fn().mockResolvedValue({
+        data: rows,
+        error: null,
+      });
+      const questionEqTarget = jest
+        .fn()
+        .mockReturnValue({ eq: questionEqActive });
+      const recommendationGt = jest.fn().mockResolvedValue({
+        data: [
+          {
+            user_id: 'player-a',
+            target: 'cpns',
+            skill_ids: ['cpns.tiu.numerik'],
+          },
+          {
+            user_id: 'player-b',
+            target: 'cpns',
+            skill_ids: ['cpns.tiu.numerik'],
+          },
+        ],
+        error: null,
+      });
+      const recommendationSelection = jest
+        .fn()
+        .mockReturnValue({ gt: recommendationGt });
+      const recommendationAvailability = jest
+        .fn()
+        .mockReturnValue({ eq: recommendationSelection });
+      const recommendationStatus = jest
+        .fn()
+        .mockReturnValue({ eq: recommendationAvailability });
+      const recommendationTarget = jest
+        .fn()
+        .mockReturnValue({ eq: recommendationStatus });
+      const recommendationIn = jest
+        .fn()
+        .mockReturnValue({ eq: recommendationTarget });
+      const adminClient = {
+        from: jest.fn((table: string) =>
+          table === 'questions'
+            ? {
+                select: jest.fn().mockReturnValue({ eq: questionEqTarget }),
+              }
+            : {
+                select: jest.fn().mockReturnValue({ in: recommendationIn }),
+              },
+        ),
+      };
+      const adaptiveService = new QuestionService(
+        {
+          getAdminClient: () => adminClient,
+        } as unknown as SupabaseService,
+        new QuestionDealer(),
+      );
+
+      const cards = await adaptiveService.getMatchQuestionPool(
+        'cpns',
+        undefined,
+        ['player-a', 'player-b'],
+      );
+      const tiuCards = cards.filter((card) => card.category === 'TIU');
+
+      expect(recommendationIn).toHaveBeenCalledWith('user_id', [
+        'player-a',
+        'player-b',
+      ]);
+      expect(tiuCards).toHaveLength(35);
+      expect(
+        tiuCards.filter((card) => card.subcategory === 'numerik').length,
+      ).toBeGreaterThanOrEqual(19);
+      expect(
+        tiuCards.filter((card) => card.subcategory === 'verbal').length,
+      ).toBeLessThanOrEqual(6);
     });
   });
 });

@@ -579,30 +579,25 @@ class _PracticeCategorySpec {
       category: 'twk',
       tone: _PracticeCategoryTone.orange,
       subcategoryOrder: <String>[
-        'pancasila_ideologi',
-        'konstitusi_negara',
-        'sejarah_kebangsaan',
+        'pancasila_dan_ideologi',
+        'konstitusi_dan_negara',
+        'sejarah_dan_kebangsaan',
         'bhinneka_tunggal_ika',
       ],
     ),
     _PracticeCategorySpec(
       category: 'tiu',
       tone: _PracticeCategoryTone.cyan,
-      subcategoryOrder: <String>[
-        'kemampuan_verbal',
-        'kemampuan_numerik',
-        'kemampuan_logis',
-        'kemampuan_figural',
-      ],
+      subcategoryOrder: <String>['verbal', 'numerik', 'logis', 'figural'],
     ),
     _PracticeCategorySpec(
       category: 'tkp',
       tone: _PracticeCategoryTone.lime,
       subcategoryOrder: <String>[
-        'pelayanan_integritas',
-        'kerja_sama_komunikasi',
-        'adaptasi_pengembangan_diri',
-        'pengambilan_keputusan_kinerja',
+        'pelayanan_dan_integritas',
+        'kerja_sama_dan_komunikasi',
+        'adaptasi_dan_pengembangan_diri',
+        'pengambilan_keputusan_dan_kinerja',
       ],
     ),
   ];
@@ -611,12 +606,7 @@ class _PracticeCategorySpec {
     _PracticeCategorySpec(
       category: 'tkd',
       tone: _PracticeCategoryTone.cyan,
-      subcategoryOrder: <String>[
-        'kemampuan_verbal',
-        'kemampuan_numerik',
-        'kemampuan_logis',
-        'kemampuan_figural',
-      ],
+      subcategoryOrder: <String>['verbal', 'numerik', 'logis', 'figural'],
     ),
     _PracticeCategorySpec(
       category: 'akhlak',
