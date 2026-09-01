@@ -417,6 +417,7 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
       'tiu' => 'TIU',
       'tkp' => 'TKP',
       'twk' => 'TWK',
+      'wk' => 'WK',
       'tkd' => 'TKD',
       'akhlak' => 'AKHLAK',
       'wawasan_kebangsaan' => 'Wawasan Kebangsaan',

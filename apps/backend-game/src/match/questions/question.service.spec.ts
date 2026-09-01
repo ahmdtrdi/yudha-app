@@ -8,6 +8,7 @@ import type { SupabaseQuestionRow } from './question.types';
 function makeQuestionRows(
   count: number,
   category: string = 'TWK',
+  target: 'cpns' | 'bumn' = 'cpns',
 ): SupabaseQuestionRow[] {
   return Array.from({ length: count }, (_, i) => ({
     id: `q_${category.toLowerCase()}_${i + 1}`,
@@ -24,7 +25,7 @@ function makeQuestionRows(
     heal_value: i % 2 === 0 ? 0 : 14,
     time_limit_seconds: 30,
     hint: 'Hint text',
-    target: 'cpns' as const,
+    target,
     is_active: true,
   }));
 }
@@ -147,9 +148,9 @@ describe('QuestionService', () => {
 
     it('keeps BUMN deck categories in a fixed order', () => {
       const questions = [
-        ...makeQuestionRows(5, 'AKHLAK'),
-        ...makeQuestionRows(5, 'TKD'),
-        ...makeQuestionRows(5, 'WAWASAN_KEBANGSAAN'),
+        ...makeQuestionRows(5, 'AKHLAK', 'bumn'),
+        ...makeQuestionRows(5, 'TKD', 'bumn'),
+        ...makeQuestionRows(5, 'WAWASAN_KEBANGSAAN', 'bumn'),
       ];
 
       const pool = service.buildBalancedPool(questions, 6);
@@ -161,6 +162,57 @@ describe('QuestionService', () => {
         'WAWASAN_KEBANGSAAN',
         'TKD',
         'AKHLAK',
+      ]);
+    });
+
+    it('treats BUMN space, underscore, and hyphen aliases as one deck', () => {
+      const questions = [
+        ...makeQuestionRows(2, 'Wawasan Kebangsaan', 'bumn'),
+        ...makeQuestionRows(2, 'WAWASAN_KEBANGSAAN', 'bumn'),
+        ...makeQuestionRows(2, 'wawasan-kebangsaan', 'bumn'),
+        ...makeQuestionRows(6, 'TKD', 'bumn'),
+        ...makeQuestionRows(6, 'AKHLAK', 'bumn'),
+      ];
+
+      const pool = service.buildBalancedPool(questions, 9);
+
+      expect(pool).toHaveLength(9);
+      expect(
+        pool.map((question) =>
+          question.category.toUpperCase().replace(/[_-]+/g, ' '),
+        ),
+      ).toEqual([
+        'WAWASAN KEBANGSAAN',
+        'TKD',
+        'AKHLAK',
+        'WAWASAN KEBANGSAAN',
+        'TKD',
+        'AKHLAK',
+        'WAWASAN KEBANGSAAN',
+        'TKD',
+        'AKHLAK',
+      ]);
+    });
+
+    it('balances legacy BUMN rows by subcategory before dealing', () => {
+      const questions = [
+        ...makeTopicRows(3, 'TKD', 'uud_1945'),
+        ...makeTopicRows(3, 'TKD', 'figural'),
+        ...makeTopicRows(3, 'AKHLAK', 'amanah'),
+      ].map((question) => ({ ...question, target: 'bumn' as const }));
+
+      const pool = service.buildBalancedPool(questions, 9);
+
+      expect(pool.map((question) => question.subcategory)).toEqual([
+        'uud_1945',
+        'figural',
+        'amanah',
+        'uud_1945',
+        'figural',
+        'amanah',
+        'uud_1945',
+        'figural',
+        'amanah',
       ]);
     });
 
@@ -197,6 +249,31 @@ describe('QuestionService', () => {
   });
 
   describe('buildCpnsRoundPool', () => {
+    it('recovers a TWK deck mislabeled as TIU from its subcategory', () => {
+      const pool = service.buildCpnsRoundPool([
+        ...makeTopicRows(30, 'TIU', 'sejarah_kebangsaan'),
+        ...makeTopicRows(35, 'TIU', 'numerik'),
+        ...makeTopicRows(45, 'TKP', 'pelayanan_integritas'),
+      ]);
+
+      expect(pool).toHaveLength(110);
+      expect(
+        pool
+          .slice(0, 30)
+          .every((question) => question.subcategory === 'sejarah_kebangsaan'),
+      ).toBe(true);
+      expect(
+        pool
+          .slice(30, 65)
+          .every((question) => question.subcategory === 'numerik'),
+      ).toBe(true);
+      expect(
+        pool
+          .slice(65)
+          .every((question) => question.subcategory === 'pelayanan_integritas'),
+      ).toBe(true);
+    });
+
     it('selects the real 30 TWK, 35 TIU, and 45 TKP composition', () => {
       const pool = service.buildCpnsRoundPool([
         ...makeQuestionRows(50, 'TWK'),

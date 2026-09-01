@@ -899,7 +899,8 @@ void main() {
               correctOptionIndex: 0,
               weight: 3,
               effect: QuestionEffect.heal,
-              category: 'twk',
+              category: 'tiu',
+              subcategory: 'sejarah_dan_kebangsaan',
             ),
             BattleQuestion(
               id: 'q4',
@@ -971,7 +972,29 @@ void main() {
           matching: find.byType(Image),
         ),
       );
-      expect(_assetName(q1CardArt.image), 'assets/game/card_numerik.png');
+      expect(_assetName(q1CardArt.image), 'assets/game/card_verbal.png');
+      final Image q3CardArt = tester.widget<Image>(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('question-card-q3')),
+          matching: find.byType(Image),
+        ),
+      );
+      final Image q4CardArt = tester.widget<Image>(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('question-card-q4')),
+          matching: find.byType(Image),
+        ),
+      );
+      expect(_assetName(q3CardArt.image), 'assets/game/card_twk.png');
+      expect(_assetName(q4CardArt.image), 'assets/game/card_tkp.png');
+      expect(
+        find.byKey(const ValueKey<String>('question-card-effect-q1-attack')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('question-card-effect-q3-heal')),
+        findsOneWidget,
+      );
       expect(find.text('SERANG'), findsNothing);
       expect(find.text('PULIHKAN'), findsNothing);
       expect(find.text('BOT'), findsWidgets);
@@ -1315,6 +1338,152 @@ void main() {
         tester.getCenter(find.text('Main lagi')).dy,
         tester.getCenter(find.text('Pilih mode')).dy,
       );
+    },
+  );
+
+  testWidgets(
+    'keeps all three BUMN decks and renders topic art plus effect logos',
+    (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(411, 914));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final _LiveOnlineBattleRepository online = _LiveOnlineBattleRepository();
+      final ProviderContainer container = ProviderContainer(
+        overrides: <Override>[
+          onlineBattleRepositoryProvider.overrideWithValue(online),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final battleController = container.read(
+        battleControllerProvider.notifier,
+      );
+      battleController.enterArena();
+      battleController.setOnlineMatchmakingMode(OnlineMatchmakingMode.bot);
+      await battleController.startBattle();
+
+      online.emit(
+        const GameStateUpdated(
+          roomId: 'room-bumn-bot',
+          phase: 'active',
+          playerHp: 100,
+          opponentHp: 100,
+          playerPoints: 0,
+          opponentPoints: 0,
+          playerComboLevel: 1,
+          currentRound: 1,
+          roundSecondsRemaining: 180,
+          playerRoundWins: 0,
+          opponentRoundWins: 0,
+          lastRoundOutcome: null,
+          availableQuestions: <BattleQuestion>[
+            BattleQuestion(
+              id: 'bumn-wk',
+              prompt: 'Soal Wawasan Kebangsaan',
+              options: <String>['A', 'B'],
+              weight: 3,
+              effect: QuestionEffect.damage,
+              category: 'WK',
+              subcategory: 'uud_1945',
+            ),
+            BattleQuestion(
+              id: 'bumn-tkd',
+              prompt: 'Soal TKD figural',
+              options: <String>['A', 'B'],
+              weight: 3,
+              effect: QuestionEffect.heal,
+              category: 'TKD',
+              subcategory: 'figural',
+            ),
+            BattleQuestion(
+              id: 'bumn-akhlak',
+              prompt: 'Soal AKHLAK',
+              options: <String>['A', 'B'],
+              weight: 3,
+              effect: QuestionEffect.damage,
+              category: 'AKHLAK',
+              subcategory: 'amanah',
+            ),
+          ],
+          answeredQuestionIds: <String>[],
+          playerDisplayName: 'Kamu',
+          opponentDisplayName: 'BOT YUDHA',
+          matchmakingMode: OnlineMatchmakingMode.bot,
+          target: BattleTarget.bumn,
+        ),
+      );
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: PvpPage()),
+        ),
+      );
+      await tester.pump();
+
+      for (final String id in <String>['bumn-wk', 'bumn-tkd', 'bumn-akhlak']) {
+        expect(
+          find.byKey(ValueKey<String>('question-card-$id')),
+          findsOneWidget,
+        );
+      }
+
+      final Map<String, String> expectedArt = <String, String>{
+        'bumn-wk': 'assets/game/card_twk.png',
+        'bumn-tkd': 'assets/game/card_figural.png',
+        'bumn-akhlak': 'assets/game/card_akhlak.png',
+      };
+      for (final MapEntry<String, String> entry in expectedArt.entries) {
+        final Image art = tester.widget<Image>(
+          find.descendant(
+            of: find.byKey(ValueKey<String>('question-card-${entry.key}')),
+            matching: find.byType(Image),
+          ),
+        );
+        expect(_assetName(art.image), entry.value);
+      }
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('question-card-effect-bumn-wk-attack'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const ValueKey<String>('question-card-effect-bumn-tkd-heal'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const ValueKey<String>('question-card-effect-bumn-akhlak-attack'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.pump(const Duration(seconds: 3));
+      await tester.tap(
+        find.byKey(const ValueKey<String>('question-card-bumn-wk')),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+
+      final Finder questionSheet = find.byKey(
+        const ValueKey<String>('question-battle-sheet'),
+      );
+      expect(questionSheet, findsOneWidget);
+      expect(
+        find.descendant(of: questionSheet, matching: find.text('WK')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: questionSheet,
+          matching: find.text('Soal Wawasan Kebangsaan'),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
     },
   );
 }

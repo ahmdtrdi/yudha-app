@@ -54,6 +54,52 @@ describe('QuestionDealer', () => {
       expect(queue[1].id).toBe('card_2');
       expect(queue[0].options).toEqual(['A', 'B', 'C', 'D']);
     });
+
+    it.each([
+      {
+        target: 'cpns' as const,
+        category: 'tiu',
+        subcategory: 'sejarah_kebangsaan',
+        expectedCategory: 'twk',
+        expectedSubcategory: 'sejarah_dan_kebangsaan',
+      },
+      {
+        target: 'bumn' as const,
+        category: 'tkd',
+        subcategory: 'uud_1945',
+        expectedCategory: 'wawasan_kebangsaan',
+        expectedSubcategory: 'uud_1945',
+      },
+      {
+        target: 'bumn' as const,
+        category: 'WK',
+        subcategory: undefined,
+        expectedCategory: 'wawasan_kebangsaan',
+        expectedSubcategory: undefined,
+      },
+    ])(
+      'canonicalizes a mismatched $target category from its subcategory',
+      ({
+        target,
+        category,
+        subcategory,
+        expectedCategory,
+        expectedSubcategory,
+      }) => {
+        const source = {
+          ...makeCards(1)[0],
+          category,
+          subcategory,
+        };
+
+        const queue = dealer.createSharedQueue([source], target);
+
+        expect(queue[0].category).toBe(expectedCategory);
+        expect(queue[0].subcategory).toBe(expectedSubcategory);
+        expect(source.category).toBe(category);
+        expect(source.subcategory).toBe(subcategory);
+      },
+    );
   });
 
   describe('createStartingHand', () => {
@@ -143,6 +189,59 @@ describe('QuestionDealer', () => {
 
       expect(decks.tiu.buffer).toHaveLength(13);
       expect(decks.tiu.reserve).toHaveLength(0);
+    });
+
+    it('recovers a legacy category from its CPNS subcategory', () => {
+      const cards = categorizedCards();
+      for (const card of cards) {
+        if (card.category !== 'twk') continue;
+        card.category = 'legacy-national-insight';
+        card.subcategory = 'sejarah_kebangsaan';
+      }
+
+      const decks = dealer.createCategoryDecks(cards, 'cpns')!;
+      const hand = dealer.createStartingHandFromCategoryDecks(decks, 'cpns');
+
+      expect(decks).toBeDefined();
+      expect(hand).toHaveLength(3);
+      expect(hand.map((card) => dealer.categoryKey(card.category))).toEqual([
+        'twk',
+        'tiu',
+        'tkp',
+      ]);
+    });
+
+    it('recovers a legacy category from its BUMN subcategory', () => {
+      const cards = [
+        ...makeCards(5).map((card) => ({
+          ...card,
+          category: 'legacy-national-insight',
+          subcategory: 'uud_1945',
+        })),
+        ...makeCards(5).map((card) => ({
+          ...card,
+          id: `tkd_${card.id}`,
+          category: 'tkd',
+          subcategory: 'numerik',
+        })),
+        ...makeCards(5).map((card) => ({
+          ...card,
+          id: `akhlak_${card.id}`,
+          category: 'akhlak',
+          subcategory: 'amanah',
+        })),
+      ];
+
+      const decks = dealer.createCategoryDecks(cards, 'bumn')!;
+      const hand = dealer.createStartingHandFromCategoryDecks(decks, 'bumn');
+
+      expect(decks).toBeDefined();
+      expect(hand).toHaveLength(3);
+      expect(hand.map((card) => dealer.categoryKey(card.category))).toEqual([
+        'wawasan kebangsaan',
+        'tkd',
+        'akhlak',
+      ]);
     });
   });
 

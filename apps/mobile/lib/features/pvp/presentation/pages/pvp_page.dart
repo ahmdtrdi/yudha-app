@@ -42,6 +42,7 @@ part 'pvp_page/result_status_section.dart';
 const String _enemyMiniTowerAsset = 'assets/game/tower_benteng_bara.png';
 const String _enemyDestroyedTowerAsset =
     'assets/game/tower_benteng_bara_destroyed.png';
+const String _attackCardIconAsset = 'assets/icons/lobby_swords_watermark.svg';
 const String _akhlakCardAsset = 'assets/game/card_akhlak.png';
 const String _figuralCardAsset = 'assets/game/card_figural.png';
 const String _logikaCardAsset = 'assets/game/card_logika.png';

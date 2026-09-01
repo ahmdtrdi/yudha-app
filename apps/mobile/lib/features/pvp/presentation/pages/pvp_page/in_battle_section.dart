@@ -1,5 +1,7 @@
 part of '../pvp_page.dart';
 
+const int _arenaHandSize = 3;
+
 enum _CharacterPose { idle, ready, attack, hit }
 
 abstract final class _BattleClayPalette {
@@ -318,20 +320,16 @@ class _InBattleSectionState extends State<_InBattleSection>
   }
 
   List<BattleQuestion> _buildDeckHand(List<BattleQuestion> questions) {
-    final List<String> categoryOrder = switch (widget.state.battleTarget) {
-      BattleTarget.bumn => const <String>[
-        'wawasan_kebangsaan',
-        'tkd',
-        'akhlak',
-      ],
-      BattleTarget.cpns || null => const <String>['twk', 'tiu', 'tkp'],
-    };
+    final List<String> categoryOrder = _arenaDeckOrder(
+      widget.state.battleTarget,
+    );
     final List<BattleQuestion> decks = <BattleQuestion>[];
     final Set<String> selectedIds = <String>{};
 
     for (final String category in categoryOrder) {
       for (final BattleQuestion question in questions) {
-        if (question.category.trim().toLowerCase() == category &&
+        if (_arenaQuestionDeckKey(question, widget.state.battleTarget) ==
+                category &&
             selectedIds.add(question.id)) {
           decks.add(question);
           break;
@@ -339,7 +337,16 @@ class _InBattleSectionState extends State<_InBattleSection>
       }
     }
 
-    return decks;
+    // The server is authoritative for the three-card hand. Taxonomy metadata
+    // may temporarily contain a legacy value, but the client must never hide
+    // a card that was already dealt. Fill any unresolved slot from the
+    // remaining server hand while preserving the three-card limit.
+    for (final BattleQuestion question in questions) {
+      if (decks.length == _arenaHandSize) break;
+      if (selectedIds.add(question.id)) decks.add(question);
+    }
+
+    return decks.take(_arenaHandSize).toList(growable: false);
   }
 
   void _prepareBattleEffect({
@@ -2440,8 +2447,16 @@ class _ArenaQuestionCardState extends State<_ArenaQuestionCard>
   @override
   Widget build(BuildContext context) {
     final BattleQuestion question = widget.question;
-    final Color color = _arenaCategoryColor(question.category, question.effect);
-    final String asset = _arenaCardAsset(question.category, question.effect);
+    final Color color = _arenaCategoryColor(
+      question.category,
+      question.effect,
+      subcategory: question.subcategory,
+    );
+    final String asset = _arenaCardAsset(
+      question.category,
+      question.effect,
+      subcategory: question.subcategory,
+    );
     final bool heal = question.effect == QuestionEffect.heal;
     final bool exhausted = question.isExhausted;
 
@@ -2532,12 +2547,26 @@ class _ArenaQuestionCardState extends State<_ArenaQuestionCard>
                               ),
                             ],
                           ),
-                          child: Icon(
-                            heal
-                                ? Icons.favorite_rounded
-                                : Icons.flash_on_rounded,
-                            color: Colors.white,
-                            size: widget.compact ? 12 : 14,
+                          child: Semantics(
+                            label: heal ? 'Kartu heal' : 'Kartu attack',
+                            child: heal
+                                ? Icon(
+                                    Icons.favorite_rounded,
+                                    key: ValueKey<String>(
+                                      'question-card-effect-${question.id}-heal',
+                                    ),
+                                    color: Colors.white,
+                                    size: widget.compact ? 12 : 14,
+                                  )
+                                : SvgPicture.asset(
+                                    _attackCardIconAsset,
+                                    key: ValueKey<String>(
+                                      'question-card-effect-${question.id}-attack',
+                                    ),
+                                    width: widget.compact ? 14 : 16,
+                                    height: widget.compact ? 14 : 16,
+                                    fit: BoxFit.contain,
+                                  ),
                           ),
                         ),
                       ),
@@ -3100,33 +3129,169 @@ class _ClayArenaPainter extends CustomPainter {
   }
 }
 
-Color _arenaCategoryColor(String category, QuestionEffect effect) {
+String _arenaTaxonomyKey(String? value) {
+  return value
+          ?.trim()
+          .toLowerCase()
+          .replaceAll(RegExp(r'[\s-]+'), '_')
+          .replaceAll(RegExp('_+'), '_') ??
+      '';
+}
+
+List<String> _arenaDeckOrder(BattleTarget? target) {
+  return switch (target) {
+    BattleTarget.bumn => const <String>['wawasan_kebangsaan', 'tkd', 'akhlak'],
+    BattleTarget.cpns || null => const <String>['twk', 'tiu', 'tkp'],
+  };
+}
+
+String _arenaQuestionDeckKey(BattleQuestion question, BattleTarget? target) {
+  final String topic = _arenaTaxonomyKey(question.subcategory);
+  final String? topicDeck = switch (target) {
+    BattleTarget.bumn => switch (topic) {
+      'pancasila' ||
+      'uud_1945' ||
+      'nkri' ||
+      'bhinneka_tunggal_ika' => 'wawasan_kebangsaan',
+      'verbal' ||
+      'kemampuan_verbal' ||
+      'numerik' ||
+      'kemampuan_numerik' ||
+      'logis' ||
+      'logika' ||
+      'kemampuan_logis' ||
+      'kemampuan_logika' ||
+      'figural' ||
+      'kemampuan_figural' => 'tkd',
+      'amanah' || 'kompeten' || 'harmonis' || 'loyal' => 'akhlak',
+      _ => null,
+    },
+    BattleTarget.cpns || null => switch (topic) {
+      'pancasila_dan_ideologi' ||
+      'pancasila_ideologi' ||
+      'konstitusi_dan_negara' ||
+      'konstitusi_negara' ||
+      'sejarah_dan_kebangsaan' ||
+      'sejarah_kebangsaan' ||
+      'bhinneka_tunggal_ika' => 'twk',
+      'verbal' ||
+      'kemampuan_verbal' ||
+      'numerik' ||
+      'kemampuan_numerik' ||
+      'logis' ||
+      'logika' ||
+      'kemampuan_logis' ||
+      'kemampuan_logika' ||
+      'figural' ||
+      'kemampuan_figural' => 'tiu',
+      'pelayanan_dan_integritas' ||
+      'pelayanan_integritas' ||
+      'kerja_sama_dan_komunikasi' ||
+      'kerja_sama_komunikasi' ||
+      'adaptasi_dan_pengembangan_diri' ||
+      'adaptasi_pengembangan_diri' ||
+      'pengambilan_keputusan_dan_kinerja' ||
+      'pengambilan_keputusan_kinerja' => 'tkp',
+      _ => null,
+    },
+  };
+  if (topicDeck != null) return topicDeck;
+
+  final String category = _arenaTaxonomyKey(question.category);
+  return switch (target) {
+    BattleTarget.bumn => switch (category) {
+      'wk' || 'twk' => 'wawasan_kebangsaan',
+      'tiu' => 'tkd',
+      'akhlah' || 'core_values' => 'akhlak',
+      _ => category,
+    },
+    BattleTarget.cpns || null => category,
+  };
+}
+
+Color _arenaCategoryColor(
+  String category,
+  QuestionEffect effect, {
+  String? subcategory,
+}) {
   if (effect == QuestionEffect.heal) {
     return const Color(0xFF47CFA0);
   }
-  return switch (category.trim().toLowerCase()) {
+  final String topic = _arenaTaxonomyKey(subcategory);
+  final String deck = _arenaTaxonomyKey(category);
+  final Color? topicColor = deck == 'tiu' || deck == 'tkd'
+      ? switch (topic) {
+          'figural' || 'kemampuan_figural' => const Color(0xFF4CAF78),
+          'verbal' || 'kemampuan_verbal' => const Color(0xFF8B6FE8),
+          'logis' ||
+          'logika' ||
+          'kemampuan_logis' ||
+          'kemampuan_logika' => const Color(0xFFFF9F43),
+          'numerik' || 'kemampuan_numerik' => const Color(0xFF2878F0),
+          _ => null,
+        }
+      : null;
+  if (topicColor != null) return topicColor;
+
+  return switch (deck) {
     'akhlak' || 'core_values' => const Color(0xFFD4A64D),
     'figural' => const Color(0xFF4CAF78),
     'verbal' => const Color(0xFF8B6FE8),
-    'logika' => const Color(0xFFFF9F43),
+    'logis' || 'logika' => const Color(0xFFFF9F43),
     'tkp' || 'karakteristik_pribadi' => const Color(0xFFB878A3),
-    'twk' => const Color(0xFF47CFA0),
-    'wawasan_kebangsaan' => const Color(0xFF47CFA0),
+    'twk' || 'wk' || 'wawasan_kebangsaan' => const Color(0xFF47CFA0),
     'tkd' => const Color(0xFF2878F0),
     _ => const Color(0xFF2878F0),
   };
 }
 
-String _arenaCardAsset(String category, QuestionEffect effect) {
-  final String normalized = category.trim().toLowerCase();
-  return switch (normalized) {
-    'akhlak' || 'core_values' => _akhlakCardAsset,
+String _arenaCardAsset(
+  String category,
+  QuestionEffect effect, {
+  String? subcategory,
+}) {
+  final String topic = _arenaTaxonomyKey(subcategory);
+  final String deck = _arenaTaxonomyKey(category);
+  final String? sharedTopicAsset = switch (topic) {
+    'pancasila' ||
+    'pancasila_dan_ideologi' ||
+    'pancasila_ideologi' ||
+    'uud_1945' ||
+    'konstitusi_dan_negara' ||
+    'konstitusi_negara' ||
+    'nkri' ||
+    'sejarah_dan_kebangsaan' ||
+    'sejarah_kebangsaan' ||
+    'bhinneka_tunggal_ika' => _twkCardAsset,
+    'pelayanan_dan_integritas' ||
+    'pelayanan_integritas' ||
+    'kerja_sama_dan_komunikasi' ||
+    'kerja_sama_komunikasi' ||
+    'adaptasi_dan_pengembangan_diri' ||
+    'adaptasi_pengembangan_diri' ||
+    'pengambilan_keputusan_dan_kinerja' ||
+    'pengambilan_keputusan_kinerja' => _tkpCardAsset,
+    'amanah' || 'kompeten' || 'harmonis' || 'loyal' => _akhlakCardAsset,
+    _ => null,
+  };
+  if (sharedTopicAsset != null) return sharedTopicAsset;
+
+  return switch (deck) {
+    'tiu' || 'tkd' => switch (topic) {
+      'verbal' || 'kemampuan_verbal' => _verbalCardAsset,
+      'logis' ||
+      'logika' ||
+      'kemampuan_logis' ||
+      'kemampuan_logika' => _logikaCardAsset,
+      'figural' || 'kemampuan_figural' => _figuralCardAsset,
+      _ => _numerikCardAsset,
+    },
+    'akhlak' || 'akhlah' || 'core_values' => _akhlakCardAsset,
     'figural' => _figuralCardAsset,
     'verbal' => _verbalCardAsset,
     'logika' => _logikaCardAsset,
     'tkp' || 'karakteristik_pribadi' => _tkpCardAsset,
-    'twk' => _twkCardAsset,
-    'wawasan_kebangsaan' => _twkCardAsset,
+    'twk' || 'wk' || 'wawasan_kebangsaan' => _twkCardAsset,
     'tkd' => _numerikCardAsset,
     'tiu' || 'numerik' => _numerikCardAsset,
     _ => effect == QuestionEffect.heal ? _akhlakCardAsset : _numerikCardAsset,

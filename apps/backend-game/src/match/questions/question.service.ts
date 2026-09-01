@@ -17,7 +17,7 @@ const DECK_CATEGORY_ORDER = [
   'TWK',
   'TIU',
   'TKP',
-  'WAWASAN_KEBANGSAAN',
+  'WAWASAN KEBANGSAAN',
   'TKD',
   'AKHLAK',
 ] as const;
@@ -114,7 +114,13 @@ export class QuestionService {
   ): SupabaseQuestionRow[] {
     const byCategory = new Map<string, SupabaseQuestionRow[]>();
     for (const question of questions) {
-      const category = this.categoryKey(question.category);
+      const category = this.categoryKey(
+        this.dealer.deckCategoryKey(
+          'cpns',
+          question.category,
+          question.subcategory,
+        ),
+      );
       const rows = byCategory.get(category) ?? [];
       rows.push(question);
       byCategory.set(category, rows);
@@ -154,15 +160,17 @@ export class QuestionService {
     distribution?: MatchTopicDistribution,
   ): SupabaseQuestionRow[] {
     const byCategory = new Map<string, SupabaseQuestionRow[]>();
+    const target = questions[0]?.target ?? 'cpns';
 
     // Group by category
     for (const q of questions) {
-      const cat = (q.category ?? '').toUpperCase();
+      const cat = this.categoryKey(
+        this.dealer.deckCategoryKey(target, q.category, q.subcategory),
+      );
       if (!byCategory.has(cat)) byCategory.set(cat, []);
       byCategory.get(cat)!.push(q);
     }
 
-    const target = questions[0]?.target ?? 'cpns';
     const matchDistribution =
       distribution ?? this.dealer.createMatchTopicDistribution(target, []);
 
