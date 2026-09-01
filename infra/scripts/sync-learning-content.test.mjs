@@ -128,7 +128,14 @@ function mockClient(initial) {
   };
   return {
     async selectAll(table) {
-      return structuredClone(rows(table));
+      const selected = structuredClone(rows(table));
+      if (table === 'learning_taxonomy_versions') {
+        return selected.map((row) => ({
+          ...row,
+          effective_at: row.effective_at.replace('.000Z', '+00:00'),
+        }));
+      }
+      return selected;
     },
     async insert(table, values) {
       rows(table).push(...structuredClone(values));

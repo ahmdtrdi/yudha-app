@@ -56,9 +56,11 @@ async function ensureTaxonomyVersion(client, taxonomy) {
     effective_at: new Date(taxonomy.effectiveAt).toISOString(),
   };
   if (match) {
+    const actual = pick(match, Object.keys(expected));
+    actual.effective_at = new Date(actual.effective_at).toISOString();
     assertSameSnapshot(
       'taxonomy version',
-      pick(match, Object.keys(expected)),
+      actual,
       expected,
     );
     return match;
