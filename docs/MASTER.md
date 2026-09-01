@@ -26,7 +26,7 @@ Perubahan kontrak REST/Socket, model inti, atau scope fitur harus dicatat di `PR
 ```text
 docs/
 ├─ PRD.md                         # sumber utama keputusan produk dan arsitektur
-├─ LEARNING-SYSTEM-V2-DRAFT.md    # proposal V2; tidak mengalahkan PRD sebelum disetujui
+├─ LEARNING-SYSTEM-V2-DRAFT.md    # catatan desain V2 yang sudah diadopsi; PRD tetap kanonik
 ├─ MASTER.md                      # peta repo, dokumentasi, dan cara menjalankan app
 ├─ AGENTS.md                      # aturan kerja umum agent/developer
 ├─ devlog/
@@ -49,7 +49,7 @@ Urutan prioritas ketika dokumen berbeda:
 
 1. `PRD.md` untuk keputusan produk, arsitektur, data, dan kontrak.
 2. Kode serta migration terbaru untuk perilaku yang sudah benar-benar berjalan.
-3. `LEARNING-SYSTEM-V2-DRAFT.md` untuk proposal dan pengambilan keputusan Learning System V2 saja; dokumen ini belum menjadi kontrak implementasi, tidak menggambarkan perilaku aktif, dan tetap tunduk pada PRD.
+3. `LEARNING-SYSTEM-V2-DRAFT.md` sebagai catatan historis desain Learning System V2 yang sudah diadopsi ke Bagian 11 PRD; jika berbeda, PRD selalu menang.
 4. Dokumen di `design/` untuk aturan desain dan `misc/` untuk panduan khusus lainnya.
 5. `devlog/` untuk riwayat dan konteks keputusan, bukan spesifikasi terbaru.
 

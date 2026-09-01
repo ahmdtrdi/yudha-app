@@ -1,7 +1,7 @@
-# YUDHA Learning System V2 — Draft Product and Technical Contract
+# YUDHA Learning System V2 — Adopted Design Record
 
-> **Status:** Draft for product and technical review<br>
-> **Proposal version:** 0.1<br>
+> **Status:** Adopted into [`PRD.md`](PRD.md) on 2026-08-31; retained as a historical design record<br>
+> **Record version:** 1.0<br>
 > **Last updated:** 2026-08-31<br>
 > **Product timezone:** Asia/Jakarta (WIB, UTC+7)<br>
 > **Normative language:** English<br>
@@ -10,20 +10,18 @@
 
 ## Document authority
 
-This document consolidates the proposed Learning System V2 behavior, analytics, recommendations, Solo delivery contracts, Assessment evidence boundary, dashboards, compatibility strategy, and delivery gates.
+This document records the design proposal that Product approved and ingested into Section 11 of [`PRD.md`](PRD.md). It remains available for provenance and review history, but it is no longer an independent specification.
 
-It is deliberately **not yet an approved PRD**.
-
-- [PRD.md](PRD.md) remains the authoritative YUDHA product and architecture contract until Product approves this proposal and the PRD is updated.
-- This document must not be used to override current production behavior, release gates, public contracts, or MVP boundaries by itself.
-- Within V2 design review, this file supersedes the four workspace-local source notes named in the Source Reconciliation section.
-- The source notes are historical inputs, not additional specifications. If they conflict with this document, this document records the chosen V2 proposal.
-- A statement using **must** or **shall** describes required behavior if this proposal is approved. It does not authorize implementation before approval.
+- [`PRD.md`](PRD.md) is the sole authoritative YUDHA product and architecture contract. If this record differs from the PRD, the PRD wins.
+- This record must not be used to override current production behavior, release gates, public contracts, or product boundaries by itself.
+- This record superseded the four workspace-local source notes named in the Source Reconciliation section during consolidation; the adopted PRD now carries the authoritative reconciled decisions.
+- The source notes are historical inputs, not additional specifications.
+- A statement using **must** or **shall** records the requirement adopted into the PRD, subject to its delivery gates and explicit decision debt.
 - Exact formulas and thresholds labeled **Proposed learning-v1 policy** are runnable initial policies, but they are not scientifically validated and require versioning and later calibration.
 - A statement labeled **Decision debt** is intentionally unresolved. Engineers must not invent, hardcode, or silently select an answer.
 - A statement labeled **Current compatibility** describes behavior that remains available during migration but is not the V2 end state.
 
-No change to [PRD.md](PRD.md) is part of this consolidation.
+The authoritative adopted text and current delivery status are in [PRD.md](PRD.md).
 
 ---
 
@@ -83,20 +81,20 @@ V2 must not:
 - An internal admin web dashboard for question-quality review.
 - Additive migration from current Practice and Analytics contracts.
 
-### 1.2 Outside this proposal or intentionally deferred
+### 1.2 Outside the adopted contract or intentionally deferred
 
 - Detailed web Assessment UX, session delivery, and public Assessment APIs.
 - The final CPNS/BUMN skill catalog; it remains an SME-owned versioned artifact.
 - A final V2 Solo session length or stopping rule.
 - Automated machine-learning recommendations, IRT, Elo-style ability estimation, or population benchmarking.
 - Automatic question deactivation.
-- Replacing the approved PRD before formal review and sign-off.
+- Shipping behavior outside the approved delivery gates or silently resolving registered decision debt.
 
 ---
 
 ## 2. Current-to-target change matrix
 
-| Area | Current implementation / approved MVP | Proposed V2 target |
+| Area | Current implementation / approved MVP | Approved V2 target |
 |---|---|---|
 | Domain name | Practice | Solo in all new public and logical contracts; Practice remains a compatibility alias |
 | Topic grain | Target, category, optional subcategory | Target and stable skill ID, with category/subcategory retained for navigation |
@@ -141,7 +139,7 @@ V2 must not:
 | **Learner state** | Versioned derived Solo status for one user and skill. |
 | **Assessment validation** | A separate indication of whether Assessment evidence validates progress. |
 
-### 3.2 Proposed public enums
+### 3.2 Approved public enums
 
     type MechanicMode =
       | "focus"
@@ -2161,7 +2159,7 @@ These are acceptance gates, not calendar estimates.
 
 ### Gate 1 — Taxonomy and policy approval
 
-- This proposal is reviewed and the approved decisions are merged into the PRD.
+- Product adoption and ingestion into the PRD are complete.
 - Skill-taxonomy schema and stable-ID rules are accepted.
 - A versioned SME-owned skill catalog exists for each enabled target.
 - Learning-v1 metric, confidence, state, and recommendation rules are approved or revised.
@@ -2362,11 +2360,11 @@ They may not exist in every clone because docs-archive is gitignored.
 
 ---
 
-## 24. PRD adoption checklist
+## 24. Adoption record and implementation readiness
 
-Before this proposal can become authoritative:
+Product approval and ingestion into [PRD.md](PRD.md) are complete as of 2026-08-31. The remaining items are delivery-gate and implementation readiness requirements; they do not create a second source of product authority.
 
-- Product approves scope, terminology, learner-state language, recommendation behavior, and decision debts.
+- Product approval of scope, terminology, learner-state language, recommendation behavior, and decision debts is complete.
 - Content/SME approves taxonomy contracts, skill catalogs, curriculum weights, and question-quality responsibilities.
 - App Backend approves REST, data ownership, calculation, projection, idempotency, and admin boundaries.
 - Game Backend approves PvP canonical-ingestion behavior without incompatible socket changes.
@@ -2376,9 +2374,9 @@ Before this proposal can become authoritative:
 - QA approves acceptance scenarios and migration gates.
 - Security/Privacy approves admin access, evidence retention, and account-deletion handling.
 - DevOps approves background jobs, outbox/retry behavior, observability, and rollback.
-- Delivery-policy debts blocking Gate 5 are closed.
+- Delivery-policy debts must be closed before Gate 5 can pass.
 - Approved decisions are merged into [PRD.md](PRD.md).
 - OpenAPI, shared types, database migrations, fixtures, and automated tests are updated in the same implementation change.
-- Archived drafts remain historical and this draft is marked adopted or superseded.
+- Archived drafts remain historical and this record is marked adopted.
 
-Until every applicable adoption item is complete, [PRD.md](PRD.md) wins.
+[PRD.md](PRD.md) wins regardless of implementation readiness status.

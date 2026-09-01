@@ -72,3 +72,27 @@ No product feature code was changed in this documentation-only consolidation.
 - OpenAPI, shared types, migrations, source ingestion, projections, Mobile/Web surfaces, compatibility telemetry, and automated acceptance tests remain implementation work after approval.
 
 No product feature code or approved PRD behavior was changed in this documentation-only consolidation.
+
+## 2026-08-31 — Adopt Learning System V2 into the canonical PRD
+
+### Change
+
+- Promoted the approved Learning System V2 contract into Section 11 of `docs/PRD.md` and advanced the canonical product contract to version 2.0.
+- Reconciled conflicting legacy language across the PRD: new domain and public contracts use Solo, while `/practice/*`, `/analytics`, and physical Practice records remain temporary compatibility surfaces.
+- Replaced the fixed five-question, client-timed, blended 90-day recommendation assumptions with the approved versioned evidence, state, recommendation, timer, hint, dashboard, admin, migration, and acceptance contracts.
+- Preserved the current five-question Practice delivery until Learning V2 Gate 5, while making `policy_completed` the only future Solo completion eligible for missions, streaks, Hired Pass activity, and normal-completion effects.
+- Marked `docs/LEARNING-SYSTEM-V2-DRAFT.md` as an adopted historical design record and updated `docs/MASTER.md` to point all authority to the PRD.
+
+### Product reasoning
+
+- Approval makes the PRD the only active location teams need to interpret when implementing Learning V2.
+- Embedding the full contract retains exact formulas, thresholds, weights, payload examples, tie-breakers, acceptance cases, provenance, and explicit debt instead of reducing approval to a summary.
+- Keeping delivery debt visibly blocked prevents implementation teams from treating five questions—or any other unstated stopping behavior—as the permanent V2 design.
+
+### Remaining decision and implementation debt
+
+- Product must close the Gate 5 session-length, stopping-rule, allocation, progression, repetition, inventory-fallback, resume, and continue-after-completion decisions before new Solo delivery ships.
+- Content/SME must approve the actual CPNS/BUMN skill catalogs; a separate contract must define detailed web Assessment implementation; automatic question-quality thresholds remain uncalibrated.
+- OpenAPI/shared types, migrations, canonical ingestion, legacy backfill, projections, Mobile/Web surfaces, authorization, telemetry, and automated acceptance tests remain implementation work.
+
+No product code was changed by this PRD adoption.
