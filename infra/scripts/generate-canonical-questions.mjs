@@ -40,8 +40,13 @@ export async function generateCanonicalQuestions() {
   await mkdir(outputDirectory, { recursive: true });
   const counts = {};
   for (const source of sources) {
-    const legacy = JSON.parse(await readFile(source.input, 'utf8'));
     const existing = await loadExistingQuestions(source.output);
+    let legacy = [];
+    try {
+      legacy = JSON.parse(await readFile(source.input, 'utf8'));
+    } catch {
+      // Legacy source directory might be deleted if canonical already exists.
+    }
     const existingBySource = new Map(
       existing.map((question) => [question.sourceKey, question]),
     );
