@@ -2747,3 +2747,25 @@
 - The supplied character pack does not include replacement projectile art, so battle projectiles still use the existing per-character WebP assets.
 - Automated browser visual inspection was unavailable because the browser runtime could not initialize its Windows kernel assets. A physical-device pass should still confirm final crop and scale across the four background aspect ratios.
 
+## 2026-09-01 - Learning Analytics Dashboard & Lobby Next-Action Card (Phase 3)
+
+### The Change
+- Integrated the sixth navigation tab `Learning` into `AppTabShell` and `AppRouter` (`/learning`), complete with active navigation SVG assets.
+- Implemented `LearningPage` with the `_NextActionCard` (hero recommendation with direct Practice launch), `_SummaryGrid` (30-day curriculum coverage, unseen independent accuracy, and pace ratio), `_SkillMap` (status-colored mastery cards), `_RetentionPanel` (scheduled & due spaced review cards), `_AssessmentPanel` (validated score summary), `_ActivityPanel` (active days, question count, and minutes), and `_CompetitionPanel` (isolated PvP battle metrics).
+- Created `LearningController`, `LearningState`, and `BackendLearningRepository` connecting to `GET /learning/dashboard` and `POST /learning/recommendations/:id/events` (`shown`, `accepted`, `dismissed`) with graceful `LearningUnavailableException` handling.
+- Added `_LobbyLearningCard` in Lobby hero area binding to the current recommendation next-action with automatic `shown` reporting and Practice routing.
+- Added widget and unit tests in `test/widget/features/learning/presentation/pages/learning_page_test.dart` and `test/unit/features/learning/`.
+
+### The Reasoning
+- Exposing a dedicated Learning tab gives learners transparent, explainable insight into their mastery states, pace, coverage, and retention schedules rather than collapsing progress into an uninformative single score.
+- Direct execution of recommended actions from both Lobby and Learning tabs bridges analytics directly into practice without extra configuration steps.
+
+### Verification
+- All focused Learning and Lobby widget/unit tests passed.
+- Dart analysis reported no new issues.
+- Responsive layout verified across compact (360x760) and wide (700x900) viewports.
+
+### The Tech Debt
+- Post-session diagnostic result screen still uses legacy Practice quiz summary until Gate 5 Solo delivery migration.
+
+

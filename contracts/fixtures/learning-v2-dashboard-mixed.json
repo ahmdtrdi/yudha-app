@@ -1,0 +1,113 @@
+{
+  "data": {
+    "asOf": "2026-09-01T02:00:00.000Z",
+    "calculationVersion": "learning-v1",
+    "target": "cpns",
+    "window": {
+      "type": "rolling",
+      "days": 30,
+      "startsAt": "2026-08-02T02:00:00.000Z",
+      "endsAt": "2026-09-01T02:00:00.000Z"
+    },
+    "nextAction": null,
+    "summary": {
+      "curriculumCoverage": {
+        "value": 75,
+        "coveredSkillCount": 3,
+        "requiredSkillCount": 4,
+        "confidence": "low",
+        "asOf": "2026-09-01T02:00:00.000Z"
+      },
+      "unseenIndependentAccuracy": {
+        "value": 69.23,
+        "correctCount": 18,
+        "attemptCount": 26,
+        "uniqueQuestionCount": 26,
+        "confidence": "low",
+        "asOf": "2026-09-01T02:00:00.000Z"
+      },
+      "pace": {
+        "value": null,
+        "baselineType": null,
+        "attemptCount": 0,
+        "confidence": "low",
+        "asOf": "2026-09-01T02:00:00.000Z"
+      }
+    },
+    "skillStates": [
+      {
+        "skillId": "cpns.tiu.numerik",
+        "label": "TIU Numerik",
+        "category": "tiu",
+        "subcategory": "numerik",
+        "required": true,
+        "status": "needs_repair",
+        "evidenceConfidence": "medium",
+        "unseenIndependentAccuracy": {
+          "value": 55.56,
+          "correctCount": 5,
+          "attemptCount": 9,
+          "uniqueQuestionCount": 9,
+          "confidence": "medium",
+          "asOf": "2026-09-01T02:00:00.000Z"
+        },
+        "smoothedAccuracy": 60,
+        "assistedAccuracy": {
+          "value": null,
+          "correctCount": 0,
+          "attemptCount": 0,
+          "uniqueQuestionCount": 9,
+          "confidence": "medium",
+          "asOf": "2026-09-01T02:00:00.000Z"
+        },
+        "hintRate": 0,
+        "medianResponseTimeMs": null,
+        "paceRatio": null,
+        "paceBaselineType": null,
+        "paceAttemptCount": 0,
+        "timeoutRate": null,
+        "trendPercentagePoints": null,
+        "coverageSufficient": true,
+        "recommendedMechanic": "focus",
+        "lastPracticedAt": "2026-08-31T02:00:00.000Z",
+        "asOf": "2026-09-01T02:00:00.000Z"
+      }
+    ],
+    "trends": [],
+    "retention": [],
+    "assessment": {
+      "status": "not_available",
+      "score": null,
+      "correctCount": null,
+      "attemptCount": null,
+      "occurredAt": null,
+      "blueprintVersion": null
+    },
+    "activity": {
+      "window": {
+        "days": 30,
+        "startsAt": "2026-08-02T02:00:00.000Z",
+        "endsAt": "2026-09-01T02:00:00.000Z"
+      },
+      "activeLearningDays": 8,
+      "questionsAnswered": 39,
+      "activeLearningMinutes": 13,
+      "sessionCount": 8
+    },
+    "competition": {
+      "separateEvidenceContext": true,
+      "window": {
+        "days": 30,
+        "startsAt": "2026-08-02T02:00:00.000Z",
+        "endsAt": "2026-09-01T02:00:00.000Z"
+      },
+      "accuracy": {
+        "value": null,
+        "correctCount": 0,
+        "attemptCount": 0,
+        "confidence": null,
+        "asOf": "2026-09-01T02:00:00.000Z"
+      }
+    }
+  }
+}

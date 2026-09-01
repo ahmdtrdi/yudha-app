@@ -45,7 +45,13 @@ export function validateTaxonomy(taxonomy) {
   assert(taxonomy?.schemaVersion === 1, 'Taxonomy schemaVersion must be 1.');
   assert(['development', 'sme_approved'].includes(taxonomy.approvalStatus), 'Invalid taxonomy approvalStatus.');
   assert(taxonomy.smeApproved === (taxonomy.approvalStatus === 'sme_approved'), 'Taxonomy SME approval fields are inconsistent.');
+  assert(Number.isFinite(Date.parse(taxonomy.effectiveAt)), 'Taxonomy effectiveAt must be an ISO date-time.');
+  assert(
+    taxonomy.smeApproved ? nonEmpty(taxonomy.approverReference) : taxonomy.approverReference === null,
+    'Taxonomy approver reference is inconsistent.',
+  );
   unique(taxonomy.targets, (target) => target.id, 'taxonomy target');
+  unique(taxonomy.targets.flatMap((target) => target.skills ?? []), (skill) => skill.id, 'taxonomy skill');
   const ids = new Set(taxonomy.targets.map((target) => target.id));
   assert(ids.has('cpns') && ids.has('bumn'), 'Taxonomy must contain CPNS and BUMN.');
   for (const target of taxonomy.targets) {
@@ -55,6 +61,27 @@ export function validateTaxonomy(taxonomy) {
       if (!category.enabled) assert(nonEmpty(category.disabledReason), `Disabled category ${category.id} needs a reason.`);
       unique(category.subcategories ?? [], (value) => value, `${target.id}/${category.id} subcategory`);
     }
+    const categories = new Map(target.categories.map((category) => [category.id, category]));
+    for (const skill of target.skills ?? []) {
+      assert(skill.id.startsWith(`${target.id}.`), `Skill ${skill.id} must use the ${target.id} namespace.`);
+      assert(nonEmpty(skill.label), `Skill ${skill.id} needs a label.`);
+      assert(categories.has(skill.category), `Skill ${skill.id} has an unknown category.`);
+      const category = categories.get(skill.category);
+      if (skill.subcategory !== null) {
+        assert(category.subcategories.includes(skill.subcategory), `Skill ${skill.id} has an invalid subcategory.`);
+      }
+      assert(typeof skill.enabled === 'boolean', `Skill ${skill.id} needs enabled.`);
+      if (!skill.enabled) assert(nonEmpty(skill.disabledReason), `Disabled skill ${skill.id} needs a reason.`);
+      assert(Number.isFinite(skill.curriculumWeight) && skill.curriculumWeight > 0, `Skill ${skill.id} has an invalid weight.`);
+      assert(Array.isArray(skill.prerequisiteSkillIds), `Skill ${skill.id} needs prerequisiteSkillIds.`);
+      assert(typeof skill.required === 'boolean', `Skill ${skill.id} needs required.`);
+    }
+    const targetSkillIds = new Set((target.skills ?? []).map((skill) => skill.id));
+    for (const skill of target.skills ?? []) {
+      for (const prerequisite of skill.prerequisiteSkillIds) {
+        assert(targetSkillIds.has(prerequisite), `Skill ${skill.id} has unknown prerequisite ${prerequisite}.`);
+      }
+    }
   }
 }
 
@@ -63,18 +90,34 @@ export function validateQuestionBank(bank, taxonomy) {
   assert(['cpns', 'bumn'].includes(bank.target), 'Question bank target is invalid.');
   assert(bank.approvalStatus === 'development' || bank.approvalStatus === 'sme_approved', 'Question approvalStatus is invalid.');
   assert(bank.smeApproved === (bank.approvalStatus === 'sme_approved'), `${bank.target} SME approval fields are inconsistent.`);
+  assert(
+    bank.smeApproved ? nonEmpty(bank.approverReference) : bank.approverReference === null,
+    `${bank.target} approver reference is inconsistent.`,
+  );
   assert(Array.isArray(bank.questions) && bank.questions.length >= 100, `${bank.target} needs at least 100 questions.`);
   unique(bank.questions, (question) => question.sourceKey, `${bank.target} sourceKey`);
 
   const target = taxonomy.targets.find((candidate) => candidate.id === bank.target);
   const enabled = new Map(target.categories.filter((category) => category.enabled).map((category) => [category.id, category]));
+  const skills = new Map(target.skills.filter((skill) => skill.enabled).map((skill) => [skill.id, skill]));
   const counts = new Map();
   for (const question of bank.questions) {
     assert(question.target === bank.target, `Target mismatch for ${question.sourceKey}.`);
+    assert(Number.isInteger(question.revision) && question.revision > 0, `Invalid revision for ${question.sourceKey}.`);
     assert(enabled.has(question.category), `Unknown or disabled category for ${question.sourceKey}.`);
     const category = enabled.get(question.category);
     if (question.subcategory !== null) {
       assert(category.subcategories.includes(question.subcategory), `Invalid subcategory for ${question.sourceKey}.`);
+    }
+    const primarySkill = skills.get(question.primarySkillId);
+    assert(primarySkill, `Unknown or disabled primary skill for ${question.sourceKey}.`);
+    assert(
+      primarySkill.category === question.category && primarySkill.subcategory === question.subcategory,
+      `Primary skill path mismatch for ${question.sourceKey}.`,
+    );
+    assert(Array.isArray(question.prerequisiteSkillIds), `Missing prerequisites for ${question.sourceKey}.`);
+    for (const prerequisite of question.prerequisiteSkillIds) {
+      assert(skills.has(prerequisite), `Unknown prerequisite skill for ${question.sourceKey}.`);
     }
     assert(nonEmpty(question.prompt), `Empty prompt for ${question.sourceKey}.`);
     assert(Array.isArray(question.options) && question.options.length >= 2 && question.options.length <= 6, `Invalid options for ${question.sourceKey}.`);
@@ -82,6 +125,22 @@ export function validateQuestionBank(bank, taxonomy) {
     assert(Number.isInteger(question.correctOptionIndex) && question.correctOptionIndex >= 0 && question.correctOptionIndex < question.options.length, `Invalid correct index for ${question.sourceKey}.`);
     assert(nonEmpty(question.explanation), `Empty explanation for ${question.sourceKey}.`);
     assert(['easy', 'medium', 'hard'].includes(question.difficulty), `Invalid difficulty for ${question.sourceKey}.`);
+    assert(question.questionType === 'multiple_choice', `Invalid question type for ${question.sourceKey}.`);
+    assert(
+      question.expectedTimeMs === null || (Number.isInteger(question.expectedTimeMs) && question.expectedTimeMs > 0),
+      `Invalid expected time for ${question.sourceKey}.`,
+    );
+    assert(Number.isInteger(question.standardTimeLimitMs) && question.standardTimeLimitMs > 0, `Invalid standard time for ${question.sourceKey}.`);
+    assert(Number.isFinite(question.curriculumWeight) && question.curriculumWeight > 0, `Invalid curriculum weight for ${question.sourceKey}.`);
+    assert(typeof question.assessmentEligible === 'boolean', `Invalid Assessment eligibility for ${question.sourceKey}.`);
+    assert(['development', 'approved', 'under_review', 'invalidated', 'disabled'].includes(question.qualityState), `Invalid quality state for ${question.sourceKey}.`);
+    assert(question.smeApproved === (question.qualityState === 'approved'), `Question approval fields are inconsistent for ${question.sourceKey}.`);
+    assert(
+      question.smeApproved
+        ? nonEmpty(question.approverReference) && Number.isFinite(Date.parse(question.approvedAt))
+        : question.approverReference === null && question.approvedAt === null,
+      `Question approver metadata is inconsistent for ${question.sourceKey}.`,
+    );
     assert(Number.isInteger(question.weight) && question.weight >= 1 && question.weight <= 4, `Invalid weight for ${question.sourceKey}.`);
     assert(['damage', 'heal'].includes(question.effect), `Invalid effect for ${question.sourceKey}.`);
     assert(Number.isInteger(question.damageValue) && question.damageValue >= 0, `Invalid damage value for ${question.sourceKey}.`);

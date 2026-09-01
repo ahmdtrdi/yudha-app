@@ -710,6 +710,30 @@
 - Phase 2 still needs taxonomy/revision synchronization, honest Practice/PvP backfill, disposable-user fixtures and invalidation, versioned calculators, projection workers, recommendation APIs/events, server hint tracking, atomic Practice ingestion, OpenAPI/types, and backend tests.
 - Phase 3 still needs the sixth mobile Learning tab, Lobby card, dashboard, Profile migration, Practice integration, Flutter tests, rollout flag activation, and the cloud end-to-end smoke test.
 
+## 2026-09-01 - Learning Analytics V2 Runtime, Dashboards & Developer Seeding (Phase 2 & 3)
+
+**The Change:**
+- Implemented `LearningModule` in `apps/backend-api` with versioned calculators (`learning.calculators.ts`), background projection worker (`learning.projection.service.ts`, `learning.worker.ts`), and repository methods managing `learner_skill_state`, `retention_schedules`, `learning_recommendations`, `recommendation_events`, and `assessment_evidence`.
+- Added public endpoints `GET /learning/dashboard`, `GET /learning/recommendations/current`, and `POST /learning/recommendations/:recommendationId/events` protected by `SupabaseAuthGuard` and feature-gated by `LEARNING_V2_ENABLED`.
+- Updated Practice module with server-authoritative hint tracking (`POST /practice/sessions/:sessionId/hint`) and atomic ingestion linking Practice and PvP outcomes into canonical learning attempts.
+- Added `infra/scripts/seed-learning-analytics.mjs` and npm script `npm run seed:learning` to directly provision complete realistic analytics datasets for local and staging development accounts without requiring manual Practice gameplay.
+- Added migration `20260901120000_learning_v2_analytics_runtime.sql` providing projection triggers and compatibility session routines.
+
+**The Reasoning:**
+- Preparing asynchronous projections per user and skill prevents dashboard endpoints from scanning raw attempt ledgers on demand.
+- Developer seeding allows instant end-to-end verification of all Learning dashboard components (next action card, skill map states, retention schedules, assessment scores, and separated competition metrics) without manual multi-session grinding.
+- Feature gating ensures safe backward compatibility with legacy Practice consumers until client migrations are validated.
+
+**Verification:**
+- Node/TypeScript test suites in `apps/backend-api` and `infra` passed.
+- Direct database seeding executed successfully for user accounts across CPNS and BUMN tracks.
+- Mobile Learning dashboard renders all metric cards, skill states, and recommendations.
+
+**The Tech Debt:**
+- Gate 5 Solo delivery policy (session stopping rules, Focus/Standard/Speed mechanics in UI) remains blocked by explicit Decision Debt registered in PRD Section 11.22.
+- Admin content-quality dashboard and web Assessment validation runner remain deferred to future phase milestones.
+
+
 
 
 

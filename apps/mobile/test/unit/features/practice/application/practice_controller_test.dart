@@ -6,6 +6,7 @@ import 'package:yudha_mobile/features/practice/application/practice_state.dart';
 import 'package:yudha_mobile/features/practice/data/repositories/practice_repository.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_dashboard.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_history_batch.dart';
+import 'package:yudha_mobile/features/practice/domain/entities/practice_hint_state.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_option.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_question.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_recent_activity.dart';
@@ -21,8 +22,26 @@ class _FakePracticeRepository implements PracticeRepository {
   bool? lastUsedHint;
   String? lastCategory;
   String? lastSubcategory;
+  String? lastRecommendationId;
   int submitCount = 0;
   int dashboardFetchCount = 0;
+  bool authoritativeHints = false;
+
+  @override
+  Future<String> requestHint({
+    required String sessionId,
+    required String sessionQuestionId,
+  }) async => 'Petunjuk server.';
+
+  @override
+  Future<PracticeSession> startRecommendedSession({
+    required String category,
+    String? subcategory,
+    required String recommendationId,
+  }) {
+    lastRecommendationId = recommendationId;
+    return startSession(category: category, subcategory: subcategory);
+  }
 
   static const PracticeTopic topic = PracticeTopic(
     id: 'TIU::Numerik',
@@ -95,12 +114,29 @@ class _FakePracticeRepository implements PracticeRepository {
   }) async {
     lastCategory = category;
     lastSubcategory = subcategory;
-    return const PracticeSession(
+    return PracticeSession(
       id: 'session-1',
       category: 'TIU',
       subcategory: 'Numerik',
       totalQuestions: 2,
-      questions: questions,
+      questions: authoritativeHints
+          ? questions
+                .map(
+                  (PracticeQuestion question) => PracticeQuestion(
+                    id: question.id,
+                    sessionQuestionId: question.sessionQuestionId,
+                    topicId: question.topicId,
+                    topicName: question.topicName,
+                    prompt: question.prompt,
+                    options: question.options,
+                    hint: '',
+                    questionOrder: question.questionOrder,
+                    timeLimitSeconds: question.timeLimitSeconds,
+                    hintAvailable: true,
+                  ),
+                )
+                .toList(growable: false)
+          : questions,
     );
   }
 
@@ -248,6 +284,37 @@ void main() {
     expect(started, isTrue);
     expect(controller.state.selectedTopicId, _FakePracticeRepository.topic.id);
     expect(controller.state.sessionId, 'session-1');
+  });
+
+  test('attaches an accepted recommendation when starting compatibility Practice', () async {
+    final _FakePracticeRepository repository = _FakePracticeRepository();
+    final PracticeController controller = PracticeController(
+      repository: repository,
+    );
+    await controller.reload();
+
+    final bool started = await controller.startRecommendedSession(
+      'numerik',
+      recommendationId: 'recommendation-1',
+    );
+
+    expect(started, isTrue);
+    expect(repository.lastRecommendationId, 'recommendation-1');
+  });
+
+  test('loads an authoritative server hint before marking it used', () async {
+    final _FakePracticeRepository repository = _FakePracticeRepository();
+    repository.authoritativeHints = true;
+    final PracticeController controller = PracticeController(
+      repository: repository,
+    );
+    await controller.reload();
+    await controller.startSession(_FakePracticeRepository.topic.id);
+    final bool loaded = await controller.unlockHint();
+
+    expect(loaded, isTrue);
+    expect(controller.state.hintState, PracticeHintState.unlocked);
+    expect(controller.state.currentQuestion?.hint, 'Petunjuk server.');
   });
 
   test(

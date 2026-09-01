@@ -89,6 +89,14 @@ exposure, timing, or skill eligibility is fabricated. Authenticated legacy
 column writes remain available where they existed, but every new V2 snapshot
 column is service-role-authoritative.
 
+The runtime migration adds service-role-only compatibility RPCs that snapshot a
+question revision, primary skill, and lifetime exposure when Practice presents
+a question; record hints before returning their text; and insert a Practice
+answer plus canonical attempt/classification atomically. It also adds a
+claimable projection queue, initial-profile queueing, and the prepared-state
+columns required by `learning-v1`. Fixture-run deletion is restricted so audit
+metadata cannot cascade-delete canonical evidence.
+
 ## PvP Match History
 
 `public.match_results` stores one final row per finished match.

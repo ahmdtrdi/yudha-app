@@ -27,6 +27,19 @@ import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dar
 class _SuccessPracticeRepository implements PracticeRepository {
   const _SuccessPracticeRepository();
 
+  @override
+  Future<String> requestHint({
+    required String sessionId,
+    required String sessionQuestionId,
+  }) async => 'Petunjuk server.';
+
+  @override
+  Future<PracticeSession> startRecommendedSession({
+    required String category,
+    String? subcategory,
+    required String recommendationId,
+  }) => startSession(category: category, subcategory: subcategory);
+
   static const PracticeTopic topic = PracticeTopic(
     id: 'tiu::kemampuan_logis',
     category: 'tiu',

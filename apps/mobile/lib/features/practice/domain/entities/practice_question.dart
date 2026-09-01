@@ -11,6 +11,9 @@ class PracticeQuestion {
     required this.hint,
     required this.questionOrder,
     required this.timeLimitSeconds,
+    this.questionRevisionId,
+    this.skillId,
+    this.hintAvailable = true,
   });
 
   final String id;
@@ -22,4 +25,24 @@ class PracticeQuestion {
   final String hint;
   final int questionOrder;
   final int timeLimitSeconds;
+  final String? questionRevisionId;
+  final String? skillId;
+  final bool hintAvailable;
+
+  PracticeQuestion copyWith({String? hint}) {
+    return PracticeQuestion(
+      id: id,
+      sessionQuestionId: sessionQuestionId,
+      topicId: topicId,
+      topicName: topicName,
+      prompt: prompt,
+      options: options,
+      hint: hint ?? this.hint,
+      questionOrder: questionOrder,
+      timeLimitSeconds: timeLimitSeconds,
+      questionRevisionId: questionRevisionId,
+      skillId: skillId,
+      hintAvailable: hintAvailable,
+    );
+  }
 }

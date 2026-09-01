@@ -36,7 +36,7 @@ void main() {
       find.byKey(const ValueKey<String>('app-tab-clay-base')),
       findsOneWidget,
     );
-    expect(find.byType(SvgPicture), findsNWidgets(5));
+    expect(find.byType(SvgPicture), findsNWidgets(6));
     final ColoredBox practiceNavBackground = tester.widget<ColoredBox>(
       find.byKey(const ValueKey<String>('app-tab-background')),
     );
@@ -45,6 +45,7 @@ void main() {
     expect(find.text('PvP'), findsNothing);
     expect(find.text('Rank'), findsNothing);
     expect(find.text('Practice'), findsNothing);
+    expect(find.text('Learning'), findsNothing);
     expect(find.text('Profile'), findsNothing);
     expect(
       find.byKey(const ValueKey<String>('app-tab-indicator-Practice')),
@@ -87,6 +88,15 @@ void main() {
     expect(lobbyData.label, 'Lobby');
     expect(lobbyData.flagsCollection.isButton, isTrue);
     expect(lobbyData.flagsCollection.isSelected, ui.Tristate.isFalse);
+
+    final SemanticsNode learningSemantics = tester.getSemantics(
+      find.byKey(const ValueKey<String>('app-tab-Learning')),
+    );
+    expect(learningSemantics.getSemanticsData().label, 'Learning');
+    expect(
+      learningSemantics.getSemanticsData().flagsCollection.isSelected,
+      ui.Tristate.isFalse,
+    );
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(
@@ -105,5 +115,21 @@ void main() {
       find.byKey(const ValueKey<String>('app-tab-background')),
     );
     expect(lobbyNavBackground.color, AppColors.scholarCream);
+
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: AppTabShell(
+            location: AppRoutes.learning,
+            child: ColoredBox(color: Colors.white),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('app-tab-indicator-Learning')),
+      findsOneWidget,
+    );
   });
 }

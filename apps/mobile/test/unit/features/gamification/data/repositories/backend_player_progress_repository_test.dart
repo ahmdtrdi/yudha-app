@@ -33,6 +33,28 @@ void main() {
                   },
                   'rankPoints': 860,
                   'streak': 5,
+                  'learningNextAction': <String, Object?>{
+                    'recommendationId': 'recommendation-1',
+                    'target': 'cpns',
+                    'objective': 'repair_accuracy',
+                    'skill': <String, Object?>{
+                      'id': 'cpns.tiu.numerik',
+                      'label': 'TIU Numerik',
+                      'category': 'tiu',
+                      'subcategory': 'numerik',
+                    },
+                    'mechanicMode': 'focus',
+                    'reason': <String, Object?>{
+                      'headline': 'Perkuat TIU Numerik',
+                      'description': 'Akurasi perlu diperbaiki.',
+                    },
+                    'confidence': 'medium',
+                    'availability': <String, Object?>{
+                      'runnable': true,
+                      'compatibilityAdapter': 'practice_fixed_five',
+                      'label': 'Practice 5 soal (kompatibilitas)',
+                    },
+                  },
                 },
               }),
               200,
@@ -48,5 +70,7 @@ void main() {
     expect(snapshot.wins, 18);
     expect(snapshot.losses, 4);
     expect(snapshot.draws, 2);
+    expect(snapshot.learningNextAction?.skillLabel, 'TIU Numerik');
+    expect(snapshot.learningNextAction?.runnable, isTrue);
   });
 }

@@ -11,6 +11,7 @@ void main() {
       AppRoutes.practice,
       AppRoutes.practiceHistory,
       AppRoutes.practiceQuiz,
+      AppRoutes.learning,
       AppRoutes.profile,
       AppRoutes.interviewSetup,
       AppRoutes.interview,

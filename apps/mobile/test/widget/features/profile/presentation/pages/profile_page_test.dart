@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:yudha_mobile/features/profile/application/performance_analytics_controller.dart';
-import 'package:yudha_mobile/features/profile/application/performance_analytics_providers.dart';
+import 'package:yudha_mobile/features/learning/application/learning_providers.dart';
+import 'package:yudha_mobile/features/learning/data/repositories/learning_repository.dart';
+import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_storage.dart';
 import 'package:yudha_mobile/features/profile/application/user_profile_controller.dart';
 import 'package:yudha_mobile/features/profile/application/user_profile_providers.dart';
-import 'package:yudha_mobile/features/profile/data/repositories/performance_analytics_repository.dart';
 import 'package:yudha_mobile/features/profile/data/repositories/user_profile_repository.dart';
-import 'package:yudha_mobile/features/profile/domain/entities/performance_analytics.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_settings.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/user_profile.dart';
@@ -24,7 +23,8 @@ void main() {
     expect(find.text('Profil Personal'), findsOneWidget);
     expect(find.text('Raka Saputra'), findsOneWidget);
     expect(find.text('Performa PvP'), findsOneWidget);
-    expect(find.text('Analisis Latihan'), findsOneWidget);
+    expect(find.text('Learning'), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('profile-learning-link')), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Pengaturan Profil'),
       300,
@@ -33,22 +33,17 @@ void main() {
     expect(find.text('Pengaturan Profil'), findsOneWidget);
   });
 
-  testWidgets('renders backend performance analytics with readable labels', (
+  testWidgets('replaces legacy weak-topic analytics with a Learning summary', (
     WidgetTester tester,
   ) async {
     await _pumpProfilePage(tester);
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Akurasi latihan'), findsOneWidget);
-    expect(find.text('73%'), findsOneWidget);
-    expect(find.text('2,5 dtk'), findsOneWidget);
-    expect(find.text('75%'), findsOneWidget);
-    expect(find.text('4 pertandingan'), findsOneWidget);
-    expect(find.text('Akurasi per kategori'), findsOneWidget);
-    expect(find.text('TIU'), findsOneWidget);
-    expect(find.text('Fokus latihan berikutnya'), findsOneWidget);
-    expect(find.text('Pelayanan Publik'), findsOneWidget);
+    expect(find.text('Perkuat TIU Numerik'), findsOneWidget);
+    expect(find.textContaining('68% akurasi mandiri'), findsOneWidget);
+    expect(find.text('Fokus latihan berikutnya'), findsNothing);
+    expect(find.text('Pelayanan Publik'), findsNothing);
   });
 
   testWidgets('edits and explicitly saves backend profile fields', (
@@ -141,12 +136,6 @@ Future<void> _pumpProfilePage(
     repository: profileRepository,
   );
   await profileController.load();
-  final PerformanceAnalyticsController performanceController =
-      PerformanceAnalyticsController(
-        repository: const _FakePerformanceAnalyticsRepository(),
-      );
-  await performanceController.load();
-
   await tester.pumpWidget(
     ProviderScope(
       overrides: <Override>[
@@ -154,8 +143,8 @@ Future<void> _pumpProfilePage(
           _ProfileSettingsMemoryStorage(),
         ),
         userProfileProvider.overrideWith((ref) => profileController),
-        performanceAnalyticsProvider.overrideWith(
-          (ref) => performanceController,
+        learningRepositoryProvider.overrideWithValue(
+          const _FakeLearningRepository(),
         ),
       ],
       child: const MaterialApp(home: ProfilePage()),
@@ -163,36 +152,74 @@ Future<void> _pumpProfilePage(
   );
 }
 
-class _FakePerformanceAnalyticsRepository
-    implements PerformanceAnalyticsRepository {
-  const _FakePerformanceAnalyticsRepository();
+class _FakeLearningRepository implements LearningRepository {
+  const _FakeLearningRepository();
 
   @override
-  Future<PerformanceAnalytics> fetchPerformance() async {
-    return const PerformanceAnalytics(
-      practice: PracticePerformance(
-        overallAccuracy: 72.5,
-        totalAnswered: 40,
-        averageResponseTimeMs: 2450,
-        categoryBreakdown: <CategoryPerformance>[
-          CategoryPerformance(category: 'TIU', accuracy: 80, totalAnswered: 20),
-        ],
-        weakSubcategories: <SubcategoryPerformance>[
-          SubcategoryPerformance(
-            subcategory: 'pelayanan_publik',
-            accuracy: 45,
-            totalAnswered: 10,
-          ),
-        ],
-      ),
-      battle: BattlePerformance(
-        winRate: 0.6,
-        wins: 6,
-        losses: 4,
-        totalMatches: 10,
-      ),
+  Future<LearningDashboard> fetchDashboard() async {
+    return LearningDashboard.fromJson(<String, dynamic>{
+      'asOf': '2026-09-01T02:00:00.000Z',
+      'calculationVersion': 'learning-v1',
+      'target': 'cpns',
+      'nextAction': <String, dynamic>{
+        'recommendationId': 'recommendation-1',
+        'target': 'cpns',
+        'objective': 'repair_accuracy',
+        'skill': <String, dynamic>{
+          'id': 'cpns.tiu.numerik',
+          'label': 'TIU Numerik',
+          'category': 'tiu',
+          'subcategory': 'numerik',
+        },
+        'mechanicMode': 'focus',
+        'reason': <String, dynamic>{
+          'headline': 'Perkuat TIU Numerik',
+          'description': 'Akurasi masih perlu ditingkatkan.',
+        },
+        'confidence': 'medium',
+        'availability': <String, dynamic>{
+          'runnable': true,
+          'compatibilityAdapter': 'practice_fixed_five',
+          'label': 'Practice 5 soal (kompatibilitas)',
+        },
+      },
+      'summary': <String, dynamic>{
+        'curriculumCoverage': <String, dynamic>{
+          'value': 50,
+          'coveredSkillCount': 2,
+          'requiredSkillCount': 4,
+          'confidence': 'medium',
+        },
+        'unseenIndependentAccuracy': <String, dynamic>{
+          'value': 68,
+          'correctCount': 17,
+          'attemptCount': 25,
+          'uniqueQuestionCount': 20,
+          'confidence': 'medium',
+          'asOf': '2026-09-01T02:00:00.000Z',
+        },
+        'pace': <String, dynamic>{
+          'value': null,
+          'baselineType': null,
+          'attemptCount': 0,
+          'confidence': 'low',
+        },
+      },
+      'skillStates': <dynamic>[],
+      'trends': <dynamic>[],
+      'retention': <dynamic>[],
+      'assessment': <String, dynamic>{'status': 'not_available'},
+      'activity': <String, dynamic>{},
+      'competition': <String, dynamic>{'accuracy': <String, dynamic>{}},
     );
   }
+
+  @override
+  Future<void> recordRecommendationEvent({
+    required String recommendationId,
+    required String eventType,
+    String? dismissalReason,
+  }) async {}
 }
 
 class _ProfileSettingsMemoryStorage implements ProfileSettingsStorage {

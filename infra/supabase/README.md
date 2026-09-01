@@ -45,6 +45,18 @@ taxonomy synchronization, backfill, fixture insertion, or API rollout:
    report zero rows in the new tables before Phase 2 seeds or backfills them.
 4. Save or share the complete postcheck result before enabling backend reads.
 
+Phase 1 is followed by a second manual runtime checkpoint:
+
+1. Run the complete transaction in
+   `migrations/20260901120000_learning_v2_analytics_runtime.sql`.
+2. Run
+   `postchecks/20260901120000_learning_v2_analytics_runtime.sql` and confirm
+   every row reports `passed = true`.
+3. From `infra/`, run `npm run learning:v2 -- sync`, then dry-run and apply the
+   Practice/PvP backfills with explicit run keys.
+4. Leave `LEARNING_V2_ENABLED=false` until content and backfill reports are
+   reviewed. Enable it only for the cloud smoke test and rollout environment.
+
 Do not run development fixtures against a real learner. Phase 2 requires an
 explicit disposable cloud user ID and records the owning fixture run so the
 evidence can be invalidated and rebuilt without deleting ledger rows.

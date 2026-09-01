@@ -3,9 +3,57 @@
   "contentVersion": "development-2026-08",
   "approvalStatus": "development",
   "smeApproved": false,
+  "approverReference": null,
+  "effectiveAt": "2026-09-01T00:00:00.000Z",
   "targets": [
     {
       "id": "cpns",
+      "skills": [
+        {
+          "id": "cpns.twk",
+          "category": "twk",
+          "subcategory": null,
+          "label": "Tes Wawasan Kebangsaan",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "cpns.tiu.verbal",
+          "category": "tiu",
+          "subcategory": "verbal",
+          "label": "TIU Verbal",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "cpns.tiu.numerik",
+          "category": "tiu",
+          "subcategory": "numerik",
+          "label": "TIU Numerik",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "cpns.tiu.logika",
+          "category": "tiu",
+          "subcategory": "logika",
+          "label": "TIU Logika",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        }
+      ],
       "categories": [
         { "id": "twk", "enabled": true, "subcategories": [] },
         {
@@ -23,6 +71,52 @@
     },
     {
       "id": "bumn",
+      "skills": [
+        {
+          "id": "bumn.akhlak",
+          "category": "akhlak",
+          "subcategory": null,
+          "label": "AKHLAK",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "bumn.tkd.verbal",
+          "category": "tkd",
+          "subcategory": "verbal",
+          "label": "TKD Verbal",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "bumn.tkd.numerik",
+          "category": "tkd",
+          "subcategory": "numerik",
+          "label": "TKD Numerik",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        },
+        {
+          "id": "bumn.tkd.logika",
+          "category": "tkd",
+          "subcategory": "logika",
+          "label": "TKD Logika",
+          "enabled": true,
+          "disabledReason": null,
+          "curriculumWeight": 1,
+          "prerequisiteSkillIds": [],
+          "required": true
+        }
+      ],
       "categories": [
         {
           "id": "tkd",

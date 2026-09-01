@@ -16,6 +16,13 @@ export interface PracticeSessionRow {
   accuracy: number;
   started_at: string;
   finished_at: string | null;
+  recommendation_id?: string | null;
+  taxonomy_version_id?: string | null;
+  learning_objective?: string | null;
+  requested_mechanic_mode?: string | null;
+  effective_mechanic_mode?: string | null;
+  question_selection_type?: string | null;
+  evidence_capture_version?: string;
 }
 
 export interface PracticeQuestionRow {
@@ -42,6 +49,14 @@ export interface PracticeSessionQuestionRow {
   question_id: string;
   question_order: number;
   created_at: string;
+  question_revision_id?: string | null;
+  taxonomy_version_id?: string | null;
+  skill_id?: string | null;
+  exposure_count_before?: number | null;
+  seen_before?: boolean | null;
+  hint_requested_at?: string | null;
+  hint_idempotency_key?: string | null;
+  opened_at?: string | null;
 }
 
 export interface PracticeAnswerRow {
@@ -57,6 +72,7 @@ export interface PracticeAnswerRow {
   response_time_ms: number | null;
   answered_at: string;
   created_at: string;
+  canonical_attempt_id?: string | null;
 }
 
 export interface SessionQuestionDetail {

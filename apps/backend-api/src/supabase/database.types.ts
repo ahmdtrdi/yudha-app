@@ -18,6 +18,13 @@ type TimestampedInsert = {
   updated_at?: string;
 };
 
+type DatabaseTable<Row> = {
+  Row: Row;
+  Insert: Partial<Row>;
+  Update: Partial<Row>;
+  Relationships: [];
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -351,6 +358,309 @@ export type Database = {
         Update: Partial<Database['public']['Tables']['questions']['Insert']>;
         Relationships: [];
       };
+      learning_taxonomy_versions: DatabaseTable<{
+        id: string;
+        schema_version: number;
+        content_version: string;
+        approval_status: string;
+        sme_approved: boolean;
+        approver_reference: Nullable<string>;
+        effective_at: string;
+        created_at: string;
+      }>;
+      learning_skills: DatabaseTable<{
+        taxonomy_version_id: string;
+        skill_id: string;
+        target: string;
+        category: string;
+        subcategory: Nullable<string>;
+        label: string;
+        enabled: boolean;
+        disabled_reason: Nullable<string>;
+        curriculum_weight: number;
+        prerequisite_skill_ids: string[];
+        is_required: boolean;
+        created_at: string;
+      }>;
+      question_revisions: DatabaseTable<{
+        id: string;
+        question_id: string;
+        revision: number;
+        source_key: string;
+        content_version: string;
+        content_hash: string;
+        target: string;
+        category: string;
+        subcategory: Nullable<string>;
+        prompt: string;
+        options: Json;
+        correct_option_index: number;
+        explanation: string;
+        hint: Nullable<string>;
+        difficulty: string;
+        question_type: string;
+        expected_time_ms: Nullable<number>;
+        standard_time_limit_ms: number;
+        curriculum_weight: number;
+        assessment_eligible: boolean;
+        quality_state: string;
+        is_active: boolean;
+        sme_approved: boolean;
+        approved_at: Nullable<string>;
+        approver_reference: Nullable<string>;
+        created_at: string;
+      }>;
+      question_skill_mappings: DatabaseTable<{
+        question_revision_id: string;
+        taxonomy_version_id: string;
+        skill_id: string;
+        mapping_type: string;
+        mapping_weight: number;
+        approval_status: string;
+        approved_at: Nullable<string>;
+        approver_reference: Nullable<string>;
+        provenance: string;
+        created_at: string;
+      }>;
+      learner_question_exposures: DatabaseTable<{
+        user_id: string;
+        question_id: string;
+        exposure_count: number;
+        first_presented_at: string;
+        last_presented_at: string;
+        last_source: string;
+        updated_at: string;
+      }>;
+      learning_fixture_runs: DatabaseTable<{
+        id: string;
+        run_key: string;
+        user_id: string;
+        target: string;
+        scenario: string;
+        status: string;
+        metadata: Json;
+        created_at: string;
+        invalidated_at: Nullable<string>;
+        invalidation_reason: Nullable<string>;
+      }>;
+      learning_backfill_runs: DatabaseTable<{
+        id: string;
+        run_key: string;
+        source: string;
+        dry_run: boolean;
+        status: string;
+        source_watermark: Json;
+        report: Json;
+        started_at: string;
+        completed_at: Nullable<string>;
+        error_message: Nullable<string>;
+      }>;
+      learning_recommendations: DatabaseTable<{
+        id: string;
+        user_id: string;
+        target: string;
+        taxonomy_version_id: Nullable<string>;
+        calculation_version: string;
+        evidence_classification_version: string;
+        objective: string;
+        mechanic_mode: string;
+        question_selection_type: string;
+        skill_ids: string[];
+        delivery_policy_id: Nullable<string>;
+        availability_runnable: boolean;
+        availability_reason: Nullable<string>;
+        execution_adapter: Nullable<string>;
+        reason_headline: string;
+        reason_description: string;
+        reason_evidence: Json;
+        input_as_of: string;
+        input_snapshot: Json;
+        generated_at: string;
+        expires_at: string;
+        status: string;
+        created_at: string;
+      }>;
+      learning_attempts: DatabaseTable<{
+        id: string;
+        source: string;
+        source_attempt_key: string;
+        source_payload_hash: string;
+        data_fidelity: string;
+        fixture_run_id: Nullable<string>;
+        user_id: string;
+        target: string;
+        source_session_key: Nullable<string>;
+        recommendation_id: Nullable<string>;
+        learning_objective: Nullable<string>;
+        requested_mechanic_mode: Nullable<string>;
+        effective_mechanic_mode: Nullable<string>;
+        question_selection_type: Nullable<string>;
+        delivery_policy_id: Nullable<string>;
+        assessment_blueprint_version: Nullable<string>;
+        pvp_mode: Nullable<string>;
+        session_completion_state: Nullable<string>;
+        question_id: Nullable<string>;
+        question_revision_id: Nullable<string>;
+        taxonomy_version_id: Nullable<string>;
+        skill_id: Nullable<string>;
+        content_version: Nullable<string>;
+        category: Nullable<string>;
+        subcategory: Nullable<string>;
+        difficulty: Nullable<string>;
+        expected_time_ms: Nullable<number>;
+        standard_time_limit_ms: Nullable<number>;
+        curriculum_weight: Nullable<number>;
+        question_quality_state: Nullable<string>;
+        selected_option_index: Nullable<number>;
+        is_correct: Nullable<boolean>;
+        hint_requested: Nullable<boolean>;
+        timed_out: Nullable<boolean>;
+        first_attempt: Nullable<boolean>;
+        seen_before: Nullable<boolean>;
+        exposure_count_before: Nullable<number>;
+        perceived_difficulty: Nullable<string>;
+        explanation_viewed: Nullable<boolean>;
+        abandonment_context: Nullable<string>;
+        opened_at: Nullable<string>;
+        answered_at: Nullable<string>;
+        deadline_at: Nullable<string>;
+        client_active_response_time_ms: Nullable<number>;
+        server_elapsed_time_ms: Nullable<number>;
+        background_duration_ms: Nullable<number>;
+        effective_response_time_ms: Nullable<number>;
+        timing_invalidity_reason: Nullable<string>;
+        source_event_at: string;
+        ingested_at: string;
+      }>;
+      learning_attempt_classifications: DatabaseTable<{
+        attempt_id: string;
+        classification_version: string;
+        classifier_input_hash: string;
+        valid_for_activity_accuracy: boolean;
+        valid_for_independent_accuracy: boolean;
+        valid_for_unseen_independent_accuracy: boolean;
+        valid_for_assisted_accuracy: boolean;
+        valid_for_pace_analytics: boolean;
+        valid_for_fluency_baseline: boolean;
+        valid_for_retention: boolean;
+        exclusion_reasons: string[];
+        classified_at: string;
+      }>;
+      learning_attempt_invalidations: DatabaseTable<{
+        id: string;
+        attempt_id: Nullable<string>;
+        question_revision_id: Nullable<string>;
+        reason: string;
+        invalidated_by: Nullable<string>;
+        invalidated_at: string;
+        metadata: Json;
+      }>;
+      learning_projection_jobs: DatabaseTable<{
+        id: string;
+        user_id: string;
+        target: string;
+        taxonomy_version_id: Nullable<string>;
+        skill_id: Nullable<string>;
+        reason: string;
+        source_attempt_id: Nullable<string>;
+        status: string;
+        available_at: string;
+        attempt_count: number;
+        locked_at: Nullable<string>;
+        locked_by: Nullable<string>;
+        last_error: Nullable<string>;
+        created_at: string;
+        updated_at: string;
+      }>;
+      learner_skill_state: DatabaseTable<{
+        user_id: string;
+        target: string;
+        taxonomy_version_id: string;
+        skill_id: string;
+        calculation_version: string;
+        evidence_classification_version: string;
+        status: string;
+        activity_correct_count: number;
+        activity_attempt_count: number;
+        activity_accuracy: Nullable<number>;
+        independent_correct_count: number;
+        independent_attempt_count: number;
+        independent_accuracy: Nullable<number>;
+        unseen_correct_count: number;
+        unseen_attempt_count: number;
+        unique_question_count: number;
+        unseen_independent_accuracy: Nullable<number>;
+        smoothed_accuracy: Nullable<number>;
+        assisted_correct_count: number;
+        assisted_attempt_count: number;
+        assisted_accuracy: Nullable<number>;
+        hint_rate: Nullable<number>;
+        independence_gap: Nullable<number>;
+        evidence_confidence: string;
+        difficulty_level_count: number;
+        median_response_time_ms: Nullable<number>;
+        pace_ratio: Nullable<number>;
+        pace_baseline_type: Nullable<string>;
+        pace_attempt_count: number;
+        timeout_rate: Nullable<number>;
+        trend_percentage_points: Nullable<number>;
+        coverage_sufficient: boolean;
+        recommended_mechanic: string;
+        latest_eligible_at: Nullable<string>;
+        last_practiced_at: Nullable<string>;
+        latest_strong_evidence_at: Nullable<string>;
+        input_as_of: string;
+        attempt_watermark: Nullable<string>;
+        created_at: string;
+        updated_at: string;
+      }>;
+      retention_schedules: DatabaseTable<{
+        id: string;
+        user_id: string;
+        target: string;
+        taxonomy_version_id: string;
+        skill_id: string;
+        calculation_version: string;
+        strong_evidence_at: string;
+        review_due_at: string;
+        status: string;
+        satisfied_attempt_id: Nullable<string>;
+        retention_correct_count: number;
+        retention_attempt_count: number;
+        retention_accuracy: Nullable<number>;
+        created_at: string;
+        updated_at: string;
+      }>;
+      recommendation_events: DatabaseTable<{
+        id: string;
+        recommendation_id: string;
+        user_id: string;
+        event_type: string;
+        dismissal_reason: Nullable<string>;
+        idempotency_key: string;
+        event_source: string;
+        source_session_key: Nullable<string>;
+        result_snapshot: Nullable<Json>;
+        occurred_at: string;
+        created_at: string;
+      }>;
+      assessment_evidence: DatabaseTable<{
+        id: string;
+        source_attempt_key: string;
+        user_id: string;
+        target: string;
+        assessment_session_key: string;
+        blueprint_version: string;
+        validation_status: string;
+        score: Nullable<number>;
+        correct_count: Nullable<number>;
+        attempt_count: Nullable<number>;
+        category_breakdown: Json;
+        skill_breakdown: Json;
+        occurred_at: string;
+        ingested_at: string;
+        raw_snapshot: Json;
+      }>;
       practice_sessions: {
         Row: {
           id: string;
@@ -364,6 +674,13 @@ export type Database = {
           accuracy: number;
           started_at: string;
           finished_at: Nullable<string>;
+          recommendation_id: Nullable<string>;
+          taxonomy_version_id: Nullable<string>;
+          learning_objective: Nullable<string>;
+          requested_mechanic_mode: Nullable<string>;
+          effective_mechanic_mode: Nullable<string>;
+          question_selection_type: Nullable<string>;
+          evidence_capture_version: string;
         };
         Insert: {
           id?: string;
@@ -377,6 +694,13 @@ export type Database = {
           accuracy?: number;
           started_at?: string;
           finished_at?: Nullable<string>;
+          recommendation_id?: Nullable<string>;
+          taxonomy_version_id?: Nullable<string>;
+          learning_objective?: Nullable<string>;
+          requested_mechanic_mode?: Nullable<string>;
+          effective_mechanic_mode?: Nullable<string>;
+          question_selection_type?: Nullable<string>;
+          evidence_capture_version?: string;
         };
         Update: Partial<
           Database['public']['Tables']['practice_sessions']['Insert']
@@ -390,6 +714,14 @@ export type Database = {
           question_id: string;
           question_order: number;
           created_at: string;
+          question_revision_id: Nullable<string>;
+          taxonomy_version_id: Nullable<string>;
+          skill_id: Nullable<string>;
+          exposure_count_before: Nullable<number>;
+          seen_before: Nullable<boolean>;
+          hint_requested_at: Nullable<string>;
+          hint_idempotency_key: Nullable<string>;
+          opened_at: Nullable<string>;
         };
         Insert: {
           id?: string;
@@ -397,6 +729,14 @@ export type Database = {
           question_id: string;
           question_order: number;
           created_at?: string;
+          question_revision_id?: Nullable<string>;
+          taxonomy_version_id?: Nullable<string>;
+          skill_id?: Nullable<string>;
+          exposure_count_before?: Nullable<number>;
+          seen_before?: Nullable<boolean>;
+          hint_requested_at?: Nullable<string>;
+          hint_idempotency_key?: Nullable<string>;
+          opened_at?: Nullable<string>;
         };
         Update: Partial<
           Database['public']['Tables']['practice_session_questions']['Insert']
@@ -422,6 +762,7 @@ export type Database = {
           score_gained: number;
           correct_option_index_snapshot: Nullable<number>;
           explanation_snapshot: Nullable<string>;
+          canonical_attempt_id: Nullable<string>;
         };
         Insert: {
           id?: string;
@@ -441,6 +782,7 @@ export type Database = {
           score_gained?: number;
           correct_option_index_snapshot?: Nullable<number>;
           explanation_snapshot?: Nullable<string>;
+          canonical_attempt_id?: Nullable<string>;
         };
         Update: Partial<
           Database['public']['Tables']['practice_answers']['Insert']
@@ -763,6 +1105,73 @@ export type Database = {
       };
     };
     Functions: {
+      enqueue_learning_projection: {
+        Args: {
+          p_user_id: string;
+          p_target: string;
+          p_taxonomy_version_id?: Nullable<string>;
+          p_skill_id?: Nullable<string>;
+          p_reason: string;
+          p_source_attempt_id?: Nullable<string>;
+        };
+        Returns: string;
+      };
+      create_practice_session_learning_v2: {
+        Args: {
+          p_user_id: string;
+          p_category?: Nullable<string>;
+          p_subcategory?: Nullable<string>;
+          p_recommendation_id?: Nullable<string>;
+        };
+        Returns: Json;
+      };
+      request_practice_hint_learning_v2: {
+        Args: {
+          p_user_id: string;
+          p_session_id: string;
+          p_session_question_id: string;
+          p_idempotency_key: string;
+          p_requested_at?: string;
+        };
+        Returns: Json;
+      };
+      submit_practice_answer_learning_v2: {
+        Args: {
+          p_user_id: string;
+          p_session_id: string;
+          p_idempotency_key: string;
+          p_session_question_id: string;
+          p_selected_option_index: number;
+          p_response_time_ms?: Nullable<number>;
+          p_answered_at?: string;
+        };
+        Returns: Json;
+      };
+      finish_practice_session_learning_v2: {
+        Args: {
+          p_user_id: string;
+          p_session_id: string;
+          p_idempotency_key: string;
+          p_completed_at?: string;
+        };
+        Returns: Json;
+      };
+      claim_learning_projection_jobs: {
+        Args: {
+          p_worker_id: string;
+          p_limit?: number;
+          p_now?: string;
+        };
+        Returns: Json;
+      };
+      ingest_pvp_learning_evidence: {
+        Args: { p_match_result_id: string };
+        Returns: Json;
+      };
+      reconcile_recent_pvp_learning_evidence: {
+        Args: { p_since?: string; p_limit?: number };
+        Returns: Json;
+      };
       claim_due_notification_deliveries: {
         Args: { p_now?: string; p_limit?: number };
         Returns: Array<{

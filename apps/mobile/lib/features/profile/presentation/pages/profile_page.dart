@@ -11,9 +11,10 @@ import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/gamification/domain/entities/player_progress.dart';
 import 'package:yudha_mobile/features/gamification/domain/entities/progress_tier.dart';
+import 'package:yudha_mobile/features/learning/application/learning_providers.dart';
+import 'package:yudha_mobile/features/learning/application/learning_state.dart';
 import 'package:yudha_mobile/features/notifications/application/daily_reminder_providers.dart';
 import 'package:yudha_mobile/features/notifications/domain/daily_reminder_state.dart';
-import 'package:yudha_mobile/features/profile/application/performance_analytics_providers.dart';
 import 'package:yudha_mobile/features/profile/application/performance_analytics_state.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 import 'package:yudha_mobile/features/profile/application/user_profile_providers.dart';
@@ -29,7 +30,7 @@ class ProfilePage extends ConsumerWidget {
   Future<void> _refresh(WidgetRef ref) async {
     await Future.wait(<Future<void>>[
       ref.read(userProfileProvider.notifier).load(),
-      ref.read(performanceAnalyticsProvider.notifier).load(),
+      ref.read(learningControllerProvider.notifier).load(),
       ref.read(playerProgressProvider.notifier).hydrateFromRepository(),
     ]);
   }
@@ -85,9 +86,7 @@ class ProfilePage extends ConsumerWidget {
     final DailyReminderState reminderState = ref.watch(dailyReminderProvider);
     final reminderController = ref.read(dailyReminderProvider.notifier);
     final UserProfileState profileState = ref.watch(userProfileProvider);
-    final PerformanceAnalyticsState performanceState = ref.watch(
-      performanceAnalyticsProvider,
-    );
+    final LearningState learningState = ref.watch(learningControllerProvider);
     final UserProfile? profile = profileState.profile;
     final String displayName = profile?.displayName ?? progress.displayName;
     final ProfileTarget? target = profile?.target ?? profileSettings.target;
@@ -181,13 +180,12 @@ class ProfilePage extends ConsumerWidget {
             const SizedBox(height: 24),
             const _SectionTitle(
               icon: Icons.insights_rounded,
-              title: 'Analisis Latihan',
+              title: 'Learning',
             ),
             const SizedBox(height: 10),
-            _PerformanceSection(
-              state: performanceState,
-              onRetry: () =>
-                  ref.read(performanceAnalyticsProvider.notifier).load(),
+            _LearningSummaryLink(
+              state: learningState,
+              onOpen: () => context.go(AppRoutes.learning),
             ),
             const SizedBox(height: 24),
             const _SectionTitle(
@@ -1897,6 +1895,110 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
+class _LearningSummaryLink extends StatelessWidget {
+  const _LearningSummaryLink({required this.state, required this.onOpen});
+
+  final LearningState state;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final dashboard = state.dashboard;
+    final String title = switch (state.status) {
+      LearningViewStatus.unavailable => 'Learning segera hadir',
+      LearningViewStatus.error when dashboard == null =>
+        'Ringkasan belum dapat dimuat',
+      LearningViewStatus.loading when dashboard == null =>
+        'Menyiapkan ringkasan Learning',
+      _ =>
+        dashboard?.nextAction?.reasonHeadline ?? 'Lihat perkembangan belajar',
+    };
+    final String message = dashboard == null
+        ? state.errorMessage ??
+              'Akurasi, skill, retensi, dan aktivitas 30 hari.'
+        : dashboard.accuracy.value == null
+        ? 'Belum cukup bukti mandiri. Buka Learning untuk melihat data yang tersedia.'
+        : '${dashboard.accuracy.value!.round()}% akurasi mandiri dari ${dashboard.accuracy.attemptCount} percobaan · bukti ${_learningConfidence(dashboard.accuracy.confidence)}.';
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        key: const ValueKey<String>('profile-learning-link'),
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppColors.warriorNavy.withValues(alpha: 0.08),
+            ),
+          ),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.levelUpTeal.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: state.status == LearningViewStatus.loading
+                    ? const Padding(
+                        padding: EdgeInsets.all(11),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(
+                        Icons.auto_graph_rounded,
+                        color: AppColors.levelUpTeal,
+                      ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: AppColors.textStrong,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      message,
+                      style: const TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 11,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.warriorNavy,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _learningConfidence(String value) => switch (value) {
+  'high' => 'tinggi',
+  'medium' => 'sedang',
+  _ => 'rendah',
+};
+
+// Retained temporarily for pre-V2 screenshot tests; it is no longer mounted.
+// ignore: unused_element
 class _PerformanceSection extends StatelessWidget {
   const _PerformanceSection({required this.state, required this.onRetry});
 
