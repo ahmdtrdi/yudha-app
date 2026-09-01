@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateGate0 } from './validate-gate0.mjs';
+import { syncLearningContent } from './sync-learning-content.mjs';
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, '..', '..');
@@ -15,6 +16,7 @@ export async function syncContent(environment = process.env) {
 
   const catalog = await load('contracts/content/store-catalog.v1.json');
   const seasonManifest = await load('contracts/content/seasons/2026-08.development.json');
+  const taxonomy = await load('contracts/content/taxonomy.v1.json');
   const banks = await Promise.all([
     load('contracts/content/questions/cpns.v1.json'),
     load('contracts/content/questions/bumn.v1.json'),
@@ -23,10 +25,11 @@ export async function syncContent(environment = process.env) {
   await syncCatalog(client, catalog);
   await syncSeason(client, seasonManifest);
   const report = await syncQuestions(client, banks.flatMap((bank) => bank.questions));
-  process.stdout.write(`${JSON.stringify({ catalogItems: catalog.items.length, season: seasonManifest.season.id, questions: report })}\n`);
   if (report.duplicate > 0 || report.invalid > 0) {
     throw new Error(`Question import rejected invalid=${report.invalid} duplicate=${report.duplicate}.`);
   }
+  const learning = await syncLearningContent(client, taxonomy, banks);
+  process.stdout.write(`${JSON.stringify({ catalogItems: catalog.items.length, season: seasonManifest.season.id, questions: report, learning })}\n`);
   return report;
 }
 
@@ -185,6 +188,8 @@ function isValidCanonicalQuestion(question) {
     question &&
       typeof question.sourceKey === 'string' &&
       question.sourceKey.trim() &&
+      Number.isInteger(question.revision) &&
+      question.revision > 0 &&
       ['cpns', 'bumn'].includes(question.target) &&
       typeof question.category === 'string' &&
       question.category.trim() &&
@@ -198,7 +203,19 @@ function isValidCanonicalQuestion(question) {
       question.correctOptionIndex >= 0 &&
       question.correctOptionIndex < question.options.length &&
       typeof question.explanation === 'string' &&
-      question.explanation.trim(),
+      question.explanation.trim() &&
+      typeof question.primarySkillId === 'string' &&
+      question.primarySkillId.trim() &&
+      Array.isArray(question.prerequisiteSkillIds) &&
+      question.questionType === 'multiple_choice' &&
+      (question.expectedTimeMs === null || (Number.isInteger(question.expectedTimeMs) && question.expectedTimeMs > 0)) &&
+      Number.isInteger(question.standardTimeLimitMs) &&
+      question.standardTimeLimitMs > 0 &&
+      Number.isFinite(question.curriculumWeight) &&
+      question.curriculumWeight > 0 &&
+      typeof question.assessmentEligible === 'boolean' &&
+      ['development', 'approved', 'under_review', 'invalidated', 'disabled'].includes(question.qualityState) &&
+      typeof question.smeApproved === 'boolean',
   );
 }
 
@@ -210,7 +227,7 @@ function questionFingerprint(question) {
   });
 }
 
-function stableJson(value) {
+export function stableJson(value) {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
   if (value && typeof value === 'object') {
     return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
@@ -218,16 +235,17 @@ function stableJson(value) {
   return JSON.stringify(value);
 }
 
-class RestClient {
+export class RestClient {
   constructor(baseUrl, secret) {
     this.endpoint = `${baseUrl}/rest/v1`;
     this.headers = { apikey: secret, authorization: `Bearer ${secret}`, 'content-type': 'application/json' };
   }
 
-  async selectAll(table, columns) {
+  async selectAll(table, columns, filters = '') {
     const rows = [];
     for (let offset = 0; ; offset += 1000) {
-      const response = await this.request(`${table}?select=${encodeURIComponent(columns)}&offset=${offset}&limit=1000`, { method: 'GET' });
+      const suffix = filters ? `&${filters}` : '';
+      const response = await this.request(`${table}?select=${encodeURIComponent(columns)}&offset=${offset}&limit=1000${suffix}`, { method: 'GET' });
       rows.push(...response);
       if (response.length < 1000) return rows;
     }
@@ -242,6 +260,38 @@ class RestClient {
         body: JSON.stringify(rows.slice(index, index + 100)),
       });
     }
+  }
+
+  async insert(table, rows) {
+    if (rows.length === 0) return;
+    for (let index = 0; index < rows.length; index += 100) {
+      await this.request(table, {
+        method: 'POST',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify(rows.slice(index, index + 100)),
+      });
+    }
+  }
+
+  async insertReturning(table, rows) {
+    const inserted = [];
+    for (let index = 0; index < rows.length; index += 100) {
+      const batch = await this.request(table, {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(rows.slice(index, index + 100)),
+      });
+      inserted.push(...(batch ?? []));
+    }
+    return inserted;
+  }
+
+  async rpc(functionName, body) {
+    return this.request(`rpc/${functionName}`, {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify(body),
+    });
   }
 
   async update(table, id, row) {

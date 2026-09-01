@@ -22,6 +22,18 @@ test('rejects duplicate question source keys', async () => {
   assert.throws(() => validateQuestionBank(bank, taxonomy), /Duplicate cpns sourceKey ID/);
 });
 
+test('rejects question mappings to unknown skills', async () => {
+  const [bank, taxonomy] = await Promise.all([
+    load('contracts/content/questions/cpns.v1.json'),
+    load('contracts/content/taxonomy.v1.json'),
+  ]);
+  bank.questions[0].primarySkillId = 'cpns.tiu.unknown';
+  assert.throws(
+    () => validateQuestionBank(bank, taxonomy),
+    /Unknown or disabled primary skill/,
+  );
+});
+
 test('rejects duplicate Store item IDs', async () => {
   const catalog = await load('contracts/content/store-catalog.v1.json');
   catalog.items[1].id = catalog.items[0].id;

@@ -214,4 +214,78 @@ void main() {
     );
     expect(session.questions.single.topicName, 'UUD 1945');
   });
+
+  test('attaches recommendations and requests server-authoritative hints', () async {
+    final List<http.Request> requests = <http.Request>[];
+    final BackendPracticeRepository repository = BackendPracticeRepository(
+      config: const PracticeApiConfig(
+        baseUrl: 'https://api.example.com',
+        accessToken: 'token-123',
+      ),
+      client: MockClient((http.Request request) async {
+        requests.add(request);
+        if (request.url.path.endsWith('/hint')) {
+          return http.Response(
+            jsonEncode(<String, Object?>{
+              'data': <String, Object?>{
+                'sessionId': 'session-1',
+                'sessionQuestionId': 'session-question-1',
+                'hint': 'Petunjuk otoritatif',
+                'hintRequestedAt': '2026-09-01T02:00:00.000Z',
+              },
+            }),
+            200,
+          );
+        }
+        return http.Response(
+          jsonEncode(<String, Object?>{
+            'data': <String, Object?>{
+              'sessionId': 'session-1',
+              'category': 'tiu',
+              'subcategory': 'numerik',
+              'totalQuestions': 1,
+              'questions': <Map<String, Object?>>[
+                <String, Object?>{
+                  'questionId': 'question-1',
+                  'questionRevisionId': 'revision-1',
+                  'sessionQuestionId': 'session-question-1',
+                  'skillId': 'cpns.tiu.numerik',
+                  'questionOrder': 1,
+                  'category': 'tiu',
+                  'subcategory': 'numerik',
+                  'prompt': 'Contoh soal',
+                  'options': <String>['Satu', 'Dua'],
+                  'hint': null,
+                  'hintAvailable': true,
+                  'timeLimitSeconds': 60,
+                },
+              ],
+            },
+          }),
+          201,
+        );
+      }),
+    );
+
+    final session = await repository.startRecommendedSession(
+      category: 'tiu',
+      subcategory: 'numerik',
+      recommendationId: 'recommendation-1',
+    );
+    final String hint = await repository.requestHint(
+      sessionId: session.id,
+      sessionQuestionId: session.questions.single.sessionQuestionId,
+    );
+
+    final Map<String, dynamic> sessionBody =
+        jsonDecode(requests.first.body) as Map<String, dynamic>;
+    final Map<String, dynamic> hintBody =
+        jsonDecode(requests.last.body) as Map<String, dynamic>;
+    expect(sessionBody['recommendationId'], 'recommendation-1');
+    expect(session.questions.single.hint, isEmpty);
+    expect(session.questions.single.hintAvailable, isTrue);
+    expect(session.questions.single.questionRevisionId, 'revision-1');
+    expect(hint, 'Petunjuk otoritatif');
+    expect(hintBody['idempotencyKey'], startsWith('mobile-practice-hint-'));
+  });
 }

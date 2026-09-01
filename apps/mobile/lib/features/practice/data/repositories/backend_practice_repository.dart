@@ -91,10 +91,33 @@ class BackendPracticeRepository implements PracticeRepository {
     required String category,
     String? subcategory,
   }) async {
-    final Map<String, dynamic> data = await _post(
-      '/practice/sessions',
-      <String, dynamic>{'category': category, 'subcategory': subcategory},
+    return _startSession(category: category, subcategory: subcategory);
+  }
+
+  @override
+  Future<PracticeSession> startRecommendedSession({
+    required String category,
+    String? subcategory,
+    required String recommendationId,
+  }) {
+    return _startSession(
+      category: category,
+      subcategory: subcategory,
+      recommendationId: recommendationId,
     );
+  }
+
+  Future<PracticeSession> _startSession({
+    required String category,
+    String? subcategory,
+    String? recommendationId,
+  }) async {
+    final Map<String, dynamic> data =
+        await _post('/practice/sessions', <String, dynamic>{
+          'category': category,
+          'subcategory': subcategory,
+          if (recommendationId != null) 'recommendationId': recommendationId,
+        });
     final List<PracticeQuestion> questions =
         (data['questions'] as List<dynamic>? ?? const <dynamic>[])
             .whereType<Map<String, dynamic>>()
@@ -114,6 +137,24 @@ class BackendPracticeRepository implements PracticeRepository {
       totalQuestions: _readInt(data['totalQuestions']),
       questions: questions,
     );
+  }
+
+  @override
+  Future<String> requestHint({
+    required String sessionId,
+    required String sessionQuestionId,
+  }) async {
+    final Map<String, dynamic> data = await _post(
+      '/practice/sessions/$sessionId/questions/$sessionQuestionId/hint',
+      <String, dynamic>{'idempotencyKey': _requestId('hint')},
+    );
+    final String hint = data['hint']?.toString().trim() ?? '';
+    if (hint.isEmpty) {
+      throw const PracticeApiException(
+        'Petunjuk tidak tersedia untuk soal ini.',
+      );
+    }
+    return hint;
   }
 
   @override
@@ -287,6 +328,11 @@ class BackendPracticeRepository implements PracticeRepository {
       hint: json['hint']?.toString() ?? '',
       questionOrder: _readInt(json['questionOrder']),
       timeLimitSeconds: _readInt(json['timeLimitSeconds']),
+      questionRevisionId: json['questionRevisionId']?.toString(),
+      skillId: json['skillId']?.toString(),
+      hintAvailable:
+          json['hintAvailable'] == true ||
+          (json['hint']?.toString().trim().isNotEmpty ?? false),
     );
   }
 

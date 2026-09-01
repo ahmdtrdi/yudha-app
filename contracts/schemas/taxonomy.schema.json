@@ -2,20 +2,41 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://yudha.local/contracts/taxonomy.schema.json",
   "type": "object",
-  "required": ["schemaVersion", "contentVersion", "approvalStatus", "smeApproved", "targets"],
+  "required": ["schemaVersion", "contentVersion", "approvalStatus", "smeApproved", "approverReference", "effectiveAt", "targets"],
   "properties": {
     "schemaVersion": { "const": 1 },
     "contentVersion": { "type": "string", "minLength": 1 },
     "approvalStatus": { "enum": ["development", "sme_approved"] },
     "smeApproved": { "type": "boolean" },
+    "approverReference": { "type": ["string", "null"] },
+    "effectiveAt": { "type": "string", "format": "date-time" },
     "targets": {
       "type": "array",
       "minItems": 2,
       "items": {
         "type": "object",
-        "required": ["id", "categories"],
+        "required": ["id", "skills", "categories"],
         "properties": {
           "id": { "enum": ["cpns", "bumn"] },
+          "skills": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["id", "category", "subcategory", "label", "enabled", "disabledReason", "curriculumWeight", "prerequisiteSkillIds", "required"],
+              "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "category": { "type": "string", "minLength": 1 },
+                "subcategory": { "type": ["string", "null"] },
+                "label": { "type": "string", "minLength": 1 },
+                "enabled": { "type": "boolean" },
+                "disabledReason": { "type": ["string", "null"] },
+                "curriculumWeight": { "type": "number", "exclusiveMinimum": 0 },
+                "prerequisiteSkillIds": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+                "required": { "type": "boolean" }
+              }
+            }
+          },
           "categories": { "type": "array", "minItems": 2 }
         }
       }

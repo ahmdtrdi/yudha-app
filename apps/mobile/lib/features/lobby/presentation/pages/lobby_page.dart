@@ -9,13 +9,25 @@ import 'package:yudha_mobile/features/economy/application/game_economy_providers
 import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
 import 'package:yudha_mobile/features/economy/presentation/widgets/economy_widgets.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
+import 'package:yudha_mobile/features/learning/application/learning_providers.dart';
+import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
 
-class LobbyPage extends ConsumerWidget {
+class LobbyPage extends ConsumerStatefulWidget {
   const LobbyPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LobbyPage> createState() => _LobbyPageState();
+}
+
+class _LobbyPageState extends ConsumerState<LobbyPage> {
+  String? _shownRecommendationId;
+
+  @override
+  Widget build(BuildContext context) {
     final progress = ref.watch(playerProgressProvider);
+    final LearningRecommendation? learningNextAction =
+        progress.learningNextAction;
+    _recordShown(learningNextAction);
     final GameEconomyState economy = ref.watch(gameEconomyProvider);
     final List<Map<String, Object?>> dailyMissions = progress.dailyMissions;
     final Map<String, Object?> practiceMission = dailyMissions.firstWhere(
@@ -137,16 +149,45 @@ class LobbyPage extends ConsumerWidget {
                         horizontal: compact ? 20 : 24,
                         vertical: compact ? 12 : 18,
                       ),
-                      child: Center(
-                        child: _QuestRoadmapSheet(
-                          compact: compact,
-                          practiceMission: practiceMission,
-                          pvpMission: pvpMission,
-                          onPracticeTap: () => context.go(AppRoutes.solo),
-                          onPvpTap: () => context.go(AppRoutes.pvp),
-                          onBattleTap: () => context.go(AppRoutes.pvp),
-                        ),
-                      ),
+                      child: learningNextAction == null
+                          ? Center(
+                              child: _QuestRoadmapSheet(
+                                compact: compact,
+                                practiceMission: practiceMission,
+                                pvpMission: pvpMission,
+                                onPracticeTap: () => context.go(AppRoutes.solo),
+                                onPvpTap: () => context.go(AppRoutes.pvp),
+                                onBattleTap: () => context.go(AppRoutes.pvp),
+                              ),
+                            )
+                          : SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: <Widget>[
+                                  _LobbyLearningCard(
+                                    recommendation: learningNextAction,
+                                    compact: compact,
+                                    onDashboard: () =>
+                                        context.go(AppRoutes.analytics),
+                                    onStart: learningNextAction.runnable
+                                        ? () => _startRecommendation(
+                                            learningNextAction,
+                                          )
+                                        : null,
+                                  ),
+                                  SizedBox(height: compact ? 12 : 16),
+                                  _QuestRoadmapSheet(
+                                    compact: compact,
+                                    practiceMission: practiceMission,
+                                    pvpMission: pvpMission,
+                                    onPracticeTap: () =>
+                                        context.go(AppRoutes.solo),
+                                    onPvpTap: () => context.go(AppRoutes.pvp),
+                                    onBattleTap: () => context.go(AppRoutes.pvp),
+                                  ),
+                                ],
+                              ),
+                            ),
                     ),
                   ),
                 ),
@@ -157,7 +198,138 @@ class LobbyPage extends ConsumerWidget {
       ),
     );
   }
+
+  void _recordShown(LearningRecommendation? recommendation) {
+    if (recommendation == null || _shownRecommendationId == recommendation.id) {
+      return;
+    }
+    _shownRecommendationId = recommendation.id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(learningControllerProvider.notifier).recordShown(recommendation);
+    });
+  }
+
+  Future<void> _startRecommendation(
+    LearningRecommendation recommendation,
+  ) async {
+    final bool accepted = await ref
+        .read(learningControllerProvider.notifier)
+        .accept(recommendation);
+    if (!mounted) return;
+    if (!accepted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rekomendasi belum dapat dimulai.')),
+      );
+      return;
+    }
+    context.go(AppRoutes.solo);
+    // TODO: Solo setup doesn't accept a focus/recommendationId deep link
+    // yet. Wire recommendation.subcategory/category + recommendation.id
+    // through once SoloSetupPage supports a launch request, so "Mulai"
+    // starts the recommended topic directly instead of landing on generic
+    // setup.
+  }
 }
+
+class _LobbyLearningCard extends StatelessWidget {
+  const _LobbyLearningCard({
+    required this.recommendation,
+    required this.compact,
+    required this.onDashboard,
+    required this.onStart,
+  });
+
+  final LearningRecommendation recommendation;
+  final bool compact;
+  final VoidCallback onDashboard;
+  final VoidCallback? onStart;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      label:
+          'Rekomendasi belajar ${recommendation.skillLabel}, bukti ${recommendation.confidence}',
+      child: Container(
+        key: const ValueKey<String>('lobby-learning-recommendation'),
+        padding: EdgeInsets.all(compact ? 13 : 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEAF2FF),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFB7D0FF)),
+        ),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: compact ? 38 : 44,
+              height: compact ? 38 : 44,
+              decoration: const BoxDecoration(
+                color: Color(0xFF0D49B5),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.auto_graph_rounded, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    recommendation.objectiveLabel,
+                    style: const TextStyle(
+                      color: AppColors.warriorNavy,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    recommendation.skillLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textStrong,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    '${recommendation.compatibilityLabel ?? 'Mekanik ${recommendation.mechanicMode}'} · bukti ${_lobbyConfidence(recommendation.confidence)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 9.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: 'Lihat dashboard Learning',
+              onPressed: onDashboard,
+              icon: const Icon(Icons.insights_rounded),
+            ),
+            FilledButton(
+              onPressed: onStart,
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              child: const Text('Mulai'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _lobbyConfidence(String value) => switch (value) {
+  'high' => 'tinggi',
+  'medium' => 'sedang',
+  _ => 'rendah',
+};
 
 class _LobbyProfileHeader extends StatelessWidget {
   const _LobbyProfileHeader({

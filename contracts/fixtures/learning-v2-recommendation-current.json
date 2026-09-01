@@ -1,0 +1,41 @@
+{
+  "data": {
+    "recommendationId": "20000000-0000-4000-8000-000000000001",
+    "generatedAt": "2026-09-01T02:00:00.000Z",
+    "expiresAt": "2026-09-02T02:00:00.000Z",
+    "calculationVersion": "learning-v1",
+    "evidenceClassificationVersion": "evidence-v1",
+    "target": "cpns",
+    "objective": "repair_accuracy",
+    "skill": {
+      "id": "cpns.tiu.numerik",
+      "label": "TIU Numerik",
+      "category": "tiu",
+      "subcategory": "numerik"
+    },
+    "mechanicMode": "focus",
+    "questionSelection": {
+      "type": "recommended",
+      "skillIds": ["cpns.tiu.numerik"]
+    },
+    "reason": {
+      "headline": "Perkuat TIU Numerik",
+      "description": "Akurasi mandiri terbaru masih membutuhkan perbaikan.",
+      "evidence": [
+        {
+          "metric": "smoothed_unseen_independent_accuracy",
+          "value": 60,
+          "attemptCount": 9,
+          "confidence": "medium"
+        }
+      ]
+    },
+    "confidence": "medium",
+    "availability": {
+      "runnable": true,
+      "reason": null,
+      "compatibilityAdapter": "practice_fixed_five",
+      "label": "Practice 5 soal (kompatibilitas)"
+    }
+  }
+}

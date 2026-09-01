@@ -334,6 +334,22 @@ describe('MatchService distributed coordination', () => {
     );
   });
 
+  it.each(['casual', 'ranked'] as const)(
+    'combines both recommendation profiles for %s PvP',
+    async (mode) => {
+      await service.registerSocket('socket-a', 'player-a');
+      await service.registerSocket('socket-b', 'player-b');
+      await service.handleJoinQueue('player-a', 'socket-a', { mode });
+      await service.handleJoinQueue('player-b', 'socket-b', { mode });
+
+      expect(questions.getMatchQuestionPool).toHaveBeenCalledWith(
+        'cpns',
+        undefined,
+        ['player-a', 'player-b'],
+      );
+    },
+  );
+
   it('rejects Redis-backed matchmaking during outage but keeps Bot mode local', async () => {
     coordination.available = false;
     const unavailable = await service.handleJoinQueue('player-a', 'socket-a', {
@@ -490,6 +506,11 @@ describe('MatchService distributed coordination', () => {
         (emit) => emit.event === SERVER_MATCH_EVENTS.matchFound,
       ),
     ).toHaveLength(2);
+    expect(questions.getMatchQuestionPool).toHaveBeenCalledWith(
+      'cpns',
+      undefined,
+      ['player-a', 'player-b'],
+    );
     expect(reused.ack).toEqual(
       expect.objectContaining({
         error: expect.objectContaining({ code: 'ROOM_CODE_INVALID' }),

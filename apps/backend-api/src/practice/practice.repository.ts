@@ -60,6 +60,34 @@ export class PracticeRepository {
     });
   }
 
+  async createLearningV2Session(
+    userId: string,
+    category: string | null,
+    subcategory: string | null,
+    recommendationId: string | null,
+  ): Promise<Record<string, any>> {
+    return this.callJsonRpc('create_practice_session_learning_v2', {
+      p_user_id: userId,
+      p_category: category,
+      p_subcategory: subcategory,
+      p_recommendation_id: recommendationId,
+    });
+  }
+
+  async requestLearningV2Hint(input: {
+    userId: string;
+    sessionId: string;
+    sessionQuestionId: string;
+    idempotencyKey: string;
+  }): Promise<Record<string, any>> {
+    return this.callJsonRpc('request_practice_hint_learning_v2', {
+      p_user_id: input.userId,
+      p_session_id: input.sessionId,
+      p_session_question_id: input.sessionQuestionId,
+      p_idempotency_key: input.idempotencyKey,
+    });
+  }
+
   async submitTransactionalAnswer(input: {
     userId: string;
     sessionId: string;
@@ -80,12 +108,42 @@ export class PracticeRepository {
     });
   }
 
+  async submitLearningV2Answer(input: {
+    userId: string;
+    sessionId: string;
+    idempotencyKey: string;
+    sessionQuestionId: string;
+    selectedOptionIndex: number;
+    responseTimeMs: number | null;
+  }): Promise<Record<string, any>> {
+    return this.callJsonRpc('submit_practice_answer_learning_v2', {
+      p_user_id: input.userId,
+      p_session_id: input.sessionId,
+      p_idempotency_key: input.idempotencyKey,
+      p_session_question_id: input.sessionQuestionId,
+      p_selected_option_index: input.selectedOptionIndex,
+      p_response_time_ms: input.responseTimeMs,
+    });
+  }
+
   async finishTransactionalSession(
     userId: string,
     sessionId: string,
     idempotencyKey: string,
   ): Promise<Record<string, any>> {
     return this.callJsonRpc('finish_practice_session', {
+      p_user_id: userId,
+      p_session_id: sessionId,
+      p_idempotency_key: idempotencyKey,
+    });
+  }
+
+  async finishLearningV2Session(
+    userId: string,
+    sessionId: string,
+    idempotencyKey: string,
+  ): Promise<Record<string, any>> {
+    return this.callJsonRpc('finish_practice_session_learning_v2', {
       p_user_id: userId,
       p_session_id: sessionId,
       p_idempotency_key: idempotencyKey,

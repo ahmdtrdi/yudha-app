@@ -8,6 +8,7 @@ import 'package:yudha_mobile/core/theme/app_typography.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/practice/application/practice_providers.dart';
 import 'package:yudha_mobile/features/practice/application/practice_state.dart';
+import 'package:yudha_mobile/features/practice/domain/entities/practice_launch_request.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_recent_activity.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_topic.dart';
 import 'package:yudha_mobile/features/practice/presentation/widgets/practice_activity_tile.dart';
@@ -23,9 +24,15 @@ abstract final class _PracticeColors {
 enum _PracticeCategoryTone { cyan, lime, orange }
 
 class PracticePage extends ConsumerStatefulWidget {
-  const PracticePage({super.key, this.focusCategory, this.onTopicSelected});
+  const PracticePage({
+    super.key,
+    this.focusCategory,
+    this.launchRequest,
+    this.onTopicSelected,
+  });
 
   final String? focusCategory;
+  final PracticeLaunchRequest? launchRequest;
   final ValueChanged<PracticeTopic>? onTopicSelected;
 
   @override
@@ -39,7 +46,8 @@ class _PracticePageState extends ConsumerState<PracticePage> {
   @override
   void didUpdateWidget(covariant PracticePage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.focusCategory != widget.focusCategory) {
+    if (oldWidget.focusCategory != widget.focusCategory ||
+        oldWidget.launchRequest != widget.launchRequest) {
       _focusLaunchHandled = false;
       _focusLaunchScheduled = false;
     }
@@ -260,7 +268,10 @@ class _PracticePageState extends ConsumerState<PracticePage> {
 
   void _scheduleFocusedPractice(PracticeState state) {
     if (widget.onTopicSelected != null) return;
-    final String focusCategory = widget.focusCategory?.trim() ?? '';
+    final String focusCategory =
+        widget.launchRequest?.focus.trim() ??
+        widget.focusCategory?.trim() ??
+        '';
     if (_focusLaunchHandled ||
         _focusLaunchScheduled ||
         focusCategory.isEmpty ||
@@ -275,7 +286,10 @@ class _PracticePageState extends ConsumerState<PracticePage> {
       _focusLaunchScheduled = false;
       final bool started = await ref
           .read(practiceControllerProvider.notifier)
-          .startRecommendedSession(focusCategory);
+          .startRecommendedSession(
+            focusCategory,
+            recommendationId: widget.launchRequest?.recommendationId,
+          );
       if (!mounted) {
         return;
       }
@@ -585,30 +599,25 @@ class _PracticeCategorySpec {
       category: 'twk',
       tone: _PracticeCategoryTone.orange,
       subcategoryOrder: <String>[
-        'pancasila_ideologi',
-        'konstitusi_negara',
-        'sejarah_kebangsaan',
+        'pancasila_dan_ideologi',
+        'konstitusi_dan_negara',
+        'sejarah_dan_kebangsaan',
         'bhinneka_tunggal_ika',
       ],
     ),
     _PracticeCategorySpec(
       category: 'tiu',
       tone: _PracticeCategoryTone.cyan,
-      subcategoryOrder: <String>[
-        'kemampuan_verbal',
-        'kemampuan_numerik',
-        'kemampuan_logis',
-        'kemampuan_figural',
-      ],
+      subcategoryOrder: <String>['verbal', 'numerik', 'logis', 'figural'],
     ),
     _PracticeCategorySpec(
       category: 'tkp',
       tone: _PracticeCategoryTone.lime,
       subcategoryOrder: <String>[
-        'pelayanan_integritas',
-        'kerja_sama_komunikasi',
-        'adaptasi_pengembangan_diri',
-        'pengambilan_keputusan_kinerja',
+        'pelayanan_dan_integritas',
+        'kerja_sama_dan_komunikasi',
+        'adaptasi_dan_pengembangan_diri',
+        'pengambilan_keputusan_dan_kinerja',
       ],
     ),
   ];
@@ -617,12 +626,7 @@ class _PracticeCategorySpec {
     _PracticeCategorySpec(
       category: 'tkd',
       tone: _PracticeCategoryTone.cyan,
-      subcategoryOrder: <String>[
-        'kemampuan_verbal',
-        'kemampuan_numerik',
-        'kemampuan_logis',
-        'kemampuan_figural',
-      ],
+      subcategoryOrder: <String>['verbal', 'numerik', 'logis', 'figural'],
     ),
     _PracticeCategorySpec(
       category: 'akhlak',

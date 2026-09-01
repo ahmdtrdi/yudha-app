@@ -60,6 +60,43 @@ Live PvP should still prefer backend-generated payloads instead of direct table 
 
 `public.practice_answers` stores each answer in a session, including selected option, correctness, hint usage, and response time.
 
+## Learning Analytics V2 Foundation
+
+The additive Learning V2 migration keeps the fixed-five Practice flow intact
+while introducing a separate canonical evidence and projection boundary:
+
+- `learning_taxonomy_versions`, `learning_skills`, `question_revisions`, and
+  `question_skill_mappings` hold versioned content authority. Question answers
+  and explanations remain server-only.
+- `learner_question_exposures` records lifetime presentation counts without
+  inventing exposure for legacy rows.
+- `learning_attempts` is the append-only, source-idempotent evidence ledger.
+  Versioned `learning_attempt_classifications` decide which metrics each row may
+  enter, and `learning_attempt_invalidations` correct evidence without rewriting it.
+- `learning_projection_jobs`, `learner_skill_state`, and
+  `retention_schedules` hold rebuild work and versioned prepared learner state.
+- `learning_recommendations` and append-only `recommendation_events` preserve
+  deterministic inputs, availability, expiry, and lifecycle attribution.
+- `assessment_evidence` is a minimal import boundary and remains separate from
+  Solo proficiency.
+- `learning_backfill_runs` and `learning_fixture_runs` make replay, test data,
+  and invalidation auditable.
+
+Practice rows gain nullable recommendation, revision, skill, exposure, hint,
+and canonical-attempt references. Existing rows retain
+`evidence_capture_version = legacy-practice-v1`; no historical revision, hint,
+exposure, timing, or skill eligibility is fabricated. Authenticated legacy
+column writes remain available where they existed, but every new V2 snapshot
+column is service-role-authoritative.
+
+The runtime migration adds service-role-only compatibility RPCs that snapshot a
+question revision, primary skill, and lifetime exposure when Practice presents
+a question; record hints before returning their text; and insert a Practice
+answer plus canonical attempt/classification atomically. It also adds a
+claimable projection queue, initial-profile queueing, and the prepared-state
+columns required by `learning-v1`. Fixture-run deletion is restricted so audit
+metadata cannot cascade-delete canonical evidence.
+
 ## PvP Match History
 
 `public.match_results` stores one final row per finished match.

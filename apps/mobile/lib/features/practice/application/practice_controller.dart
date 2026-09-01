@@ -70,16 +70,19 @@ class PracticeController extends StateNotifier<PracticeState> {
 
   Future<void> reload() => load();
 
-  Future<bool> startSession(String topicId) async {
+  Future<bool> startSession(String topicId, {String? recommendationId}) async {
     final PracticeTopic? topic = _findTopic(topicId);
     if (topic == null || topic.isLocked) {
       return false;
     }
 
-    return startTopic(topic);
+    return startTopic(topic, recommendationId: recommendationId);
   }
 
-  Future<bool> startTopic(PracticeTopic topic) async {
+  Future<bool> startTopic(
+    PracticeTopic topic, {
+    String? recommendationId,
+  }) async {
     if (topic.isLocked) {
       return false;
     }
@@ -94,10 +97,16 @@ class PracticeController extends StateNotifier<PracticeState> {
     );
 
     try {
-      final PracticeSession session = await _repository.startSession(
-        category: topic.category,
-        subcategory: topic.subcategory,
-      );
+      final PracticeSession session = recommendationId == null
+          ? await _repository.startSession(
+              category: topic.category,
+              subcategory: topic.subcategory,
+            )
+          : await _repository.startRecommendedSession(
+              category: topic.category,
+              subcategory: topic.subcategory,
+              recommendationId: recommendationId,
+            );
       if (session.questions.length != session.totalQuestions) {
         throw StateError('Jumlah soal sesi tidak sesuai respons server.');
       }
@@ -130,7 +139,10 @@ class PracticeController extends StateNotifier<PracticeState> {
     }
   }
 
-  Future<bool> startRecommendedSession(String battleCategory) {
+  Future<bool> startRecommendedSession(
+    String battleCategory, {
+    String? recommendationId,
+  }) {
     final PracticeTopic? topic = _findRecommendedTopic(battleCategory);
     if (topic == null) {
       state = state.copyWith(
@@ -139,7 +151,7 @@ class PracticeController extends StateNotifier<PracticeState> {
       );
       return Future<bool>.value(false);
     }
-    return startSession(topic.id);
+    return startSession(topic.id, recommendationId: recommendationId);
   }
 
   void selectOption(String optionId) {
@@ -163,6 +175,7 @@ class PracticeController extends StateNotifier<PracticeState> {
     final String? selectedOptionId = state.selectedOptionId;
     if (state.status != PracticeViewStatus.ready ||
         state.isCurrentQuestionSubmitted ||
+        state.hintState == PracticeHintState.loading ||
         question == null ||
         sessionId == null ||
         selectedOptionId == null) {
@@ -249,12 +262,57 @@ class PracticeController extends StateNotifier<PracticeState> {
     return startTopic(topic);
   }
 
-  void unlockHint() {
+  Future<bool> unlockHint() async {
     if (state.status != PracticeViewStatus.ready ||
         state.isCurrentQuestionSubmitted) {
-      return;
+      return false;
     }
-    state = state.copyWith(hintState: PracticeHintState.unlocked);
+    final PracticeQuestion? question = state.currentQuestion;
+    final String? sessionId = state.sessionId;
+    if (question == null || sessionId == null || !question.hintAvailable) {
+      state = state.copyWith(
+        errorMessage: 'Petunjuk tidak tersedia untuk soal ini.',
+      );
+      return false;
+    }
+    if (question.hint.trim().isNotEmpty) {
+      state = state.copyWith(
+        hintState: PracticeHintState.unlocked,
+        clearError: true,
+      );
+      return true;
+    }
+    state = state.copyWith(
+      hintState: PracticeHintState.loading,
+      clearError: true,
+    );
+    try {
+      final String hint = await _repository.requestHint(
+        sessionId: sessionId,
+        sessionQuestionId: question.sessionQuestionId,
+      );
+      if (state.sessionId != sessionId ||
+          state.currentQuestion?.sessionQuestionId !=
+              question.sessionQuestionId) {
+        return false;
+      }
+      final List<PracticeQuestion> questions = List<PracticeQuestion>.from(
+        state.questions,
+      );
+      questions[state.currentQuestionIndex] = question.copyWith(hint: hint);
+      state = state.copyWith(
+        questions: questions,
+        hintState: PracticeHintState.unlocked,
+        clearError: true,
+      );
+      return true;
+    } catch (error) {
+      state = state.copyWith(
+        hintState: PracticeHintState.locked,
+        errorMessage: _messageFor(error, 'Petunjuk gagal dimuat.'),
+      );
+      return false;
+    }
   }
 
   PracticeTopic? _findTopic(String topicId) {

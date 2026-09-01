@@ -103,7 +103,11 @@ describe('BotBattleService', () => {
     it('fetches question pool from QuestionService', async () => {
       await service.createBotMatch('user-a', 'socket-a');
 
-      expect(mockQuestionService.getMatchQuestionPool).toHaveBeenCalledWith('cpns');
+      expect(mockQuestionService.getMatchQuestionPool).toHaveBeenCalledWith(
+        'cpns',
+        undefined,
+        ['user-a'],
+      );
     });
   });
 

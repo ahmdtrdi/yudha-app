@@ -2,8 +2,13 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
+import { learningV2Enabled } from '../learning/learning.constants';
+import { LearningProjectionService } from '../learning/learning.projection.service';
+import type { LearningTarget } from '../learning/learning.types';
 import { CreatePracticeSessionDto } from './dto/create-practice-session.dto';
+import { RequestPracticeHintDto } from './dto/request-practice-hint.dto';
 import { PracticeHistoryQueryDto } from './dto/practice-history-query.dto';
 import { SubmitPracticeAnswerDto } from './dto/submit-practice-answer.dto';
 import { FinishPracticeSessionDto } from './dto/finish-practice-session.dto';
@@ -18,7 +23,10 @@ import {
 
 @Injectable()
 export class PracticeService {
-  constructor(private readonly repository: PracticeRepository) {}
+  constructor(
+    private readonly repository: PracticeRepository,
+    private readonly learningProjections: LearningProjectionService,
+  ) {}
 
   async getDashboard(userId: string) {
     const target = await this.repository.getUserTarget(userId);
@@ -63,11 +71,50 @@ export class PracticeService {
     if (subcategory && !category) {
       throw new BadRequestException('category is required with subcategory.');
     }
-    const data = await this.repository.createTransactionalSession(
-      userId,
-      category,
-      subcategory,
+    const recommendationId = this.optionalText(
+      input.recommendationId,
+      'recommendationId',
+      80,
     );
+    const data = learningV2Enabled()
+      ? await this.repository.createLearningV2Session(
+          userId,
+          category,
+          subcategory,
+          recommendationId,
+        )
+      : await this.repository.createTransactionalSession(
+          userId,
+          category,
+          subcategory,
+        );
+    return { data };
+  }
+
+  async requestHint(
+    userId: string,
+    sessionId: string,
+    sessionQuestionId: string,
+    input: RequestPracticeHintDto,
+  ) {
+    if (!learningV2Enabled()) {
+      throw new ServiceUnavailableException('LEARNING_V2_DISABLED');
+    }
+    const idempotencyKey = this.requireText(
+      input.idempotencyKey,
+      'idempotencyKey',
+      160,
+    );
+    const data = await this.repository.requestLearningV2Hint({
+      userId,
+      sessionId,
+      sessionQuestionId: this.requireText(
+        sessionQuestionId,
+        'sessionQuestionId',
+        80,
+      ),
+      idempotencyKey,
+    });
     return { data };
   }
 
@@ -90,7 +137,12 @@ export class PracticeService {
         totalScore: session.total_score,
         startedAt: session.started_at,
         finishedAt: session.finished_at,
-        questions: details.map((detail) => this.toSessionQuestion(detail)),
+        questions: details.map((detail) =>
+          this.toSessionQuestion(
+            detail,
+            session.evidence_capture_version === 'compatibility-practice-v2',
+          ),
+        ),
       },
     };
   }
@@ -117,18 +169,37 @@ export class PracticeService {
       input.responseTimeMs,
       'responseTimeMs',
     );
-    if (typeof input.usedHint !== 'boolean') {
+    const session = await this.repository.getOwnedSession(sessionId, userId);
+    const useLearningV2 =
+      learningV2Enabled() &&
+      session.evidence_capture_version === 'compatibility-practice-v2';
+    if (!useLearningV2 && typeof input.usedHint !== 'boolean') {
       throw new BadRequestException('usedHint must be a boolean.');
     }
-    const data = await this.repository.submitTransactionalAnswer({
-      userId,
-      sessionId,
-      idempotencyKey,
-      sessionQuestionId,
-      selectedOptionIndex,
-      responseTimeMs,
-      usedHint: input.usedHint,
-    });
+    const data = useLearningV2
+      ? await this.repository.submitLearningV2Answer({
+          userId,
+          sessionId,
+          idempotencyKey,
+          sessionQuestionId,
+          selectedOptionIndex,
+          responseTimeMs,
+        })
+      : await this.repository.submitTransactionalAnswer({
+          userId,
+          sessionId,
+          idempotencyKey,
+          sessionQuestionId,
+          selectedOptionIndex,
+          responseTimeMs,
+          usedHint: input.usedHint!,
+        });
+    if (useLearningV2 && data.progress?.isFinished === true) {
+      await this.learningProjections.rebuildAndDrainUser(
+        userId,
+        session.target as LearningTarget,
+      );
+    }
     return { data };
   }
 
@@ -142,11 +213,27 @@ export class PracticeService {
       'idempotencyKey',
       160,
     );
-    const data = await this.repository.finishTransactionalSession(
-      userId,
-      sessionId,
-      idempotencyKey,
-    );
+    const session = await this.repository.getOwnedSession(sessionId, userId);
+    const useLearningV2 =
+      learningV2Enabled() &&
+      session.evidence_capture_version === 'compatibility-practice-v2';
+    const data = useLearningV2
+      ? await this.repository.finishLearningV2Session(
+          userId,
+          sessionId,
+          idempotencyKey,
+        )
+      : await this.repository.finishTransactionalSession(
+          userId,
+          sessionId,
+          idempotencyKey,
+        );
+    if (useLearningV2) {
+      await this.learningProjections.rebuildAndDrainUser(
+        userId,
+        session.target as LearningTarget,
+      );
+    }
     return { data };
   }
 
@@ -321,6 +408,7 @@ export class PracticeService {
   private toSafeQuestion(
     sessionQuestion: PracticeSessionQuestionRow,
     question: PracticeQuestionRow,
+    hideHint = false,
   ) {
     return {
       sessionQuestionId: sessionQuestion.id,
@@ -337,15 +425,18 @@ export class PracticeService {
       damageValue: question.damage_value,
       healValue: question.heal_value,
       timeLimitSeconds: question.time_limit_seconds,
-      hint: question.hint,
+      ...(hideHint ? {} : { hint: question.hint }),
+      hintAvailable: Boolean(question.hint),
+      questionRevisionId: sessionQuestion.question_revision_id ?? null,
+      skillId: sessionQuestion.skill_id ?? null,
     };
   }
 
-  private toSessionQuestion(detail: SessionQuestionDetail) {
+  private toSessionQuestion(detail: SessionQuestionDetail, hideHint = false) {
     const answer = detail.answer;
 
     return {
-      ...this.toSafeQuestion(detail.sessionQuestion, detail.question),
+      ...this.toSafeQuestion(detail.sessionQuestion, detail.question, hideHint),
       answered: Boolean(answer),
       selectedOptionIndex: answer?.selected_option_index ?? null,
       isCorrect: answer?.is_correct ?? null,

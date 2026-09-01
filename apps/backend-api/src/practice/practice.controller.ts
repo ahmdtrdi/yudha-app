@@ -12,6 +12,7 @@ import { SupabaseAuthGuard } from '../auth/guards/supabase-auth.guard';
 import { CreatePracticeSessionDto } from './dto/create-practice-session.dto';
 import { FinishPracticeSessionDto } from './dto/finish-practice-session.dto';
 import { PracticeHistoryQueryDto } from './dto/practice-history-query.dto';
+import { RequestPracticeHintDto } from './dto/request-practice-hint.dto';
 import { SubmitPracticeAnswerDto } from './dto/submit-practice-answer.dto';
 import { PracticeService } from './practice.service';
 
@@ -60,6 +61,21 @@ export class PracticeController {
     @Body() input: SubmitPracticeAnswerDto,
   ) {
     return this.practiceService.submitAnswer(user.id, sessionId, input);
+  }
+
+  @Post('sessions/:sessionId/questions/:sessionQuestionId/hint')
+  requestHint(
+    @GetUser() user: AuthenticatedUser,
+    @Param('sessionId') sessionId: string,
+    @Param('sessionQuestionId') sessionQuestionId: string,
+    @Body() input: RequestPracticeHintDto,
+  ) {
+    return this.practiceService.requestHint(
+      user.id,
+      sessionId,
+      sessionQuestionId,
+      input,
+    );
   }
 
   @Post('sessions/:sessionId/finish')

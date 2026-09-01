@@ -6,6 +6,11 @@ import 'package:yudha_mobile/features/economy/application/game_economy_controlle
 import 'package:yudha_mobile/features/economy/application/game_economy_providers.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_controller.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
+import 'package:yudha_mobile/features/gamification/data/models/player_progress_snapshot.dart';
+import 'package:yudha_mobile/features/gamification/data/repositories/player_progress_repository.dart';
+import 'package:yudha_mobile/features/learning/application/learning_providers.dart';
+import 'package:yudha_mobile/features/learning/data/repositories/learning_repository.dart';
+import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
 import 'package:yudha_mobile/features/lobby/presentation/pages/lobby_page.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
 
@@ -399,4 +404,94 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('renders the additive learning recommendation with confidence', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final PlayerProgressController progress = PlayerProgressController(
+      repository: const _LearningProgressRepository(),
+    );
+    await progress.hydrateFromRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          playerProgressProvider.overrideWith((Ref ref) => progress),
+          gameEconomyProvider.overrideWith((Ref ref) => GameEconomyController()),
+          learningRepositoryProvider.overrideWithValue(
+            const _LobbyLearningRepository(),
+          ),
+        ],
+        child: const MaterialApp(home: LobbyPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('lobby-learning-recommendation')),
+      findsOneWidget,
+    );
+    expect(find.text('TIU Numerik'), findsOneWidget);
+    expect(find.textContaining('bukti sedang'), findsOneWidget);
+    expect(find.text('Mulai'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+class _LearningProgressRepository extends PlayerProgressRepository {
+  const _LearningProgressRepository();
+
+  @override
+  Future<PlayerProgressSnapshot> fetchCurrentProgress() async {
+    return PlayerProgressSnapshot(
+      playerId: 'user-1',
+      displayName: 'Yudha',
+      totalPoints: 100,
+      wins: 1,
+      losses: 0,
+      draws: 0,
+      learningNextAction: LearningRecommendation.fromJson(
+        <String, dynamic>{
+          'recommendationId': 'recommendation-1',
+          'target': 'cpns',
+          'objective': 'repair_accuracy',
+          'skill': <String, dynamic>{
+            'id': 'cpns.tiu.numerik',
+            'label': 'TIU Numerik',
+            'category': 'tiu',
+            'subcategory': 'numerik',
+          },
+          'mechanicMode': 'focus',
+          'reason': <String, dynamic>{
+            'headline': 'Perkuat TIU Numerik',
+            'description': 'Bukti terbaru menunjukkan ruang perbaikan.',
+          },
+          'confidence': 'medium',
+          'availability': <String, dynamic>{
+            'runnable': true,
+            'compatibilityAdapter': 'practice_fixed_five',
+            'label': 'Practice 5 soal (kompatibilitas)',
+          },
+        },
+      ),
+    );
+  }
+}
+
+class _LobbyLearningRepository implements LearningRepository {
+  const _LobbyLearningRepository();
+
+  @override
+  Future<LearningDashboard> fetchDashboard() {
+    throw StateError('Lobby does not need the dashboard payload.');
+  }
+
+  @override
+  Future<void> recordRecommendationEvent({
+    required String recommendationId,
+    required String eventType,
+    String? dismissalReason,
+  }) async {}
 }

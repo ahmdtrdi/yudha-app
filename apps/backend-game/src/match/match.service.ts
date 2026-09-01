@@ -356,7 +356,11 @@ export class MatchService {
     this.clearQueueLease(userId);
     let cards: InternalCard[];
     try {
-      cards = await this.questions.getMatchQuestionPool(profile.target);
+      cards = await this.questions.getMatchQuestionPool(
+        profile.target,
+        undefined,
+        [queueResult.opponent.userId, queueResult.entry.userId],
+      );
     } catch (error) {
       await this.coordination.restorePublicPair([
         queueResult.opponent,
@@ -588,6 +592,8 @@ export class MatchService {
         try {
           cards = await this.questions.getMatchQuestionPool(
             profile.profile.target,
+            undefined,
+            [validation.reservation.owner.userId, profile.profile.userId],
           );
         } catch {
           return this.privateError(

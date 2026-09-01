@@ -15,6 +15,21 @@ abstract class PracticeRepository {
     String? subcategory,
   });
 
+  Future<PracticeSession> startRecommendedSession({
+    required String category,
+    String? subcategory,
+    required String recommendationId,
+  }) {
+    return startSession(category: category, subcategory: subcategory);
+  }
+
+  Future<String> requestHint({
+    required String sessionId,
+    required String sessionQuestionId,
+  }) {
+    throw UnsupportedError('Server-tracked hints are not implemented.');
+  }
+
   Future<PracticeAnswerResult> submitAnswer({
     required String sessionId,
     required String sessionQuestionId,

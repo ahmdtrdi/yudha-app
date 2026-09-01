@@ -1,6 +1,5 @@
 abstract final class AppRoutes {
   static const String returnToQueryParameter = 'returnTo';
-
   static const String splash = '/splash';
   static const String login = '/login';
   static const String profileSetup = '/profile-setup';
@@ -19,7 +18,6 @@ abstract final class AppRoutes {
   static const String interviewSession = '/interview/session';
   static const String store = '/store';
   static const String hiredPass = '/hired-pass';
-
   static const String legacyPractice = '/practice';
   static const String legacyPracticeHistory = '/practice/history';
   static const String legacyPracticeQuiz = '/practice/quiz';
