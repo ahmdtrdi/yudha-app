@@ -1,4 +1,4 @@
-export type CardEffect = 'damage' | 'heal';
+export type CardEffect = "damage" | "heal";
 
 export type PublicQuestionCard = {
   id: string;
@@ -7,5 +7,7 @@ export type PublicQuestionCard = {
   weight: number;
   effect: CardEffect;
   category?: string;
+  subcategory?: string;
   timeLimitSeconds?: number;
+  isExhausted?: boolean;
 };

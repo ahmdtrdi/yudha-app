@@ -148,9 +148,7 @@ class _InBattleSectionState extends State<_InBattleSection>
       vsync: this,
       duration: const Duration(milliseconds: 1100),
     )..repeat(reverse: true);
-    _hand = widget.state.availableQuestions.take(4).toList();
-    _notice = widget.state.errorMessage;
-    _noticeIsError = true;
+    _hand = _buildDeckHand(widget.state.availableQuestions);
     _arenaAudio.playCountdown();
     _startCountdownTimer();
   }
@@ -272,35 +270,10 @@ class _InBattleSectionState extends State<_InBattleSection>
         currentSeconds <= 30 &&
         !_rushModeAnnounced) {
       _rushModeAnnounced = true;
-      _showNotice('🔥 RUSH MODE: 30 DETIK TERAKHIR! 🔥');
       GameHaptics(widget.hapticsEnabled).heavy();
     } else if (widget.state.phase != BattlePhase.inBattle) {
       _rushModeAnnounced = false;
     }
-
-    final String? newError = widget.state.errorMessage;
-    final String? oldError = oldWidget.state.errorMessage;
-    if (newError != null && newError != oldError) {
-      _showNotice(newError, isError: true);
-    }
-
-    final String? newStatus = widget.state.statusMessage;
-    final String? oldStatus = oldWidget.state.statusMessage;
-    if (newStatus != null &&
-        newStatus != oldStatus &&
-        _shouldShowArenaStatus(newStatus) &&
-        widget.state.phase == BattlePhase.inBattle &&
-        widget.state.opponentConnected &&
-        newError == null) {
-      _showNotice(newStatus);
-    }
-  }
-
-  bool _shouldShowArenaStatus(String status) {
-    return status != 'Battle sedang berlangsung.' &&
-        !status.startsWith('Jawaban dikirim') &&
-        !status.startsWith('Pilih satu jawaban') &&
-        !status.startsWith('Kartu terbuka');
   }
 
   void _startCountdownTimer() {
@@ -341,26 +314,32 @@ class _InBattleSectionState extends State<_InBattleSection>
   }
 
   void _rebuildHand() {
-    final Set<String> availableIds = widget.state.availableQuestions
-        .map((BattleQuestion question) => question.id)
-        .toSet();
-    final List<BattleQuestion> nextHand = _hand
-        .where((BattleQuestion question) => availableIds.contains(question.id))
-        .take(4)
-        .toList();
-    final Set<String> retainedIds = nextHand
-        .map((BattleQuestion question) => question.id)
-        .toSet();
+    _hand = _buildDeckHand(widget.state.availableQuestions);
+  }
 
-    for (final BattleQuestion question in widget.state.availableQuestions) {
-      if (nextHand.length == 4) {
-        break;
-      }
-      if (retainedIds.add(question.id)) {
-        nextHand.add(question);
+  List<BattleQuestion> _buildDeckHand(List<BattleQuestion> questions) {
+    final List<String> categoryOrder = switch (widget.state.battleTarget) {
+      BattleTarget.bumn => const <String>[
+        'wawasan_kebangsaan',
+        'tkd',
+        'akhlak',
+      ],
+      BattleTarget.cpns || null => const <String>['twk', 'tiu', 'tkp'],
+    };
+    final List<BattleQuestion> decks = <BattleQuestion>[];
+    final Set<String> selectedIds = <String>{};
+
+    for (final String category in categoryOrder) {
+      for (final BattleQuestion question in questions) {
+        if (question.category.trim().toLowerCase() == category &&
+            selectedIds.add(question.id)) {
+          decks.add(question);
+          break;
+        }
       }
     }
-    _hand = nextHand;
+
+    return decks;
   }
 
   void _prepareBattleEffect({
@@ -588,6 +567,7 @@ class _InBattleSectionState extends State<_InBattleSection>
   void _showAnswerResult({required bool correct}) {
     _answerResultTimer?.cancel();
     _answerResultCorrect = correct;
+    _showNotice(correct ? 'Benar!' : 'Salah!', isError: !correct);
     _answerResultTimer = Timer(const Duration(milliseconds: 1500), () {
       if (!mounted) {
         return;
@@ -634,6 +614,23 @@ class _InBattleSectionState extends State<_InBattleSection>
         });
       }
     }
+  }
+
+  void _handleExhaustedQuestion(BattleQuestion question) {
+    if (!_countdownDone ||
+        _interactionLocked ||
+        _pauseOpen ||
+        widget.state.phase != BattlePhase.inBattle) {
+      return;
+    }
+    GameHaptics(widget.hapticsEnabled).medium();
+    final String category = question.category
+        .trim()
+        .replaceAll(RegExp(r'[_-]+'), ' ')
+        .toUpperCase();
+    setState(() {
+      _showNotice('${category.isEmpty ? 'KARTU' : category} habis');
+    });
   }
 
   Future<void> _handlePause() async {
@@ -787,6 +784,7 @@ class _InBattleSectionState extends State<_InBattleSection>
                     answerResultCorrect: _answerResultCorrect,
                     processing: _interactionLocked,
                     onPickQuestion: _handlePickQuestion,
+                    onExhaustedQuestion: _handleExhaustedQuestion,
                   ),
                 ],
               ),
@@ -2234,6 +2232,7 @@ class _BattleHand extends StatelessWidget {
     required this.answerResultCorrect,
     required this.processing,
     required this.onPickQuestion,
+    required this.onExhaustedQuestion,
   });
 
   final List<BattleQuestion> questions;
@@ -2243,6 +2242,7 @@ class _BattleHand extends StatelessWidget {
   final bool? answerResultCorrect;
   final bool processing;
   final ValueChanged<BattleQuestion> onPickQuestion;
+  final ValueChanged<BattleQuestion> onExhaustedQuestion;
 
   @override
   Widget build(BuildContext context) {
@@ -2291,26 +2291,50 @@ class _BattleHand extends StatelessWidget {
             ],
           ),
           SizedBox(height: compact ? 5 : 7),
-          SizedBox(
-            height: compact ? 96 : 114,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: List<Widget>.generate(4, (int index) {
-                return Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(left: index == 0 ? 0 : 6),
-                    child: index < questions.length
-                        ? _ArenaQuestionCard(
-                            question: questions[index],
-                            compact: compact,
-                            enabled: enabled,
-                            selected: selectedQuestionId == questions[index].id,
-                            onTap: () => onPickQuestion(questions[index]),
-                          )
-                        : const _EmptyCardSlot(),
+          Align(
+            alignment: Alignment.center,
+            child: Container(
+              key: const ValueKey<String>('battle-deck-panel'),
+              width: compact ? 238 : 276,
+              height: compact ? 98 : 116,
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 14 : 18,
+                vertical: compact ? 5 : 7,
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F3F6),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFB8C0CC), width: 1.2),
+                boxShadow: const <BoxShadow>[
+                  BoxShadow(
+                    color: Color(0x2B17233F),
+                    blurRadius: 0,
+                    offset: Offset(0, 4),
                   ),
-                );
-              }),
+                ],
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: List<Widget>.generate(3, (int index) {
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(left: index == 0 ? 0 : 8),
+                      child: index < questions.length
+                          ? _ArenaQuestionCard(
+                              question: questions[index],
+                              compact: compact,
+                              enabled: enabled,
+                              selected:
+                                  selectedQuestionId == questions[index].id,
+                              onTap: () => onPickQuestion(questions[index]),
+                              onExhausted: () =>
+                                  onExhaustedQuestion(questions[index]),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  );
+                }),
+              ),
             ),
           ),
         ],
@@ -2364,13 +2388,14 @@ class _BattleProcessingBadge extends StatelessWidget {
   }
 }
 
-class _ArenaQuestionCard extends StatelessWidget {
+class _ArenaQuestionCard extends StatefulWidget {
   const _ArenaQuestionCard({
     required this.question,
     required this.compact,
     required this.enabled,
     required this.selected,
     required this.onTap,
+    required this.onExhausted,
   });
 
   final BattleQuestion question;
@@ -2378,91 +2403,147 @@ class _ArenaQuestionCard extends StatelessWidget {
   final bool enabled;
   final bool selected;
   final VoidCallback onTap;
+  final VoidCallback onExhausted;
+
+  @override
+  State<_ArenaQuestionCard> createState() => _ArenaQuestionCardState();
+}
+
+class _ArenaQuestionCardState extends State<_ArenaQuestionCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _exhaustedShakeController;
+
+  @override
+  void initState() {
+    super.initState();
+    _exhaustedShakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 360),
+    );
+  }
+
+  @override
+  void dispose() {
+    _exhaustedShakeController.dispose();
+    super.dispose();
+  }
+
+  void _handleTap() {
+    if (widget.question.isExhausted) {
+      _exhaustedShakeController.forward(from: 0);
+      widget.onExhausted();
+      return;
+    }
+    widget.onTap();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final BattleQuestion question = widget.question;
     final Color color = _arenaCategoryColor(question.category, question.effect);
     final String asset = _arenaCardAsset(question.category, question.effect);
-    final String label = _arenaCategoryLabel(question.category);
-    final int power = question.weight.clamp(1, 4).toInt();
     final bool heal = question.effect == QuestionEffect.heal;
+    final bool exhausted = question.isExhausted;
 
-    return AnimatedScale(
-      scale: selected ? 0.94 : 1,
-      duration: const Duration(milliseconds: 120),
-      child: AnimatedOpacity(
-        opacity: enabled || selected ? 1 : 0.58,
-        duration: const Duration(milliseconds: 140),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            key: ValueKey<String>('question-card-${question.id}'),
-            onTap: enabled ? onTap : null,
-            borderRadius: BorderRadius.circular(16),
-            child: Ink(
-              padding: EdgeInsets.fromLTRB(5, compact ? 5 : 6, 5, 5),
-              decoration: BoxDecoration(
-                color: Color.alphaBlend(color.withAlpha(24), Colors.white),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: color, width: selected ? 2.5 : 1.5),
-                boxShadow: <BoxShadow>[
-                  BoxShadow(
-                    color: selected
-                        ? color.withAlpha(145)
-                        : color.withAlpha(82),
-                    blurRadius: selected ? 7 : 0,
-                    offset: Offset(0, selected ? 3 : 5),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: <Widget>[
-                  Row(
+    return AnimatedBuilder(
+      animation: _exhaustedShakeController,
+      builder: (BuildContext context, Widget? child) {
+        final double progress = _exhaustedShakeController.value;
+        final double offset = sin(progress * pi * 8) * 6 * (1 - progress);
+        return Transform.translate(
+          key: ValueKey<String>('exhausted-card-shake-${question.id}'),
+          offset: Offset(offset, 0),
+          child: child,
+        );
+      },
+      child: AnimatedScale(
+        scale: widget.selected ? 0.94 : 1,
+        duration: const Duration(milliseconds: 120),
+        child: AnimatedOpacity(
+          opacity: exhausted
+              ? 0.48
+              : widget.enabled || widget.selected
+              ? 1
+              : 0.58,
+          duration: const Duration(milliseconds: 140),
+          child: ColorFiltered(
+            key: ValueKey<String>('question-card-filter-${question.id}'),
+            colorFilter: exhausted
+                ? const ColorFilter.matrix(<double>[
+                    0.2126,
+                    0.7152,
+                    0.0722,
+                    0,
+                    0,
+                    0.2126,
+                    0.7152,
+                    0.0722,
+                    0,
+                    0,
+                    0.2126,
+                    0.7152,
+                    0.0722,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    1,
+                    0,
+                  ])
+                : const ColorFilter.mode(Colors.transparent, BlendMode.dst),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                key: ValueKey<String>('question-card-${question.id}'),
+                onTap: widget.enabled ? _handleTap : null,
+                borderRadius: BorderRadius.circular(10),
+                child: Ink(
+                  key: ValueKey<String>('question-card-surface-${question.id}'),
+                  padding: EdgeInsets.all(widget.compact ? 1 : 2),
+                  child: Stack(
+                    fit: StackFit.expand,
                     children: <Widget>[
-                      Expanded(
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.dmSans(
-                            color: _BattleClayPalette.ink,
-                            fontSize: compact ? 8 : 9,
-                            fontWeight: FontWeight.w900,
+                      Image.asset(
+                        asset,
+                        fit: BoxFit.contain,
+                        cacheWidth: 180,
+                        filterQuality: FilterQuality.low,
+                      ),
+                      Positioned(
+                        left: widget.compact ? 3 : 4,
+                        bottom: widget.compact ? 3 : 4,
+                        child: Container(
+                          width: widget.compact ? 19 : 22,
+                          height: widget.compact ? 19 : 22,
+                          decoration: BoxDecoration(
+                            color: exhausted ? const Color(0xFF7D8490) : color,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1.5),
+                            boxShadow: <BoxShadow>[
+                              BoxShadow(
+                                color:
+                                    (exhausted
+                                            ? const Color(0xFF7D8490)
+                                            : color)
+                                        .withAlpha(90),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            heal
+                                ? Icons.favorite_rounded
+                                : Icons.flash_on_rounded,
+                            color: Colors.white,
+                            size: widget.compact ? 12 : 14,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 2),
-                      _PowerPips(value: power, color: color),
                     ],
                   ),
-                  Expanded(
-                    child: Image.asset(
-                      asset,
-                      fit: BoxFit.contain,
-                      cacheWidth: 144,
-                      filterQuality: FilterQuality.low,
-                    ),
-                  ),
-                  Container(
-                    width: double.infinity,
-                    padding: EdgeInsets.symmetric(vertical: compact ? 2 : 3),
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                    child: Text(
-                      heal ? 'PULIHKAN' : 'SERANG',
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      style: GoogleFonts.dmSans(
-                        color: Colors.white,
-                        fontSize: compact ? 7 : 8,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.25,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -2517,56 +2598,6 @@ class _BattleAnswerResultBadge extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _PowerPips extends StatelessWidget {
-  const _PowerPips({required this.value, required this.color});
-
-  final int value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List<Widget>.generate(3, (int index) {
-        return Container(
-          width: 4,
-          height: 4,
-          margin: EdgeInsets.only(left: index == 0 ? 0 : 2),
-          decoration: BoxDecoration(
-            color: index < value.clamp(1, 3) ? color : color.withAlpha(40),
-            shape: BoxShape.circle,
-          ),
-        );
-      }),
-    );
-  }
-}
-
-class _EmptyCardSlot extends StatelessWidget {
-  const _EmptyCardSlot();
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFFEDE8DC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFD8D2C5)),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: _BattleClayPalette.neutralEdge,
-            blurRadius: 0,
-            offset: Offset(0, 5),
-          ),
-        ],
-      ),
-      child: const Center(
-        child: Icon(Icons.hourglass_empty_rounded, color: Color(0xFF9AA1B2)),
       ),
     );
   }
@@ -3080,20 +3111,9 @@ Color _arenaCategoryColor(String category, QuestionEffect effect) {
     'logika' => const Color(0xFFFF9F43),
     'tkp' || 'karakteristik_pribadi' => const Color(0xFFB878A3),
     'twk' => const Color(0xFF47CFA0),
+    'wawasan_kebangsaan' => const Color(0xFF47CFA0),
+    'tkd' => const Color(0xFF2878F0),
     _ => const Color(0xFF2878F0),
-  };
-}
-
-String _arenaCategoryLabel(String category) {
-  return switch (category.trim().toLowerCase()) {
-    'tiu' || 'numerik' => 'Numerik',
-    'akhlak' || 'core_values' => 'AKHLAK',
-    'figural' => 'Figural',
-    'verbal' => 'Verbal',
-    'logika' => 'Logika',
-    'tkp' || 'karakteristik_pribadi' => 'TKP',
-    'twk' => 'TWK',
-    _ => 'Soal',
   };
 }
 
@@ -3106,6 +3126,8 @@ String _arenaCardAsset(String category, QuestionEffect effect) {
     'logika' => _logikaCardAsset,
     'tkp' || 'karakteristik_pribadi' => _tkpCardAsset,
     'twk' => _twkCardAsset,
+    'wawasan_kebangsaan' => _twkCardAsset,
+    'tkd' => _numerikCardAsset,
     'tiu' || 'numerik' => _numerikCardAsset,
     _ => effect == QuestionEffect.heal ? _akhlakCardAsset : _numerikCardAsset,
   };

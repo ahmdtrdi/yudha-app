@@ -275,8 +275,99 @@ describe('GameEngine', () => {
       expect(room.players.playerA.hand.length).toBe(handSizeBefore);
     });
 
+    it('replaces a played deck with a question from the same category', () => {
+      const cards = [
+        ...makeCards(2, { category: 'twk' }).map((card, index) => ({
+          ...card,
+          id: `twk_${index}`,
+        })),
+        ...makeCards(2, { category: 'tiu' }).map((card, index) => ({
+          ...card,
+          id: `tiu_${index}`,
+        })),
+        ...makeCards(2, { category: 'tkp' }).map((card, index) => ({
+          ...card,
+          id: `tkp_${index}`,
+        })),
+      ];
+      const room = engine.createRoom('room_categories', 'a', 'b', cards);
+      const tiuCard = room.players.playerA.hand.find(
+        (card) => card.category === 'tiu',
+      )!;
+
+      engine.openCard(room, 'a', tiuCard.id);
+      engine.playCard(room, 'a', tiuCard.id, 1);
+
+      expect(
+        room.players.playerA.hand.map((card) => card.category).sort(),
+      ).toEqual(['tiu', 'tkp', 'twk']);
+      expect(
+        room.players.playerA.hand.filter((card) => card.category === 'tiu'),
+      ).toHaveLength(1);
+    });
+
+    it('enforces the CPNS cast limits independently for each round', () => {
+      const cards = [
+        ...makeCards(30, { category: 'TWK' }).map((card, index) => ({
+          ...card,
+          id: `twk_${index + 1}`,
+          sourceQuestionId: `question_twk_${index + 1}`,
+        })),
+        ...makeCards(35, { category: 'TIU' }).map((card, index) => ({
+          ...card,
+          id: `tiu_${index + 1}`,
+          sourceQuestionId: `question_tiu_${index + 1}`,
+        })),
+        ...makeCards(45, { category: 'TKP' }).map((card, index) => ({
+          ...card,
+          id: `tkp_${index + 1}`,
+          sourceQuestionId: `question_tkp_${index + 1}`,
+        })),
+      ];
+      const room = engine.createRoom('room_limits', 'a', 'b', cards);
+
+      for (let cast = 0; cast < 30; cast += 1) {
+        const card = room.players.playerA.hand.find(
+          (candidate) => candidate.category === 'TWK',
+        );
+        expect(card).toBeDefined();
+        engine.openCard(room, 'a', card!.id);
+        engine.playCard(room, 'a', card!.id, 0);
+      }
+
+      expect(
+        room.players.playerA.hand.find((card) => card.category === 'TWK')
+          ?.isExhausted,
+      ).toBe(true);
+      expect(room.players.playerA.categoryDecks?.twk.castCount).toBe(30);
+      expect(room.players.playerA.categoryDecks?.twk.castLimit).toBe(30);
+      expect(
+        room.players.playerA.hand.map((card) => card.category).sort(),
+      ).toEqual(['TIU', 'TKP', 'TWK']);
+
+      const exhaustedTwk = room.players.playerA.hand.find(
+        (card) => card.category === 'TWK',
+      )!;
+      const publicTwk = engine
+        .buildPublicState(room, 'a')
+        .self.hand.find((card) => card.category === 'TWK');
+      expect(publicTwk?.isExhausted).toBe(true);
+      const openResult = engine.openCard(room, 'a', exhaustedTwk.id);
+      expect(openResult.ok).toBe(false);
+      if (!openResult.ok) {
+        expect(openResult.reason).toBe('category_exhausted');
+      }
+
+      engine.finishRoundOnTimeout(room);
+      expect(engine.startNextRound(room)).toBe(true);
+      expect(room.players.playerA.categoryDecks?.twk.castCount).toBe(0);
+      expect(
+        room.players.playerA.hand.some((card) => card.category === 'TWK'),
+      ).toBe(true);
+    });
+
     it('recycles the Supabase pool with a fresh card-instance ID', () => {
-      const active = makeCards(4); // Exactly HAND_SIZE, so no draws from main queue
+      const active = makeCards(QuestionDealer.HAND_SIZE);
       const reserve: InternalCard[] = [
         {
           id: 'reserve_1',

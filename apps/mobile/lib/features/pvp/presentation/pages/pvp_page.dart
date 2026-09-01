@@ -137,6 +137,7 @@ class PvpPage extends ConsumerStatefulWidget {
 
 class _PvpPageState extends ConsumerState<PvpPage> {
   _ArenaSetupStep _setupStep = _ArenaSetupStep.arena;
+  String? _selectedArenaId;
   final ResultExitAdSession _resultAdSession = ResultExitAdSession();
   bool _allowResultPop = false;
   bool _resultEconomyRefreshed = false;
@@ -209,7 +210,9 @@ class _PvpPageState extends ConsumerState<PvpPage> {
           orElse: () => GameEconomyCatalog.characters.first,
         );
     final CosmeticItem savedArena =
-        GameEconomyCatalog.findArena(economy.equippedArenaId) ??
+        GameEconomyCatalog.findArena(
+          _selectedArenaId ?? economy.equippedArenaId,
+        ) ??
         GameEconomyCatalog.findArena(GameEconomyCatalog.defaultArenaId)!;
     final CosmeticItem selectedArena = savedArena;
     final bool useServerSnapshot =
@@ -394,6 +397,7 @@ class _PvpPageState extends ConsumerState<PvpPage> {
           );
         },
         onSelectArena: (CosmeticItem arena) {
+          setState(() => _selectedArenaId = arena.id);
           final GameEconomyController economyController = ref.read(
             gameEconomyProvider.notifier,
           );

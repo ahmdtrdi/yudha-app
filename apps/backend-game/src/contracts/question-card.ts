@@ -7,5 +7,7 @@ export type PublicQuestionCard = {
   weight: number;
   effect: CardEffect;
   category?: string;
+  subcategory?: string;
   timeLimitSeconds?: number;
+  isExhausted?: boolean;
 };

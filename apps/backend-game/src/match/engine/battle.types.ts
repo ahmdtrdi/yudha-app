@@ -21,6 +21,20 @@ export type BattlePlayerSeed = {
   loadout: BattleLoadout;
 };
 
+export type InternalCategoryDeckState = {
+  category: string;
+  /** The ten-card working buffer used for immediate replacement draws. */
+  buffer: InternalCard[];
+  /** Questions that have not entered the working buffer yet. */
+  reserve: InternalCard[];
+  /** Original category pool, used only as a safety fallback if content is short. */
+  source: InternalCard[];
+  /** Number of cards from this category cast during the current round. */
+  castCount: number;
+  /** Maximum casts allowed for this category during one round. */
+  castLimit: number;
+};
+
 export type InternalPlayerState = {
   userId: string;
   displayName: string;
@@ -36,6 +50,8 @@ export type InternalPlayerState = {
   openedCardAt?: Date;
   answeredCardIds: Set<string>;
   nextDrawIndex: number;
+  nextDrawIndexByCategory?: Record<string, number>;
+  categoryDecks?: Record<string, InternalCategoryDeckState>;
   connected: boolean;
   reconnectDeadline?: Date;
 };
@@ -108,6 +124,8 @@ export function toPublicCard(card: InternalCard): PublicQuestionCard {
     weight: card.weight,
     effect: card.effect,
     category: card.category,
+    subcategory: card.subcategory,
     timeLimitSeconds: card.timeLimitSeconds,
+    isExhausted: card.isExhausted,
   };
 }
