@@ -60,6 +60,7 @@ export class SoloRepository {
     idempotencyKey: string;
     sessionQuestionId: string;
     selectedOptionIndex: number | null;
+    usedHint: boolean;
   }) {
     return this.call('submit_solo_answer', {
       p_user_id: input.userId,
@@ -67,6 +68,7 @@ export class SoloRepository {
       p_idempotency_key: input.idempotencyKey,
       p_session_question_id: input.sessionQuestionId,
       p_selected_option_index: input.selectedOptionIndex,
+      p_used_hint: input.usedHint,
     });
   }
 

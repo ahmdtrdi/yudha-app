@@ -77,10 +77,12 @@ class SoloSetupPage extends ConsumerWidget {
               tooltip: 'Lanjutkan sesi',
               icon: const Icon(Icons.play_circle_fill_rounded),
               onPressed: () async {
-                await ref
+                final resumed = await ref
                     .read(soloSessionControllerProvider.notifier)
                     .resume(activeSession.id);
-                if (context.mounted) context.go(AppRoutes.soloSession);
+                if (context.mounted && resumed) {
+                  context.go(AppRoutes.soloSession);
+                }
               },
             ),
         ],

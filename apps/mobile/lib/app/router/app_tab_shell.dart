@@ -75,8 +75,9 @@ class _AppTabShellState extends ConsumerState<AppTabShell> {
       battleControllerProvider.select((state) => state.phase),
     );
     final bool hideNav =
-        widget.location.startsWith(AppRoutes.pvp) &&
-        battlePhase != BattlePhase.preBattle;
+        widget.location == AppRoutes.soloSession ||
+        (widget.location.startsWith(AppRoutes.pvp) &&
+            battlePhase != BattlePhase.preBattle);
 
     return PopScope(
       canPop: !_isLearningMenuOpen,

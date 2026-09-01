@@ -11,6 +11,7 @@ export class SubmitSoloAnswerDto {
   idempotencyKey: string;
   sessionQuestionId: string;
   selectedOptionIndex?: number | null;
+  usedHint?: boolean;
 }
 
 export class OpenSoloQuestionDto {

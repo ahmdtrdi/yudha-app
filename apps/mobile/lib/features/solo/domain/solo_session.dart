@@ -1,3 +1,30 @@
+class SoloHandCard {
+  const SoloHandCard({
+    required this.sessionQuestionId,
+    required this.questionOrder,
+    required this.category,
+    required this.subcategory,
+    this.openedAt,
+    this.deadlineAt,
+  });
+
+  final String sessionQuestionId;
+  final int questionOrder;
+  final String category;
+  final String subcategory;
+  final DateTime? openedAt;
+  final DateTime? deadlineAt;
+
+  factory SoloHandCard.fromJson(Map<String, dynamic> json) => SoloHandCard(
+    sessionQuestionId: json['sessionQuestionId']?.toString() ?? '',
+    questionOrder: _int(json['questionOrder']),
+    category: json['category']?.toString() ?? '',
+    subcategory: json['subcategory']?.toString() ?? '',
+    openedAt: _date(json['openedAt']),
+    deadlineAt: _date(json['deadlineAt']),
+  );
+}
+
 class SoloQuestion {
   const SoloQuestion({
     required this.sessionQuestionId,
@@ -6,6 +33,7 @@ class SoloQuestion {
     required this.prompt,
     required this.options,
     required this.timeLimitSeconds,
+    this.hint = '',
     this.openedAt,
     this.deadlineAt,
     this.answered = false,
@@ -22,6 +50,7 @@ class SoloQuestion {
   final String prompt;
   final List<String> options;
   final int timeLimitSeconds;
+  final String hint;
   final DateTime? openedAt;
   final DateTime? deadlineAt;
   final bool answered;
@@ -44,6 +73,7 @@ class SoloQuestion {
         )
         .toList(growable: false),
     timeLimitSeconds: _int(json['timeLimitSeconds']),
+    hint: json['hint']?.toString() ?? '',
     openedAt: _date(json['openedAt']),
     deadlineAt: _date(json['deadlineAt']),
     answered: json['answered'] == true,
@@ -53,6 +83,46 @@ class SoloQuestion {
     correctOptionIndex: _nullableInt(json['correctOptionIndex']),
     explanation: json['explanation']?.toString(),
   );
+}
+
+class SoloAnswerFeedback {
+  const SoloAnswerFeedback({
+    required this.sessionQuestionId,
+    required this.isCorrect,
+    required this.timedOut,
+    required this.correctOptionIndex,
+    required this.explanation,
+  });
+
+  final String sessionQuestionId;
+  final bool isCorrect;
+  final bool timedOut;
+  final int correctOptionIndex;
+  final String explanation;
+
+  factory SoloAnswerFeedback.fromJson(Map<String, dynamic> json) =>
+      SoloAnswerFeedback(
+        sessionQuestionId: json['sessionQuestionId']?.toString() ?? '',
+        isCorrect: json['isCorrect'] == true,
+        timedOut: json['timedOut'] == true,
+        correctOptionIndex: _int(json['correctOptionIndex']),
+        explanation: json['explanation']?.toString() ?? '',
+      );
+}
+
+class SoloAnswerResponse {
+  const SoloAnswerResponse({required this.session, required this.feedback});
+  final SoloSession session;
+  final SoloAnswerFeedback feedback;
+
+  factory SoloAnswerResponse.fromJson(Map<String, dynamic> json) =>
+      SoloAnswerResponse(
+        session: SoloSession.fromJson(json),
+        feedback: SoloAnswerFeedback.fromJson(
+          json['answerResult'] as Map<String, dynamic>? ??
+              const <String, dynamic>{},
+        ),
+      );
 }
 
 class SoloSession {
@@ -66,7 +136,7 @@ class SoloSession {
     required this.correctCount,
     required this.towerHp,
     required this.rewardCoins,
-    required this.questions,
+    required this.hand,
     this.completionReason,
   });
 
@@ -80,13 +150,9 @@ class SoloSession {
   final int correctCount;
   final int towerHp;
   final int rewardCoins;
-  final List<SoloQuestion> questions;
+  final List<SoloHandCard> hand;
 
   bool get isActive => status == 'active';
-  SoloQuestion? get currentQuestion =>
-      isActive && answeredCount < questions.length
-      ? questions[answeredCount]
-      : null;
 
   factory SoloSession.fromJson(Map<String, dynamic> json) => SoloSession(
     id: json['sessionId']?.toString() ?? '',
@@ -99,9 +165,9 @@ class SoloSession {
     correctCount: _int(json['correctCount']),
     towerHp: _int(json['towerHp']),
     rewardCoins: _int(json['rewardCoins']),
-    questions: (json['questions'] as List<dynamic>? ?? const <dynamic>[])
+    hand: (json['hand'] as List<dynamic>? ?? const <dynamic>[])
         .whereType<Map<String, dynamic>>()
-        .map(SoloQuestion.fromJson)
+        .map(SoloHandCard.fromJson)
         .toList(growable: false),
   );
 }

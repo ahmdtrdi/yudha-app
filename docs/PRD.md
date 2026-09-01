@@ -193,6 +193,8 @@ The canonical target taxonomy is:
 - Manual Speed is permitted below `85%` smoothed independent accuracy with a warning, but the server never recommends it below that threshold.
 - Standard and Speed timeouts are server-authoritative, race-safe, and idempotent. Answer and reconciliation retries cannot create duplicate attempts.
 - The initial Solo slice has an approved learner-selected fixed count, target-specific Balanced allocation, no within-session duplicates, deterministic inventory fallback, explicit early stop, and resumable session behavior. Difficulty progression, adaptive delivery, final taxonomy weights, and intentional cross-session repetition remain deferred. Five questions is not a V2 invariant.
+- The initial arena deals a server-owned hand of the next three unresolved questions. A learner may choose any card in that hand; resolving it immediately replenishes the hand from the remaining locked set, so the final cards naturally reduce from three to two, one, and empty. The client cannot open an arbitrary future question or receive its prompt before it enters the hand.
+- Returning to the hand does not pause an opened card's authoritative deadline. The learner may inspect another dealt card, while every opened Standard card continues toward its own timeout and is reconciled authoritatively when revisited or answered.
 - Until that debt closes and Gate 5 passes, the existing Practice adapter retains its locked five-question behavior, score, completion, and client contract. Its answers are backfilled into the canonical ledger only with evidence the source actually captured; missing timing, exposure, hint, version, or skill data is never fabricated.
 - Only future Solo sessions completed with `policy_completed` qualify for daily mission, streak, Hired Pass, or normal-completion effects. All retries return the original committed result without duplicating attempts, activity, or rewards.
 
@@ -1499,6 +1501,7 @@ Indonesian example:
 - Hints and post-answer explanations are available.
 - Requesting a hint does not pause the timer.
 - Primary metrics: accuracy, timeout rate, and completion within the Standard limit.
+- The arena presents up to three selectable question cards. Opening a card reveals its question and starts its authoritative timer; after resolution, the server replenishes the visible hand while locked future prompts remain undisclosed.
 
 #### 7.4 Speed
 

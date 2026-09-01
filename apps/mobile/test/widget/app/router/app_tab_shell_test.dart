@@ -11,6 +11,27 @@ import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/solo/presentation/pages/solo_setup_page.dart';
 
 void main() {
+  testWidgets('hides navigation during an active Solo session', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: AppTabShell(
+            location: AppRoutes.soloSession,
+            child: ColoredBox(color: Colors.white),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const ValueKey<String>('app-tab-capsule')), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('app-tab-clay-base')),
+      findsNothing,
+    );
+  });
+
   testWidgets('renders the new icon-only navigation order', (
     WidgetTester tester,
   ) async {

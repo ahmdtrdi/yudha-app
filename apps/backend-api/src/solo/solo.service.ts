@@ -80,6 +80,9 @@ export class SoloService {
     input: SubmitSoloAnswerDto,
   ) {
     const selected = input.selectedOptionIndex;
+    if (input.usedHint != null && typeof input.usedHint !== 'boolean') {
+      throw new BadRequestException('usedHint must be a boolean.');
+    }
     if (
       selected != null &&
       (!Number.isInteger(selected) || selected < 0 || selected > 5)
@@ -98,6 +101,7 @@ export class SoloService {
           'sessionQuestionId',
         ),
         selectedOptionIndex: selected ?? null,
+        usedHint: input.usedHint ?? false,
       }),
     };
   }

@@ -65,7 +65,22 @@ describe('SoloService Commit 5', () => {
       selectedOptionIndex: null,
     });
     expect(repository.submitAnswer).toHaveBeenCalledWith(
-      expect.objectContaining({ selectedOptionIndex: null }),
+      expect.objectContaining({ selectedOptionIndex: null, usedHint: false }),
+    );
+  });
+
+  it('forwards explicit hint use with the answer', async () => {
+    repository.submitAnswer.mockResolvedValue({
+      answerResult: { isCorrect: true },
+    });
+    await service.submitAnswer('user-1', 'solo-1', {
+      idempotencyKey: 'answer-hint-1',
+      sessionQuestionId: 'sq-2',
+      selectedOptionIndex: 1,
+      usedHint: true,
+    });
+    expect(repository.submitAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({ usedHint: true }),
     );
   });
 });

@@ -5,82 +5,73 @@ import 'package:yudha_mobile/features/solo/domain/solo_contract.dart';
 import 'package:yudha_mobile/features/solo/domain/solo_session.dart';
 
 void main() {
-  test(
-    'starts, opens, and applies authoritative correct-answer tower state',
-    () async {
-      final repository = _FakeSoloRepository();
-      repository.createResult = _session(opened: false);
-      repository.getResult = _session(opened: true);
-      repository.answerResult = _session(
-        opened: true,
-        answeredCount: 1,
-        correctCount: 1,
-        towerHp: 95,
-        firstCorrect: true,
-      );
-      final controller = SoloSessionController(repository);
+  test('starts with three cards and lets the player choose one', () async {
+    final repository = _FakeSoloRepository();
+    final controller = SoloSessionController(repository);
 
-      expect(
-        await controller.start(
-          count: SoloQuestionCount.twenty,
-          characterId: 'character-basic-squire',
-        ),
-        isTrue,
-      );
-      expect(repository.openCalls, 1);
-
-      controller.select(2);
-      await controller.submit();
-
-      expect(controller.state.showFeedback, isTrue);
-      expect(controller.state.reaction, SoloReaction.attack);
-      expect(controller.state.session!.towerHp, 95);
-      expect(repository.lastOption, 2);
-    },
-  );
-
-  test(
-    'reconciles elapsed Standard deadline as timeout and hit reaction',
-    () async {
-      final repository = _FakeSoloRepository();
-      repository.createResult = _session(opened: true, deadlineInPast: true);
-      repository.answerResult = _session(
-        opened: true,
-        answeredCount: 1,
-        towerHp: 100,
-        firstCorrect: false,
-        firstTimedOut: true,
-      );
-      final controller = SoloSessionController(repository);
-
+    expect(
       await controller.start(
         count: SoloQuestionCount.twenty,
         characterId: 'character-basic-squire',
-      );
-      await controller.timeout();
+      ),
+      isTrue,
+    );
+    expect(controller.state.session!.hand, hasLength(3));
+    expect(repository.openCalls, 0);
 
-      expect(repository.lastOption, isNull);
-      expect(controller.state.reaction, SoloReaction.hit);
-      expect(controller.state.session!.towerHp, 100);
-    },
-  );
+    await controller.openCard(controller.state.session!.hand[1]);
+    expect(repository.lastOpened, 'sq-2');
+    expect(controller.state.openedQuestion!.questionOrder, 2);
+    expect(controller.state.questionVisible, isTrue);
+  });
+
+  test('submits hint use and applies authoritative tower state', () async {
+    final repository = _FakeSoloRepository();
+    final controller = SoloSessionController(repository);
+    await controller.start(
+      count: SoloQuestionCount.twenty,
+      characterId: 'character-basic-squire',
+    );
+    await controller.openCard(controller.state.session!.hand.first);
+    controller.showHint();
+    await controller.selectAndSubmit(2);
+
+    expect(repository.lastOption, 2);
+    expect(repository.lastUsedHint, isTrue);
+    expect(controller.state.showFeedback, isTrue);
+    expect(controller.state.reaction, SoloReaction.attack);
+    expect(controller.state.session!.towerHp, 95);
+  });
+
+  test('keeps answer and hint state while switching dealt cards', () async {
+    final repository = _FakeSoloRepository();
+    final controller = SoloSessionController(repository);
+    await controller.start(
+      count: SoloQuestionCount.twenty,
+      characterId: 'character-basic-squire',
+    );
+    final card = controller.state.session!.hand.first;
+    await controller.openCard(card);
+    controller.showHint();
+    controller.select(1);
+    controller.closeQuestion();
+    await controller.openCard(controller.state.session!.hand[1]);
+    controller.closeQuestion();
+    await controller.openCard(card);
+
+    expect(controller.state.hintVisible, isTrue);
+    expect(controller.state.selectedOption, 1);
+  });
 
   test(
     'keeps partial attempts but returns stopped result without reward',
     () async {
       final repository = _FakeSoloRepository();
-      repository.createResult = _session(opened: true);
-      repository.stopResult = _session(
-        opened: true,
-        status: 'stopped',
-        completionReason: 'user_stopped',
-      );
       final controller = SoloSessionController(repository);
       await controller.start(
         count: SoloQuestionCount.twenty,
         characterId: 'character-basic-squire',
       );
-
       await controller.stop();
 
       expect(controller.state.session!.completionReason, 'user_stopped');
@@ -92,96 +83,96 @@ void main() {
 class _FakeSoloRepository extends SoloRepository {
   _FakeSoloRepository() : super(accessToken: 'token');
 
-  late SoloSession createResult;
-  late SoloSession answerResult;
-  late SoloSession stopResult;
-  SoloSession? getResult;
   int openCalls = 0;
+  String? lastOpened;
   int? lastOption;
+  bool? lastUsedHint;
 
   @override
   Future<SoloSession> create({
     required SoloQuestionCount questionCount,
     required String characterId,
-  }) async => createResult;
+  }) async => _session();
 
   @override
-  Future<SoloSession> get(String sessionId) async => getResult ?? createResult;
-
-  @override
-  Future<Map<String, dynamic>> open(String sessionId, String questionId) async {
+  Future<SoloQuestion> open(String sessionId, String questionId) async {
     openCalls += 1;
-    return const <String, dynamic>{};
+    lastOpened = questionId;
+    final order = int.parse(questionId.split('-').last);
+    return _question(order);
   }
 
   @override
-  Future<SoloSession> answer(
+  Future<SoloAnswerResponse> answer(
     String sessionId,
     String questionId,
     int? optionIndex,
+    bool usedHint,
   ) async {
     lastOption = optionIndex;
-    return answerResult;
+    lastUsedHint = usedHint;
+    return SoloAnswerResponse(
+      session: _session(answeredCount: 1, correctCount: 1, towerHp: 95),
+      feedback: const SoloAnswerFeedback(
+        sessionQuestionId: 'sq-1',
+        isCorrect: true,
+        timedOut: false,
+        correctOptionIndex: 2,
+        explanation: 'Pembahasan.',
+      ),
+    );
   }
 
   @override
-  Future<SoloSession> stop(String sessionId) async => stopResult;
+  Future<SoloSession> stop(String sessionId) async =>
+      _session(status: 'stopped', completionReason: 'user_stopped');
+}
+
+SoloQuestion _question(int order) {
+  final now = DateTime.now();
+  return SoloQuestion(
+    sessionQuestionId: 'sq-$order',
+    questionOrder: order,
+    category: order == 1 ? 'twk' : 'tiu',
+    prompt: 'Pertanyaan $order?',
+    options: const <String>['A', 'B', 'C', 'D'],
+    timeLimitSeconds: 30,
+    hint: 'Petunjuk.',
+    openedAt: now,
+    deadlineAt: now.add(const Duration(seconds: 30)),
+  );
 }
 
 SoloSession _session({
-  bool opened = true,
-  bool deadlineInPast = false,
   int answeredCount = 0,
   int correctCount = 0,
   int towerHp = 100,
-  bool? firstCorrect,
-  bool firstTimedOut = false,
   String status = 'active',
   String? completionReason,
-}) {
-  final now = DateTime.now();
-  return SoloSession(
-    id: 'solo-1',
-    target: 'cpns',
-    questionCount: 20,
-    characterId: 'character-basic-squire',
-    status: status,
-    completionReason: completionReason,
-    answeredCount: answeredCount,
-    correctCount: correctCount,
-    towerHp: towerHp,
-    rewardCoins: 0,
-    questions: <SoloQuestion>[
-      SoloQuestion(
-        sessionQuestionId: 'sq-1',
-        questionOrder: 1,
-        category: 'twk',
-        prompt: 'Pertanyaan pertama?',
-        options: const <String>['A', 'B', 'C', 'D'],
-        timeLimitSeconds: 30,
-        openedAt: opened ? now.subtract(const Duration(seconds: 2)) : null,
-        deadlineAt: opened
-            ? deadlineInPast
-                  ? now.subtract(const Duration(seconds: 1))
-                  : now.add(const Duration(seconds: 28))
-            : null,
-        answered: answeredCount > 0,
-        selectedOptionIndex: firstTimedOut
-            ? null
-            : (answeredCount > 0 ? 2 : null),
-        isCorrect: firstCorrect,
-        timedOut: firstTimedOut,
-        correctOptionIndex: answeredCount > 0 ? 2 : null,
-        explanation: answeredCount > 0 ? 'Pembahasan.' : null,
-      ),
-      SoloQuestion(
-        sessionQuestionId: 'sq-2',
-        questionOrder: 2,
-        category: 'tiu',
-        prompt: 'Pertanyaan kedua?',
-        options: const <String>['A', 'B', 'C', 'D'],
-        timeLimitSeconds: 30,
-      ),
-    ],
-  );
-}
+}) => SoloSession(
+  id: 'solo-1',
+  target: 'cpns',
+  questionCount: 20,
+  characterId: 'character-basic-squire',
+  status: status,
+  completionReason: completionReason,
+  answeredCount: answeredCount,
+  correctCount: correctCount,
+  towerHp: towerHp,
+  rewardCoins: 0,
+  hand: status == 'active'
+      ? <SoloHandCard>[
+          for (
+            int order = answeredCount + 1;
+            order <= answeredCount + 3;
+            order++
+          )
+            SoloHandCard(
+              sessionQuestionId: 'sq-$order',
+              questionOrder: order,
+              category: order.isOdd ? 'twk' : 'tiu',
+              subcategory: order.isOdd ? 'twk' : 'logika',
+            ),
+        ]
+      : const <SoloHandCard>[],
+);

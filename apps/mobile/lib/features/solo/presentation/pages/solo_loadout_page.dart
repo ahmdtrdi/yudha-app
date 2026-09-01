@@ -12,6 +12,7 @@ import 'package:yudha_mobile/features/solo/application/solo_session_providers.da
 import 'package:yudha_mobile/features/solo/application/solo_setup_providers.dart';
 import 'package:yudha_mobile/features/solo/application/solo_setup_state.dart';
 import 'package:yudha_mobile/features/solo/domain/solo_contract.dart';
+import 'package:yudha_mobile/features/solo/domain/solo_session.dart';
 
 class SoloLoadoutPage extends ConsumerWidget {
   const SoloLoadoutPage({super.key});
@@ -138,12 +139,58 @@ class SoloLoadoutPage extends ConsumerWidget {
                     _StartSoloButton(
                       loading: sessionState.loading,
                       onPressed: () async {
-                        final started = await ref
-                            .read(soloSessionControllerProvider.notifier)
-                            .start(
-                              count: setup.questionCount!,
-                              characterId: selectedCharacter.id,
+                        final sessionController = ref.read(
+                          soloSessionControllerProvider.notifier,
+                        );
+                        SoloSession? activeSession;
+                        try {
+                          activeSession = await ref.refresh(
+                            activeSoloSessionProvider.future,
+                          );
+                        } catch (_) {
+                          // Creation still returns the authoritative error.
+                        }
+                        if (!context.mounted) return;
+                        if (activeSession != null) {
+                          final action = await showDialog<_ActiveSoloAction>(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (_) => const _ActiveSoloDialog(),
+                          );
+                          if (!context.mounted || action == null) return;
+                          if (action == _ActiveSoloAction.resume) {
+                            final resumed = await sessionController.resume(
+                              activeSession.id,
                             );
+                            if (context.mounted && resumed) {
+                              context.go(AppRoutes.soloSession);
+                            }
+                            return;
+                          }
+                          final resumed = await sessionController.resume(
+                            activeSession.id,
+                          );
+                          if (!resumed || !await sessionController.stop()) {
+                            if (context.mounted) {
+                              final message = ref
+                                  .read(soloSessionControllerProvider)
+                                  .error;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    message ?? 'Sesi lama gagal diakhiri.',
+                                  ),
+                                ),
+                              );
+                            }
+                            return;
+                          }
+                          ref.invalidate(activeSoloSessionProvider);
+                        }
+                        final started = await sessionController.start(
+                          count: setup.questionCount!,
+                          characterId: selectedCharacter.id,
+                        );
                         if (!context.mounted) return;
                         if (started) {
                           context.go(AppRoutes.soloSession);
@@ -163,6 +210,105 @@ class SoloLoadoutPage extends ConsumerWidget {
             },
           ),
         ),
+      ),
+    );
+  }
+}
+
+enum _ActiveSoloAction { resume, replace }
+
+class _ActiveSoloDialog extends StatelessWidget {
+  const _ActiveSoloDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            top: 7,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFFC7CFDB),
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.only(bottom: 7),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+            decoration: BoxDecoration(
+              color: AppColors.scholarCream,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE5EEFF),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.play_circle_fill_rounded,
+                    color: Color(0xFF2878F0),
+                    size: 30,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Sesi masih berjalan',
+                  style: GoogleFonts.fredoka(
+                    color: AppColors.warriorNavy,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Lanjutkan progresmu, atau akhiri sesi lama untuk memulai setup ini.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 13,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: FilledButton.icon(
+                    key: const ValueKey<String>('solo-active-resume'),
+                    onPressed: () =>
+                        Navigator.pop(context, _ActiveSoloAction.resume),
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    label: const Text('LANJUTKAN SESI'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: OutlinedButton(
+                    key: const ValueKey<String>('solo-active-replace'),
+                    onPressed: () =>
+                        Navigator.pop(context, _ActiveSoloAction.replace),
+                    child: const Text('AKHIRI & MULAI BARU'),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Batal'),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

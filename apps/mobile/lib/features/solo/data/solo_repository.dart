@@ -39,21 +39,22 @@ class SoloRepository {
     return active is Map<String, dynamic> ? SoloSession.fromJson(active) : null;
   }
 
-  Future<Map<String, dynamic>> open(String sessionId, String questionId) =>
-      _post(
-        '/solo/sessions/$sessionId/questions/$questionId/open',
-        <String, dynamic>{'idempotencyKey': _key('open')},
-      );
+  Future<SoloQuestion> open(String sessionId, String questionId) => _post(
+    '/solo/sessions/$sessionId/questions/$questionId/open',
+    <String, dynamic>{'idempotencyKey': _key('open')},
+  ).then(SoloQuestion.fromJson);
 
-  Future<SoloSession> answer(
+  Future<SoloAnswerResponse> answer(
     String sessionId,
     String questionId,
     int? optionIndex,
+    bool usedHint,
   ) => _post('/solo/sessions/$sessionId/answers', <String, dynamic>{
     'idempotencyKey': _key('answer'),
     'sessionQuestionId': questionId,
     'selectedOptionIndex': optionIndex,
-  }).then(SoloSession.fromJson);
+    'usedHint': usedHint,
+  }).then(SoloAnswerResponse.fromJson);
 
   Future<SoloSession> stop(String sessionId) => _post(
     '/solo/sessions/$sessionId/finish',
@@ -97,8 +98,11 @@ class SoloRepository {
   Map<String, dynamic> _decode(http.Response response) {
     final decoded = response.body.isEmpty ? null : jsonDecode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      final error = decoded is Map<String, dynamic> ? decoded['error'] : null;
       throw SoloApiException(
-        decoded is Map<String, dynamic>
+        error is Map<String, dynamic>
+            ? error['message']?.toString() ?? 'Solo gagal diproses.'
+            : decoded is Map<String, dynamic>
             ? decoded['message']?.toString() ?? 'Solo gagal diproses.'
             : 'Solo gagal diproses.',
       );
