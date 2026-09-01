@@ -58,6 +58,7 @@ describe('LobbyService Gate 1 summary', () => {
       analyticsService as any,
       hiredPassService as any,
       supabaseService as any,
+      { getLearningNextAction: jest.fn().mockResolvedValue(null) } as any,
     );
 
     const result = await service.getSummary(
@@ -78,5 +79,6 @@ describe('LobbyService Gate 1 summary', () => {
       completed: false,
     });
     expect(result.data.recommendation).toBe(recommendation);
+    expect(result.data.learningNextAction).toBeNull();
   });
 });

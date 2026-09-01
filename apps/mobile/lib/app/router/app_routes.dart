@@ -11,6 +11,7 @@ abstract final class AppRoutes {
   static const String practice = '/practice';
   static const String practiceHistory = '/practice/history';
   static const String practiceQuiz = '/practice/quiz';
+  static const String learning = '/learning';
   static const String profile = '/profile';
   static const String interviewSetup = '/interview/setup';
   static const String interview = '/interview';
@@ -31,6 +32,7 @@ abstract final class AppRoutes {
     practice,
     practiceHistory,
     practiceQuiz,
+    learning,
     profile,
     interviewSetup,
     interview,

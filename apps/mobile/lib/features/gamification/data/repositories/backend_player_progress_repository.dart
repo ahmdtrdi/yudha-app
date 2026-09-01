@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:yudha_mobile/app/config/app_config.dart';
 import 'package:yudha_mobile/features/gamification/data/models/player_progress_snapshot.dart';
 import 'package:yudha_mobile/features/gamification/data/repositories/player_progress_repository.dart';
+import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
 
 class PlayerProgressApiConfig {
   const PlayerProgressApiConfig({
@@ -66,12 +67,14 @@ class BackendPlayerProgressRepository implements PlayerProgressRepository {
     final Map<String, dynamic> rankedStats =
         _asMap(profile['rankedStats']) ?? <String, dynamic>{};
     final Map<String, dynamic> streakMap =
-        _asMap(profile['streak']) ?? _asMap(payload['streak']) ?? <String, dynamic>{};
+        _asMap(profile['streak']) ??
+        _asMap(payload['streak']) ??
+        <String, dynamic>{};
     final List<Map<String, Object?>> dailyMissions =
         (payload['dailyMissions'] as List?)
-                ?.map((dynamic item) => Map<String, Object?>.from(item as Map))
-                .toList() ??
-            const <Map<String, Object?>>[];
+            ?.map((dynamic item) => Map<String, Object?>.from(item as Map))
+            .toList() ??
+        const <Map<String, Object?>>[];
 
     final int wins = _readInt(profile['wins'] ?? rankedStats['wins']);
     final int losses = _readInt(profile['losses'] ?? rankedStats['losses']);
@@ -114,6 +117,9 @@ class BackendPlayerProgressRepository implements PlayerProgressRepository {
       draws: resolvedDraws,
       streak: currentStreak,
       dailyMissions: dailyMissions,
+      learningNextAction: LearningRecommendation.tryFrom(
+        payload['learningNextAction'],
+      ),
     );
   }
 

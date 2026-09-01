@@ -1,1 +1,1 @@
-enum PracticeHintState { locked, watchAd, buy, unlocked }
+enum PracticeHintState { locked, loading, watchAd, buy, unlocked }

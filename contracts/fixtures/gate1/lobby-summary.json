@@ -10,6 +10,7 @@
     ],
     "streak": { "current": 2, "best": 5, "lastDate": "2026-08-17" },
     "hiredPassSummary": { "season": { "id": "beta-2026-08", "name": "Beta Agustus 2026", "startsAt": "2026-07-31T17:00:00.000Z", "endsAt": "2026-08-31T17:00:00.000Z" }, "passPoints": 0, "premiumActive": false, "expiresAt": null, "completedMissions": 0, "totalMissions": 6, "unclaimedRewards": 8 },
-    "recommendation": { "type": "practice", "target": "cpns", "category": "tiu", "subcategory": "numerik", "reason": "Akurasi Numerik masih perlu ditingkatkan.", "metrics": { "sampleSize": 8, "accuracy": 62.5, "lastPracticedAt": "2026-08-16T04:00:00.000Z" } }
+    "recommendation": { "type": "practice", "target": "cpns", "category": "tiu", "subcategory": "numerik", "reason": "Akurasi Numerik masih perlu ditingkatkan.", "metrics": { "sampleSize": 8, "accuracy": 62.5, "lastPracticedAt": "2026-08-16T04:00:00.000Z" } },
+    "learningNextAction": null
   }
 }

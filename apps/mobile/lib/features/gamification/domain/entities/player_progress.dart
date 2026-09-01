@@ -1,5 +1,8 @@
 import 'package:yudha_mobile/features/gamification/data/models/player_progress_snapshot.dart';
 import 'package:yudha_mobile/features/gamification/domain/entities/progress_tier.dart';
+import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
+
+const Object _unchangedLearningRecommendation = Object();
 
 class PlayerProgress {
   const PlayerProgress({
@@ -13,6 +16,7 @@ class PlayerProgress {
     required this.bestStreak,
     required this.lastDelta,
     required this.dailyMissions,
+    this.learningNextAction,
   });
 
   factory PlayerProgress.initial() {
@@ -40,6 +44,7 @@ class PlayerProgress {
   final int bestStreak;
   final int lastDelta;
   final List<Map<String, Object?>> dailyMissions;
+  final LearningRecommendation? learningNextAction;
 
   int get matchesPlayed => wins + losses + draws;
 
@@ -91,6 +96,7 @@ class PlayerProgress {
     int? bestStreak,
     int? lastDelta,
     List<Map<String, Object?>>? dailyMissions,
+    Object? learningNextAction = _unchangedLearningRecommendation,
   }) {
     return PlayerProgress(
       playerId: playerId ?? this.playerId,
@@ -103,6 +109,10 @@ class PlayerProgress {
       bestStreak: bestStreak ?? this.bestStreak,
       lastDelta: lastDelta ?? this.lastDelta,
       dailyMissions: dailyMissions ?? this.dailyMissions,
+      learningNextAction:
+          identical(learningNextAction, _unchangedLearningRecommendation)
+          ? this.learningNextAction
+          : learningNextAction as LearningRecommendation?,
     );
   }
 
@@ -122,6 +132,7 @@ class PlayerProgress {
       streak: mergedStreak,
       bestStreak: mergedBestStreak,
       dailyMissions: snapshot.dailyMissions,
+      learningNextAction: snapshot.learningNextAction,
     );
   }
 }

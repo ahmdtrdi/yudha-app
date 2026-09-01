@@ -36,6 +36,11 @@ class AppTabShell extends ConsumerWidget {
       defaultAsset: 'assets/icons/navigation/nav_practice_default.svg',
     ),
     _TabItemData(
+      route: AppRoutes.learning,
+      label: 'Learning',
+      defaultAsset: 'assets/icons/navigation/nav_learning_default.svg',
+    ),
+    _TabItemData(
       route: AppRoutes.profile,
       label: 'Profile',
       defaultAsset: 'assets/icons/navigation/nav_profile_default.svg',
@@ -130,8 +135,12 @@ class AppTabShell extends ConsumerWidget {
                                             Center(
                                               child: SvgPicture.asset(
                                                 tab.defaultAsset,
-                                                width: 27,
-                                                height: 27,
+                                                width: _tabs.length > 5
+                                                    ? 25
+                                                    : 27,
+                                                height: _tabs.length > 5
+                                                    ? 25
+                                                    : 27,
                                                 colorFilter: ColorFilter.mode(
                                                   selected
                                                       ? const Color(0xFF0066DE)

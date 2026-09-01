@@ -43,6 +43,7 @@ export async function generateCanonicalQuestions() {
       contentVersion: 'development-2026-08',
       approvalStatus: 'development',
       smeApproved: false,
+      approverReference: null,
       target: source.target,
       questions,
     };
@@ -62,17 +63,32 @@ function normalizeRecord(source, record) {
   const weight = Math.min(4, Math.max(1, Number(record.point_kesulitan) || 1));
   const difficulty = weight === 1 ? 'easy' : weight === 2 ? 'medium' : 'hard';
   const correctOption = options[correctOptionIndex] ?? '';
+  const primarySkillId = [source.target, topic.category, topic.subcategory]
+    .filter(Boolean)
+    .join('.');
 
   return {
     sourceKey: `legacy:${source.target}:${record.id}`,
+    revision: 1,
     target: source.target,
     category: topic.category,
     subcategory: topic.subcategory,
+    primarySkillId,
+    prerequisiteSkillIds: [],
     prompt: String(record.question ?? '').trim(),
     options,
     correctOptionIndex,
     explanation: `Jawaban yang benar adalah "${correctOption}".`,
     difficulty,
+    questionType: 'multiple_choice',
+    expectedTimeMs: null,
+    standardTimeLimitMs: 30000,
+    curriculumWeight: 1,
+    assessmentEligible: false,
+    qualityState: 'development',
+    smeApproved: false,
+    approvedAt: null,
+    approverReference: null,
     weight,
     effect,
     damageValue: effect === 'damage' ? 10 : 0,

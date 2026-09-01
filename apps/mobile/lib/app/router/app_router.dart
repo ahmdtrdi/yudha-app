@@ -10,9 +10,11 @@ import 'package:yudha_mobile/features/interview/domain/entities/interview_launch
 import 'package:yudha_mobile/features/interview/presentation/pages/interview_page.dart';
 import 'package:yudha_mobile/features/interview/presentation/pages/interview_setup_page.dart';
 import 'package:yudha_mobile/features/leaderboard/presentation/pages/leaderboard_page.dart';
+import 'package:yudha_mobile/features/learning/presentation/pages/learning_page.dart';
 import 'package:yudha_mobile/features/lobby/presentation/pages/lobby_page.dart';
 import 'package:yudha_mobile/features/onboarding/presentation/pages/splash_page.dart';
 import 'package:yudha_mobile/features/pass/presentation/pages/hired_pass_page.dart';
+import 'package:yudha_mobile/features/practice/domain/entities/practice_launch_request.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_history_page.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_page.dart';
 import 'package:yudha_mobile/features/practice/presentation/pages/practice_quiz_page.dart';
@@ -103,6 +105,9 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
           GoRoute(
             path: AppRoutes.practice,
             builder: (context, state) => PracticePage(
+              launchRequest: state.extra is PracticeLaunchRequest
+                  ? state.extra as PracticeLaunchRequest
+                  : null,
               focusCategory: state.extra is String
                   ? state.extra as String
                   : null,
@@ -115,6 +120,10 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
           GoRoute(
             path: AppRoutes.practiceHistory,
             builder: (context, state) => const PracticeHistoryPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.learning,
+            builder: (context, state) => const LearningPage(),
           ),
           GoRoute(
             path: AppRoutes.profile,

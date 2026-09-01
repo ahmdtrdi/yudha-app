@@ -37,9 +37,14 @@ export class MatchResultService {
    * Fire-and-forget — logs errors but never throws so Socket.IO flow is not blocked.
    * Returns computed deltas if successful, null otherwise.
    */
-  async finalizeMatch(room: InternalRoomState, logEntries: MatchLogRpcEntry[] = []): Promise<PersistedDeltas | null> {
+  async finalizeMatch(
+    room: InternalRoomState,
+    logEntries: MatchLogRpcEntry[] = [],
+  ): Promise<PersistedDeltas | null> {
     if (!room.result) {
-      this.logger.warn(`finalizeMatch called on room ${room.roomId} with no result`);
+      this.logger.warn(
+        `finalizeMatch called on room ${room.roomId} with no result`,
+      );
       return null;
     }
 
@@ -53,7 +58,9 @@ export class MatchResultService {
     }
 
     // Retry once after delay
-    this.logger.warn(`Retrying finalize for room ${room.roomId} after ${MatchResultService.RETRY_DELAY_MS}ms`);
+    this.logger.warn(
+      `Retrying finalize for room ${room.roomId} after ${MatchResultService.RETRY_DELAY_MS}ms`,
+    );
     await this.delay(MatchResultService.RETRY_DELAY_MS);
     result = await this.callRpc(params, room.roomId);
     if (result) {
@@ -109,7 +116,12 @@ export class MatchResultService {
           `MATCH_LOGS_PERSIST_FAILED room=${roomId} matchId=${matchResultId} error=${error.message}`,
         );
       } else {
-        this.logger.log(`Match logs persisted: room=${roomId} matchId=${matchResultId} count=${rows.length}`);
+        this.logger.log(
+          `Match logs persisted: room=${roomId} matchId=${matchResultId} count=${rows.length}`,
+        );
+        if (this.learningV2Enabled()) {
+          await this.ingestLearningEvidence(matchResultId, roomId);
+        }
       }
     } catch (error) {
       this.logger.error(
@@ -118,13 +130,46 @@ export class MatchResultService {
     }
   }
 
+  private async ingestLearningEvidence(
+    matchResultId: string,
+    roomId: string,
+  ): Promise<void> {
+    try {
+      const adminClient = this.supabaseService.getAdminClient();
+      const { data, error } = await adminClient.rpc(
+        'ingest_pvp_learning_evidence',
+        { p_match_result_id: matchResultId },
+      );
+      if (error) {
+        this.logger.error(
+          `PVP_LEARNING_INGEST_FAILED room=${roomId} matchId=${matchResultId} error=${error.message}`,
+        );
+        return;
+      }
+      this.logger.log(
+        `PvP learning evidence reconciled: room=${roomId} matchId=${matchResultId} inserted=${Number((data as any)?.inserted ?? 0)}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `PVP_LEARNING_INGEST_FAILED room=${roomId} matchId=${matchResultId} exception=${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  private learningV2Enabled(): boolean {
+    return process.env.LEARNING_V2_ENABLED?.trim().toLowerCase() === 'true';
+  }
+
   private async callRpc(
     params: Record<string, unknown>,
     roomId: string,
   ): Promise<FinalizeResult | null> {
     try {
       const adminClient = this.supabaseService.getAdminClient();
-      const { data, error } = await adminClient.rpc('finalize_match_result', params);
+      const { data, error } = await adminClient.rpc(
+        'finalize_match_result',
+        params,
+      );
 
       if (error) {
         this.logger.error(
@@ -136,7 +181,9 @@ export class MatchResultService {
 
       const result = data as FinalizeResult;
       if (result.persisted) {
-        this.logger.log(`Match persisted: room=${roomId} id=${result.matchResultId}`);
+        this.logger.log(
+          `Match persisted: room=${roomId} id=${result.matchResultId}`,
+        );
       } else {
         this.logger.log(`Match already persisted (duplicate): room=${roomId}`);
       }
@@ -153,16 +200,22 @@ export class MatchResultService {
 
   private buildRpcParams(room: InternalRoomState): Record<string, unknown> {
     const { result, players, startedAt, endedAt } = room;
-    if (!result) throw new Error('Cannot build RPC params without match result');
+    if (!result)
+      throw new Error('Cannot build RPC params without match result');
 
-    const durationSeconds = endedAt && startedAt
-      ? Math.round((endedAt.getTime() - startedAt.getTime()) / 1000)
-      : null;
+    const durationSeconds =
+      endedAt && startedAt
+        ? Math.round((endedAt.getTime() - startedAt.getTime()) / 1000)
+        : null;
 
     const isBotMatch = room.mode === 'bot';
 
     // Map internal outcome to DB enum values
-    const outcome = this.mapOutcome(result, players.playerA.userId, players.playerB.userId);
+    const outcome = this.mapOutcome(
+      result,
+      players.playerA.userId,
+      players.playerB.userId,
+    );
 
     return {
       p_room_id: room.roomId,
@@ -170,8 +223,12 @@ export class MatchResultService {
       p_target: room.target,
       p_player_a_id: players.playerA.userId,
       p_player_b_id: isBotMatch ? null : players.playerB.userId,
-      p_winner_user_id: isBotMatch && result.winnerUserId === 'bot' ? null : result.winnerUserId,
-      p_loser_user_id: isBotMatch && result.loserUserId === 'bot' ? null : result.loserUserId,
+      p_winner_user_id:
+        isBotMatch && result.winnerUserId === 'bot'
+          ? null
+          : result.winnerUserId,
+      p_loser_user_id:
+        isBotMatch && result.loserUserId === 'bot' ? null : result.loserUserId,
       p_outcome: outcome,
       p_reason: result.reason === 'draw' ? 'draw' : result.reason,
       p_player_a_hp: result.finalState.playerA.hp,

@@ -15,6 +15,7 @@ import { StoreModule } from './store/store.module';
 import { LobbyModule } from './lobby/lobby.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { NotificationsModule } from './notifications/notifications.module';
+import { LearningModule } from './learning/learning.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     HiredPassModule,
     LobbyModule,
     NotificationsModule,
+    LearningModule,
   ],
   controllers: [AppController],
   providers: [AppService],

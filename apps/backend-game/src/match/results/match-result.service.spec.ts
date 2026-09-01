@@ -107,8 +107,10 @@ describe('MatchResultService', () => {
   let mockRpc: jest.Mock;
   let mockInsert: jest.Mock;
   let mockAdminClient: Record<string, unknown>;
+  const originalLearningV2Enabled = process.env.LEARNING_V2_ENABLED;
 
   beforeEach(async () => {
+    process.env.LEARNING_V2_ENABLED = 'false';
     mockRpc = jest.fn().mockResolvedValue({
       data: {
         persisted: true,
@@ -143,6 +145,14 @@ describe('MatchResultService', () => {
 
     service = module.get<MatchResultService>(MatchResultService);
     jest.spyOn(service as any, 'delay').mockResolvedValue(undefined);
+  });
+
+  afterAll(() => {
+    if (originalLearningV2Enabled === undefined) {
+      delete process.env.LEARNING_V2_ENABLED;
+    } else {
+      process.env.LEARNING_V2_ENABLED = originalLearningV2Enabled;
+    }
   });
 
   describe('finalizeMatch', () => {
@@ -457,6 +467,33 @@ describe('MatchResultService', () => {
           card_id: 'c1',
         }),
       ]);
+      expect(mockRpc).toHaveBeenCalledTimes(1);
+    });
+
+    it('ingests PvP learning evidence once when Learning V2 is enabled', async () => {
+      process.env.LEARNING_V2_ENABLED = 'true';
+      const room = createFinishedRoom();
+      const logEntries: MatchLogRpcEntry[] = [
+        {
+          user_id: 'user-a',
+          action: 'play_card',
+          payload: {
+            questionId: 'cpns-twk-001',
+            selectedOptionIndex: 1,
+            correct: true,
+          },
+          created_at: '2026-07-01T00:00:05Z',
+        },
+      ];
+
+      await service.finalizeMatch(room, logEntries);
+
+      expect(mockRpc).toHaveBeenNthCalledWith(
+        2,
+        'ingest_pvp_learning_evidence',
+        { p_match_result_id: 'result-123' },
+      );
+      expect(mockRpc).toHaveBeenCalledTimes(2);
     });
 
     it('skips log persistence if no matchResultId', async () => {

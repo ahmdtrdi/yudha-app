@@ -8,6 +8,7 @@ import 'package:yudha_mobile/core/theme/app_typography.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/practice/application/practice_providers.dart';
 import 'package:yudha_mobile/features/practice/application/practice_state.dart';
+import 'package:yudha_mobile/features/practice/domain/entities/practice_launch_request.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_recent_activity.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_topic.dart';
 import 'package:yudha_mobile/features/practice/presentation/widgets/practice_activity_tile.dart';
@@ -23,9 +24,10 @@ abstract final class _PracticeColors {
 enum _PracticeCategoryTone { cyan, lime, orange }
 
 class PracticePage extends ConsumerStatefulWidget {
-  const PracticePage({super.key, this.focusCategory});
+  const PracticePage({super.key, this.focusCategory, this.launchRequest});
 
   final String? focusCategory;
+  final PracticeLaunchRequest? launchRequest;
 
   @override
   ConsumerState<PracticePage> createState() => _PracticePageState();
@@ -38,7 +40,8 @@ class _PracticePageState extends ConsumerState<PracticePage> {
   @override
   void didUpdateWidget(covariant PracticePage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.focusCategory != widget.focusCategory) {
+    if (oldWidget.focusCategory != widget.focusCategory ||
+        oldWidget.launchRequest != widget.launchRequest) {
       _focusLaunchHandled = false;
       _focusLaunchScheduled = false;
     }
@@ -245,7 +248,10 @@ class _PracticePageState extends ConsumerState<PracticePage> {
   }
 
   void _scheduleFocusedPractice(PracticeState state) {
-    final String focusCategory = widget.focusCategory?.trim() ?? '';
+    final String focusCategory =
+        widget.launchRequest?.focus.trim() ??
+        widget.focusCategory?.trim() ??
+        '';
     if (_focusLaunchHandled ||
         _focusLaunchScheduled ||
         focusCategory.isEmpty ||
@@ -260,7 +266,10 @@ class _PracticePageState extends ConsumerState<PracticePage> {
       _focusLaunchScheduled = false;
       final bool started = await ref
           .read(practiceControllerProvider.notifier)
-          .startRecommendedSession(focusCategory);
+          .startRecommendedSession(
+            focusCategory,
+            recommendationId: widget.launchRequest?.recommendationId,
+          );
       if (!mounted) {
         return;
       }

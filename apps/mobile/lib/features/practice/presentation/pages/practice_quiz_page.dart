@@ -6,6 +6,7 @@ import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/core/theme/app_typography.dart';
 import 'package:yudha_mobile/features/ads/application/ad_placement_providers.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
+import 'package:yudha_mobile/features/learning/application/learning_providers.dart';
 import 'package:yudha_mobile/features/notifications/presentation/notification_permission_prompt.dart';
 import 'package:yudha_mobile/features/practice/application/practice_providers.dart';
 import 'package:yudha_mobile/features/practice/application/practice_state.dart';
@@ -170,7 +171,9 @@ class _PracticeQuizPageState extends ConsumerState<PracticeQuizPage> {
                       const SizedBox(height: 16),
 
                       // Hint Section
-                      if (state.hintState == PracticeHintState.unlocked)
+                      if (!question.hintAvailable)
+                        const SizedBox.shrink()
+                      else if (state.hintState == PracticeHintState.unlocked)
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
@@ -213,9 +216,22 @@ class _PracticeQuizPageState extends ConsumerState<PracticeQuizPage> {
                         )
                       else
                         InkWell(
-                          onTap: () {
-                            controller.unlockHint();
-                          },
+                          onTap: state.hintState == PracticeHintState.loading
+                              ? null
+                              : () async {
+                                  final bool loaded = await controller
+                                      .unlockHint();
+                                  if (!loaded && context.mounted) {
+                                    final String message =
+                                        ref
+                                            .read(practiceControllerProvider)
+                                            .errorMessage ??
+                                        'Petunjuk gagal dimuat.';
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(message)),
+                                    );
+                                  }
+                                },
                           borderRadius: BorderRadius.circular(16),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
@@ -235,14 +251,26 @@ class _PracticeQuizPageState extends ConsumerState<PracticeQuizPage> {
                               children: <Widget>[
                                 Row(
                                   children: <Widget>[
-                                    const Icon(
-                                      Icons.help_outline,
-                                      color: AppColors.fireGold,
-                                      size: 18,
-                                    ),
+                                    if (state.hintState ==
+                                        PracticeHintState.loading)
+                                      const SizedBox.square(
+                                        dimension: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    else
+                                      const Icon(
+                                        Icons.help_outline,
+                                        color: AppColors.fireGold,
+                                        size: 18,
+                                      ),
                                     const SizedBox(width: 8),
-                                    const Text(
-                                      'Lihat petunjuk',
+                                    Text(
+                                      state.hintState ==
+                                              PracticeHintState.loading
+                                          ? 'Memuat petunjuk'
+                                          : 'Lihat petunjuk',
                                       style: TextStyle(
                                         color: AppColors.fireGold,
                                         fontWeight: FontWeight.w700,
@@ -400,6 +428,9 @@ class _PracticeQuizPageState extends ConsumerState<PracticeQuizPage> {
                                 await ref
                                     .read(playerProgressProvider.notifier)
                                     .hydrateFromRepository();
+                                await ref
+                                    .read(learningControllerProvider.notifier)
+                                    .load();
                                 if (context.mounted) {
                                   await maybeShowNotificationPermissionPrompt(
                                     context,

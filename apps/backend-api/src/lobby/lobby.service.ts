@@ -4,6 +4,7 @@ import { HiredPassService } from '../hired-pass/hired-pass.service';
 import { ProfileService } from '../profile/profile.service';
 import { wibBusinessDate } from '../progression/progression.utils';
 import { SupabaseService } from '../supabase/supabase.service';
+import { LearningService } from '../learning/learning.service';
 
 const DAILY_MISSIONS = [
   {
@@ -27,21 +28,24 @@ export class LobbyService {
     private readonly analyticsService: AnalyticsService,
     private readonly hiredPassService: HiredPassService,
     private readonly supabaseService: SupabaseService,
+    private readonly learningService: LearningService,
   ) {}
 
   async getSummary(userId: string, requestedAt = new Date()) {
     const businessDate = wibBusinessDate(requestedAt);
-    const [profile, analytics, hiredPass, missionResult] = await Promise.all([
-      this.profileService.getProfileData(userId),
-      this.analyticsService.getAnalyticsData(userId, requestedAt),
-      this.hiredPassService.getStatus(userId),
-      this.supabaseService
-        .getClient()
-        .from('daily_mission_progress')
-        .select('mission_key, completed_at, reward_rank_points')
-        .eq('user_id', userId)
-        .eq('business_date', businessDate),
-    ]);
+    const [profile, analytics, hiredPass, missionResult, learningNextAction] =
+      await Promise.all([
+        this.profileService.getProfileData(userId),
+        this.analyticsService.getAnalyticsData(userId, requestedAt),
+        this.hiredPassService.getStatus(userId),
+        this.supabaseService
+          .getClient()
+          .from('daily_mission_progress')
+          .select('mission_key, completed_at, reward_rank_points')
+          .eq('user_id', userId)
+          .eq('business_date', businessDate),
+        this.learningService.getLearningNextAction(userId),
+      ]);
 
     if (missionResult.error) {
       throw new InternalServerErrorException(missionResult.error.message);
@@ -85,6 +89,7 @@ export class LobbyService {
           ).length,
         },
         recommendation: analytics.recommendation,
+        learningNextAction,
       },
     };
   }
