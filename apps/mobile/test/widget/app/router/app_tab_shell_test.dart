@@ -174,6 +174,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(router.routeInformationProvider.value.uri.path, AppRoutes.solo);
-    expect(find.text('PILIH MODE'), findsOneWidget);
+    expect(find.text('SESI UNTUKMU'), findsOneWidget);
   });
 }

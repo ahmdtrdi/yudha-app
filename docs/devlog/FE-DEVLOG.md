@@ -2796,3 +2796,19 @@
 ### The Tech Debt
 - Auto and Recommended remain unavailable until authoritative recommendation data exists; legacy Custom topics remain category/subcategory references; and Focus, Standard, Speed, question selection, character submission, and `/solo/sessions` execution remain intentionally deferred to the approved policy and operational commits.
 
+## 2026-09-01 - Solo Setup PRD Alignment
+
+### The Change
+- Reworked the setup into the PRD hierarchy of one recommended `SESI UNTUKMU` and an `ATUR SENDIRI` path combining Focus/Standard/Speed with Seimbang/Rekomendasi/Pilih topik.
+- Kept the setup fixed within one viewport, enlarged the image-led recommended action, restored clay depth to the mechanic controls, and added concise descriptions to every manual option while retaining arena artwork for material selection.
+- Made recommended and manual selections visually exclusive in both directions, styled unavailable recommendation actions in gray, and reduced the character screen to a compact read-only configuration summary before loadout selection.
+
+### The Reasoning
+- The PRD treats the recommended session as a complete preset and manual configuration as an alternative path, so presenting both as simultaneously selected would misrepresent the user's active configuration.
+
+### Verification
+- All 8 focused Solo setup, state-reset, router, and navbar widget tests passed; targeted Flutter analysis reported no issues; and `git diff --check` completed cleanly.
+
+### The Tech Debt
+- Recommended selection remains unavailable until authoritative recommendation data exists, and Custom still carries legacy category/subcategory references until stable skill-ID delivery is implemented.
+

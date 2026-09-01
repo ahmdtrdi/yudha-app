@@ -38,19 +38,6 @@ class SoloLoadoutPage extends ConsumerWidget {
       _arenaIdForMode(mode),
     )!;
 
-    Future<void> choosePace() async {
-      final SoloMechanicMode? selected =
-          await showModalBottomSheet<SoloMechanicMode>(
-            context: context,
-            backgroundColor: AppColors.scholarCream,
-            showDragHandle: true,
-            isScrollControlled: true,
-            builder: (BuildContext context) =>
-                _PaceSheet(selected: setup.mechanicMode),
-          );
-      if (selected != null) controller.selectMechanic(selected);
-    }
-
     return PopScope(
       onPopInvokedWithResult: (bool didPop, Object? result) {
         if (didPop) controller.reset();
@@ -68,7 +55,7 @@ class SoloLoadoutPage extends ConsumerWidget {
           ),
           centerTitle: true,
           title: Text(
-            'ATUR LATIHAN',
+            'PILIH KARAKTER',
             style: GoogleFonts.fredoka(
               color: AppColors.warriorNavy,
               fontSize: 17,
@@ -86,7 +73,12 @@ class SoloLoadoutPage extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    _PaceSelector(mode: setup.mechanicMode, onTap: choosePace),
+                    _LoadoutSetupSummary(
+                      mode: mode,
+                      mechanicMode: setup.mechanicMode,
+                      topicName: setup.legacyTopic?.name,
+                      onChange: context.pop,
+                    ),
                     const SizedBox(height: 12),
                     _SoloCharacterStage(
                       arena: arena,
@@ -160,164 +152,80 @@ class SoloLoadoutPage extends ConsumerWidget {
   }
 }
 
-class _PaceSelector extends StatelessWidget {
-  const _PaceSelector({required this.mode, required this.onTap});
+class _LoadoutSetupSummary extends StatelessWidget {
+  const _LoadoutSetupSummary({
+    required this.mode,
+    required this.mechanicMode,
+    required this.topicName,
+    required this.onChange,
+  });
 
-  final SoloMechanicMode mode;
-  final VoidCallback onTap;
+  final SoloSetupMode mode;
+  final SoloMechanicMode mechanicMode;
+  final String? topicName;
+  final VoidCallback onChange;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 78,
-      child: Stack(
-        children: <Widget>[
-          Positioned.fill(
-            top: 6,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xFFD6D9DF),
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            bottom: 6,
-            child: Material(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                key: const ValueKey<String>('solo-pace-selector'),
-                onTap: onTap,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 15),
-                  child: Row(
-                    children: <Widget>[
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE5EFFF),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(
-                          Icons.timer_outlined,
-                          color: Color(0xFF2878F0),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            const Text(
-                              'TEMPO LATIHAN',
-                              style: TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: 8,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.7,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _mechanicLabel(mode),
-                              style: GoogleFonts.fredoka(
-                                color: AppColors.warriorNavy,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            Text(
-                              _mechanicDescription(mode),
-                              style: const TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        color: AppColors.warriorNavy,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+    return Container(
+      key: const ValueKey<String>('solo-loadout-summary'),
+      padding: const EdgeInsets.fromLTRB(13, 10, 8, 13),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(19),
+        border: Border.all(color: const Color(0xFFE1E4E9)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(color: Color(0xFFD5D9E0), offset: Offset(0, 5)),
         ],
       ),
-    );
-  }
-}
-
-class _PaceSheet extends StatelessWidget {
-  const _PaceSheet({required this.selected});
-
-  final SoloMechanicMode selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Text(
-              'Pilih tempo latihan',
-              style: GoogleFonts.fredoka(
-                color: AppColors.warriorNavy,
-                fontSize: 21,
-                fontWeight: FontWeight.w800,
-              ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 39,
+            height: 39,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE5EEFF),
+              borderRadius: BorderRadius.circular(13),
             ),
-            const SizedBox(height: 12),
-            for (final SoloMechanicMode mode in SoloMechanicMode.values)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 9),
-                child: ListTile(
-                  key: ValueKey<String>('solo-pace-${mode.wireValue}'),
-                  onTap: () => Navigator.of(context).pop(mode),
-                  tileColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(17),
-                    side: BorderSide(
-                      color: selected == mode
-                          ? const Color(0xFF2878F0)
-                          : const Color(0xFFE1E4E9),
-                      width: selected == mode ? 2 : 1,
-                    ),
+            child: Icon(
+              _mechanicIcon(mechanicMode),
+              color: const Color(0xFF2878F0),
+              size: 21,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'SETUP',
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.7,
                   ),
-                  leading: Icon(
-                    _mechanicIcon(mode),
-                    color: const Color(0xFF2878F0),
-                  ),
-                  title: Text(
-                    _mechanicLabel(mode),
-                    style: GoogleFonts.fredoka(
-                      color: AppColors.warriorNavy,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  subtitle: Text(_mechanicDescription(mode)),
-                  trailing: selected == mode
-                      ? const Icon(
-                          Icons.check_circle_rounded,
-                          color: Color(0xFF2878F0),
-                        )
-                      : null,
                 ),
-              ),
-          ],
-        ),
+                Text(
+                  '${_mechanicLabel(mechanicMode)} · ${topicName ?? _modeLabel(mode)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.fredoka(
+                    color: AppColors.warriorNavy,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            key: const ValueKey<String>('solo-loadout-change'),
+            onPressed: onChange,
+            child: const Text('GANTI'),
+          ),
+        ],
       ),
     );
   }
@@ -736,7 +644,7 @@ String _arenaIdForMode(SoloSetupMode mode) => switch (mode) {
 };
 
 String _modeLabel(SoloSetupMode mode) => switch (mode) {
-  SoloSetupMode.auto => 'Auto',
+  SoloSetupMode.auto => 'Rekomendasi',
   SoloSetupMode.balanced => 'Seimbang',
   SoloSetupMode.recommended => 'Rekomendasi',
   SoloSetupMode.custom => 'Pilih topik',
@@ -753,12 +661,6 @@ String _mechanicLabel(SoloMechanicMode mode) => switch (mode) {
   SoloMechanicMode.focus => 'Focus',
   SoloMechanicMode.standard => 'Standard',
   SoloMechanicMode.speed => 'Speed',
-};
-
-String _mechanicDescription(SoloMechanicMode mode) => switch (mode) {
-  SoloMechanicMode.focus => 'Tanpa batas waktu',
-  SoloMechanicMode.standard => 'Waktu normal per soal',
-  SoloMechanicMode.speed => 'Tantangan kecepatan',
 };
 
 IconData _mechanicIcon(SoloMechanicMode mode) => switch (mode) {

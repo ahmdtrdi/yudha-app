@@ -44,11 +44,12 @@ class SoloSetupState {
     String? recommendationId,
     SoloLegacyTopicSelection? legacyTopic,
     String? characterId,
+    bool clearMode = false,
     bool clearRecommendation = false,
     bool clearLegacyTopic = false,
   }) {
     return SoloSetupState(
-      mode: mode ?? this.mode,
+      mode: clearMode ? null : mode ?? this.mode,
       mechanicMode: mechanicMode ?? this.mechanicMode,
       recommendationId: clearRecommendation
           ? null

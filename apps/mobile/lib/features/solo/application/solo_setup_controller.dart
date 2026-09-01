@@ -28,7 +28,11 @@ class SoloSetupController extends StateNotifier<SoloSetupState> {
   }
 
   void selectMechanic(SoloMechanicMode mechanicMode) {
-    state = state.copyWith(mechanicMode: mechanicMode);
+    state = state.copyWith(
+      mechanicMode: mechanicMode,
+      clearMode: state.mode == SoloSetupMode.auto,
+      clearRecommendation: state.mode == SoloSetupMode.auto,
+    );
   }
 
   void selectCharacter(String characterId) {

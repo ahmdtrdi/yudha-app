@@ -33,34 +33,59 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('LATIHAN SOLO'), findsOneWidget);
-    expect(find.text('PILIH MODE'), findsOneWidget);
+    expect(find.text('SESI UNTUKMU'), findsOneWidget);
+    expect(find.text('ATUR SENDIRI'), findsOneWidget);
+    expect(find.text('CARA LATIHAN'), findsOneWidget);
+    expect(find.text('MATERI'), findsOneWidget);
     expect(find.text('Mau latihan seperti apa?'), findsNothing);
     expect(
       find.byKey(const ValueKey<String>('solo-top-bar-depth')),
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey<String>('solo-auto-featured')),
+      find.byKey(const ValueKey<String>('solo-recommended-arena-preview')),
       findsOneWidget,
     );
-    expect(find.text('Auto'), findsOneWidget);
+    expect(find.text('UTAMA'), findsNothing);
+    expect(find.byType(CustomScrollView), findsNothing);
+    expect(find.text('Auto'), findsNothing);
     expect(find.text('Seimbang'), findsOneWidget);
-    expect(find.text('Rekomendasi'), findsOneWidget);
+    expect(find.text('Rekomendasi'), findsNWidgets(2));
     expect(find.text('Pilih topik'), findsOneWidget);
+    expect(find.text('Tanpa waktu'), findsOneWidget);
+    expect(find.text('Tempo normal'), findsOneWidget);
+    expect(find.text('Lebih cepat'), findsOneWidget);
+    expect(find.text('Semua materi'), findsOneWidget);
+    expect(find.text('Topik terlemah'), findsOneWidget);
+    expect(find.text('Atur materi'), findsOneWidget);
+    for (final String mode in <String>['balanced', 'recommended', 'custom']) {
+      expect(
+        find.byKey(ValueKey<String>('solo-mode-arena-preview-$mode')),
+        findsOneWidget,
+      );
+    }
 
+    expect(
+      tester
+          .getBottomRight(
+            find.byKey(const ValueKey<String>('solo-setup-continue')),
+          )
+          .dy,
+      lessThan(744),
+    );
     await tester.tap(find.byKey(const ValueKey<String>('solo-mode-balanced')));
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey<String>('solo-setup-continue')));
     await tester.pumpAndSettle();
 
-    expect(find.text('ATUR LATIHAN'), findsOneWidget);
+    expect(find.text('PILIH KARAKTER'), findsWidgets);
     expect(find.text('SIAPKAN SOLO'), findsNothing);
     expect(find.text('PREVIEW'), findsNothing);
     expect(
-      find.byKey(const ValueKey<String>('solo-pace-selector')),
+      find.byKey(const ValueKey<String>('solo-loadout-summary')),
       findsOneWidget,
     );
+    expect(find.text('Focus · Seimbang'), findsWidgets);
     expect(
       find.byKey(const ValueKey<String>('solo-mode-arena-balanced')),
       findsOneWidget,
@@ -110,7 +135,88 @@ void main() {
     );
   });
 
-  testWidgets('changes the pace locally without starting a session', (
+  testWidgets('manual controls leave the recommended session', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final GoRouter router = GoRouter(
+      initialLocation: AppRoutes.solo,
+      routes: <RouteBase>[
+        GoRoute(path: AppRoutes.solo, builder: (_, _) => const SoloSetupPage()),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(child: MaterialApp.router(routerConfig: router)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey<String>('solo-mode-auto')));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<Icon>(
+            find.byKey(const ValueKey<String>('solo-recommended-action-icon')),
+          )
+          .icon,
+      Icons.check_rounded,
+    );
+    expect(
+      tester
+          .widget<Material>(
+            find.byKey(const ValueKey<String>('solo-setup-button-surface')),
+          )
+          .color,
+      const Color(0xFFE6E8EC),
+    );
+    for (final String mechanic in <String>['focus', 'standard', 'speed']) {
+      expect(
+        tester
+            .widget<Semantics>(
+              find.byKey(ValueKey<String>('solo-mechanic-card-$mechanic')),
+            )
+            .properties
+            .selected,
+        isFalse,
+      );
+    }
+
+    await tester.tap(find.byKey(const ValueKey<String>('solo-mechanic-speed')));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<Icon>(
+            find.byKey(const ValueKey<String>('solo-recommended-action-icon')),
+          )
+          .icon,
+      Icons.arrow_forward_rounded,
+    );
+    expect(
+      tester
+          .widget<Semantics>(
+            find.byKey(const ValueKey<String>('solo-mechanic-card-speed')),
+          )
+          .properties
+          .selected,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<InkWell>(
+            find.byKey(const ValueKey<String>('solo-setup-continue')),
+          )
+          .onTap,
+      isNull,
+    );
+  });
+
+  testWidgets('selects pace before opening the character loadout', (
     WidgetTester tester,
   ) async {
     final GoRouter router = GoRouter(
@@ -129,18 +235,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.byKey(const ValueKey<String>('solo-mechanic-speed')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey<String>('solo-mode-balanced')));
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey<String>('solo-setup-continue')));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey<String>('solo-pace-selector')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey<String>('solo-pace-speed')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Speed'), findsWidgets);
+    expect(find.text('Speed · Seimbang'), findsWidgets);
+    expect(
+      find.byKey(const ValueKey<String>('solo-mechanic-selector')),
+      findsNothing,
+    );
 
     await tester.ensureVisible(
       find.byKey(const ValueKey<String>('solo-start-preview')),
@@ -170,7 +276,6 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey<String>('solo-mode-balanced')));
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
     await tester.pumpAndSettle();
     expect(
       tester
@@ -185,9 +290,6 @@ void main() {
     await tester.pumpAndSettle();
     router.go(AppRoutes.solo);
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
-    await tester.pumpAndSettle();
-
     expect(
       tester
           .widget<InkWell>(
@@ -218,15 +320,11 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey<String>('solo-mode-balanced')));
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey<String>('solo-setup-continue')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey<String>('solo-loadout-back')));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
-    await tester.pumpAndSettle();
-
     expect(
       tester
           .widget<InkWell>(
