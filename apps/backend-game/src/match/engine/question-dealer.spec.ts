@@ -146,6 +146,133 @@ describe('QuestionDealer', () => {
     });
   });
 
+  describe('adaptive subcategory distribution', () => {
+    it('uses the standard 25 percent share for all four subcategories', () => {
+      const distribution = dealer.createMatchTopicDistribution('cpns', []);
+
+      expect(distribution.tiu).toEqual({
+        verbal: 0.25,
+        numerik: 0.25,
+        logis: 0.25,
+        figural: 0.25,
+      });
+      expect(distribution.twk.bhinneka_tunggal_ika).toBe(0.25);
+      expect(distribution.tkp.pelayanan_dan_integritas).toBe(0.25);
+    });
+
+    it('focuses a bot match on the human recommendation topic', () => {
+      const distribution = dealer.createMatchTopicDistribution('cpns', [
+        { category: 'tiu', subcategory: 'numerik' },
+      ]);
+
+      expect(distribution.tiu).toEqual({
+        verbal: 0.15,
+        numerik: 0.55,
+        logis: 0.15,
+        figural: 0.15,
+      });
+      expect(distribution.twk.pancasila_dan_ideologi).toBe(0.25);
+    });
+
+    it('averages two PvP recommendations element by element', () => {
+      const sameCategory = dealer.createMatchTopicDistribution('cpns', [
+        { category: 'tiu', subcategory: 'verbal' },
+        { category: 'tiu', subcategory: 'numerik' },
+      ]);
+      expect(sameCategory.tiu.verbal).toBeCloseTo(0.35);
+      expect(sameCategory.tiu.numerik).toBeCloseTo(0.35);
+      expect(sameCategory.tiu.logis).toBeCloseTo(0.15);
+      expect(sameCategory.tiu.figural).toBeCloseTo(0.15);
+
+      const differentCategories = dealer.createMatchTopicDistribution('cpns', [
+        { category: 'tiu', subcategory: 'numerik' },
+        { category: 'twk', subcategory: 'bhinneka_tunggal_ika' },
+      ]);
+      expect(differentCategories.tiu).toEqual({
+        verbal: 0.2,
+        numerik: 0.4,
+        logis: 0.2,
+        figural: 0.2,
+      });
+      expect(differentCategories.twk.bhinneka_tunggal_ika).toBe(0.4);
+    });
+
+    it('treats a missing or invalid recommendation as a balanced vector', () => {
+      const distribution = dealer.createMatchTopicDistribution('bumn', [
+        { category: 'tiu', subcategory: 'numerik' },
+        null,
+      ]);
+
+      expect(distribution.tkd).toEqual({
+        verbal: 0.25,
+        numerik: 0.25,
+        logis: 0.25,
+        figural: 0.25,
+      });
+    });
+
+    it('deals the requested proportions and interleaves topics smoothly', () => {
+      const subcategories = ['verbal', 'numerik', 'logis', 'figural'];
+      const cards = subcategories.flatMap((subcategory) =>
+        makeCards(30).map((card, index) => ({
+          ...card,
+          id: `${subcategory}_${index}`,
+          subcategory,
+        })),
+      );
+      const weights = dealer.createMatchTopicDistribution('cpns', [
+        { category: 'tiu', subcategory: 'numerik' },
+      ]).tiu;
+
+      const queue = dealer.createAdaptiveCategoryQueue(
+        cards,
+        40,
+        weights,
+        () => 0.999999,
+      );
+      const counts = queue.reduce<Record<string, number>>((result, card) => {
+        result[card.subcategory] = (result[card.subcategory] ?? 0) + 1;
+        return result;
+      }, {});
+
+      expect(counts).toEqual({ verbal: 6, numerik: 22, logis: 6, figural: 6 });
+      expect(
+        queue.slice(0, 8).filter((card) => card.subcategory === 'numerik'),
+      ).toHaveLength(5);
+      expect(new Set(queue.map((card) => card.id)).size).toBe(40);
+    });
+
+    it('deals exactly one quarter per topic when the category count is divisible by four', () => {
+      const subcategories = ['amanah', 'kompeten', 'harmonis', 'loyal'];
+      const cards = subcategories.flatMap((subcategory) =>
+        makeCards(10).map((card, index) => ({
+          ...card,
+          id: `${subcategory}_${index}`,
+          subcategory,
+        })),
+      );
+      const weights = dealer.createMatchTopicDistribution('bumn', []).akhlak;
+
+      const queue = dealer.createAdaptiveCategoryQueue(
+        cards,
+        40,
+        weights,
+        () => 0.999999,
+      );
+      const counts = queue.reduce<Record<string, number>>((result, card) => {
+        result[card.subcategory] = (result[card.subcategory] ?? 0) + 1;
+        return result;
+      }, {});
+
+      expect(counts).toEqual({
+        amanah: 10,
+        kompeten: 10,
+        harmonis: 10,
+        loyal: 10,
+      });
+    });
+  });
+
   describe('drawAt', () => {
     it('returns the card at the given index', () => {
       const queue = makeCards(8);

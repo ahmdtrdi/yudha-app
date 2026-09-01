@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../../supabase/supabase.service';
+import {
+  QuestionDealer,
+  type MatchTopicDistribution,
+  type RecommendationTopic,
+} from '../engine/question-dealer';
 import type { InternalCard, SupabaseQuestionRow } from './question.types';
 
 const DEFAULT_POOL_SIZE = 24;
@@ -29,7 +34,10 @@ export type CardPool = {
 export class QuestionService {
   private readonly logger = new Logger(QuestionService.name);
 
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly dealer: QuestionDealer = new QuestionDealer(),
+  ) {}
 
   /**
    * Fetch a balanced question pool from Supabase for a match, returning both
@@ -42,11 +50,19 @@ export class QuestionService {
     target: 'cpns' | 'bumn' = 'cpns',
     activeSize = 12,
     reserveSize = 12,
+    recommendationUserIds: readonly string[] = [],
   ): Promise<CardPool> {
     const totalNeeded = activeSize + reserveSize;
-    const data = await this.loadActiveQuestions(target);
+    const [data, recommendations] = await Promise.all([
+      this.loadActiveQuestions(target),
+      this.loadRecommendationTopics(recommendationUserIds, target),
+    ]);
+    const distribution = this.dealer.createMatchTopicDistribution(
+      target,
+      recommendations,
+    );
 
-    const poolRows = this.buildBalancedPool(data, totalNeeded);
+    const poolRows = this.buildBalancedPool(data, totalNeeded, distribution);
     const allCards = poolRows.map((row, index) =>
       this.mapToInternalCard(row, index),
     );
@@ -63,10 +79,18 @@ export class QuestionService {
   async getMatchQuestionPool(
     target: 'cpns' | 'bumn' = 'cpns',
     poolSize?: number,
+    recommendationUserIds: readonly string[] = [],
   ): Promise<InternalCard[]> {
     if (target === 'cpns' && poolSize === undefined) {
-      const rows = await this.loadActiveQuestions(target);
-      return this.buildCpnsRoundPool(rows).map((row, index) =>
+      const [rows, recommendations] = await Promise.all([
+        this.loadActiveQuestions(target),
+        this.loadRecommendationTopics(recommendationUserIds, target),
+      ]);
+      const distribution = this.dealer.createMatchTopicDistribution(
+        target,
+        recommendations,
+      );
+      return this.buildCpnsRoundPool(rows, distribution).map((row, index) =>
         this.mapToInternalCard(row, index),
       );
     }
@@ -75,6 +99,7 @@ export class QuestionService {
       target,
       poolSize ?? DEFAULT_POOL_SIZE,
       0,
+      recommendationUserIds,
     );
     return pool.active;
   }
@@ -83,7 +108,10 @@ export class QuestionService {
    * Select the real CPNS per-round composition. Categories are never
    * backfilled from one another because each deck has an independent limit.
    */
-  buildCpnsRoundPool(questions: SupabaseQuestionRow[]): SupabaseQuestionRow[] {
+  buildCpnsRoundPool(
+    questions: SupabaseQuestionRow[],
+    distribution = this.dealer.createMatchTopicDistribution('cpns', []),
+  ): SupabaseQuestionRow[] {
     const byCategory = new Map<string, SupabaseQuestionRow[]>();
     for (const question of questions) {
       const category = this.categoryKey(question.category);
@@ -97,8 +125,13 @@ export class QuestionService {
       CPNS_ROUND_CATEGORY_LIMITS,
     )) {
       const rows = byCategory.get(this.categoryKey(category)) ?? [];
-      this.shuffle(rows);
-      pool.push(...rows.slice(0, limit));
+      pool.push(
+        ...this.dealer.createAdaptiveCategoryQueue(
+          rows,
+          limit,
+          this.dealer.topicWeights(distribution, category),
+        ),
+      );
       if (rows.length < limit) {
         this.logger.warn(
           `${category} only has ${rows.length}/${limit} active questions; the dealer will recycle this category as a fallback.`,
@@ -118,6 +151,7 @@ export class QuestionService {
   buildBalancedPool(
     questions: SupabaseQuestionRow[],
     poolSize: number,
+    distribution?: MatchTopicDistribution,
   ): SupabaseQuestionRow[] {
     const byCategory = new Map<string, SupabaseQuestionRow[]>();
 
@@ -128,9 +162,21 @@ export class QuestionService {
       byCategory.get(cat)!.push(q);
     }
 
-    // Shuffle each category
-    for (const [, cards] of byCategory) {
-      this.shuffle(cards);
+    const target = questions[0]?.target ?? 'cpns';
+    const matchDistribution =
+      distribution ?? this.dealer.createMatchTopicDistribution(target, []);
+
+    // Each category keeps its own adaptive subcategory order. The existing
+    // category round-robin below still preserves the three-deck balance.
+    for (const [category, cards] of byCategory) {
+      byCategory.set(
+        category,
+        this.dealer.createAdaptiveCategoryQueue(
+          cards,
+          cards.length,
+          this.dealer.topicWeights(matchDistribution, category),
+        ),
+      );
     }
 
     const pool: SupabaseQuestionRow[] = [];
@@ -213,6 +259,53 @@ export class QuestionService {
     return data as SupabaseQuestionRow[];
   }
 
+  private async loadRecommendationTopics(
+    userIds: readonly string[],
+    target: 'cpns' | 'bumn',
+  ): Promise<Array<RecommendationTopic | null>> {
+    if (userIds.length === 0) return [];
+    const uniqueUserIds = [...new Set(userIds)];
+    const adminClient = this.supabaseService.getAdminClient();
+    const { data, error } = await adminClient
+      .from('learning_recommendations')
+      .select('user_id, target, skill_ids')
+      .in('user_id', uniqueUserIds)
+      .eq('target', target)
+      .eq('status', 'active')
+      .eq('availability_runnable', true)
+      .eq('question_selection_type', 'recommended')
+      .gt('expires_at', new Date().toISOString());
+
+    if (error) {
+      this.logger.warn(
+        `Recommendation lookup failed; using balanced dealer: ${error.message}`,
+      );
+      return userIds.map(() => null);
+    }
+
+    const topicByUserId = new Map<string, RecommendationTopic>();
+    for (const row of (data ?? []) as Array<{
+      user_id: string;
+      target: string;
+      skill_ids: string[];
+    }>) {
+      const topic = this.parseRecommendationTopic(row.skill_ids?.[0], target);
+      if (topic) topicByUserId.set(row.user_id, topic);
+    }
+    return userIds.map((userId) => topicByUserId.get(userId) ?? null);
+  }
+
+  private parseRecommendationTopic(
+    skillId: string | undefined,
+    target: 'cpns' | 'bumn',
+  ): RecommendationTopic | null {
+    if (!skillId) return null;
+    const [skillTarget, category, ...subcategoryParts] = skillId.split('.');
+    const subcategory = subcategoryParts.join('.');
+    if (skillTarget !== target || !category || !subcategory) return null;
+    return { category, subcategory };
+  }
+
   private categoryKey(category?: string): string {
     return (
       category
@@ -221,13 +314,5 @@ export class QuestionService {
         .replace(/[_-]+/g, ' ')
         .replace(/\s+/g, ' ') ?? ''
     );
-  }
-
-  /** Fisher-Yates shuffle (in-place) */
-  private shuffle<T>(array: T[]): void {
-    for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [array[i], array[j]] = [array[j], array[i]];
-    }
   }
 }
