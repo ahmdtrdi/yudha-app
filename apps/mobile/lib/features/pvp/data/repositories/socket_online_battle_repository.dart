@@ -595,7 +595,9 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
       weight: _asInt(data['weight']),
       effect: effect,
       category: data['category'] as String? ?? 'numerik',
+      subcategory: data['subcategory'] as String?,
       timeLimitSeconds: _positiveInt(data['timeLimitSeconds'], fallback: 10),
+      isExhausted: data['isExhausted'] as bool? ?? false,
     );
   }
 

@@ -23,8 +23,8 @@ describe('QuestionDealer', () => {
   });
 
   describe('HAND_SIZE', () => {
-    it('is 4', () => {
-      expect(QuestionDealer.HAND_SIZE).toBe(4);
+    it('is 3', () => {
+      expect(QuestionDealer.HAND_SIZE).toBe(3);
     });
   });
 
@@ -70,7 +70,26 @@ describe('QuestionDealer', () => {
       expect(hand[0].id).toBe('card_1');
       expect(hand[1].id).toBe('card_2');
       expect(hand[2].id).toBe('card_3');
-      expect(hand[3].id).toBe('card_4');
+    });
+
+    it('deals one fixed slot for each available category', () => {
+      const queue = [
+        ...makeCards(2).map((card) => ({ ...card, category: 'twk' })),
+        ...makeCards(2).map((card, index) => ({
+          ...card,
+          id: `tiu_${index}`,
+          category: 'tiu',
+        })),
+        ...makeCards(2).map((card, index) => ({
+          ...card,
+          id: `tkp_${index}`,
+          category: 'tkp',
+        })),
+      ];
+
+      const hand = dealer.createStartingHand(queue);
+
+      expect(hand.map((card) => card.category)).toEqual(['twk', 'tiu', 'tkp']);
     });
 
     it('deep-clones cards so mutations do not affect the queue', () => {
@@ -88,6 +107,42 @@ describe('QuestionDealer', () => {
       const queue = makeCards(2);
       const hand = dealer.createStartingHand(queue);
       expect(hand).toHaveLength(2);
+    });
+  });
+
+  describe('category buffers', () => {
+    const categorizedCards = (): InternalCard[] =>
+      ['twk', 'tiu', 'tkp'].flatMap((category) =>
+        makeCards(20).map((card, index) => ({
+          ...card,
+          id: `${category}_${index + 1}`,
+          sourceQuestionId: `${category}_question_${index + 1}`,
+          category,
+        })),
+      );
+
+    it('loads ten questions per CPNS category before dealing the hand', () => {
+      const decks = dealer.createCategoryDecks(categorizedCards(), 'cpns')!;
+
+      expect(decks.twk.buffer).toHaveLength(10);
+      expect(decks.tiu.buffer).toHaveLength(10);
+      expect(decks.tkp.buffer).toHaveLength(10);
+      expect(decks.twk.reserve).toHaveLength(10);
+    });
+
+    it('refills a category with ten questions when its buffer reaches three', () => {
+      const decks = dealer.createCategoryDecks(categorizedCards(), 'cpns')!;
+      const hand = dealer.createStartingHandFromCategoryDecks(decks, 'cpns');
+
+      expect(hand.map((card) => card.category)).toEqual(['twk', 'tiu', 'tkp']);
+      expect(decks.tiu.buffer).toHaveLength(9);
+
+      for (let draw = 0; draw < 6; draw += 1) {
+        dealer.drawFromCategoryDeck(decks.tiu);
+      }
+
+      expect(decks.tiu.buffer).toHaveLength(13);
+      expect(decks.tiu.reserve).toHaveLength(0);
     });
   });
 

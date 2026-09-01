@@ -45,8 +45,8 @@ export class GameEngine {
   ): InternalRoomState;
   createRoom(
     roomId: string,
-    modeOrPlayerA: InternalRoomState['mode'] | string,
-    targetOrPlayerB: InternalRoomState['target'] | string,
+    modeOrPlayerA: string,
+    targetOrPlayerB: string,
     playerAOrQueue:
       | BattlePlayerSeed
       | ReturnType<QuestionDealer['createSharedQueue']>,
@@ -93,8 +93,8 @@ export class GameEngine {
       ),
       startedAt,
       players: {
-        playerA: this.createPlayer(playerA, 'playerA', sharedQueue),
-        playerB: this.createPlayer(playerB, 'playerB', sharedQueue),
+        playerA: this.createPlayer(playerA, 'playerA', sharedQueue, target),
+        playerB: this.createPlayer(playerB, 'playerB', sharedQueue, target),
       },
     };
   }
@@ -128,8 +128,15 @@ export class GameEngine {
     }
     if (player.openedCardId)
       return this.reject('card_already_open', 'Finish your opened card first.');
-    if (!player.hand.some((card) => card.id === cardId)) {
+    const card = player.hand.find((candidate) => candidate.id === cardId);
+    if (!card) {
       return this.reject('card_not_in_hand', 'Card is not in your hand.');
+    }
+    if (card.isExhausted) {
+      return this.reject(
+        'category_exhausted',
+        `${card.category ?? 'Category'} has reached its round limit.`,
+      );
     }
     if (player.answeredCardIds.has(cardId)) {
       return this.reject('card_already_answered', 'Card was already answered.');
@@ -217,9 +224,11 @@ export class GameEngine {
     player.openedCardId = undefined;
     player.openedCardAt = undefined;
 
-    const nextCard = this.drawNextCard(room, player);
+    const nextCard = this.drawNextCard(room, player, card.category);
     if (nextCard) {
       player.hand.push(nextCard);
+    } else if (this.isCategoryExhausted(player, card.category)) {
+      player.hand.push(this.asExhaustedCard(card));
     }
 
     const matchResult =
@@ -281,9 +290,11 @@ export class GameEngine {
     player.openedCardId = undefined;
     player.openedCardAt = undefined;
 
-    const nextCard = this.drawNextCard(room, player);
+    const nextCard = this.drawNextCard(room, player, card.category);
     if (nextCard) {
       player.hand.push(nextCard);
+    } else if (this.isCategoryExhausted(player, card.category)) {
+      player.hand.push(this.asExhaustedCard(card));
     }
 
     const playResult = {
@@ -391,8 +402,12 @@ export class GameEngine {
     seed: BattlePlayerSeed,
     role: BattleRole,
     sharedQueue: InternalRoomState['sharedQueue'],
+    target: InternalRoomState['target'],
   ): InternalPlayerState {
-    const hand = this.dealer.createStartingHand(sharedQueue);
+    const categoryDecks = this.dealer.createCategoryDecks(sharedQueue, target);
+    const hand = categoryDecks
+      ? this.dealer.createStartingHandFromCategoryDecks(categoryDecks, target)
+      : this.dealer.createStartingHand(sharedQueue);
     return {
       userId: seed.userId,
       displayName: seed.displayName,
@@ -405,6 +420,8 @@ export class GameEngine {
       hand,
       answeredCardIds: new Set<string>(),
       nextDrawIndex: hand.length,
+      nextDrawIndexByCategory: this.nextCategoryDrawIndexes(hand),
+      categoryDecks,
       connected: true,
     };
   }
@@ -438,9 +455,21 @@ export class GameEngine {
       player.comboExpiresAt = undefined;
       player.openedCardId = undefined;
       player.openedCardAt = undefined;
-      player.hand = this.dealer.createStartingHand(room.sharedQueue);
       player.answeredCardIds.clear();
-      player.nextDrawIndex = QuestionDealer.HAND_SIZE;
+      player.categoryDecks = this.dealer.createCategoryDecks(
+        room.sharedQueue,
+        room.target,
+      );
+      player.hand = player.categoryDecks
+        ? this.dealer.createStartingHandFromCategoryDecks(
+            player.categoryDecks,
+            room.target,
+          )
+        : this.dealer.createStartingHand(room.sharedQueue);
+      player.nextDrawIndex = player.hand.length;
+      player.nextDrawIndexByCategory = this.nextCategoryDrawIndexes(
+        player.hand,
+      );
     }
     return true;
   }
@@ -541,18 +570,82 @@ export class GameEngine {
   private drawNextCard(
     room: InternalRoomState,
     player: InternalPlayerState,
+    category?: string,
   ): InternalCard | undefined {
-    if (room.sharedQueue.length === 0) return undefined;
-    const absoluteIndex = player.nextDrawIndex;
-    const source = room.sharedQueue[absoluteIndex % room.sharedQueue.length];
+    const categoryKey = this.categoryKey(category);
+    const categoryDeck = player.categoryDecks?.[categoryKey];
+    if (categoryDeck) {
+      categoryDeck.castCount += 1;
+      if (categoryDeck.castCount >= categoryDeck.castLimit) return undefined;
+
+      const source = this.dealer.drawFromCategoryDeck(categoryDeck);
+      return source
+        ? this.ensureUniqueCardInstance(room, player, source)
+        : undefined;
+    }
+
+    const categoryCards = room.sharedQueue.filter(
+      (card) => this.categoryKey(card.category) === categoryKey,
+    );
+    if (categoryCards.length === 0) return undefined;
+    const categoryIndexes = (player.nextDrawIndexByCategory ??= {});
+    const categoryIndex = categoryIndexes[categoryKey] ?? 0;
+    const source = categoryCards[categoryIndex % categoryCards.length];
+    categoryIndexes[categoryKey] = categoryIndex + 1;
     player.nextDrawIndex += 1;
     return {
       ...source,
       id:
-        absoluteIndex < room.sharedQueue.length
+        categoryIndex < categoryCards.length
           ? source.id
-          : `card_r${absoluteIndex + 1}`,
+          : `card_r${room.nextRecycleId++}`,
       options: [...source.options],
+    };
+  }
+
+  private nextCategoryDrawIndexes(
+    hand: InternalCard[],
+  ): Record<string, number> {
+    const indexes: Record<string, number> = {};
+    for (const card of hand) {
+      const key = this.categoryKey(card.category);
+      indexes[key] = (indexes[key] ?? 0) + 1;
+    }
+    return indexes;
+  }
+
+  private categoryKey(category?: string): string {
+    return this.dealer.categoryKey(category);
+  }
+
+  private ensureUniqueCardInstance(
+    room: InternalRoomState,
+    player: InternalPlayerState,
+    source: InternalCard,
+  ): InternalCard {
+    const idAlreadyUsed =
+      player.answeredCardIds.has(source.id) ||
+      player.hand.some((card) => card.id === source.id);
+    return {
+      ...source,
+      id: idAlreadyUsed ? `card_r${room.nextRecycleId++}` : source.id,
+      options: [...source.options],
+    };
+  }
+
+  private isCategoryExhausted(
+    player: InternalPlayerState,
+    category?: string,
+  ): boolean {
+    const deck = player.categoryDecks?.[this.categoryKey(category)];
+    return deck !== undefined && deck.castCount >= deck.castLimit;
+  }
+
+  private asExhaustedCard(card: InternalCard): InternalCard {
+    return {
+      ...card,
+      options: [...card.options],
+      isExhausted: true,
     };
   }
 
