@@ -7,15 +7,8 @@ import 'package:yudha_mobile/features/solo/presentation/pages/solo_loadout_page.
 import 'package:yudha_mobile/features/solo/presentation/pages/solo_setup_page.dart';
 
 void main() {
-  testWidgets('selects Balanced and opens the clay Solo loadout', (
-    WidgetTester tester,
-  ) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(390, 844);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    addTearDown(tester.view.resetPhysicalSize);
-
-    final GoRouter router = GoRouter(
+  GoRouter buildRouter() {
+    return GoRouter(
       initialLocation: AppRoutes.solo,
       routes: <RouteBase>[
         GoRoute(path: AppRoutes.solo, builder: (_, _) => const SoloSetupPage()),
@@ -25,193 +18,72 @@ void main() {
         ),
       ],
     );
-    addTearDown(router.dispose);
+  }
 
+  Future<void> pumpSolo(
+    WidgetTester tester, {
+    Size size = const Size(390, 844),
+  }) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = size;
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final GoRouter router = buildRouter();
+    addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(child: MaterialApp.router(routerConfig: router)),
     );
     await tester.pumpAndSettle();
+  }
 
-    expect(find.text('LATIHAN SOLO'), findsOneWidget);
+  testWidgets('shows the playable Solo preset and continues to loadout', (
+    WidgetTester tester,
+  ) async {
+    await pumpSolo(tester);
+
     expect(find.text('SESI UNTUKMU'), findsOneWidget);
-    expect(find.text('ATUR SENDIRI'), findsOneWidget);
-    expect(find.text('CARA LATIHAN'), findsOneWidget);
-    expect(find.text('MATERI'), findsOneWidget);
-    expect(find.text('Mau latihan seperti apa?'), findsNothing);
-    expect(
-      find.byKey(const ValueKey<String>('solo-top-bar-depth')),
-      findsOneWidget,
-    );
+    expect(find.text('Rimba Yudha'), findsOneWidget);
+    expect(find.text('Standard'), findsOneWidget);
+    expect(find.text('Seimbang'), findsOneWidget);
+    expect(find.text('20 soal'), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('solo-recommended-arena-preview')),
       findsOneWidget,
     );
-    expect(find.text('UTAMA'), findsNothing);
-    expect(find.byType(CustomScrollView), findsNothing);
-    expect(find.text('Auto'), findsNothing);
-    expect(find.text('Seimbang'), findsOneWidget);
-    expect(find.text('Rekomendasi'), findsNWidgets(2));
-    expect(find.text('Pilih topik'), findsOneWidget);
-    expect(find.text('Segera hadir'), findsNWidgets(2));
-    expect(find.text('Tempo normal'), findsOneWidget);
-    expect(find.text('JUMLAH SOAL'), findsOneWidget);
-    expect(find.text('20 soal'), findsOneWidget);
-    expect(find.text('35 soal'), findsOneWidget);
-    expect(find.text('50 soal'), findsOneWidget);
-    expect(find.text('Semua materi'), findsOneWidget);
-    expect(find.text('Topik terlemah'), findsOneWidget);
-    expect(find.text('Atur materi'), findsOneWidget);
-    for (final String mode in <String>['balanced', 'recommended', 'custom']) {
-      expect(
-        find.byKey(ValueKey<String>('solo-mode-arena-preview-$mode')),
-        findsOneWidget,
-      );
-    }
-
+    expect(find.text('CARA LATIHAN'), findsNothing);
     expect(
-      tester
-          .getBottomRight(
-            find.byKey(const ValueKey<String>('solo-setup-continue')),
-          )
-          .dy,
-      lessThan(744),
+      find.byKey(const ValueKey<String>('solo-manual-sheet')),
+      findsNothing,
     );
-    await tester.tap(find.byKey(const ValueKey<String>('solo-mode-balanced')));
-    await tester.pumpAndSettle();
+
     await tester.tap(
-      find.byKey(const ValueKey<String>('solo-mechanic-standard')),
+      find.byKey(const ValueKey<String>('solo-recommended-continue')),
     );
-    await tester.tap(
-      find.byKey(const ValueKey<String>('solo-question-count-20')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey<String>('solo-setup-continue')));
     await tester.pumpAndSettle();
 
     expect(find.text('PILIH KARAKTER'), findsWidgets);
-    expect(find.text('SIAPKAN SOLO'), findsNothing);
-    expect(find.text('PREVIEW'), findsNothing);
-    expect(
-      find.byKey(const ValueKey<String>('solo-loadout-summary')),
-      findsOneWidget,
-    );
     expect(find.text('Standard · Seimbang · 20 soal'), findsWidgets);
     expect(
-      find.byKey(const ValueKey<String>('solo-mode-arena-balanced')),
+      find.byKey(const ValueKey<String>('solo-mode-arena-auto')),
       findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('solo-selected-character')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('solo-character-ground-shadow')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('solo-character-list')),
-      findsOneWidget,
-    );
-    final Rect stageRect = tester.getRect(
-      find.byKey(const ValueKey<String>('solo-character-stage')),
-    );
-    expect(stageRect.width / stageRect.height, closeTo(1.05, 0.02));
-    expect(
-      tester
-          .getSize(
-            find.byKey(
-              const ValueKey<String>('solo-character-character-basic-squire'),
-            ),
-          )
-          .width,
-      100,
-    );
-    expect(
-      find.ancestor(
-        of: find.byKey(
-          const ValueKey<String>('solo-character-art-character-basic-pip'),
-        ),
-        matching: find.byType(ColorFiltered),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      tester
-          .getBottomRight(
-            find.byKey(const ValueKey<String>('solo-start-preview')),
-          )
-          .dy,
-      lessThan(744),
     );
   });
 
-  testWidgets('manual controls leave the recommended session', (
+  testWidgets('opens an unselected manual sheet and applies its choices', (
     WidgetTester tester,
   ) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(390, 844);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    addTearDown(tester.view.resetPhysicalSize);
+    await pumpSolo(tester);
 
-    final GoRouter router = GoRouter(
-      initialLocation: AppRoutes.solo,
-      routes: <RouteBase>[
-        GoRoute(path: AppRoutes.solo, builder: (_, _) => const SoloSetupPage()),
-      ],
-    );
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      ProviderScope(child: MaterialApp.router(routerConfig: router)),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const ValueKey<String>('solo-mode-auto')));
+    await tester.tap(find.byKey(const ValueKey<String>('solo-open-manual')));
     await tester.pumpAndSettle();
 
     expect(
-      tester
-          .widget<Icon>(
-            find.byKey(const ValueKey<String>('solo-recommended-action-icon')),
-          )
-          .icon,
-      Icons.check_rounded,
+      find.byKey(const ValueKey<String>('solo-manual-sheet')),
+      findsOneWidget,
     );
-    expect(
-      tester
-          .widget<Material>(
-            find.byKey(const ValueKey<String>('solo-setup-button-surface')),
-          )
-          .color,
-      const Color(0xFFE6E8EC),
-    );
-    for (final String mechanic in <String>['focus', 'standard', 'speed']) {
-      expect(
-        tester
-            .widget<Semantics>(
-              find.byKey(ValueKey<String>('solo-mechanic-card-$mechanic')),
-            )
-            .properties
-            .selected,
-        isFalse,
-      );
-    }
-
-    await tester.tap(
-      find.byKey(const ValueKey<String>('solo-mechanic-standard')),
-    );
-    await tester.tap(
-      find.byKey(const ValueKey<String>('solo-question-count-35')),
-    );
-    await tester.pumpAndSettle();
-
-    expect(
-      tester
-          .widget<Icon>(
-            find.byKey(const ValueKey<String>('solo-recommended-action-icon')),
-          )
-          .icon,
-      Icons.arrow_forward_rounded,
-    );
+    expect(find.text('CARA LATIHAN'), findsOneWidget);
+    expect(find.text('JUMLAH SOAL'), findsOneWidget);
+    expect(find.text('MATERI'), findsOneWidget);
     expect(
       tester
           .widget<Semantics>(
@@ -219,154 +91,90 @@ void main() {
           )
           .properties
           .selected,
-      isTrue,
+      isFalse,
     );
     expect(
       tester
-          .widget<InkWell>(
-            find.byKey(const ValueKey<String>('solo-setup-continue')),
+          .widget<Semantics>(
+            find.byKey(const ValueKey<String>('solo-question-count-card-20')),
           )
-          .onTap,
-      isNull,
+          .properties
+          .selected,
+      isFalse,
     );
-  });
-
-  testWidgets(
-    'selects count and Standard before opening the character loadout',
-    (WidgetTester tester) async {
-      final GoRouter router = GoRouter(
-        initialLocation: AppRoutes.solo,
-        routes: <RouteBase>[
-          GoRoute(
-            path: AppRoutes.solo,
-            builder: (_, _) => const SoloSetupPage(),
-          ),
-          GoRoute(
-            path: AppRoutes.soloLoadout,
-            builder: (_, _) => const SoloLoadoutPage(),
-          ),
-        ],
-      );
-      addTearDown(router.dispose);
-      await tester.pumpWidget(
-        ProviderScope(child: MaterialApp.router(routerConfig: router)),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(
-        find.byKey(const ValueKey<String>('solo-mechanic-standard')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey<String>('solo-question-count-35')),
-      );
-      await tester.tap(
-        find.byKey(const ValueKey<String>('solo-mode-balanced')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey<String>('solo-setup-continue')),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('Standard · Seimbang · 35 soal'), findsWidgets);
-      expect(
-        find.byKey(const ValueKey<String>('solo-mechanic-selector')),
-        findsNothing,
-      );
-
-      expect(
-        find.byKey(const ValueKey<String>('solo-start-preview')),
-        findsOneWidget,
-      );
-    },
-  );
-
-  testWidgets('resets mode selection after leaving the Solo flow', (
-    WidgetTester tester,
-  ) async {
-    final GoRouter router = GoRouter(
-      initialLocation: AppRoutes.solo,
-      routes: <RouteBase>[
-        GoRoute(path: AppRoutes.lobby, builder: (_, _) => const SizedBox()),
-        GoRoute(path: AppRoutes.solo, builder: (_, _) => const SoloSetupPage()),
-      ],
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey<String>('solo-mechanic-card-standard')),
+          )
+          .height,
+      tester
+          .getSize(
+            find.byKey(const ValueKey<String>('solo-question-count-card-20')),
+          )
+          .height,
     );
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      ProviderScope(child: MaterialApp.router(routerConfig: router)),
-    );
-    await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey<String>('solo-mode-balanced')));
     await tester.tap(
       find.byKey(const ValueKey<String>('solo-mechanic-standard')),
     );
     await tester.tap(
-      find.byKey(const ValueKey<String>('solo-question-count-20')),
+      find.byKey(const ValueKey<String>('solo-question-count-35')),
     );
-    await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<InkWell>(
-            find.byKey(const ValueKey<String>('solo-setup-continue')),
-          )
-          .onTap,
-      isNotNull,
-    );
-
-    router.go(AppRoutes.lobby);
-    await tester.pumpAndSettle();
-    router.go(AppRoutes.solo);
-    await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<InkWell>(
-            find.byKey(const ValueKey<String>('solo-setup-continue')),
-          )
-          .onTap,
-      isNull,
-    );
-  });
-
-  testWidgets('resets mode selection when returning from loadout', (
-    WidgetTester tester,
-  ) async {
-    final GoRouter router = GoRouter(
-      initialLocation: AppRoutes.solo,
-      routes: <RouteBase>[
-        GoRoute(path: AppRoutes.solo, builder: (_, _) => const SoloSetupPage()),
-        GoRoute(
-          path: AppRoutes.soloLoadout,
-          builder: (_, _) => const SoloLoadoutPage(),
-        ),
-      ],
-    );
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      ProviderScope(child: MaterialApp.router(routerConfig: router)),
-    );
-    await tester.pumpAndSettle();
-
     await tester.tap(find.byKey(const ValueKey<String>('solo-mode-balanced')));
-    await tester.tap(
-      find.byKey(const ValueKey<String>('solo-mechanic-standard')),
-    );
-    await tester.tap(
-      find.byKey(const ValueKey<String>('solo-question-count-20')),
-    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey<String>('solo-setup-continue')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey<String>('solo-loadout-back')));
+
+    expect(find.text('Standard · Seimbang · 35 soal'), findsWidgets);
+    expect(
+      find.byKey(const ValueKey<String>('solo-mode-arena-balanced')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('keeps unavailable mechanic and recommendation cards disabled', (
+    WidgetTester tester,
+  ) async {
+    await pumpSolo(tester);
+    await tester.tap(find.byKey(const ValueKey<String>('solo-open-manual')));
     await tester.pumpAndSettle();
+
     expect(
       tester
           .widget<InkWell>(
-            find.byKey(const ValueKey<String>('solo-setup-continue')),
+            find.byKey(const ValueKey<String>('solo-mechanic-focus')),
           )
           .onTap,
       isNull,
+    );
+    expect(
+      tester
+          .widget<InkWell>(
+            find.byKey(const ValueKey<String>('solo-mode-recommended')),
+          )
+          .onTap,
+      isNull,
+    );
+  });
+
+  testWidgets('manual sheet remains scroll-safe on a short viewport', (
+    WidgetTester tester,
+  ) async {
+    await pumpSolo(tester, size: const Size(390, 680));
+    await tester.tap(find.byKey(const ValueKey<String>('solo-open-manual')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SingleChildScrollView), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await tester.drag(
+      find.byKey(const ValueKey<String>('solo-manual-sheet')),
+      const Offset(0, -240),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('solo-setup-continue')),
+      findsOneWidget,
     );
   });
 }

@@ -5,15 +5,14 @@ const int _arenaHandSize = 3;
 enum _CharacterPose { idle, ready, attack, hit }
 
 abstract final class _BattleClayPalette {
-  static const Color navy = Color(0xFF0D2A52);
-  static const Color navyEdge = Color(0xFF061A34);
-  static const Color arenaFrame = Color(0xFF244963);
-  static const Color cream = Color(0xFFFFF8EC);
-  static const Color neutralEdge = Color(0xFFD5D0C5);
-  static const Color ink = Color(0xFF17233F);
-  static const Color mutedInk = Color(0xFF66708A);
-  static const Color player = Color(0xFF2878F0);
-  static const Color rival = Color(0xFFF05E5E);
+  static const Color navy = BattleClayPalette.navy;
+  static const Color navyEdge = BattleClayPalette.navyEdge;
+  static const Color cream = BattleClayPalette.cream;
+  static const Color neutralEdge = BattleClayPalette.neutralEdge;
+  static const Color ink = BattleClayPalette.ink;
+  static const Color mutedInk = BattleClayPalette.mutedInk;
+  static const Color player = BattleClayPalette.player;
+  static const Color rival = BattleClayPalette.rival;
 }
 
 class _BattleEffectEvent {
@@ -1367,160 +1366,130 @@ class _ArenaBoard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      key: const ValueKey<String>('battle-arena-board'),
-      padding: const EdgeInsets.all(5),
-      decoration: BoxDecoration(
-        color: _BattleClayPalette.arenaFrame,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: Colors.white.withAlpha(52), width: 1.5),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: _BattleClayPalette.navyEdge,
-            blurRadius: 0,
-            offset: Offset(0, 7),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: LayoutBuilder(
-          builder: (BuildContext context, BoxConstraints constraints) {
-            final double width = constraints.maxWidth;
-            final double height = constraints.maxHeight;
-            final double mainSize = compact
-                ? (width * 0.29).clamp(88.0, 108.0)
-                : (width * 0.34).clamp(112.0, 142.0);
-            final double miniSize = mainSize * 0.61;
+    return BattleArenaFrame(
+      arenaAsset: arenaAsset,
+      foregroundBuilder: (BuildContext context, BoxConstraints constraints) {
+        final double width = constraints.maxWidth;
+        final double height = constraints.maxHeight;
+        final double mainSize = compact
+            ? (width * 0.29).clamp(88.0, 108.0)
+            : (width * 0.34).clamp(112.0, 142.0);
+        final double miniSize = mainSize * 0.61;
 
-            return Stack(
-              children: <Widget>[
-                Positioned.fill(
-                  child: Image.asset(
-                    arenaAsset,
-                    key: const ValueKey<String>('battle-arena-background'),
-                    fit: BoxFit.cover,
-                    alignment: Alignment.center,
-                    cacheWidth: 1024,
-                    filterQuality: FilterQuality.medium,
-                  ),
+        return Stack(
+          children: <Widget>[
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Opacity(
+                  opacity: 0.10,
+                  child: CustomPaint(painter: _ClayArenaPainter(arenaTheme)),
                 ),
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: Opacity(
-                      opacity: 0.10,
-                      child: CustomPaint(
-                        painter: _ClayArenaPainter(arenaTheme),
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: height * 0.35,
-                  right: 7,
-                  child: const _ArenaPropCluster(
-                    accent: Color(0xFFF05E5E),
-                    mirrored: true,
-                  ),
-                ),
-                Positioned(
-                  bottom: height * 0.35,
-                  left: 7,
-                  child: const _ArenaPropCluster(accent: Color(0xFF2878F0)),
-                ),
-                Positioned(
-                  top: -5,
-                  left: (width - mainSize * 1.12) / 2,
-                  width: mainSize * 1.12,
-                  height: mainSize,
-                  child: _ChampionStand(
-                    character: opponentCharacter,
-                    pose: opponentPose,
-                    accent: const Color(0xFFF05E5E),
-                    destroyed: opponentHp <= 0,
-                    ambientAnimation: ambientAnimation,
-                  ),
-                ),
-                Positioned(
-                  top: height * 0.22,
-                  left: width * 0.17 - miniSize / 2,
-                  width: miniSize,
-                  height: miniSize,
-                  child: _TowerAsset(
-                    activeAsset: opponentTowerAsset,
-                    destroyedAsset: opponentDestroyedTowerAsset,
-                    destroyed: opponentHp <= 0,
-                    ambientAnimation: ambientAnimation,
-                  ),
-                ),
-                Positioned(
-                  top: height * 0.22,
-                  left: width * 0.83 - miniSize / 2,
-                  width: miniSize,
-                  height: miniSize,
-                  child: _TowerAsset(
-                    activeAsset: opponentTowerAsset,
-                    destroyedAsset: opponentDestroyedTowerAsset,
-                    destroyed: opponentHp <= 0,
-                    ambientAnimation: ambientAnimation,
-                  ),
-                ),
-                Positioned(
-                  bottom: height * 0.22,
-                  left: width * 0.17 - miniSize / 2,
-                  width: miniSize,
-                  height: miniSize,
-                  child: _TowerAsset(
-                    activeAsset: playerTowerAsset,
-                    destroyedAsset: playerDestroyedTowerAsset,
-                    destroyed: playerHp <= 0,
-                    ambientAnimation: ambientAnimation,
-                  ),
-                ),
-                Positioned(
-                  bottom: height * 0.22,
-                  left: width * 0.83 - miniSize / 2,
-                  width: miniSize,
-                  height: miniSize,
-                  child: _TowerAsset(
-                    activeAsset: playerTowerAsset,
-                    destroyedAsset: playerDestroyedTowerAsset,
-                    destroyed: playerHp <= 0,
-                    ambientAnimation: ambientAnimation,
-                  ),
-                ),
-                Positioned(
-                  bottom: -5,
-                  left: (width - mainSize * 1.12) / 2,
-                  width: mainSize * 1.12,
-                  height: mainSize,
-                  child: _ChampionStand(
-                    character: playerCharacter,
-                    pose: playerPose,
-                    accent: const Color(0xFF2878F0),
-                    destroyed: playerHp <= 0,
-                    ambientAnimation: ambientAnimation,
-                  ),
-                ),
-                Positioned.fill(
-                  child: _BattleEffectLayer(
-                    animation: effectAnimation,
-                    actor: effectActor,
-                    kind: effectKind,
-                    category: effectCategory,
-                    amount: effectAmount,
-                    targetsPlayer: effectTargetsPlayer,
-                    isHeal: effectIsHeal,
-                    projectileLevel: effectProjectileLevel,
-                    playerCharacter: playerCharacter,
-                    opponentCharacter: opponentCharacter,
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
+              ),
+            ),
+            Positioned(
+              top: height * 0.35,
+              right: 7,
+              child: const _ArenaPropCluster(
+                accent: Color(0xFFF05E5E),
+                mirrored: true,
+              ),
+            ),
+            Positioned(
+              bottom: height * 0.35,
+              left: 7,
+              child: const _ArenaPropCluster(accent: Color(0xFF2878F0)),
+            ),
+            Positioned(
+              top: -5,
+              left: (width - mainSize * 1.12) / 2,
+              width: mainSize * 1.12,
+              height: mainSize,
+              child: _ChampionStand(
+                character: opponentCharacter,
+                pose: opponentPose,
+                accent: const Color(0xFFF05E5E),
+                destroyed: opponentHp <= 0,
+                ambientAnimation: ambientAnimation,
+              ),
+            ),
+            Positioned(
+              top: height * 0.22,
+              left: width * 0.17 - miniSize / 2,
+              width: miniSize,
+              height: miniSize,
+              child: _TowerAsset(
+                activeAsset: opponentTowerAsset,
+                destroyedAsset: opponentDestroyedTowerAsset,
+                destroyed: opponentHp <= 0,
+                ambientAnimation: ambientAnimation,
+              ),
+            ),
+            Positioned(
+              top: height * 0.22,
+              left: width * 0.83 - miniSize / 2,
+              width: miniSize,
+              height: miniSize,
+              child: _TowerAsset(
+                activeAsset: opponentTowerAsset,
+                destroyedAsset: opponentDestroyedTowerAsset,
+                destroyed: opponentHp <= 0,
+                ambientAnimation: ambientAnimation,
+              ),
+            ),
+            Positioned(
+              bottom: height * 0.22,
+              left: width * 0.17 - miniSize / 2,
+              width: miniSize,
+              height: miniSize,
+              child: _TowerAsset(
+                activeAsset: playerTowerAsset,
+                destroyedAsset: playerDestroyedTowerAsset,
+                destroyed: playerHp <= 0,
+                ambientAnimation: ambientAnimation,
+              ),
+            ),
+            Positioned(
+              bottom: height * 0.22,
+              left: width * 0.83 - miniSize / 2,
+              width: miniSize,
+              height: miniSize,
+              child: _TowerAsset(
+                activeAsset: playerTowerAsset,
+                destroyedAsset: playerDestroyedTowerAsset,
+                destroyed: playerHp <= 0,
+                ambientAnimation: ambientAnimation,
+              ),
+            ),
+            Positioned(
+              bottom: -5,
+              left: (width - mainSize * 1.12) / 2,
+              width: mainSize * 1.12,
+              height: mainSize,
+              child: _ChampionStand(
+                character: playerCharacter,
+                pose: playerPose,
+                accent: const Color(0xFF2878F0),
+                destroyed: playerHp <= 0,
+                ambientAnimation: ambientAnimation,
+              ),
+            ),
+            Positioned.fill(
+              child: _BattleEffectLayer(
+                animation: effectAnimation,
+                actor: effectActor,
+                kind: effectKind,
+                category: effectCategory,
+                amount: effectAmount,
+                targetsPlayer: effectTargetsPlayer,
+                isHeal: effectIsHeal,
+                projectileLevel: effectProjectileLevel,
+                playerCharacter: playerCharacter,
+                opponentCharacter: opponentCharacter,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -1770,59 +1739,11 @@ class _TowerAsset extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: ambientAnimation,
-      builder: (BuildContext context, Widget? child) {
-        final double float = (ambientAnimation.value - 0.5) * 2;
-        return Transform.translate(
-          offset: Offset(0, destroyed ? 4 : float),
-          child: AnimatedRotation(
-            turns: destroyed ? 0.018 : 0,
-            duration: const Duration(milliseconds: 260),
-            child: AnimatedOpacity(
-              opacity: destroyed ? 0.42 : 1,
-              duration: const Duration(milliseconds: 220),
-              child: ColorFiltered(
-                colorFilter: destroyed
-                    ? const ColorFilter.matrix(<double>[
-                        0.32,
-                        0.32,
-                        0.32,
-                        0,
-                        0,
-                        0.32,
-                        0.32,
-                        0.32,
-                        0,
-                        0,
-                        0.32,
-                        0.32,
-                        0.32,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        1,
-                        0,
-                      ])
-                    : const ColorFilter.mode(Colors.transparent, BlendMode.dst),
-                child: child!,
-              ),
-            ),
-          ),
-        );
-      },
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 260),
-        child: Image.asset(
-          destroyed ? destroyedAsset : activeAsset,
-          key: ValueKey<String>(destroyed ? destroyedAsset : activeAsset),
-          fit: BoxFit.contain,
-          cacheWidth: 320,
-          filterQuality: FilterQuality.low,
-        ),
-      ),
+    return BattleTowerAsset(
+      activeAsset: activeAsset,
+      destroyedAsset: destroyedAsset,
+      destroyed: destroyed,
+      ambientAnimation: ambientAnimation,
     );
   }
 }
@@ -2298,51 +2219,20 @@ class _BattleHand extends StatelessWidget {
             ],
           ),
           SizedBox(height: compact ? 5 : 7),
-          Align(
-            alignment: Alignment.center,
-            child: Container(
-              key: const ValueKey<String>('battle-deck-panel'),
-              width: compact ? 238 : 276,
-              height: compact ? 98 : 116,
-              padding: EdgeInsets.symmetric(
-                horizontal: compact ? 14 : 18,
-                vertical: compact ? 5 : 7,
-              ),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F3F6),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFFB8C0CC), width: 1.2),
-                boxShadow: const <BoxShadow>[
-                  BoxShadow(
-                    color: Color(0x2B17233F),
-                    blurRadius: 0,
-                    offset: Offset(0, 4),
+          BattleDeckPanel(
+            compact: compact,
+            cards: questions
+                .map(
+                  (BattleQuestion question) => _ArenaQuestionCard(
+                    question: question,
+                    compact: compact,
+                    enabled: enabled,
+                    selected: selectedQuestionId == question.id,
+                    onTap: () => onPickQuestion(question),
+                    onExhausted: () => onExhaustedQuestion(question),
                   ),
-                ],
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: List<Widget>.generate(3, (int index) {
-                  return Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(left: index == 0 ? 0 : 8),
-                      child: index < questions.length
-                          ? _ArenaQuestionCard(
-                              question: questions[index],
-                              compact: compact,
-                              enabled: enabled,
-                              selected:
-                                  selectedQuestionId == questions[index].id,
-                              onTap: () => onPickQuestion(questions[index]),
-                              onExhausted: () =>
-                                  onExhaustedQuestion(questions[index]),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                  );
-                }),
-              ),
-            ),
+                )
+                .toList(growable: false),
           ),
         ],
       ),

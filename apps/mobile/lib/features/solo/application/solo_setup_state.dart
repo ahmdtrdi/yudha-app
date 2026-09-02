@@ -33,11 +33,10 @@ class SoloSetupState {
   final SoloLegacyTopicSelection? legacyTopic;
   final String? characterId;
 
-  bool get usesUnavailableRecommendation =>
-      mode == SoloSetupMode.auto || mode == SoloSetupMode.recommended;
+  bool get usesUnavailableRecommendation => mode == SoloSetupMode.recommended;
 
   bool get canOpenLoadout =>
-      mode == SoloSetupMode.balanced &&
+      (mode == SoloSetupMode.auto || mode == SoloSetupMode.balanced) &&
       mechanicMode == SoloMechanicMode.standard &&
       questionCount != null;
 

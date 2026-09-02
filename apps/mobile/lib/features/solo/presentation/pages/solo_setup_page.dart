@@ -20,43 +20,38 @@ class SoloSetupPage extends ConsumerWidget {
     final controller = ref.read(soloSetupControllerProvider.notifier);
     final activeSession = ref.watch(activeSoloSessionProvider).asData?.value;
 
-    void continueSetup() {
-      final SoloSetupMode? mode = state.mode;
+    Future<void> continueManualSetup(SoloSetupState draft) async {
+      final SoloSetupMode? mode = draft.mode;
       if (mode == null) return;
-      if (state.usesUnavailableRecommendation) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Rekomendasi personal belum tersedia. Pilih Seimbang atau Pilih topik.',
-            ),
-          ),
-        );
+      if (mode == SoloSetupMode.custom && draft.legacyTopic == null) {
+        Navigator.of(context, rootNavigator: true).pop();
+        await context.push(AppRoutes.soloTopics);
         return;
       }
-      if (mode == SoloSetupMode.custom && state.legacyTopic == null) {
-        context.push(AppRoutes.soloTopics);
-        return;
-      }
-      if (!state.canOpenLoadout) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Saat ini tersedia Seimbang + Standard. Pilih juga jumlah soal.',
-            ),
-          ),
-        );
-        return;
-      }
-      context.push(AppRoutes.soloLoadout);
+      if (!draft.canOpenLoadout) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      await context.push(AppRoutes.soloLoadout);
     }
 
-    final String actionLabel = switch (state.mode) {
-      SoloSetupMode.custom when state.legacyTopic == null => 'PILIH TOPIK',
-      SoloSetupMode.auto ||
-      SoloSetupMode.recommended => 'REKOMENDASI BELUM TERSEDIA',
-      SoloSetupMode.balanced when !state.canOpenLoadout => 'LENGKAPI SETUP',
-      _ => 'LANJUT PILIH KARAKTER',
-    };
+    Future<void> openManualSetup() async {
+      final bool hasDraft =
+          state.mode != null ||
+          state.mechanicMode != null ||
+          state.questionCount != null ||
+          state.legacyTopic != null;
+      if (!hasDraft || state.mode == SoloSetupMode.auto) {
+        controller.beginManualSetup();
+      }
+      await showModalBottomSheet<void>(
+        context: context,
+        useRootNavigator: true,
+        isScrollControlled: true,
+        enableDrag: true,
+        backgroundColor: Colors.transparent,
+        builder: (BuildContext sheetContext) =>
+            _ManualSetupSheet(onContinue: continueManualSetup),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.scholarCream,
@@ -137,129 +132,177 @@ class SoloSetupPage extends ConsumerWidget {
               ),
             ),
             Expanded(
-              child: LayoutBuilder(
-                builder: (BuildContext context, BoxConstraints constraints) {
-                  final bool compact = constraints.maxHeight < 620;
-                  final bool dense = constraints.maxHeight < 460;
-                  final double heroHeight = compact
-                      ? 160
-                      : (constraints.maxHeight * 0.27).clamp(160, 205);
-                  return Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      16,
-                      compact ? 8 : 12,
-                      16,
-                      compact ? 92 : 104,
-                    ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.topCenter,
-                      child: SizedBox(
-                        width: constraints.maxWidth - 32,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: <Widget>[
-                            _SectionTitle(
-                              label: 'SESI UNTUKMU',
-                              compact: compact,
-                            ),
-                            SizedBox(height: compact ? 5 : 8),
-                            SizedBox(
-                              height: heroHeight,
-                              child: _RecommendedSessionCard(
-                                selected: state.mode == SoloSetupMode.auto,
-                                onTap: () =>
-                                    controller.selectMode(SoloSetupMode.auto),
-                              ),
-                            ),
-                            SizedBox(height: compact ? 8 : 14),
-                            _SectionTitle(
-                              label: 'ATUR SENDIRI',
-                              compact: compact,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Pilih ritme dan materi sesuai kebutuhanmu.',
-                              style: TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: compact ? 9 : 11,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            SizedBox(height: compact ? 6 : 10),
-                            _ControlLabel(
-                              label: 'CARA LATIHAN',
-                              compact: compact,
-                            ),
-                            SizedBox(height: compact ? 4 : 6),
-                            _MechanicSelector(
-                              selected: state.mode == SoloSetupMode.auto
-                                  ? null
-                                  : state.mechanicMode,
-                              compact: dense,
-                              onSelected: controller.selectMechanic,
-                            ),
-                            SizedBox(height: compact ? 6 : 8),
-                            _ControlLabel(
-                              label: 'JUMLAH SOAL',
-                              compact: compact,
-                            ),
-                            SizedBox(height: compact ? 3 : 5),
-                            _QuestionCountSelector(
-                              selected: state.mode == SoloSetupMode.auto
-                                  ? null
-                                  : state.questionCount,
-                              onSelected: controller.selectQuestionCount,
-                            ),
-                            SizedBox(height: compact ? 6 : 8),
-                            _ControlLabel(label: 'MATERI', compact: compact),
-                            SizedBox(height: compact ? 4 : 6),
-                            SizedBox(
-                              height: dense ? 80 : (compact ? 100 : 104),
-                              child: Row(
-                                children: <Widget>[
-                                  for (
-                                    int index = 0;
-                                    index < _customModeSpecs.length;
-                                    index++
-                                  ) ...[
-                                    Expanded(
-                                      child: _SoloModeCard(
-                                        spec: _customModeSpecs[index],
-                                        selected:
-                                            state.mode ==
-                                            _customModeSpecs[index].mode,
-                                        onTap: () => controller.selectMode(
-                                          _customModeSpecs[index].mode,
-                                        ),
-                                      ),
-                                    ),
-                                    if (index < _customModeSpecs.length - 1)
-                                      const SizedBox(width: 8),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            SizedBox(height: compact ? 8 : 12),
-                            _SoloSetupButton(
-                              label: actionLabel,
-                              enabled:
-                                  state.canOpenLoadout ||
-                                  state.mode == SoloSetupMode.custom,
-                              unavailable: state.usesUnavailableRecommendation,
-                              compact: dense,
-                              onPressed: continueSetup,
-                            ),
-                          ],
-                        ),
+              child: SingleChildScrollView(
+                key: const ValueKey<String>('solo-recommended-scroll-view'),
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 108),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    const _SectionTitle(label: 'SESI UNTUKMU', compact: false),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Konfigurasi siap main yang aman untuk memulai.',
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  );
-                },
+                    const SizedBox(height: 12),
+                    const SizedBox(
+                      height: 290,
+                      child: _RecommendedSessionCard(),
+                    ),
+                    const SizedBox(height: 16),
+                    _SoloSetupButton(
+                      label: 'LANJUT PILIH KARAKTER',
+                      enabled: true,
+                      unavailable: false,
+                      compact: false,
+                      buttonKey: 'solo-recommended-continue',
+                      surfaceKey: 'solo-recommended-button-surface',
+                      onPressed: () {
+                        controller.applyRecommendedPreset();
+                        context.push(AppRoutes.soloLoadout);
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    _ClaySecondaryButton(
+                      label: 'ATUR SENDIRI',
+                      onPressed: openManualSetup,
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ManualSetupSheet extends ConsumerWidget {
+  const _ManualSetupSheet({required this.onContinue});
+
+  final Future<void> Function(SoloSetupState) onContinue;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final SoloSetupState state = ref.watch(soloSetupControllerProvider);
+    final controller = ref.read(soloSetupControllerProvider.notifier);
+    final String actionLabel = switch (state.mode) {
+      SoloSetupMode.custom when state.legacyTopic == null => 'PILIH TOPIK',
+      SoloSetupMode.recommended => 'REKOMENDASI BELUM TERSEDIA',
+      SoloSetupMode.balanced when !state.canOpenLoadout => 'LENGKAPI SETUP',
+      _ => 'LANJUT PILIH KARAKTER',
+    };
+    final double maxHeight = MediaQuery.sizeOf(context).height * 0.9;
+
+    return SafeArea(
+      top: false,
+      child: TweenAnimationBuilder<double>(
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+        tween: Tween<double>(begin: 0, end: 1),
+        builder: (BuildContext context, double progress, Widget? child) {
+          return Opacity(
+            opacity: progress,
+            child: Transform.translate(
+              offset: Offset(0, 24 * (1 - progress)),
+              child: child,
+            ),
+          );
+        },
+        child: Container(
+          key: const ValueKey<String>('solo-manual-sheet'),
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          decoration: const BoxDecoration(
+            color: AppColors.scholarCream,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Align(
+                  child: Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: AppColors.warriorNavy.withAlpha(32),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const _SectionTitle(label: 'ATUR SENDIRI', compact: false),
+                const SizedBox(height: 3),
+                const Text(
+                  'Pilih ritme dan materi sesuai kebutuhanmu.',
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const _ControlLabel(label: 'CARA LATIHAN', compact: false),
+                const SizedBox(height: 7),
+                _MechanicSelector(
+                  selected: state.mechanicMode,
+                  compact: false,
+                  onSelected: controller.selectMechanic,
+                ),
+                const SizedBox(height: 14),
+                const _ControlLabel(label: 'JUMLAH SOAL', compact: false),
+                const SizedBox(height: 7),
+                _QuestionCountSelector(
+                  selected: state.questionCount,
+                  onSelected: controller.selectQuestionCount,
+                ),
+                const SizedBox(height: 14),
+                const _ControlLabel(label: 'MATERI', compact: false),
+                const SizedBox(height: 7),
+                SizedBox(
+                  height: 112,
+                  child: Row(
+                    children: <Widget>[
+                      for (
+                        int index = 0;
+                        index < _customModeSpecs.length;
+                        index++
+                      ) ...<Widget>[
+                        Expanded(
+                          child: _SoloModeCard(
+                            spec: _customModeSpecs[index],
+                            selected:
+                                state.mode == _customModeSpecs[index].mode,
+                            onTap: () => controller.selectMode(
+                              _customModeSpecs[index].mode,
+                            ),
+                          ),
+                        ),
+                        if (index < _customModeSpecs.length - 1)
+                          const SizedBox(width: 8),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _SoloSetupButton(
+                  label: actionLabel,
+                  enabled:
+                      state.canOpenLoadout ||
+                      state.mode == SoloSetupMode.custom,
+                  unavailable: state.usesUnavailableRecommendation,
+                  compact: false,
+                  onPressed: () => onContinue(state),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -352,21 +395,18 @@ class _ControlLabel extends StatelessWidget {
 }
 
 class _RecommendedSessionCard extends StatelessWidget {
-  const _RecommendedSessionCard({required this.selected, required this.onTap});
-
-  final bool selected;
-  final VoidCallback onTap;
+  const _RecommendedSessionCard();
 
   @override
   Widget build(BuildContext context) {
     final CosmeticItem arena = GameEconomyCatalog.findArena(
-      GameEconomyCatalog.defaultArenaId,
+      'arena-rimba-yudha',
     )!;
     return Semantics(
-      button: true,
-      selected: selected,
-      label: 'Sesi untukmu: Focus, Rekomendasi, segera hadir',
+      container: true,
+      label: 'Sesi untukmu: Standard, Seimbang, 20 soal, Rimba Yudha',
       child: Stack(
+        key: const ValueKey<String>('solo-mode-auto'),
         children: <Widget>[
           Positioned.fill(
             top: 9,
@@ -379,13 +419,14 @@ class _RecommendedSessionCard extends StatelessWidget {
           ),
           Positioned.fill(
             bottom: 9,
-            child: Material(
-              color: const Color(0xFF173A67),
-              borderRadius: BorderRadius.circular(24),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                key: const ValueKey<String>('solo-mode-auto'),
-                onTap: onTap,
+            child: DecoratedBox(
+              key: const ValueKey<String>('solo-recommended-card'),
+              decoration: BoxDecoration(
+                color: const Color(0xFF173A67),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
                 child: Stack(
                   fit: StackFit.expand,
                   children: <Widget>[
@@ -407,63 +448,62 @@ class _RecommendedSessionCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: selected
-                              ? const Color(0xFF69A6FF)
-                              : Colors.white70,
-                          width: selected ? 3 : 1.5,
-                        ),
-                      ),
-                    ),
                     const Positioned(
                       top: 10,
                       right: 10,
-                      child: Tooltip(
-                        message: 'Segera hadir',
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Color(0xE6FFFFFF),
-                            shape: BoxShape.circle,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Color(0xE6FFFFFF),
+                          borderRadius: BorderRadius.all(Radius.circular(99)),
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 6,
                           ),
-                          child: Padding(
-                            padding: EdgeInsets.all(6),
-                            child: Icon(
-                              Icons.schedule_rounded,
-                              color: Color(0xFF2878F0),
-                              size: 16,
+                          child: Text(
+                            'SIAP DIMAINKAN',
+                            style: TextStyle(
+                              color: Color(0xFF1B5FC4),
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.4,
                             ),
                           ),
                         ),
                       ),
                     ),
                     Positioned(
-                      right: 58,
-                      bottom: 13,
+                      right: 13,
+                      bottom: 16,
                       left: 13,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           const Wrap(
                             spacing: 6,
+                            runSpacing: 6,
                             children: <Widget>[
                               _RecommendationPill(
-                                icon: Icons.self_improvement_rounded,
-                                label: 'Focus',
+                                icon: Icons.timer_outlined,
+                                label: 'Standard',
                                 color: Color(0xFF2878F0),
                               ),
                               _RecommendationPill(
-                                icon: Icons.insights_rounded,
-                                label: 'Rekomendasi',
+                                icon: Icons.auto_awesome_rounded,
+                                label: 'Seimbang',
+                                color: Color(0xFF20A778),
+                              ),
+                              _RecommendationPill(
+                                icon: Icons.style_rounded,
+                                label: '20 soal',
                                 color: Color(0xFFF08A36),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 9),
                           Text(
-                            'Latihan sesuai progresmu',
+                            'Rimba Yudha',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.fredoka(
@@ -475,40 +515,18 @@ class _RecommendedSessionCard extends StatelessWidget {
                               ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    Positioned(
-                      right: 13,
-                      bottom: 14,
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: const Color(0xFF9EC5FF),
-                            width: 1.5,
-                          ),
-                          boxShadow: const <BoxShadow>[
-                            BoxShadow(
-                              color: Color(0x66062B67),
-                              offset: Offset(0, 3),
-                              blurRadius: 0,
+                          const SizedBox(height: 3),
+                          const Text(
+                            'Hancurkan satu tower dengan tiga kartu pilihan.',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Color(0xFFE8EEF8),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
                             ),
-                          ],
-                        ),
-                        child: Icon(
-                          key: const ValueKey<String>(
-                            'solo-recommended-action-icon',
                           ),
-                          selected
-                              ? Icons.check_rounded
-                              : Icons.arrow_forward_rounded,
-                          color: const Color(0xFF2878F0),
-                          size: 20,
-                        ),
+                        ],
                       ),
                     ),
                   ],
@@ -576,7 +594,7 @@ class _MechanicSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       key: const ValueKey<String>('solo-mechanic-selector'),
-      height: compact ? 52 : 68,
+      height: compact ? 64 : 76,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
@@ -634,8 +652,89 @@ class _MechanicChoice extends StatelessWidget {
       SoloMechanicMode.speed => 'Lebih cepat',
     };
 
+    return _SoloSetupOptionCard(
+      semanticsKey: ValueKey<String>('solo-mechanic-card-${mode.wireValue}'),
+      tapKey: ValueKey<String>('solo-mechanic-${mode.wireValue}'),
+      icon: icon,
+      label: label,
+      description: enabled ? description : 'Segera hadir',
+      enabled: enabled,
+      selected: selected,
+      onTap: onTap,
+    );
+  }
+}
+
+class _QuestionCountSelector extends StatelessWidget {
+  const _QuestionCountSelector({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final SoloQuestionCount? selected;
+  final ValueChanged<SoloQuestionCount> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: const ValueKey<String>('solo-question-count-selector'),
+      height: 76,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          for (final SoloQuestionCount count in SoloQuestionCount.values) ...[
+            Expanded(
+              child: _SoloSetupOptionCard(
+                semanticsKey: ValueKey<String>(
+                  'solo-question-count-card-${count.value}',
+                ),
+                tapKey: ValueKey<String>('solo-question-count-${count.value}'),
+                icon: Icons.style_rounded,
+                label: '${count.value} soal',
+                description: switch (count) {
+                  SoloQuestionCount.twenty => 'Sesi ringkas',
+                  SoloQuestionCount.thirtyFive => 'Sesi sedang',
+                  SoloQuestionCount.fifty => 'Sesi penuh',
+                },
+                enabled: true,
+                selected: selected == count,
+                onTap: () => onSelected(count),
+              ),
+            ),
+            if (count != SoloQuestionCount.values.last)
+              const SizedBox(width: 7),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SoloSetupOptionCard extends StatelessWidget {
+  const _SoloSetupOptionCard({
+    required this.semanticsKey,
+    required this.tapKey,
+    required this.icon,
+    required this.label,
+    required this.description,
+    required this.enabled,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Key semanticsKey;
+  final Key tapKey;
+  final IconData icon;
+  final String label;
+  final String description;
+  final bool enabled;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
     return Semantics(
-      key: ValueKey<String>('solo-mechanic-card-${mode.wireValue}'),
+      key: semanticsKey,
       button: true,
       enabled: enabled,
       selected: selected,
@@ -661,7 +760,7 @@ class _MechanicChoice extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
-                key: ValueKey<String>('solo-mechanic-${mode.wireValue}'),
+                key: tapKey,
                 onTap: enabled ? onTap : null,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -678,7 +777,13 @@ class _MechanicChoice extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: <Widget>[
-                          Icon(icon, color: const Color(0xFF2878F0), size: 19),
+                          Icon(
+                            icon,
+                            color: enabled
+                                ? const Color(0xFF2878F0)
+                                : AppColors.textMuted,
+                            size: 19,
+                          ),
                           const SizedBox(width: 5),
                           Flexible(
                             child: FittedBox(
@@ -687,7 +792,9 @@ class _MechanicChoice extends StatelessWidget {
                                 label,
                                 maxLines: 1,
                                 style: GoogleFonts.fredoka(
-                                  color: AppColors.warriorNavy,
+                                  color: enabled
+                                      ? AppColors.warriorNavy
+                                      : AppColors.textMuted,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w800,
                                 ),
@@ -696,9 +803,9 @@ class _MechanicChoice extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
                       Text(
-                        enabled ? description : 'Segera hadir',
+                        description,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -719,52 +826,6 @@ class _MechanicChoice extends StatelessWidget {
   }
 }
 
-class _QuestionCountSelector extends StatelessWidget {
-  const _QuestionCountSelector({
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final SoloQuestionCount? selected;
-  final ValueChanged<SoloQuestionCount> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      key: const ValueKey<String>('solo-question-count-selector'),
-      children: <Widget>[
-        for (final SoloQuestionCount count in SoloQuestionCount.values) ...[
-          Expanded(
-            child: ChoiceChip(
-              key: ValueKey<String>('solo-question-count-${count.value}'),
-              label: Text('${count.value} soal'),
-              selected: selected == count,
-              onSelected: (_) => onSelected(count),
-              showCheckmark: false,
-              backgroundColor: Colors.white,
-              selectedColor: const Color(0xFFE5EEFF),
-              side: BorderSide(
-                color: selected == count
-                    ? const Color(0xFF2878F0)
-                    : const Color(0xFFD5D9E1),
-                width: selected == count ? 2 : 1,
-              ),
-              labelStyle: TextStyle(
-                color: selected == count
-                    ? const Color(0xFF1B5FC4)
-                    : AppColors.textMuted,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          if (count != SoloQuestionCount.values.last) const SizedBox(width: 7),
-        ],
-      ],
-    );
-  }
-}
-
 class _SoloModeCard extends StatelessWidget {
   const _SoloModeCard({
     required this.spec,
@@ -780,6 +841,7 @@ class _SoloModeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
+      enabled: !spec.unavailable,
       selected: selected,
       label: spec.title,
       child: Stack(
@@ -803,7 +865,7 @@ class _SoloModeCard extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               child: InkWell(
                 key: ValueKey<String>('solo-mode-${spec.mode.name}'),
-                onTap: onTap,
+                onTap: spec.unavailable ? null : onTap,
                 child: Stack(
                   fit: StackFit.expand,
                   children: <Widget>[
@@ -916,6 +978,8 @@ class _SoloSetupButton extends StatelessWidget {
     required this.unavailable,
     required this.compact,
     required this.onPressed,
+    this.buttonKey = 'solo-setup-continue',
+    this.surfaceKey = 'solo-setup-button-surface',
   });
 
   final String label;
@@ -923,6 +987,8 @@ class _SoloSetupButton extends StatelessWidget {
   final bool unavailable;
   final bool compact;
   final VoidCallback onPressed;
+  final String buttonKey;
+  final String surfaceKey;
 
   @override
   Widget build(BuildContext context) {
@@ -944,14 +1010,14 @@ class _SoloSetupButton extends StatelessWidget {
           Positioned.fill(
             bottom: 7,
             child: Material(
-              key: const ValueKey<String>('solo-setup-button-surface'),
+              key: ValueKey<String>(surfaceKey),
               color: enabled && !unavailable
                   ? const Color(0xFFFFD49B)
                   : const Color(0xFFE6E8EC),
               borderRadius: BorderRadius.circular(20),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
-                key: const ValueKey<String>('solo-setup-continue'),
+                key: ValueKey<String>(buttonKey),
                 onTap: enabled ? onPressed : null,
                 child: Center(
                   child: Text(
@@ -969,6 +1035,38 @@ class _SoloSetupButton extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ClaySecondaryButton extends StatelessWidget {
+  const _ClaySecondaryButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 54,
+      child: OutlinedButton.icon(
+        key: const ValueKey<String>('solo-open-manual'),
+        onPressed: onPressed,
+        icon: const Icon(Icons.tune_rounded),
+        label: Text(label),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF1B5FC4),
+          side: const BorderSide(color: Color(0xFF8DB8F3), width: 1.5),
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          textStyle: GoogleFonts.fredoka(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
       ),
     );
   }

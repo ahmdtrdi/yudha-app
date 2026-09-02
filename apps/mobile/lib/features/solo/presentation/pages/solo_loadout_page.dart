@@ -807,14 +807,14 @@ class _MissingSoloSetup extends StatelessWidget {
 }
 
 String _arenaIdForMode(SoloSetupMode mode) => switch (mode) {
-  SoloSetupMode.auto => GameEconomyCatalog.defaultArenaId,
+  SoloSetupMode.auto => 'arena-rimba-yudha',
   SoloSetupMode.balanced => 'arena-rimba-yudha',
   SoloSetupMode.recommended => 'arena-lembah-bara',
   SoloSetupMode.custom => 'arena-gurun-cendekia',
 };
 
 String _modeLabel(SoloSetupMode mode) => switch (mode) {
-  SoloSetupMode.auto => 'Rekomendasi',
+  SoloSetupMode.auto => 'Seimbang',
   SoloSetupMode.balanced => 'Seimbang',
   SoloSetupMode.recommended => 'Rekomendasi',
   SoloSetupMode.custom => 'Pilih topik',

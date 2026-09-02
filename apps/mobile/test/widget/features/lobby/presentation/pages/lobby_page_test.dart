@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yudha_mobile/app/router/app_routes.dart';
+import 'package:yudha_mobile/app/router/app_tab_shell.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_controller.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_providers.dart';
@@ -419,7 +421,9 @@ void main() {
       ProviderScope(
         overrides: <Override>[
           playerProgressProvider.overrideWith((Ref ref) => progress),
-          gameEconomyProvider.overrideWith((Ref ref) => GameEconomyController()),
+          gameEconomyProvider.overrideWith(
+            (Ref ref) => GameEconomyController(),
+          ),
           learningRepositoryProvider.overrideWithValue(
             const _LobbyLearningRepository(),
           ),
@@ -438,6 +442,40 @@ void main() {
     expect(find.text('Mulai'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('stays scroll-safe inside the web tab shell', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1366, 768));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          playerProgressProvider.overrideWith((Ref ref) {
+            final PlayerProgressController controller =
+                PlayerProgressController();
+            controller.setDisplayName('Yudha');
+            return controller;
+          }),
+          gameEconomyProvider.overrideWith(
+            (Ref ref) => GameEconomyController(),
+          ),
+        ],
+        child: const MaterialApp(
+          home: AppTabShell(location: AppRoutes.lobby, child: LobbyPage()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('lobby-mission-scroll-view')),
+      findsOneWidget,
+    );
+    expect(find.text('START BATTLE'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _LearningProgressRepository extends PlayerProgressRepository {
@@ -452,30 +490,28 @@ class _LearningProgressRepository extends PlayerProgressRepository {
       wins: 1,
       losses: 0,
       draws: 0,
-      learningNextAction: LearningRecommendation.fromJson(
-        <String, dynamic>{
-          'recommendationId': 'recommendation-1',
-          'target': 'cpns',
-          'objective': 'repair_accuracy',
-          'skill': <String, dynamic>{
-            'id': 'cpns.tiu.numerik',
-            'label': 'TIU Numerik',
-            'category': 'tiu',
-            'subcategory': 'numerik',
-          },
-          'mechanicMode': 'focus',
-          'reason': <String, dynamic>{
-            'headline': 'Perkuat TIU Numerik',
-            'description': 'Bukti terbaru menunjukkan ruang perbaikan.',
-          },
-          'confidence': 'medium',
-          'availability': <String, dynamic>{
-            'runnable': true,
-            'compatibilityAdapter': 'practice_fixed_five',
-            'label': 'Practice 5 soal (kompatibilitas)',
-          },
+      learningNextAction: LearningRecommendation.fromJson(<String, dynamic>{
+        'recommendationId': 'recommendation-1',
+        'target': 'cpns',
+        'objective': 'repair_accuracy',
+        'skill': <String, dynamic>{
+          'id': 'cpns.tiu.numerik',
+          'label': 'TIU Numerik',
+          'category': 'tiu',
+          'subcategory': 'numerik',
         },
-      ),
+        'mechanicMode': 'focus',
+        'reason': <String, dynamic>{
+          'headline': 'Perkuat TIU Numerik',
+          'description': 'Bukti terbaru menunjukkan ruang perbaikan.',
+        },
+        'confidence': 'medium',
+        'availability': <String, dynamic>{
+          'runnable': true,
+          'compatibilityAdapter': 'practice_fixed_five',
+          'label': 'Practice 5 soal (kompatibilitas)',
+        },
+      }),
     );
   }
 }

@@ -2869,4 +2869,23 @@
 ### The Tech Debt
 - Learning recommendation launch metadata still uses the legacy `PracticeLaunchRequest` payload while `/solo` currently opens the generic Solo setup; recommendation-prefilled Solo setup remains a future contract alignment task.
 
+## 2026-09-02 - Solo Arena and Learning Navigation UI Alignment
+
+### The Change
+- Made the Lobby mission viewport scroll-safe inside the tab shell, including compact web heights that previously produced a small bottom overflow in Edge.
+- Added a reversible, reduced-motion-aware radial transition that makes Solo, PvP, and Interview emerge from the central Learning button instead of appearing abruptly.
+- Reworked Solo setup around a runnable Rimba Yudha + Standard + Balanced + 20-question preset and moved the existing manual controls into an animated bottom sheet; mechanic and question-count choices now share one clay card component.
+- Added neutral battle presentation primitives for the clay palette, arena frame, tower, character stand, deck, card, and question-sheet frame; PvP and Solo now share the applicable frame, palette, tower, deck, question sheet, and audio path.
+- Rebuilt the Solo session as a tower-only arena with one player character, three PvP-style cards, question-only Standard countdowns, attack/impact and hit feedback, profile-controlled arena BGM, relevant SFX, and app lifecycle audio handling.
+
+### The Reasoning
+- One shared presentation vocabulary prevents Solo from drifting away from PvP while keeping Solo's server-owned learning state separate from PvP-only HP, round, combo, opponent, and match-clock concepts.
+
+### Verification
+- Added widget coverage for the Edge-sized Lobby shell, intermediate and reverse Learning-menu animation, recommended/manual Solo setup, compact bottom-sheet scrolling, the one-tower arena topology, retained question countdown, and correct-answer attack effect.
+- All 184 Flutter tests pass, including 21 focused Lobby/navigation/Solo/PvP regressions. `flutter build web --debug` succeeds; its Wasm dry run reports only the existing `socket_io_common` JS-interop warning. Full `flutter analyze` remains at six unrelated pre-existing lint/deprecation findings and reports no new issue from this change. `git diff --check` passes.
+
+### The Tech Debt
+- Evidence-based Recommended/Focus/Speed delivery and recommendation IDs remain gated backend work; the old PvP audio import path is retained only as a compatibility export while the implementation now lives under the shared battle module.
+
 

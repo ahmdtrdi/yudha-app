@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,8 +21,10 @@ class AppTabShell extends ConsumerStatefulWidget {
   ConsumerState<AppTabShell> createState() => _AppTabShellState();
 }
 
-class _AppTabShellState extends ConsumerState<AppTabShell> {
+class _AppTabShellState extends ConsumerState<AppTabShell>
+    with SingleTickerProviderStateMixin {
   final LayerLink _learningMenuLink = LayerLink();
+  late final AnimationController _learningMenuController;
 
   static const List<_TabItemData> _tabs = <_TabItemData>[
     _TabItemData(
@@ -46,26 +51,79 @@ class _AppTabShellState extends ConsumerState<AppTabShell> {
   ];
 
   bool _isLearningMenuOpen = false;
+  bool _isLearningMenuMounted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _learningMenuController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+      reverseDuration: const Duration(milliseconds: 220),
+    )..addStatusListener(_handleLearningMenuStatus);
+  }
+
+  @override
+  void dispose() {
+    _learningMenuController
+      ..removeStatusListener(_handleLearningMenuStatus)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _handleLearningMenuStatus(AnimationStatus status) {
+    if (status != AnimationStatus.dismissed ||
+        !_isLearningMenuMounted ||
+        !mounted) {
+      return;
+    }
+    setState(() => _isLearningMenuMounted = false);
+  }
 
   @override
   void didUpdateWidget(covariant AppTabShell oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.location != widget.location && _isLearningMenuOpen) {
-      _isLearningMenuOpen = false;
+    if (oldWidget.location != widget.location && _isLearningMenuMounted) {
+      unawaited(_closeLearningMenu());
     }
   }
 
   void _toggleLearningMenu() {
-    setState(() => _isLearningMenuOpen = !_isLearningMenuOpen);
+    if (_isLearningMenuOpen) {
+      unawaited(_closeLearningMenu());
+      return;
+    }
+    _openLearningMenu();
   }
 
-  void _closeLearningMenu() {
-    if (!_isLearningMenuOpen) return;
-    setState(() => _isLearningMenuOpen = false);
+  void _openLearningMenu() {
+    if (_isLearningMenuOpen) return;
+    setState(() {
+      _isLearningMenuOpen = true;
+      _isLearningMenuMounted = true;
+    });
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _learningMenuController.value = 1;
+    } else {
+      unawaited(_learningMenuController.forward());
+    }
   }
 
-  void _openLearningDestination(String route) {
-    _closeLearningMenu();
+  Future<void> _closeLearningMenu() async {
+    if (!_isLearningMenuMounted) return;
+    if (_isLearningMenuOpen && mounted) {
+      setState(() => _isLearningMenuOpen = false);
+    }
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _learningMenuController.value = 0;
+      return;
+    }
+    await _learningMenuController.reverse();
+  }
+
+  Future<void> _openLearningDestination(String route) async {
+    await _closeLearningMenu();
+    if (!mounted) return;
     context.go(route);
   }
 
@@ -80,9 +138,9 @@ class _AppTabShellState extends ConsumerState<AppTabShell> {
             battlePhase != BattlePhase.preBattle);
 
     return PopScope(
-      canPop: !_isLearningMenuOpen,
+      canPop: !_isLearningMenuMounted,
       onPopInvokedWithResult: (bool didPop, Object? result) {
-        if (!didPop) _closeLearningMenu();
+        if (!didPop) unawaited(_closeLearningMenu());
       },
       child: Stack(
         clipBehavior: Clip.none,
@@ -91,13 +149,13 @@ class _AppTabShellState extends ConsumerState<AppTabShell> {
             body: Stack(
               children: <Widget>[
                 Positioned.fill(child: widget.child),
-                if (_isLearningMenuOpen)
+                if (_isLearningMenuMounted)
                   Positioned.fill(
                     child: ModalBarrier(
                       key: const ValueKey<String>('learning-menu-barrier'),
                       color: Colors.transparent,
                       dismissible: true,
-                      onDismiss: _closeLearningMenu,
+                      onDismiss: () => unawaited(_closeLearningMenu()),
                     ),
                   ),
               ],
@@ -114,14 +172,20 @@ class _AppTabShellState extends ConsumerState<AppTabShell> {
                 child: _buildNavigationBar(),
               ),
             ),
-          if (_isLearningMenuOpen)
+          if (_isLearningMenuMounted)
             CompositedTransformFollower(
               link: _learningMenuLink,
               showWhenUnlinked: false,
               targetAnchor: Alignment.topCenter,
               followerAnchor: Alignment.bottomCenter,
               offset: const Offset(0, -18),
-              child: _LearningMenu(onSelected: _openLearningDestination),
+              child: IgnorePointer(
+                ignoring: !_isLearningMenuOpen,
+                child: _LearningMenu(
+                  animation: _learningMenuController,
+                  onSelected: _openLearningDestination,
+                ),
+              ),
             ),
         ],
       ),
@@ -193,12 +257,14 @@ class _AppTabShellState extends ConsumerState<AppTabShell> {
             child: Stack(
               clipBehavior: Clip.none,
               children: <Widget>[
-                if (_isLearningMenuOpen)
-                  const Positioned(
+                if (_isLearningMenuMounted)
+                  Positioned(
                     left: 0,
                     right: 0,
                     top: -96,
-                    child: _LearningMenuGlow(),
+                    child: _LearningMenuGlow(
+                      animation: _learningMenuController,
+                    ),
                   ),
               ],
             ),
@@ -240,7 +306,7 @@ class _AppTabShellState extends ConsumerState<AppTabShell> {
                         link: _learningMenuLink,
                         child: _LearningTabButton(
                           isSelected: selected,
-                          isExpanded: _isLearningMenuOpen,
+                          expansion: _learningMenuController,
                         ),
                       )
                     : _TabIcon(tab: tab, selected: selected),
@@ -265,52 +331,63 @@ class _AppTabShellState extends ConsumerState<AppTabShell> {
 }
 
 class _LearningTabButton extends StatelessWidget {
-  const _LearningTabButton({
-    required this.isSelected,
-    required this.isExpanded,
-  });
+  const _LearningTabButton({required this.isSelected, required this.expansion});
 
   final bool isSelected;
-  final bool isExpanded;
+  final Animation<double> expansion;
 
   @override
   Widget build(BuildContext context) {
-    return Transform.translate(
-      offset: const Offset(0, -14),
-      child: AnimatedContainer(
-        key: const ValueKey<String>('learning-tab-button'),
-        duration: const Duration(milliseconds: 180),
-        width: 74,
-        height: 74,
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF0066DE) : const Color(0xFFE4F5FF),
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: isSelected ? const Color(0xFF83E7FF) : Colors.white,
-            width: 3,
+    return AnimatedBuilder(
+      animation: expansion,
+      builder: (BuildContext context, Widget? child) {
+        final double progress = Curves.easeOutCubic.transform(expansion.value);
+        return Transform.translate(
+          offset: const Offset(0, -14),
+          child: Transform.scale(
+            scale: 1 - (progress * 0.06),
+            child: AnimatedContainer(
+              key: const ValueKey<String>('learning-tab-button'),
+              duration: const Duration(milliseconds: 180),
+              width: 74,
+              height: 74,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? const Color(0xFF0066DE)
+                    : const Color(0xFFE4F5FF),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? const Color(0xFF83E7FF) : Colors.white,
+                  width: 3,
+                ),
+                boxShadow: <BoxShadow>[
+                  const BoxShadow(
+                    color: Color(0xFFD1D8E2),
+                    blurRadius: 0,
+                    offset: Offset(0, 6),
+                  ),
+                  BoxShadow(
+                    color: const Color(
+                      0xFF0066DE,
+                    ).withValues(alpha: 0.12 + progress * 0.18),
+                    blurRadius: 14 + progress * 14,
+                    spreadRadius: progress * 6,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Transform.rotate(
+                angle: progress * math.pi / 8,
+                child: Icon(
+                  Icons.star_rounded,
+                  size: 34,
+                  color: isSelected ? Colors.white : const Color(0xFF0066DE),
+                ),
+              ),
+            ),
           ),
-          boxShadow: <BoxShadow>[
-            const BoxShadow(
-              color: Color(0xFFD1D8E2),
-              blurRadius: 0,
-              offset: Offset(0, 6),
-            ),
-            BoxShadow(
-              color: const Color(
-                0xFF0066DE,
-              ).withValues(alpha: isExpanded ? 0.3 : 0.12),
-              blurRadius: isExpanded ? 28 : 14,
-              spreadRadius: isExpanded ? 6 : 0,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Icon(
-          Icons.star_rounded,
-          size: 34,
-          color: isSelected ? Colors.white : const Color(0xFF0066DE),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -339,9 +416,10 @@ class _TabIcon extends StatelessWidget {
 }
 
 class _LearningMenu extends StatelessWidget {
-  const _LearningMenu({required this.onSelected});
+  const _LearningMenu({required this.animation, required this.onSelected});
 
-  final ValueChanged<String> onSelected;
+  final Animation<double> animation;
+  final Future<void> Function(String) onSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -360,35 +438,50 @@ class _LearningMenu extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                _LearningMenuAction(
-                  label: 'Solo',
-                  asset: 'assets/icons/navigation/nav_practice_default.svg',
-                  fillColor: const Color(0xFFEFFCFF),
-                  iconColor: const Color(0xFF0066DE),
-                  shadowColor: const Color(0xFF83E7FF),
-                  onTap: () => onSelected(AppRoutes.solo),
+                _LearningMenuMotion(
+                  animation: animation,
+                  interval: const Interval(0.12, 1, curve: Curves.easeOutBack),
+                  beginOffset: const Offset(92, 54),
+                  child: _LearningMenuAction(
+                    label: 'Solo',
+                    asset: 'assets/icons/navigation/nav_practice_default.svg',
+                    fillColor: const Color(0xFFEFFCFF),
+                    iconColor: const Color(0xFF0066DE),
+                    shadowColor: const Color(0xFF83E7FF),
+                    onTap: () => unawaited(onSelected(AppRoutes.solo)),
+                  ),
                 ),
                 const SizedBox(width: 78),
-                _LearningMenuAction(
-                  label: 'Interview',
-                  icon: Icons.smart_toy_outlined,
-                  fillColor: const Color(0xFFFFF0FA),
-                  iconColor: const Color(0xFF9A3C7D),
-                  shadowColor: const Color(0xFFF5B7E0),
-                  onTap: () => onSelected(AppRoutes.interview),
+                _LearningMenuMotion(
+                  animation: animation,
+                  interval: const Interval(0.12, 1, curve: Curves.easeOutBack),
+                  beginOffset: const Offset(-92, 54),
+                  child: _LearningMenuAction(
+                    label: 'Interview',
+                    icon: Icons.smart_toy_outlined,
+                    fillColor: const Color(0xFFFFF0FA),
+                    iconColor: const Color(0xFF9A3C7D),
+                    shadowColor: const Color(0xFFF5B7E0),
+                    onTap: () => unawaited(onSelected(AppRoutes.interview)),
+                  ),
                 ),
               ],
             ),
           ),
           Positioned(
             bottom: 18,
-            child: _LearningMenuAction(
-              label: 'PvP',
-              asset: 'assets/icons/navigation/nav_pvp_default.svg',
-              fillColor: const Color(0xFFFFF6ED),
-              iconColor: const Color(0xFFD56A1B),
-              shadowColor: const Color(0xFFFDAA55),
-              onTap: () => onSelected(AppRoutes.pvp),
+            child: _LearningMenuMotion(
+              animation: animation,
+              interval: const Interval(0, 0.82, curve: Curves.easeOutBack),
+              beginOffset: const Offset(0, 50),
+              child: _LearningMenuAction(
+                label: 'PvP',
+                asset: 'assets/icons/navigation/nav_pvp_default.svg',
+                fillColor: const Color(0xFFFFF6ED),
+                iconColor: const Color(0xFFD56A1B),
+                shadowColor: const Color(0xFFFDAA55),
+                onTap: () => unawaited(onSelected(AppRoutes.pvp)),
+              ),
             ),
           ),
         ],
@@ -397,29 +490,73 @@ class _LearningMenu extends StatelessWidget {
   }
 }
 
-class _LearningMenuGlow extends StatelessWidget {
-  const _LearningMenuGlow();
+class _LearningMenuMotion extends StatelessWidget {
+  const _LearningMenuMotion({
+    required this.animation,
+    required this.interval,
+    required this.beginOffset,
+    required this.child,
+  });
+
+  final Animation<double> animation;
+  final Curve interval;
+  final Offset beginOffset;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return const IgnorePointer(
-      child: Center(
-        child: DecoratedBox(
-          key: ValueKey<String>('learning-menu-shared-glow'),
-          decoration: BoxDecoration(
-            gradient: RadialGradient(
-              center: Alignment(0, 1.35),
-              radius: 1.05,
-              colors: <Color>[
-                Color(0xFFFFFFFF),
-                Color(0xE6FFFFFF),
-                Color(0x80FFFFFF),
-                Color(0x00FFFFFF),
-              ],
-              stops: <double>[0, 0.34, 0.68, 1],
-            ),
+    return AnimatedBuilder(
+      animation: animation,
+      child: child,
+      builder: (BuildContext context, Widget? child) {
+        final double progress = interval.transform(animation.value);
+        return Opacity(
+          opacity: progress.clamp(0, 1),
+          child: Transform.translate(
+            offset: Offset.lerp(beginOffset, Offset.zero, progress)!,
+            child: Transform.scale(scale: 0.28 + progress * 0.72, child: child),
           ),
-          child: SizedBox(width: 270, height: 148),
+        );
+      },
+    );
+  }
+}
+
+class _LearningMenuGlow extends StatelessWidget {
+  const _LearningMenuGlow({required this.animation});
+
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: animation,
+        builder: (BuildContext context, Widget? child) {
+          final double progress = Curves.easeOut.transform(animation.value);
+          return Opacity(
+            opacity: progress,
+            child: Transform.scale(scale: 0.72 + progress * 0.28, child: child),
+          );
+        },
+        child: const Center(
+          child: DecoratedBox(
+            key: ValueKey<String>('learning-menu-shared-glow'),
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment(0, 1.35),
+                radius: 1.05,
+                colors: <Color>[
+                  Color(0xFFFFFFFF),
+                  Color(0xE6FFFFFF),
+                  Color(0x80FFFFFF),
+                  Color(0x00FFFFFF),
+                ],
+                stops: <double>[0, 0.34, 0.68, 1],
+              ),
+            ),
+            child: SizedBox(width: 270, height: 148),
+          ),
         ),
       ),
     );

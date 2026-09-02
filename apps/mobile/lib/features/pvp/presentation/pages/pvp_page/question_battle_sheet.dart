@@ -23,7 +23,6 @@ class _QuestionBattleSheet extends StatefulWidget {
 
 class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
   static const Color _ink = _BattleClayPalette.ink;
-  static const Color _warmCanvas = _BattleClayPalette.cream;
   static const Color _mutedInk = _BattleClayPalette.mutedInk;
   static const Color _success = Color(0xFF2FAE7D);
   static const Color _danger = Color(0xFFF05E5E);
@@ -150,7 +149,6 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
     );
     final double timerProgress = _remainingSeconds / _maxSeconds;
     final double bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    final double screenHeight = MediaQuery.sizeOf(context).height;
 
     return PopScope(
       canPop: !widget.isOnline || _allowPop,
@@ -158,19 +156,9 @@ class _QuestionBattleSheetState extends State<_QuestionBattleSheet> {
         top: false,
         child: Padding(
           padding: EdgeInsets.only(bottom: bottomInset),
-          child: Container(
-            key: const ValueKey<String>('question-battle-sheet'),
-            width: double.infinity,
-            constraints: BoxConstraints(maxHeight: screenHeight * 0.9),
-            decoration: BoxDecoration(
-              color: _warmCanvas,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
-              border: Border(
-                top: BorderSide(color: categoryColor.withAlpha(90), width: 2),
-              ),
-            ),
+          child: BattleQuestionSheetFrame(
+            sheetKey: const ValueKey<String>('question-battle-sheet'),
+            accent: categoryColor,
             child: SingleChildScrollView(
               key: const ValueKey<String>('question-sheet-scroll-view'),
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
