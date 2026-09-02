@@ -1,12 +1,21 @@
 export interface LeaderboardEntry {
-  rank: number;
+  rank: number | null;
   userId: string;
   username: string | null;
-  rankPoints: number;
-  tier: string;
+  pvpRating: number;
+  ratedMatches: number;
   rankedWins: number;
-  totalMatches: number;
-  rankedWinRate: number;
+  rankedLosses: number;
+  rankedDraws: number;
+  rankedWinRate: number | null;
+  status: 'rated' | 'unrated';
+  target?: 'cpns' | 'bumn';
+}
+
+export interface LeaderboardPage {
+  target: 'cpns' | 'bumn';
+  items: LeaderboardEntry[];
+  total: number;
 }
 
 export interface LeaderboardQuery {

@@ -180,6 +180,11 @@ export class QuestionService {
     return {
       id: `card_${index + 1}`,
       sourceQuestionId: row.id,
+      questionRevisionId: row.question_revision_id,
+      taxonomyVersionId: row.taxonomy_version_id,
+      skillId: row.skill_id,
+      difficulty: row.difficulty_snapshot,
+      expectedTimeMs: row.expected_time_ms,
       prompt: row.prompt,
       options: [...row.options],
       correctOptionIndex: row.correct_option_index,
@@ -239,7 +244,69 @@ export class QuestionService {
         `Active question pool is missing one or more required ${target.toUpperCase()} categories.`,
       );
     }
-    return validQuestions;
+    return this.enrichLearningMetadata(validQuestions);
+  }
+
+  private async enrichLearningMetadata(
+    questions: SupabaseQuestionRow[],
+  ): Promise<SupabaseQuestionRow[]> {
+    const adminClient = this.supabaseService.getAdminClient();
+    const latestByQuestion = new Map<string, any>();
+    for (let index = 0; index < questions.length; index += 500) {
+      const ids = questions.slice(index, index + 500).map((row) => row.id);
+      const { data, error } = await adminClient
+        .from('question_revisions')
+        .select(
+          'id, question_id, revision, category, subcategory, difficulty, expected_time_ms, standard_time_limit_ms',
+        )
+        .in('question_id', ids)
+        .eq('is_active', true)
+        .order('revision', { ascending: false });
+      if (error) {
+        this.logger.warn(`PvP metadata enrichment unavailable: ${error.message}`);
+        return questions;
+      }
+      for (const revision of data ?? []) {
+        if (!latestByQuestion.has(revision.question_id)) {
+          latestByQuestion.set(revision.question_id, revision);
+        }
+      }
+    }
+
+    const revisionIds = [...latestByQuestion.values()].map((row) => row.id);
+    const primaryByRevision = new Map<string, any>();
+    for (let index = 0; index < revisionIds.length; index += 500) {
+      const { data, error } = await adminClient
+        .from('question_skill_mappings')
+        .select('question_revision_id, taxonomy_version_id, skill_id')
+        .in('question_revision_id', revisionIds.slice(index, index + 500))
+        .eq('mapping_type', 'primary');
+      if (error) {
+        this.logger.warn(`PvP skill enrichment unavailable: ${error.message}`);
+        return questions;
+      }
+      for (const mapping of data ?? []) {
+        primaryByRevision.set(mapping.question_revision_id, mapping);
+      }
+    }
+
+    return questions.map((question) => {
+      const revision = latestByQuestion.get(question.id);
+      const mapping = revision ? primaryByRevision.get(revision.id) : null;
+      if (!revision || !mapping) return question;
+      return {
+        ...question,
+        question_revision_id: revision.id,
+        taxonomy_version_id: mapping.taxonomy_version_id,
+        skill_id: mapping.skill_id,
+        category: revision.category,
+        subcategory: revision.subcategory ?? undefined,
+        difficulty_snapshot: revision.difficulty,
+        expected_time_ms: revision.expected_time_ms ?? undefined,
+        standard_time_limit_ms:
+          revision.standard_time_limit_ms ?? question.time_limit_seconds * 1000,
+      };
+    });
   }
 
   private categoryKey(category?: string): string {

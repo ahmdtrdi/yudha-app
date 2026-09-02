@@ -65,7 +65,6 @@ export interface LearningAnalytics {
     sampleSize: number;
     winRate: number;
   };
-  tier: string;
   streak: {
     current: number;
     best: number;

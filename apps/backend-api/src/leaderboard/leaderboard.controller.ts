@@ -9,16 +9,16 @@ interface AuthenticatedUser {
 }
 
 @Controller('leaderboard')
+@UseGuards(SupabaseAuthGuard)
 export class LeaderboardController {
   constructor(private readonly leaderboardService: LeaderboardService) {}
 
   @Get()
-  list(@Query() query: LeaderboardQuery) {
-    return this.leaderboardService.list(query);
+  list(@GetUser() user: AuthenticatedUser, @Query() query: LeaderboardQuery) {
+    return this.leaderboardService.list(user.id, query);
   }
 
   @Get('me')
-  @UseGuards(SupabaseAuthGuard)
   getMyRank(@GetUser() user: AuthenticatedUser) {
     return this.leaderboardService.getMyRank(user.id);
   }

@@ -10,7 +10,6 @@ import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/gamification/domain/entities/player_progress.dart';
-import 'package:yudha_mobile/features/gamification/domain/entities/progress_tier.dart';
 import 'package:yudha_mobile/features/learning/application/learning_providers.dart';
 import 'package:yudha_mobile/features/learning/application/learning_state.dart';
 import 'package:yudha_mobile/features/notifications/application/daily_reminder_providers.dart';
@@ -155,11 +154,6 @@ class ProfilePage extends ConsumerWidget {
     final UserProfile? profile = profileState.profile;
     final String displayName = profile?.displayName ?? progress.displayName;
     final ProfileTarget? target = profile?.target ?? profileSettings.target;
-    final int rankPoints = profile?.rankPoints ?? progress.totalPoints;
-    final ProgressTier derivedTier = ProgressTier.fromPoints(rankPoints);
-    final String tierLabel = profile?.tier == null
-        ? derivedTier.label
-        : _humanizeIdentifier(profile!.tier!);
     final ProfileRankedStats rankedStats =
         profile?.rankedStats ??
         ProfileRankedStats(
@@ -208,9 +202,6 @@ class ProfilePage extends ConsumerWidget {
               displayName: displayName,
               username: profile?.username,
               targetLabel: target?.label,
-              rankPoints: rankPoints,
-              tier: derivedTier,
-              tierLabel: tierLabel,
               yCoins: profile?.yCoins,
               onEdit: profile == null
                   ? null
@@ -1486,9 +1477,6 @@ class _ProfileHeaderCard extends StatelessWidget {
     required this.displayName,
     required this.username,
     required this.targetLabel,
-    required this.rankPoints,
-    required this.tier,
-    required this.tierLabel,
     required this.yCoins,
     required this.onEdit,
   });
@@ -1496,9 +1484,6 @@ class _ProfileHeaderCard extends StatelessWidget {
   final String displayName;
   final String? username;
   final String? targetLabel;
-  final int rankPoints;
-  final ProgressTier tier;
-  final String tierLabel;
   final int? yCoins;
   final VoidCallback? onEdit;
 
@@ -1508,19 +1493,6 @@ class _ProfileHeaderCard extends StatelessWidget {
         ? '?'
         : displayName.substring(0, 1).toUpperCase();
 
-    final ProgressTier? nextTier = tier.nextTier;
-    final int tierSpan = nextTier == null
-        ? 0
-        : nextTier.minPoints - tier.minPoints;
-    final double tierProgress = nextTier == null
-        ? 1
-        : ((rankPoints - tier.minPoints) / tierSpan).clamp(0, 1).toDouble();
-    final int pointsUntilNextTier = nextTier == null
-        ? 0
-        : (nextTier.minPoints - rankPoints).clamp(0, nextTier.minPoints);
-    final String progressText = nextTier == null
-        ? 'Tier maksimal sudah tercapai'
-        : '$pointsUntilNextTier poin lagi menuju ${nextTier.label}';
     final String normalizedUsername = username?.trim() ?? '';
 
     return Stack(
@@ -1621,26 +1593,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                         const SizedBox(height: 8),
                         Row(
                           children: <Widget>[
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.levelUpTeal,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                tierLabel,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
                             if (targetLabel != null) ...<Widget>[
-                              const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 10,
@@ -1713,51 +1666,6 @@ class _ProfileHeaderCard extends StatelessWidget {
                     ),
                   ],
                 ],
-              ),
-              const SizedBox(height: 20),
-              const Divider(color: Colors.white24, height: 1),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: <Widget>[
-                  const Text(
-                    'Progress Tier',
-                    style: TextStyle(
-                      color: AppColors.scholarCream,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                  Text(
-                    '$rankPoints Poin',
-                    style: const TextStyle(
-                      color: AppColors.fireGold,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: tierProgress,
-                  minHeight: 8,
-                  backgroundColor: Colors.white12,
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    AppColors.fireGold,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                progressText,
-                style: TextStyle(
-                  color: AppColors.scholarCream.withValues(alpha: 0.7),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
               ),
             ],
           ),

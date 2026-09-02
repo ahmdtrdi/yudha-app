@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { LeaderboardRepository } from './leaderboard.repository';
 import type { LeaderboardQuery } from './leaderboard.types';
 
@@ -13,7 +9,7 @@ export class LeaderboardService {
 
   constructor(private readonly repository: LeaderboardRepository) {}
 
-  async list(query: LeaderboardQuery) {
+  async list(userId: string, query: LeaderboardQuery) {
     const limit = this.parseInteger(
       query.limit,
       this.defaultLimit,
@@ -22,19 +18,26 @@ export class LeaderboardService {
     );
     const offset = this.parseInteger(query.offset, 0, 0);
 
-    const page = await this.repository.list(limit, offset);
-    return { data: { items: page.items, limit, offset, total: page.total } };
+    const page = await this.repository.list(userId, limit, offset);
+    return {
+      data: {
+        scope: { type: 'target', target: page.target },
+        algorithm: { id: 'elo-v1', initialRating: 1000, kFactor: 32 },
+        items: page.items,
+        pagination: { limit, offset, total: page.total },
+      },
+    };
   }
 
   async getMyRank(userId: string) {
     const entry = await this.repository.getUserRank(userId);
 
-    if (!entry) {
-      throw new NotFoundException('Leaderboard profile not found.');
-    }
-
     return {
-      data: entry,
+      data: {
+        scope: { type: 'target', target: entry.target },
+        algorithm: { id: 'elo-v1', initialRating: 1000, kFactor: 32 },
+        entry,
+      },
     };
   }
 

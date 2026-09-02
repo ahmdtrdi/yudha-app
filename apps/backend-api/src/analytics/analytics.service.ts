@@ -1,5 +1,4 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { rankTier } from '../progression/progression.utils';
 import { SupabaseService } from '../supabase/supabase.service';
 import type {
   AnswerObservation,
@@ -41,7 +40,7 @@ export class AnalyticsService {
     const profileResult = await client
       .from('profiles')
       .select(
-        'target, rank_points, wins, losses, draws, current_streak, best_streak, last_streak_date',
+        'target, wins, losses, draws, current_streak, best_streak, last_streak_date',
       )
       .eq('id', userId)
       .single();
@@ -85,10 +84,11 @@ export class AnalyticsService {
         .order('finished_at', { ascending: false })
         .limit(HISTORY_LIMIT),
       client
-        .from('rank_point_transactions')
-        .select('source_id, applied_delta, balance_after, created_at')
+        .from('pvp_rating_events')
+        .select('match_result_id, rating_delta, rating_after, created_at')
         .eq('user_id', userId)
-        .eq('source', 'ranked_result')
+        .eq('target', target)
+        .eq('algorithm_version', 'elo-v1')
         .order('created_at', { ascending: false })
         .limit(HISTORY_LIMIT),
       client
@@ -124,7 +124,9 @@ export class AnalyticsService {
       (results[1].data ?? []) as RawAnswer[],
       'ranked',
     );
-    const allAnswers = [...practiceAnswers, ...rankedAnswers];
+    // Compatibility analytics must not let competition evidence change the
+    // user's Solo recommendation.
+    const allAnswers = practiceAnswers;
     const categoryBreakdown = aggregateTopics(practiceAnswers, false);
     const subcategoryBreakdown = aggregateTopics(practiceAnswers, true);
     const recommendationTopics = {
@@ -167,7 +169,6 @@ export class AnalyticsService {
         ),
       ].sort(compareWeakTopics),
       publicMatches,
-      tier: rankTier(Number(profileResult.data.rank_points ?? 0)),
       streak: {
         current: Number(profileResult.data.current_streak ?? 0),
         best: Number(profileResult.data.best_streak ?? 0),

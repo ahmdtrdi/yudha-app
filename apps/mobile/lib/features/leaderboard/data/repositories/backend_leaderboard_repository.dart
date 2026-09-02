@@ -55,6 +55,8 @@ class BackendLeaderboardRepository extends LeaderboardRepository {
           .map(_entryFromJson)
           .toList(growable: false),
       hasMore: _readHasMore(json, page: page),
+      target:
+          (page?['scope'] as Map<String, dynamic>?)?['target']?.toString(),
     );
   }
 
@@ -73,15 +75,18 @@ class BackendLeaderboardRepository extends LeaderboardRepository {
         '';
 
     return LeaderboardEntry(
-      rank: _readRequiredInt(json['rank'], field: 'rank'),
+      rank: _readNullableInt(json['rank']),
       playerId: playerId,
       playerName: playerName.isEmpty ? 'Pengguna YUDHA' : playerName,
-      points: _readNullableInt(json['rankPoints'] ?? json['points']) ?? 0,
-      winRate: _readRate(
+      pvpRating: _readNullableInt(json['pvpRating']) ?? 1000,
+      winRate: _readNullableRate(
         json['rankedWinRate'] ?? json['winrate'] ?? json['winRate'],
       ),
-      totalMatches:
-          _readNullableInt(json['totalMatches'] ?? json['total_matches']) ?? 0,
+      ratedMatches: _readNullableInt(json['ratedMatches']) ?? 0,
+      wins: _readNullableInt(json['rankedWins']) ?? 0,
+      losses: _readNullableInt(json['rankedLosses']) ?? 0,
+      draws: _readNullableInt(json['rankedDraws']) ?? 0,
+      status: json['status']?.toString() ?? 'rated',
       isCurrentUser: json['isCurrentUser'] == true,
     );
   }
@@ -122,9 +127,13 @@ class BackendLeaderboardRepository extends LeaderboardRepository {
     }
 
     final Map<String, dynamic> body = await _get('/leaderboard/me');
-    final Map<String, dynamic>? data = body['data'] is Map<String, dynamic>
+    final Map<String, dynamic>? wrapper = body['data'] is Map<String, dynamic>
         ? body['data'] as Map<String, dynamic>
         : null;
+    final Map<String, dynamic>? data =
+        wrapper?['entry'] is Map<String, dynamic>
+        ? wrapper!['entry'] as Map<String, dynamic>
+        : wrapper;
     if (data == null) {
       throw const LeaderboardApiException(
         'Leaderboard API returned no current-user rank.',
@@ -148,11 +157,14 @@ class BackendLeaderboardRepository extends LeaderboardRepository {
       hasMore: payload.hasMore,
       currentUserRank: currentUserEntry.rank,
       currentUserEntry: currentUserEntry,
+      target:
+          (wrapper?['scope'] as Map<String, dynamic>?)?['target']?.toString() ??
+          payload.target,
     );
   }
 
   bool _readHasMore(Map<String, dynamic> json, {Map<String, dynamic>? page}) {
-    final Object? meta = json['meta'] ?? page;
+    final Object? meta = page?['pagination'] ?? json['meta'] ?? page;
     if (meta is Map<String, dynamic>) {
       final int? total = _readNullableInt(meta['total']);
       final int? offset = _readNullableInt(meta['offset']);
@@ -210,6 +222,11 @@ class BackendLeaderboardRepository extends LeaderboardRepository {
   double _readRate(Object? value) {
     final double rate = _readDouble(value);
     return rate > 1 ? rate / 100 : rate;
+  }
+
+  double? _readNullableRate(Object? value) {
+    if (value == null) return null;
+    return _readRate(value);
   }
 }
 

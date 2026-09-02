@@ -6,8 +6,6 @@ class UserProfile {
     required this.username,
     required this.fullName,
     required this.target,
-    this.rankPoints,
-    this.tier,
     this.rankedStats,
     this.yCoins,
     this.characterId,
@@ -22,8 +20,6 @@ class UserProfile {
       fullName:
           (json['fullName'] ?? json['full_name'])?.toString().trim() ?? '',
       target: _targetFromValue(json['target']),
-      rankPoints: _nullableInt(json['rankPoints'] ?? json['rank_points']),
-      tier: _nullableText(json['tier']),
       rankedStats: json['rankedStats'] is Map
           ? ProfileRankedStats.fromJson(
               Map<String, dynamic>.from(json['rankedStats'] as Map),
@@ -44,8 +40,6 @@ class UserProfile {
   final String username;
   final String fullName;
   final ProfileTarget target;
-  final int? rankPoints;
-  final String? tier;
   final ProfileRankedStats? rankedStats;
   final int? yCoins;
   final String? characterId;

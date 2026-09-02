@@ -209,9 +209,15 @@ export class BotBattleService {
       const deltas = await this.matchResultService.finalizeMatch(room);
       if (deltas && room.result) {
         room.result.progressionPersisted = deltas.progressionApplied;
-        room.result.finalState.playerA.ratingDelta = deltas.ratingDeltaA;
+        room.result.finalState.playerA.pvpRatingDelta =
+          deltas.pvpRatingDeltaA;
+        room.result.finalState.playerA.pvpRatingAfter =
+          deltas.pvpRatingAfterA;
         room.result.finalState.playerA.coinsDelta = deltas.coinsDeltaA;
-        room.result.finalState.playerB.ratingDelta = deltas.ratingDeltaB;
+        room.result.finalState.playerB.pvpRatingDelta =
+          deltas.pvpRatingDeltaB;
+        room.result.finalState.playerB.pvpRatingAfter =
+          deltas.pvpRatingAfterB;
         room.result.finalState.playerB.coinsDelta = deltas.coinsDeltaB;
       } else if (room.result) {
         room.result.progressionPersisted = false;

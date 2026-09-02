@@ -21,10 +21,6 @@ type MatchHistoryQueryBuilder = {
   range(from: number, to: number): Promise<MatchHistoryQueryResult>;
 };
 
-type MatchHistoryClient = {
-  from(table: 'match_results'): MatchHistoryQueryBuilder;
-};
-
 @Injectable()
 export class MatchesService {
   private readonly logger = new Logger(MatchesService.name);
@@ -41,8 +37,7 @@ export class MatchesService {
     );
     const offset = this.parseNonNegativeInteger(query.offset, 0);
 
-    const client =
-      this.supabaseService.getClient() as unknown as MatchHistoryClient;
+    const client = this.supabaseService.getClient() as any;
 
     // match_results is not yet in the generated database.types.ts,
     // so this local structural type keeps the temporary query boundary safe.
@@ -60,8 +55,25 @@ export class MatchesService {
       throw new InternalServerErrorException('Failed to fetch match history.');
     }
 
-    const entries: MatchHistoryEntry[] = (data ?? []).map((row) =>
-      this.toHistoryDto(row, userId),
+    const matchIds = (data ?? []).map((row: any) => row.id);
+    const ratingEvents = matchIds.length
+      ? await client
+          .from('pvp_rating_events')
+          .select('match_result_id, rating_delta, rating_after')
+          .eq('user_id', userId)
+          .in('match_result_id', matchIds)
+      : { data: [], error: null };
+    if (ratingEvents.error) {
+      throw new InternalServerErrorException('Failed to fetch rating history.');
+    }
+    const ratingByMatch = new Map(
+      (ratingEvents.data ?? []).map((event: any) => [
+        event.match_result_id,
+        event,
+      ]),
+    );
+    const entries: MatchHistoryEntry[] = (data ?? []).map((row: any) =>
+      this.toHistoryDto(row, userId, ratingByMatch.get(row.id)),
     );
 
     return {
@@ -77,6 +89,7 @@ export class MatchesService {
   private toHistoryDto(
     row: Record<string, unknown>,
     requestingUserId: string,
+    ratingEvent?: any,
   ): MatchHistoryEntry {
     const playerAId = row.player_a_id as string;
     const playerBId = row.player_b_id as string | null;
@@ -123,9 +136,6 @@ export class MatchesService {
     ) as number;
 
     // Self-relative deltas
-    const ratingDelta =
-      ((isSelfPlayerA ? row.rating_delta_a : row.rating_delta_b) as number) ??
-      0;
     const coinsDelta =
       ((isSelfPlayerA ? row.coins_delta_a : row.coins_delta_b) as number) ?? 0;
 
@@ -145,7 +155,14 @@ export class MatchesService {
         scoreSelf,
         scoreOpponent,
       },
-      ratingDelta,
+      pvpRatingDelta:
+        ratingEvent?.rating_delta == null
+          ? null
+          : Number(ratingEvent.rating_delta),
+      pvpRatingAfter:
+        ratingEvent?.rating_after == null
+          ? null
+          : Number(ratingEvent.rating_after),
       coinsDelta,
       completedAt: row.ended_at as string,
     };

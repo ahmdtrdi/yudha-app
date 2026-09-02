@@ -6,10 +6,12 @@ class LeaderboardPagePayload {
     required this.hasMore,
     this.currentUserRank,
     this.currentUserEntry,
+    this.target,
   });
 
   final List<LeaderboardEntry> entries;
   final bool hasMore;
   final int? currentUserRank;
   final LeaderboardEntry? currentUserEntry;
+  final String? target;
 }

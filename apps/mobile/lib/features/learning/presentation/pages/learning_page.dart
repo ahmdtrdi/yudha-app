@@ -123,7 +123,10 @@ class _LearningPageState extends ConsumerState<LearningPage> {
                   const SizedBox(height: 22),
                   const _SectionHeading('Competition'),
                   const SizedBox(height: 10),
-                  _CompetitionPanel(competition: data.competition),
+                  _CompetitionPanel(
+                    competition: data.competition,
+                    onOpenInsights: () => context.push(AppRoutes.pvpInsights),
+                  ),
                   if (data.asOf != null) ...<Widget>[
                     const SizedBox(height: 16),
                     Text(
@@ -628,11 +631,18 @@ class _ActivityValue extends StatelessWidget {
 }
 
 class _CompetitionPanel extends StatelessWidget {
-  const _CompetitionPanel({required this.competition});
+  const _CompetitionPanel({
+    required this.competition,
+    required this.onOpenInsights,
+  });
   final LearningCompetition competition;
+  final VoidCallback onOpenInsights;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => InkWell(
+    onTap: onOpenInsights,
+    borderRadius: BorderRadius.circular(18),
+    child: Container(
     padding: const EdgeInsets.all(14),
     decoration: _panelDecoration,
     child: Row(
@@ -658,9 +668,10 @@ class _CompetitionPanel extends StatelessWidget {
             ],
           ),
         ),
+        const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
       ],
     ),
-  );
+  ));
 }
 
 class _EmptyPanel extends StatelessWidget {
