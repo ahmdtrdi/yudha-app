@@ -2889,4 +2889,24 @@
 ### The Tech Debt
 - Evidence-based Recommended/Focus/Speed delivery and recommendation IDs remain gated backend work; the old PvP audio import path is retained only as a compatibility export while the implementation now lives under the shared battle module.
 
+## 2026-09-02 - Commit 6: Solo Canonical Hint and Session Interaction
+
+### The Change
+- Replaced local Solo hint unlocking and answer-level `usedHint` reporting with the authenticated, idempotent server hint endpoint.
+- Split hint loading from answer submission so a delayed hint request no longer disables answers or traps the learner inside the question sheet; `Kembali ke kartu` remains available during hint loading and the returned hint is retained per dealt card.
+- Added visible-question active timing plus app-background duration capture, canonical attempt parsing, and `policyStopTrigger` result handling while preserving the existing three-card arena and feedback flow.
+- Restored active-session resume across pre-alignment sessions and surfaced resume failures in a snackbar instead of silently leaving the learner on setup.
+- Made the question sheet dismissible while a timeout/answer request is pending, safely advances a committed response after dismissal, and renders request failures inside the sheet instead of behind its modal surface.
+- Made active Solo lookup route-scoped so returning to setup fetches current server state again, allowing the resume header action and resume/end loadout dialog to recover after a transient lookup or migration error.
+
+### The Reasoning
+- Hint state and learning evidence must come from the server, while unrelated network work must not share a UI lock that blocks answer selection and question-sheet navigation.
+
+### Verification
+- All 10 focused Solo controller/repository/widget tests passed, including close sheet, reopen, request hint, submit answer, and delayed-hint escape regressions; the follow-up resume suite passes all 11 focused controller/setup tests; focused Dart analysis reports no issues.
+- The expired-card interaction regression passes all 9 focused controller/session widget tests, including dismissal while a pending answer completes; focused analysis remains clean.
+
+### The Tech Debt
+- Question-bank entries without a canonical hint correctly show the server's unavailable state; populating that content is separate from the Solo client. Focus, Speed, Recommended, and canonical Custom selection remain future commits.
+
 

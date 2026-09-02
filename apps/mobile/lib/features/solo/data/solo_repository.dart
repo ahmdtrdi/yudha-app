@@ -44,16 +44,23 @@ class SoloRepository {
     <String, dynamic>{'idempotencyKey': _key('open')},
   ).then(SoloQuestion.fromJson);
 
+  Future<SoloHint> requestHint(String sessionId, String questionId) => _post(
+    '/solo/sessions/$sessionId/questions/$questionId/hint',
+    <String, dynamic>{'idempotencyKey': _key('hint')},
+  ).then(SoloHint.fromJson);
+
   Future<SoloAnswerResponse> answer(
     String sessionId,
     String questionId,
-    int? optionIndex,
-    bool usedHint,
-  ) => _post('/solo/sessions/$sessionId/answers', <String, dynamic>{
+    int? optionIndex, {
+    int? clientActiveResponseTimeMs,
+    int? backgroundDurationMs,
+  }) => _post('/solo/sessions/$sessionId/answers', <String, dynamic>{
     'idempotencyKey': _key('answer'),
     'sessionQuestionId': questionId,
     'selectedOptionIndex': optionIndex,
-    'usedHint': usedHint,
+    'clientActiveResponseTimeMs': ?clientActiveResponseTimeMs,
+    'backgroundDurationMs': ?backgroundDurationMs,
   }).then(SoloAnswerResponse.fromJson);
 
   Future<SoloSession> stop(String sessionId) => _post(

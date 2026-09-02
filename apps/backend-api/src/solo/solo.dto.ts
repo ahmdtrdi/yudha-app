@@ -11,10 +11,15 @@ export class SubmitSoloAnswerDto {
   idempotencyKey: string;
   sessionQuestionId: string;
   selectedOptionIndex?: number | null;
-  usedHint?: boolean;
+  clientActiveResponseTimeMs?: number | null;
+  backgroundDurationMs?: number | null;
 }
 
 export class OpenSoloQuestionDto {
+  idempotencyKey: string;
+}
+
+export class RequestSoloHintDto {
   idempotencyKey: string;
 }
 

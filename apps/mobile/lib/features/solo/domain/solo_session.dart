@@ -83,6 +83,36 @@ class SoloQuestion {
     correctOptionIndex: _nullableInt(json['correctOptionIndex']),
     explanation: json['explanation']?.toString(),
   );
+
+  SoloQuestion withHint(String value) => SoloQuestion(
+    sessionQuestionId: sessionQuestionId,
+    questionOrder: questionOrder,
+    category: category,
+    prompt: prompt,
+    options: options,
+    timeLimitSeconds: timeLimitSeconds,
+    hint: value,
+    openedAt: openedAt,
+    deadlineAt: deadlineAt,
+    answered: answered,
+    selectedOptionIndex: selectedOptionIndex,
+    isCorrect: isCorrect,
+    timedOut: timedOut,
+    correctOptionIndex: correctOptionIndex,
+    explanation: explanation,
+  );
+}
+
+class SoloHint {
+  const SoloHint({required this.hint, required this.requestedAt});
+
+  final String hint;
+  final DateTime? requestedAt;
+
+  factory SoloHint.fromJson(Map<String, dynamic> json) => SoloHint(
+    hint: json['hint']?.toString() ?? '',
+    requestedAt: _date(json['requestedAt'] ?? json['hintRequestedAt']),
+  );
 }
 
 class SoloAnswerFeedback {
@@ -92,6 +122,7 @@ class SoloAnswerFeedback {
     required this.timedOut,
     required this.correctOptionIndex,
     required this.explanation,
+    this.attemptId,
   });
 
   final String sessionQuestionId;
@@ -99,6 +130,7 @@ class SoloAnswerFeedback {
   final bool timedOut;
   final int correctOptionIndex;
   final String explanation;
+  final String? attemptId;
 
   factory SoloAnswerFeedback.fromJson(Map<String, dynamic> json) =>
       SoloAnswerFeedback(
@@ -107,6 +139,7 @@ class SoloAnswerFeedback {
         timedOut: json['timedOut'] == true,
         correctOptionIndex: _int(json['correctOptionIndex']),
         explanation: json['explanation']?.toString() ?? '',
+        attemptId: json['attemptId']?.toString(),
       );
 }
 
@@ -138,6 +171,7 @@ class SoloSession {
     required this.rewardCoins,
     required this.hand,
     this.completionReason,
+    this.policyStopTrigger,
   });
 
   final String id;
@@ -146,6 +180,7 @@ class SoloSession {
   final String characterId;
   final String status;
   final String? completionReason;
+  final String? policyStopTrigger;
   final int answeredCount;
   final int correctCount;
   final int towerHp;
@@ -161,6 +196,7 @@ class SoloSession {
     characterId: json['characterId']?.toString() ?? '',
     status: json['status']?.toString() ?? 'active',
     completionReason: json['completionReason']?.toString(),
+    policyStopTrigger: json['policyStopTrigger']?.toString(),
     answeredCount: _int(json['answeredCount']),
     correctCount: _int(json['correctCount']),
     towerHp: _int(json['towerHp']),

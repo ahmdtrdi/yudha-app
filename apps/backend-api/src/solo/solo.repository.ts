@@ -54,22 +54,51 @@ export class SoloRepository {
     });
   }
 
-  submitAnswer(input: {
+  requestHint(
+    userId: string,
+    sessionId: string,
+    sessionQuestionId: string,
+    idempotencyKey: string,
+  ) {
+    return this.call('request_solo_hint', {
+      p_user_id: userId,
+      p_session_id: sessionId,
+      p_session_question_id: sessionQuestionId,
+      p_idempotency_key: idempotencyKey,
+      p_requested_at: new Date().toISOString(),
+    });
+  }
+
+  async submitAnswer(input: {
     userId: string;
     sessionId: string;
     idempotencyKey: string;
     sessionQuestionId: string;
     selectedOptionIndex: number | null;
-    usedHint: boolean;
+    clientActiveResponseTimeMs: number | null;
+    backgroundDurationMs: number | null;
   }) {
-    return this.call('submit_solo_answer', {
-      p_user_id: input.userId,
-      p_session_id: input.sessionId,
-      p_idempotency_key: input.idempotencyKey,
-      p_session_question_id: input.sessionQuestionId,
-      p_selected_option_index: input.selectedOptionIndex,
-      p_used_hint: input.usedHint,
-    });
+    try {
+      return await this.call('submit_solo_answer', {
+        p_user_id: input.userId,
+        p_session_id: input.sessionId,
+        p_idempotency_key: input.idempotencyKey,
+        p_session_question_id: input.sessionQuestionId,
+        p_selected_option_index: input.selectedOptionIndex,
+        p_client_active_response_time_ms: input.clientActiveResponseTimeMs,
+        p_background_duration_ms: input.backgroundDurationMs,
+      });
+    } catch (error) {
+      if (!this.isMissingAlignedAnswerRpc(error)) throw error;
+      return this.call('submit_solo_answer', {
+        p_user_id: input.userId,
+        p_session_id: input.sessionId,
+        p_idempotency_key: input.idempotencyKey,
+        p_session_question_id: input.sessionQuestionId,
+        p_selected_option_index: input.selectedOptionIndex,
+        p_used_hint: false,
+      });
+    }
   }
 
   finishSession(userId: string, sessionId: string, idempotencyKey: string) {
@@ -104,5 +133,14 @@ export class SoloRepository {
       throw new BadRequestException(message);
     }
     throw new InternalServerErrorException(message);
+  }
+
+  private isMissingAlignedAnswerRpc(error: unknown): boolean {
+    if (!(error instanceof InternalServerErrorException)) return false;
+    const message = error.message.toLowerCase();
+    return (
+      message.includes('submit_solo_answer') &&
+      (message.includes('schema cache') || message.includes('could not find'))
+    );
   }
 }
