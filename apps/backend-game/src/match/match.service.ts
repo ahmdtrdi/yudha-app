@@ -356,11 +356,7 @@ export class MatchService {
     this.clearQueueLease(userId);
     let cards: InternalCard[];
     try {
-      cards = await this.questions.getMatchQuestionPool(
-        profile.target,
-        undefined,
-        [queueResult.opponent.userId, queueResult.entry.userId],
-      );
+      cards = await this.questions.getMatchQuestionPool(profile.target);
     } catch (error) {
       await this.coordination.restorePublicPair([
         queueResult.opponent,
@@ -592,8 +588,6 @@ export class MatchService {
         try {
           cards = await this.questions.getMatchQuestionPool(
             profile.profile.target,
-            undefined,
-            [validation.reservation.owner.userId, profile.profile.userId],
           );
         } catch {
           return this.privateError(
@@ -604,12 +598,25 @@ export class MatchService {
           );
         }
 
-        const joined = await this.matchmaking.joinPrivateRoom(
-          profile.profile,
-          socketId,
-          code,
-          cards,
-        );
+        let joined: Awaited<ReturnType<MatchmakingService['joinPrivateRoom']>>;
+        try {
+          joined = await this.matchmaking.joinPrivateRoom(
+            profile.profile,
+            socketId,
+            code,
+            cards,
+          );
+        } catch (error) {
+          this.logger.error(
+            `Failed to create private room: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          return this.privateError(
+            requestId,
+            'QUEUE_UNAVAILABLE',
+            'Pertandingan Private belum dapat dimulai. Coba lagi.',
+            true,
+          );
+        }
         if (!joined.ok) {
           return this.privateMatchmakingFailure(joined.reason, requestId);
         }
@@ -746,7 +753,27 @@ export class MatchService {
       };
     }
 
-    const room = await this.botBattleService.createBotMatch(profile, socketId);
+    let room: InternalRoomState;
+    try {
+      room = await this.botBattleService.createBotMatch(profile, socketId);
+    } catch (error) {
+      this.logger.error(
+        `Failed to create bot room: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        emits: [
+          {
+            socketId,
+            event: SERVER_MATCH_EVENTS.error,
+            payload: {
+              code: 'QUEUE_UNAVAILABLE',
+              message: 'Pertandingan Bot belum dapat dimulai. Coba lagi.',
+              details: { recoverable: true },
+            },
+          },
+        ],
+      };
+    }
     const bot = room.players.playerB;
     if (this.coordination.available) {
       const route: RoomRoute = {

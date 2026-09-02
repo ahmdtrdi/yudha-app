@@ -747,7 +747,7 @@
 - Gate 5 Solo delivery policy (session stopping rules, Focus/Standard/Speed mechanics in UI) remains blocked by explicit Decision Debt registered in PRD Section 11.22.
 - Admin content-quality dashboard and web Assessment validation runner remain deferred to future phase milestones.
 
-## 2026-09-02 - Commit 6: Canonical Solo Learning V2 Alignment
+## 2026-09-02 - Canonical Solo Learning V2 Alignment
 
 **The Change:**
 - Added the incremental Solo Learning V2 migration and postcheck, including question revision/taxonomy/skill/exposure snapshots, server-authoritative hint timestamps, canonical attempt links, requested/effective mechanic fields, and separate `policy_completed`/`policy_stop_trigger` semantics.
@@ -772,6 +772,45 @@
 **The Tech Debt:**
 - Run the alignment and active-recovery postchecks on every deployed Supabase target; missing question-bank hints and explanations remain content-quality work owned separately from the Solo runtime.
 - Automatic expiration is reconciled by the server on answer, active-session lookup, or session recovery; a future scheduled cleanup may finalize abandoned sessions without a subsequent request.
+## 2026-09-02 - Manual Learning Evidence and Clear Recommendation Terminology
+
+**The Change:**
+- Seeded the recent CPNS Solo test account with the auditable `mixed` fixture through the existing Supabase REST workflow: 39 synthetic Solo attempts across four TIU skills.
+- Verified completed projection jobs, projected `needs_repair`, `developing`, and `secure` states, and an active `repair_accuracy` recommendation for TIU Figural.
+- Changed generated recommendation copy from personal-sounding “keyakinan” to “kekuatan bukti” while retaining the stable `confidence` API field.
+- Documented the safe seed, verification, and append-only invalidation workflow in `docs/skill/supabase_ops.md`.
+
+**The Reasoning:**
+- Synthetic evidence must remain identifiable and reversible through invalidation rather than direct mutation of the canonical attempt ledger.
+- “Kekuatan bukti” describes data reliability without implying anything about a learner's personal confidence.
+
+**Verification:**
+- Backend Learning tests passed: 26/26 across two suites.
+- Backend TypeScript compilation passed with `tsc --noEmit`.
+- Remote postcheck found 39 attempts, projected skill states, one active recommendation, and no failed projection job for the fixture.
+
+**The Tech Debt:**
+- The fixture remains active until it is explicitly invalidated with run key `manual-analytics-20260902-petergalnoel`.
+- The wire contract still uses the internal field name `confidence`; renaming it would require a versioned API migration and coordinated clients.
+
+## 2026-09-02 - Enforce Three Canonical PvP Category Decks
+
+**The Change:**
+- Paginated active-question reads in Game Backend at 500 rows per deterministic `id` page, removing the implicit Supabase 1,000-row truncation that omitted CPNS TWK and BUMN Wawasan Kebangsaan from production pools.
+- Made top-level `category` authoritative for deck identity, rejected invalid category/subcategory paths, removed PvP reads from `learning_recommendations`, and selected subcategories with a randomized balanced queue inside each category.
+- Removed cross-category pool backfill and the generic engine-hand fallback. Room creation now requires CPNS `TWK/TIU/TKP` or BUMN `WK/TKD/AKHLAK`; Bot, Casual, Ranked, and Private return recoverable `QUEUE_UNAVAILABLE` when inventory cannot satisfy that invariant.
+- Kept replacement draws isolated to the played category and added pagination, taxonomy, missing-inventory, balanced-distribution, all-mode, and 24-replacement regression coverage for both targets.
+
+**The Reasoning:**
+- The database has 1,800 active questions per target, so relying on Supabase's first response silently removed whichever category sorted beyond row 1,000. Deterministic pagination fixes the source while strict room creation prevents future inventory or taxonomy faults from degrading into duplicated visible decks.
+- Player recommendations are appropriate for Solo learning but must not bias a shared competitive question pool. Balanced random subcategory selection keeps the three category slots stable while still varying their question topics.
+
+**Verification:**
+- All Game Backend tests passed and the NestJS production build completed successfully.
+- Regression tests cover a required category first appearing after row 1,000, exact category hands, 24+ same-category replacements, both targets, and Bot/Casual/Ranked/Private engine modes.
+
+**The Tech Debt:**
+- Production still requires Game Backend redeploy/restart, Bot smoke tests for both targets, and a two-client human-mode smoke test in the deployed environment.
 
 
 

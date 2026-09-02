@@ -22,6 +22,12 @@ const makeCards = (count: number): InternalCard[] =>
     damageValue: i % 2 === 0 ? 10 : 0,
     healValue: i % 2 === 0 ? 0 : 10,
     timeLimitSeconds: 30,
+    category: ['twk', 'tiu', 'tkp'][i % 3],
+    subcategory: [
+      'pancasila_dan_ideologi',
+      'verbal',
+      'pelayanan_dan_integritas',
+    ][i % 3],
   }));
 
 const STUB_CARDS = makeCards(12);
@@ -105,8 +111,6 @@ describe('BotBattleService', () => {
 
       expect(mockQuestionService.getMatchQuestionPool).toHaveBeenCalledWith(
         'cpns',
-        undefined,
-        ['user-a'],
       );
     });
   });
@@ -171,8 +175,20 @@ describe('BotBattleService', () => {
     it('bot prefers damage cards', async () => {
       // Create cards where first card is heal, second is damage
       const customCards: InternalCard[] = [
-        { ...STUB_CARDS[0], id: 'card_1', effect: 'heal', damageValue: 0, healValue: 10 },
-        { ...STUB_CARDS[1], id: 'card_2', effect: 'damage', damageValue: 20, healValue: 0 },
+        {
+          ...STUB_CARDS[0],
+          id: 'card_1',
+          effect: 'heal',
+          damageValue: 0,
+          healValue: 10,
+        },
+        {
+          ...STUB_CARDS[1],
+          id: 'card_2',
+          effect: 'damage',
+          damageValue: 20,
+          healValue: 0,
+        },
         ...STUB_CARDS.slice(2),
       ];
       mockQuestionService.getMatchQuestionPool.mockResolvedValue(customCards);
@@ -195,7 +211,9 @@ describe('BotBattleService', () => {
 
         // The bot should have answered — check that the hand is modified
         // The damage card should have been consumed
-        const damageCardInHand = room.players.playerB.hand.some((c) => c.id === 'card_2');
+        const damageCardInHand = room.players.playerB.hand.some(
+          (c) => c.id === 'card_2',
+        );
         // The card was either consumed or still in hand — just verify bot acted
         expect(emitCallback).toHaveBeenCalled();
       }

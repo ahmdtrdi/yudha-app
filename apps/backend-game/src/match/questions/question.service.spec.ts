@@ -10,10 +10,23 @@ function makeQuestionRows(
   category: string = 'TWK',
   target: 'cpns' | 'bumn' = 'cpns',
 ): SupabaseQuestionRow[] {
+  const normalizedCategory = category.toLowerCase().replace(/[_-]+/g, ' ');
+  const defaultSubcategory =
+    target === 'bumn'
+      ? normalizedCategory === 'tkd'
+        ? 'verbal'
+        : normalizedCategory === 'akhlak'
+          ? 'amanah'
+          : 'pancasila'
+      : normalizedCategory === 'tiu'
+        ? 'verbal'
+        : normalizedCategory === 'tkp'
+          ? 'pelayanan_dan_integritas'
+          : 'pancasila_dan_ideologi';
   return Array.from({ length: count }, (_, i) => ({
     id: `q_${category.toLowerCase()}_${i + 1}`,
     category,
-    subcategory: 'test-sub',
+    subcategory: defaultSubcategory,
     prompt: `${category} Question ${i + 1}`,
     options: ['A', 'B', 'C', 'D'],
     correct_option_index: 0,
@@ -47,11 +60,15 @@ describe('QuestionService', () => {
   let mockSelect: jest.Mock;
   let mockEqTarget: jest.Mock;
   let mockEqActive: jest.Mock;
+  let mockOrder: jest.Mock;
+  let mockRange: jest.Mock;
   let mockFrom: jest.Mock;
 
   beforeEach(async () => {
-    // Build a chained mock: .from().select().eq('target').eq('is_active')
-    mockEqActive = jest.fn();
+    // Build a chained mock through the deterministic paginated query.
+    mockRange = jest.fn();
+    mockOrder = jest.fn().mockReturnValue({ range: mockRange });
+    mockEqActive = jest.fn().mockReturnValue({ order: mockOrder });
     mockEqTarget = jest.fn().mockReturnValue({ eq: mockEqActive });
     mockSelect = jest.fn().mockReturnValue({ eq: mockEqTarget });
 
@@ -98,7 +115,7 @@ describe('QuestionService', () => {
       expect(tkpCount).toBe(4);
     });
 
-    it('backfills from other categories when one is short', () => {
+    it('does not backfill a short category from another category', () => {
       const questions = [
         ...makeQuestionRows(2, 'TWK'), // Only 2 TWK available (need 4)
         ...makeQuestionRows(10, 'TIU'),
@@ -107,16 +124,24 @@ describe('QuestionService', () => {
 
       const pool = service.buildBalancedPool(questions, 12);
 
-      expect(pool).toHaveLength(12);
-      // TWK contributed only 2, but pool is backfilled to 12
+      expect(pool).toHaveLength(10);
+      expect(
+        pool.filter((question) => question.category === 'TWK'),
+      ).toHaveLength(2);
+      expect(
+        pool.filter((question) => question.category === 'TIU'),
+      ).toHaveLength(4);
+      expect(
+        pool.filter((question) => question.category === 'TKP'),
+      ).toHaveLength(4);
     });
 
-    it('handles fewer total questions than pool size', () => {
+    it('keeps a category within its quota when other categories are absent', () => {
       const questions = makeQuestionRows(5, 'TWK');
 
       const pool = service.buildBalancedPool(questions, 12);
 
-      expect(pool).toHaveLength(5);
+      expect(pool).toHaveLength(4);
     });
 
     it('handles empty question list', () => {
@@ -194,9 +219,9 @@ describe('QuestionService', () => {
       ]);
     });
 
-    it('balances legacy BUMN rows by subcategory before dealing', () => {
+    it('uses the top-level BUMN category even when a subcategory conflicts', () => {
       const questions = [
-        ...makeTopicRows(3, 'TKD', 'uud_1945'),
+        ...makeTopicRows(3, 'WAWASAN_KEBANGSAAN', 'figural'),
         ...makeTopicRows(3, 'TKD', 'figural'),
         ...makeTopicRows(3, 'AKHLAK', 'amanah'),
       ].map((question) => ({ ...question, target: 'bumn' as const }));
@@ -204,13 +229,13 @@ describe('QuestionService', () => {
       const pool = service.buildBalancedPool(questions, 9);
 
       expect(pool.map((question) => question.subcategory)).toEqual([
-        'uud_1945',
+        'figural',
         'figural',
         'amanah',
-        'uud_1945',
+        'figural',
         'figural',
         'amanah',
-        'uud_1945',
+        'figural',
         'figural',
         'amanah',
       ]);
@@ -249,29 +274,20 @@ describe('QuestionService', () => {
   });
 
   describe('buildCpnsRoundPool', () => {
-    it('recovers a TWK deck mislabeled as TIU from its subcategory', () => {
+    it('does not reclassify a TIU row as TWK from its subcategory', () => {
       const pool = service.buildCpnsRoundPool([
         ...makeTopicRows(30, 'TIU', 'sejarah_kebangsaan'),
         ...makeTopicRows(35, 'TIU', 'numerik'),
         ...makeTopicRows(45, 'TKP', 'pelayanan_integritas'),
       ]);
 
-      expect(pool).toHaveLength(110);
+      expect(pool).toHaveLength(80);
       expect(
-        pool
-          .slice(0, 30)
-          .every((question) => question.subcategory === 'sejarah_kebangsaan'),
-      ).toBe(true);
+        pool.filter((question) => question.category === 'TIU'),
+      ).toHaveLength(35);
       expect(
-        pool
-          .slice(30, 65)
-          .every((question) => question.subcategory === 'numerik'),
-      ).toBe(true);
-      expect(
-        pool
-          .slice(65)
-          .every((question) => question.subcategory === 'pelayanan_integritas'),
-      ).toBe(true);
+        pool.filter((question) => question.category === 'TWK'),
+      ).toHaveLength(0);
     });
 
     it('selects the real 30 TWK, 35 TIU, and 45 TKP composition', () => {
@@ -309,7 +325,7 @@ describe('QuestionService', () => {
         ...makeQuestionRows(10, 'TIU'),
         ...makeQuestionRows(10, 'TKP'),
       ];
-      mockEqActive.mockResolvedValue({ data: allRows, error: null });
+      mockRange.mockResolvedValue({ data: allRows, error: null });
 
       const { active, reserve } = await service.getMatchQuestionPoolWithReserve(
         'cpns',
@@ -330,7 +346,7 @@ describe('QuestionService', () => {
     });
 
     it('throws when Supabase returns an error', async () => {
-      mockEqActive.mockResolvedValue({
+      mockRange.mockResolvedValue({
         data: null,
         error: { message: 'DB error' },
       });
@@ -341,7 +357,7 @@ describe('QuestionService', () => {
     });
 
     it('throws when no questions are found', async () => {
-      mockEqActive.mockResolvedValue({ data: [], error: null });
+      mockRange.mockResolvedValue({ data: [], error: null });
 
       await expect(
         service.getMatchQuestionPoolWithReserve('cpns'),
@@ -349,8 +365,12 @@ describe('QuestionService', () => {
     });
 
     it('returns empty reserve when only active cards are requested', async () => {
-      const allRows = makeQuestionRows(15, 'TWK');
-      mockEqActive.mockResolvedValue({ data: allRows, error: null });
+      const allRows = [
+        ...makeQuestionRows(5, 'TWK'),
+        ...makeQuestionRows(5, 'TIU'),
+        ...makeQuestionRows(5, 'TKP'),
+      ];
+      mockRange.mockResolvedValue({ data: allRows, error: null });
 
       const { active, reserve } = await service.getMatchQuestionPoolWithReserve(
         'cpns',
@@ -367,7 +387,7 @@ describe('QuestionService', () => {
 
   describe('getMatchQuestionPool', () => {
     it('loads the complete CPNS round quotas by default', async () => {
-      mockEqActive.mockResolvedValue({
+      mockRange.mockResolvedValue({
         data: [
           ...makeQuestionRows(50, 'TWK'),
           ...makeQuestionRows(50, 'TIU'),
@@ -390,7 +410,7 @@ describe('QuestionService', () => {
         ...makeQuestionRows(10, 'TIU'),
         ...makeQuestionRows(10, 'TKP'),
       ];
-      mockEqActive.mockResolvedValue({ data: allRows, error: null });
+      mockRange.mockResolvedValue({ data: allRows, error: null });
 
       const cards = await service.getMatchQuestionPool('cpns', 12);
 
@@ -400,14 +420,17 @@ describe('QuestionService', () => {
       expect(mockFrom).toHaveBeenCalledWith('questions');
       expect(mockEqTarget).toHaveBeenCalledWith('target', 'cpns');
       expect(mockEqActive).toHaveBeenCalledWith('is_active', true);
+      expect(mockOrder).toHaveBeenCalledWith('id', { ascending: true });
+      expect(mockRange).toHaveBeenCalledWith(0, 499);
     });
 
     it('filters BUMN pools by the requested target', async () => {
-      const rows = makeQuestionRows(12, 'AKHLAK').map((row) => ({
-        ...row,
-        target: 'bumn' as const,
-      }));
-      mockEqActive.mockResolvedValue({ data: rows, error: null });
+      const rows = [
+        ...makeQuestionRows(4, 'WAWASAN_KEBANGSAAN', 'bumn'),
+        ...makeQuestionRows(4, 'TKD', 'bumn'),
+        ...makeQuestionRows(4, 'AKHLAK', 'bumn'),
+      ];
+      mockRange.mockResolvedValue({ data: rows, error: null });
 
       const cards = await service.getMatchQuestionPool('bumn', 12);
 
@@ -415,97 +438,39 @@ describe('QuestionService', () => {
       expect(mockEqTarget).toHaveBeenCalledWith('target', 'bumn');
     });
 
-    it('loads two active topics and applies their averaged PvP mix', async () => {
+    it('loads every page so a required category after row 1000 is included', async () => {
       const rows = [
-        ...[
-          'pancasila_dan_ideologi',
-          'konstitusi_dan_negara',
-          'sejarah_dan_kebangsaan',
-          'bhinneka_tunggal_ika',
-        ].flatMap((subcategory) => makeTopicRows(50, 'TWK', subcategory)),
-        ...['verbal', 'numerik', 'logis', 'figural'].flatMap((subcategory) =>
-          makeTopicRows(50, 'TIU', subcategory),
-        ),
-        ...[
-          'pelayanan_dan_integritas',
-          'kerja_sama_dan_komunikasi',
-          'adaptasi_dan_pengembangan_diri',
-          'pengambilan_keputusan_dan_kinerja',
-        ].flatMap((subcategory) => makeTopicRows(50, 'TKP', subcategory)),
+        ...makeQuestionRows(500, 'TIU'),
+        ...makeQuestionRows(500, 'TKP'),
+        ...makeQuestionRows(200, 'TWK'),
       ];
-      const questionEqActive = jest.fn().mockResolvedValue({
-        data: rows,
-        error: null,
-      });
-      const questionEqTarget = jest
-        .fn()
-        .mockReturnValue({ eq: questionEqActive });
-      const recommendationGt = jest.fn().mockResolvedValue({
-        data: [
-          {
-            user_id: 'player-a',
-            target: 'cpns',
-            skill_ids: ['cpns.tiu.numerik'],
-          },
-          {
-            user_id: 'player-b',
-            target: 'cpns',
-            skill_ids: ['cpns.tiu.numerik'],
-          },
-        ],
-        error: null,
-      });
-      const recommendationSelection = jest
-        .fn()
-        .mockReturnValue({ gt: recommendationGt });
-      const recommendationAvailability = jest
-        .fn()
-        .mockReturnValue({ eq: recommendationSelection });
-      const recommendationStatus = jest
-        .fn()
-        .mockReturnValue({ eq: recommendationAvailability });
-      const recommendationTarget = jest
-        .fn()
-        .mockReturnValue({ eq: recommendationStatus });
-      const recommendationIn = jest
-        .fn()
-        .mockReturnValue({ eq: recommendationTarget });
-      const adminClient = {
-        from: jest.fn((table: string) =>
-          table === 'questions'
-            ? {
-                select: jest.fn().mockReturnValue({ eq: questionEqTarget }),
-              }
-            : {
-                select: jest.fn().mockReturnValue({ in: recommendationIn }),
-              },
-        ),
-      };
-      const adaptiveService = new QuestionService(
-        {
-          getAdminClient: () => adminClient,
-        } as unknown as SupabaseService,
-        new QuestionDealer(),
+      mockRange.mockImplementation((from: number, to: number) =>
+        Promise.resolve({ data: rows.slice(from, to + 1), error: null }),
       );
 
-      const cards = await adaptiveService.getMatchQuestionPool(
-        'cpns',
-        undefined,
-        ['player-a', 'player-b'],
-      );
-      const tiuCards = cards.filter((card) => card.category === 'TIU');
+      const cards = await service.getMatchQuestionPool('cpns');
 
-      expect(recommendationIn).toHaveBeenCalledWith('user_id', [
-        'player-a',
-        'player-b',
+      expect(mockRange.mock.calls).toEqual([
+        [0, 499],
+        [500, 999],
+        [1000, 1499],
       ]);
-      expect(tiuCards).toHaveLength(35);
-      expect(
-        tiuCards.filter((card) => card.subcategory === 'numerik').length,
-      ).toBeGreaterThanOrEqual(19);
-      expect(
-        tiuCards.filter((card) => card.subcategory === 'verbal').length,
-      ).toBeLessThanOrEqual(6);
+      expect(cards.filter((card) => card.category === 'TWK')).toHaveLength(30);
+      expect(cards.filter((card) => card.category === 'TIU')).toHaveLength(35);
+      expect(cards.filter((card) => card.category === 'TKP')).toHaveLength(45);
+      expect(mockFrom).toHaveBeenCalledTimes(3);
+      expect(mockFrom).toHaveBeenCalledWith('questions');
+    });
+
+    it('fails closed when a required category is unavailable', async () => {
+      mockRange.mockResolvedValue({
+        data: [...makeQuestionRows(50, 'TIU'), ...makeQuestionRows(50, 'TKP')],
+        error: null,
+      });
+
+      await expect(service.getMatchQuestionPool('cpns')).rejects.toThrow(
+        'missing one or more required CPNS categories',
+      );
     });
   });
 });

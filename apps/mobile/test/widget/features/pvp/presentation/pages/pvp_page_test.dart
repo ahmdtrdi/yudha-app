@@ -890,7 +890,8 @@ void main() {
               correctOptionIndex: 0,
               weight: 4,
               effect: QuestionEffect.damage,
-              category: 'wawasan_kebangsaan',
+              category: 'twk',
+              subcategory: 'verbal',
             ),
             BattleQuestion(
               id: 'q3',
@@ -932,11 +933,11 @@ void main() {
       );
       expect(
         find.byKey(const ValueKey<String>('question-card-q2')),
-        findsNothing,
+        findsOneWidget,
       );
       expect(
         find.byKey(const ValueKey<String>('question-card-q3')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         find.byKey(const ValueKey<String>('question-card-q4')),
@@ -944,7 +945,7 @@ void main() {
       );
       expect(
         tester
-            .getTopLeft(find.byKey(const ValueKey<String>('question-card-q3')))
+            .getTopLeft(find.byKey(const ValueKey<String>('question-card-q2')))
             .dx,
         lessThan(
           tester
@@ -973,9 +974,9 @@ void main() {
         ),
       );
       expect(_assetName(q1CardArt.image), 'assets/game/card_verbal.png');
-      final Image q3CardArt = tester.widget<Image>(
+      final Image q2CardArt = tester.widget<Image>(
         find.descendant(
-          of: find.byKey(const ValueKey<String>('question-card-q3')),
+          of: find.byKey(const ValueKey<String>('question-card-q2')),
           matching: find.byType(Image),
         ),
       );
@@ -985,7 +986,7 @@ void main() {
           matching: find.byType(Image),
         ),
       );
-      expect(_assetName(q3CardArt.image), 'assets/game/card_twk.png');
+      expect(_assetName(q2CardArt.image), 'assets/game/card_twk.png');
       expect(_assetName(q4CardArt.image), 'assets/game/card_tkp.png');
       expect(
         find.byKey(const ValueKey<String>('question-card-effect-q1-attack')),
@@ -993,7 +994,7 @@ void main() {
       );
       expect(
         find.byKey(const ValueKey<String>('question-card-effect-q3-heal')),
-        findsOneWidget,
+        findsNothing,
       );
       expect(find.text('SERANG'), findsNothing);
       expect(find.text('PULIHKAN'), findsNothing);
@@ -1036,7 +1037,7 @@ void main() {
           tester.getSize(find.byKey(const ValueKey('battle-hand'))).width,
         ),
       );
-      for (final String id in <String>['q3', 'q1', 'q4']) {
+      for (final String id in <String>['q2', 'q1', 'q4']) {
         final Ink cardSurface = tester.widget<Ink>(
           find.byKey(ValueKey<String>('question-card-surface-$id')),
         );

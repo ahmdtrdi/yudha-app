@@ -7,19 +7,29 @@ const makeCards = (
   count: number,
   overrides: Partial<InternalCard> = {},
 ): InternalCard[] =>
-  Array.from({ length: count }, (_, i) => ({
-    id: `card_${i + 1}`,
-    sourceQuestionId: `question_${i + 1}`,
-    prompt: `Question ${i + 1}`,
-    options: ['A', 'B', 'C', 'D'],
-    correctOptionIndex: 1,
-    weight: 1,
-    effect: 'damage' as const,
-    damageValue: 10,
-    healValue: 0,
-    timeLimitSeconds: 30,
-    ...overrides,
-  }));
+  Array.from({ length: count }, (_, i) => {
+    const category = ['twk', 'tiu', 'tkp'][i % 3];
+    const subcategory = {
+      twk: 'pancasila_dan_ideologi',
+      tiu: 'verbal',
+      tkp: 'pelayanan_dan_integritas',
+    }[category];
+    return {
+      id: `card_${i + 1}`,
+      sourceQuestionId: `question_${i + 1}`,
+      prompt: `Question ${i + 1}`,
+      options: ['A', 'B', 'C', 'D'],
+      correctOptionIndex: 1,
+      weight: 1,
+      effect: 'damage' as const,
+      damageValue: 10,
+      healValue: 0,
+      timeLimitSeconds: 30,
+      category,
+      subcategory,
+      ...overrides,
+    };
+  });
 
 describe('GameEngine', () => {
   let engine: GameEngine;
@@ -56,6 +66,19 @@ describe('GameEngine', () => {
 
       expect(room.players.playerA.hand).toHaveLength(QuestionDealer.HAND_SIZE);
       expect(room.players.playerB.hand).toHaveLength(QuestionDealer.HAND_SIZE);
+      expect(room.players.playerA.hand.map((card) => card.category)).toEqual([
+        'twk',
+        'tiu',
+        'tkp',
+      ]);
+    });
+
+    it('rejects room creation when a required category is missing', () => {
+      const cards = makeCards(8).filter((card) => card.category !== 'twk');
+
+      expect(() => engine.createRoom('room_missing', 'a', 'b', cards)).toThrow(
+        'missing one or more required CPNS categories',
+      );
     });
 
     it('starts both players with 0 points and empty answered sets', () => {
@@ -304,6 +327,80 @@ describe('GameEngine', () => {
       expect(
         room.players.playerA.hand.filter((card) => card.category === 'tiu'),
       ).toHaveLength(1);
+    });
+
+    it.each(['bot', 'casual', 'ranked', 'private'] as const)(
+      'preserves one CPNS card per category across 24 replacements in %s mode',
+      (mode) => {
+        const cards = ['twk', 'tiu', 'tkp'].flatMap((category) =>
+          makeCards(10, { category }).map((card, index) => ({
+            ...card,
+            id: `${category}_${index}`,
+            sourceQuestionId: `${category}_question_${index}`,
+          })),
+        );
+        const seed = (userId: string) => ({
+          userId,
+          displayName: userId,
+          loadout: {
+            characterId: 'character-basic-squire',
+            towerId: 'tower-garda-biru',
+          },
+        });
+        const room = engine.createRoom(
+          `room_${mode}`,
+          mode,
+          'cpns',
+          seed('a'),
+          seed('b'),
+          new QuestionDealer().createSharedQueue(cards, 'cpns'),
+        );
+
+        for (let turn = 0; turn < 24; turn += 1) {
+          const card = room.players.playerA.hand[turn % 3];
+          expect(engine.openCard(room, 'a', card.id).ok).toBe(true);
+          expect(engine.playCard(room, 'a', card.id, 0).ok).toBe(true);
+          expect(
+            room.players.playerA.hand.map((item) => item.category).sort(),
+          ).toEqual(['tiu', 'tkp', 'twk']);
+        }
+      },
+    );
+
+    it('preserves WK, TKD, and AKHLAK across 24 BUMN replacements', () => {
+      const cards = ['wawasan_kebangsaan', 'tkd', 'akhlak'].flatMap(
+        (category) =>
+          makeCards(10, { category }).map((card, index) => ({
+            ...card,
+            id: `${category}_${index}`,
+            sourceQuestionId: `${category}_question_${index}`,
+          })),
+      );
+      const seed = (userId: string) => ({
+        userId,
+        displayName: userId,
+        loadout: {
+          characterId: 'character-basic-squire',
+          towerId: 'tower-garda-biru',
+        },
+      });
+      const room = engine.createRoom(
+        'room_bumn',
+        'bot',
+        'bumn',
+        seed('a'),
+        seed('bot'),
+        new QuestionDealer().createSharedQueue(cards, 'bumn'),
+      );
+
+      for (let turn = 0; turn < 24; turn += 1) {
+        const card = room.players.playerA.hand[turn % 3];
+        expect(engine.openCard(room, 'a', card.id).ok).toBe(true);
+        expect(engine.playCard(room, 'a', card.id, 0).ok).toBe(true);
+        expect(
+          room.players.playerA.hand.map((item) => item.category).sort(),
+        ).toEqual(['akhlak', 'tkd', 'wawasan_kebangsaan']);
+      }
     });
 
     it('enforces the CPNS cast limits independently for each round', () => {

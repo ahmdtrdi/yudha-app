@@ -405,9 +405,15 @@ export class GameEngine {
     target: InternalRoomState['target'],
   ): InternalPlayerState {
     const categoryDecks = this.dealer.createCategoryDecks(sharedQueue, target);
-    const hand = categoryDecks
-      ? this.dealer.createStartingHandFromCategoryDecks(categoryDecks, target)
-      : this.dealer.createStartingHand(sharedQueue);
+    if (!categoryDecks) {
+      throw new Error(
+        `Question pool is missing one or more required ${target.toUpperCase()} categories.`,
+      );
+    }
+    const hand = this.dealer.createStartingHandFromCategoryDecks(
+      categoryDecks,
+      target,
+    );
     return {
       userId: seed.userId,
       displayName: seed.displayName,
@@ -419,8 +425,6 @@ export class GameEngine {
       comboLevel: 1,
       hand,
       answeredCardIds: new Set<string>(),
-      nextDrawIndex: hand.length,
-      nextDrawIndexByCategory: this.nextCategoryDrawIndexes(hand),
       categoryDecks,
       connected: true,
     };
@@ -460,15 +464,14 @@ export class GameEngine {
         room.sharedQueue,
         room.target,
       );
-      player.hand = player.categoryDecks
-        ? this.dealer.createStartingHandFromCategoryDecks(
-            player.categoryDecks,
-            room.target,
-          )
-        : this.dealer.createStartingHand(room.sharedQueue);
-      player.nextDrawIndex = player.hand.length;
-      player.nextDrawIndexByCategory = this.nextCategoryDrawIndexes(
-        player.hand,
+      if (!player.categoryDecks) {
+        throw new Error(
+          `Question pool is missing one or more required ${room.target.toUpperCase()} categories.`,
+        );
+      }
+      player.hand = this.dealer.createStartingHandFromCategoryDecks(
+        player.categoryDecks,
+        room.target,
       );
     }
     return true;
@@ -574,44 +577,14 @@ export class GameEngine {
   ): InternalCard | undefined {
     const categoryKey = this.categoryKey(category);
     const categoryDeck = player.categoryDecks?.[categoryKey];
-    if (categoryDeck) {
-      categoryDeck.castCount += 1;
-      if (categoryDeck.castCount >= categoryDeck.castLimit) return undefined;
+    if (!categoryDeck) return undefined;
+    categoryDeck.castCount += 1;
+    if (categoryDeck.castCount >= categoryDeck.castLimit) return undefined;
 
-      const source = this.dealer.drawFromCategoryDeck(categoryDeck);
-      return source
-        ? this.ensureUniqueCardInstance(room, player, source)
-        : undefined;
-    }
-
-    const categoryCards = room.sharedQueue.filter(
-      (card) => this.categoryKey(card.category) === categoryKey,
-    );
-    if (categoryCards.length === 0) return undefined;
-    const categoryIndexes = (player.nextDrawIndexByCategory ??= {});
-    const categoryIndex = categoryIndexes[categoryKey] ?? 0;
-    const source = categoryCards[categoryIndex % categoryCards.length];
-    categoryIndexes[categoryKey] = categoryIndex + 1;
-    player.nextDrawIndex += 1;
-    return {
-      ...source,
-      id:
-        categoryIndex < categoryCards.length
-          ? source.id
-          : `card_r${room.nextRecycleId++}`,
-      options: [...source.options],
-    };
-  }
-
-  private nextCategoryDrawIndexes(
-    hand: InternalCard[],
-  ): Record<string, number> {
-    const indexes: Record<string, number> = {};
-    for (const card of hand) {
-      const key = this.categoryKey(card.category);
-      indexes[key] = (indexes[key] ?? 0) + 1;
-    }
-    return indexes;
+    const source = this.dealer.drawFromCategoryDeck(categoryDeck);
+    return source
+      ? this.ensureUniqueCardInstance(room, player, source)
+      : undefined;
   }
 
   private categoryKey(category?: string): string {
