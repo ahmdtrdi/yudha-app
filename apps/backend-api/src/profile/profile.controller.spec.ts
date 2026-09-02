@@ -8,11 +8,15 @@ describe('ProfileController', () => {
   const getProfile = jest.fn();
   const updateProfile = jest.fn();
   const updateLoadout = jest.fn();
+  const deleteAccountData = jest.fn();
+  const deleteAccount = jest.fn();
 
   beforeEach(async () => {
     getProfile.mockReset();
     updateProfile.mockReset();
     updateLoadout.mockReset();
+    deleteAccountData.mockReset();
+    deleteAccount.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ProfileController],
@@ -23,6 +27,8 @@ describe('ProfileController', () => {
             getProfile,
             updateProfile,
             updateLoadout,
+            deleteAccountData,
+            deleteAccount,
           },
         },
       ],
@@ -42,9 +48,9 @@ describe('ProfileController', () => {
     const profile = { id: 'user-1', username: 'player' };
     getProfile.mockResolvedValue(profile);
 
-    await expect(controller.getMyProfile({ id: 'user-1' } as never)).resolves.toEqual(
-      profile,
-    );
+    await expect(
+      controller.getMyProfile({ id: 'user-1' } as never),
+    ).resolves.toEqual(profile);
     expect(getProfile).toHaveBeenCalledWith('user-1');
   });
 
@@ -67,5 +73,23 @@ describe('ProfileController', () => {
       controller.updateMyLoadout({ id: 'user-1' } as never, payload),
     ).resolves.toEqual({ data: payload });
     expect(updateLoadout).toHaveBeenCalledWith('user-1', payload);
+  });
+
+  it('deletes data for the authenticated user', async () => {
+    deleteAccountData.mockResolvedValue({ message: 'Account data deleted.' });
+
+    await expect(
+      controller.deleteMyAccountData({ id: 'user-1' } as never),
+    ).resolves.toEqual({ message: 'Account data deleted.' });
+    expect(deleteAccountData).toHaveBeenCalledWith('user-1');
+  });
+
+  it('deletes the authenticated user account', async () => {
+    deleteAccount.mockResolvedValue({ message: 'Account deleted.' });
+
+    await expect(
+      controller.deleteMyAccount({ id: 'user-1' } as never),
+    ).resolves.toEqual({ message: 'Account deleted.' });
+    expect(deleteAccount).toHaveBeenCalledWith('user-1');
   });
 });

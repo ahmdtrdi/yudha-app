@@ -83,5 +83,57 @@ void main() {
       expect(profile.username, 'raka-baru');
       expect(profile.target, ProfileTarget.cpns);
     });
+
+    test('deletes account data through the protected data endpoint', () async {
+      final BackendUserProfileRepository repository =
+          BackendUserProfileRepository(
+            config: const UserProfileApiConfig(
+              baseUrl: 'https://api.example.test',
+              accessToken: 'token-123',
+            ),
+            client: MockClient((http.Request request) async {
+              expect(request.method, 'DELETE');
+              expect(
+                request.url.toString(),
+                'https://api.example.test/profile/data',
+              );
+              return http.Response(
+                jsonEncode(<String, Object?>{
+                  'data': <String, Object?>{
+                    'id': 'user-1',
+                    'username': 'raka',
+                    'target': 'cpns',
+                  },
+                }),
+                200,
+              );
+            }),
+          );
+
+      await expectLater(repository.deleteAccountData(), completes);
+    });
+
+    test(
+      'deletes the account through the protected account endpoint',
+      () async {
+        final BackendUserProfileRepository repository =
+            BackendUserProfileRepository(
+              config: const UserProfileApiConfig(
+                baseUrl: 'https://api.example.test',
+                accessToken: 'token-123',
+              ),
+              client: MockClient((http.Request request) async {
+                expect(request.method, 'DELETE');
+                expect(
+                  request.url.toString(),
+                  'https://api.example.test/profile/account',
+                );
+                return http.Response('{"message":"Account deleted."}', 200);
+              }),
+            );
+
+      await expectLater(repository.deleteAccount(), completes);
+      },
+    );
   });
 }

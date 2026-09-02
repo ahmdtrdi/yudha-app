@@ -205,6 +205,19 @@ class AuthNotifier extends Notifier<AppAuthState> {
     state = state.copyWith(clearSession: true, clearError: true);
   }
 
+  Future<void> clearDeletedAccountSession() async {
+    final SupabaseClient? client = _client;
+    if (client != null) {
+      try {
+        await client.auth.signOut(scope: SignOutScope.local);
+      } catch (_) {
+        // The server-side user no longer exists; local cleanup must still run.
+      }
+      await _clearPersistedSession();
+    }
+    state = state.copyWith(clearSession: true, clearError: true);
+  }
+
   Future<String?> resendConfirmationEmail(String email) async {
     final SupabaseClient? client = _client;
     if (client == null) {

@@ -61,4 +61,46 @@ class UserProfileController extends StateNotifier<UserProfileState> {
       return null;
     }
   }
+
+  Future<bool> deleteAccountData() async {
+    if (state.status == UserProfileStatus.deleting) return false;
+    state = state.copyWith(
+      status: UserProfileStatus.deleting,
+      clearError: true,
+    );
+    try {
+      final UserProfile profile = await _repository.deleteAccountData();
+      state = state.copyWith(
+        status: UserProfileStatus.ready,
+        profile: profile,
+        clearError: true,
+      );
+      _onProfileChanged?.call(profile);
+      return true;
+    } catch (error) {
+      state = state.copyWith(
+        status: UserProfileStatus.ready,
+        errorMessage: error.toString(),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> deleteAccount() async {
+    if (state.status == UserProfileStatus.deleting) return false;
+    state = state.copyWith(
+      status: UserProfileStatus.deleting,
+      clearError: true,
+    );
+    try {
+      await _repository.deleteAccount();
+      return true;
+    } catch (error) {
+      state = state.copyWith(
+        status: UserProfileStatus.ready,
+        errorMessage: error.toString(),
+      );
+      return false;
+    }
+  }
 }

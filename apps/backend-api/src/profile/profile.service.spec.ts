@@ -15,6 +15,7 @@ describe('ProfileService', () => {
   const single = jest.fn();
   const update = jest.fn();
   const rpc = jest.fn();
+  const deleteUser = jest.fn();
 
   beforeEach(async () => {
     from.mockReset();
@@ -23,6 +24,7 @@ describe('ProfileService', () => {
     single.mockReset();
     update.mockReset();
     rpc.mockReset();
+    deleteUser.mockReset();
 
     from.mockReturnValue({ select, update });
     select.mockReturnValue({ eq, single });
@@ -35,7 +37,11 @@ describe('ProfileService', () => {
         {
           provide: SupabaseService,
           useValue: {
-            getClient: () => ({ from, rpc }),
+            getClient: () => ({
+              from,
+              rpc,
+              auth: { admin: { deleteUser } },
+            }),
           },
         },
       ],
@@ -217,5 +223,34 @@ describe('ProfileService', () => {
     await expect(service.getProfile('user-1')).rejects.toBeInstanceOf(
       InternalServerErrorException,
     );
+  });
+
+  it('resets user-owned data and returns the fresh profile', async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+    single.mockResolvedValue({
+      data: { id: 'user-1', username: 'player', target: 'cpns' },
+      error: null,
+    });
+
+    await expect(service.deleteAccountData('user-1')).resolves.toEqual({
+      data: expect.objectContaining({
+        id: 'user-1',
+        username: 'player',
+        rankPoints: 0,
+      }),
+      message: 'Account data deleted.',
+    });
+    expect(rpc).toHaveBeenCalledWith('reset_user_account_data', {
+      p_user_id: 'user-1',
+    });
+  });
+
+  it('deletes the Supabase auth user', async () => {
+    deleteUser.mockResolvedValue({ data: null, error: null });
+
+    await expect(service.deleteAccount('user-1')).resolves.toEqual({
+      message: 'Account deleted.',
+    });
+    expect(deleteUser).toHaveBeenCalledWith('user-1');
   });
 });
