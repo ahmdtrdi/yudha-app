@@ -27,4 +27,8 @@ abstract class UserProfileRepository {
   Future<UserProfile> fetchProfile();
 
   Future<UserProfile> updateProfile(UserProfileUpdate update);
+
+  Future<UserProfile> deleteAccountData();
+
+  Future<void> deleteAccount();
 }

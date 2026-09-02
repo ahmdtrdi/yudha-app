@@ -103,6 +103,34 @@ export class ProfileService {
     };
   }
 
+  async deleteAccountData(userId: string) {
+    const client = this.supabase.getClient();
+    const { error } = await (client as any).rpc('reset_user_account_data', {
+      p_user_id: userId,
+    });
+
+    if (error) {
+      throw new InternalServerErrorException(error.message);
+    }
+
+    return {
+      data: await this.getProfileData(userId),
+      message: 'Account data deleted.',
+    };
+  }
+
+  async deleteAccount(userId: string) {
+    const { error } = await this.supabase
+      .getClient()
+      .auth.admin.deleteUser(userId);
+
+    if (error) {
+      throw new InternalServerErrorException(error.message);
+    }
+
+    return { message: 'Account deleted.' };
+  }
+
   private cleanUpdatePayload(payload: UpdateProfilePayload) {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
       throw new BadRequestException(

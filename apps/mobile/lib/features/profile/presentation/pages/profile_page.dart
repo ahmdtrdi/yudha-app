@@ -78,6 +78,71 @@ class ProfilePage extends ConsumerWidget {
     await save(normalized);
   }
 
+  Future<void> _deleteAccountData(BuildContext context, WidgetRef ref) async {
+    final bool confirmed =
+        await _showDestructiveActionDialog(
+          context,
+          key: const Key('delete-account-data-dialog'),
+          icon: Icons.delete_sweep_outlined,
+          title: 'Hapus semua data akun?',
+          message:
+              'Progres belajar, riwayat latihan, statistik, pembelian, dan data permainan akan dihapus permanen. Akun dan profilmu tetap dapat digunakan.',
+          confirmLabel: 'Hapus data',
+          confirmKey: const Key('confirm-delete-account-data'),
+        ) ??
+        false;
+    if (!confirmed || !context.mounted) return;
+
+    final bool deleted = await ref
+        .read(userProfileProvider.notifier)
+        .deleteAccountData();
+    if (!context.mounted) return;
+    if (!deleted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Data akun belum berhasil dihapus.')),
+      );
+      return;
+    }
+
+    ref.invalidate(playerProgressProvider);
+    ref.invalidate(learningControllerProvider);
+    ref.invalidate(dailyReminderProvider);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Semua data akun berhasil dihapus.')),
+    );
+  }
+
+  Future<void> _deleteAccount(BuildContext context, WidgetRef ref) async {
+    final bool confirmed =
+        await _showDestructiveActionDialog(
+          context,
+          key: const Key('delete-account-dialog'),
+          icon: Icons.person_remove_outlined,
+          title: 'Hapus akun permanen?',
+          message:
+              'Akun beserta seluruh data akan dihapus permanen dan tidak dapat dipulihkan. Kamu harus membuat akun baru untuk menggunakan Yudha lagi.',
+          confirmLabel: 'Hapus akun',
+          confirmKey: const Key('confirm-delete-account'),
+        ) ??
+        false;
+    if (!confirmed || !context.mounted) return;
+
+    final bool deleted = await ref
+        .read(userProfileProvider.notifier)
+        .deleteAccount();
+    if (!deleted || !context.mounted) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Akun belum berhasil dihapus.')),
+        );
+      }
+      return;
+    }
+
+    await ref.read(authProvider.notifier).clearDeletedAccountSession();
+    if (context.mounted) context.go(AppRoutes.login);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final PlayerProgress progress = ref.watch(playerProgressProvider);
@@ -355,6 +420,12 @@ class ProfilePage extends ConsumerWidget {
                   ),
                 ],
               ),
+            ),
+            const SizedBox(height: 28),
+            _DangerZoneCard(
+              isBusy: profileState.status == UserProfileStatus.deleting,
+              onDeleteData: () => _deleteAccountData(context, ref),
+              onDeleteAccount: () => _deleteAccount(context, ref),
             ),
           ],
         ),
@@ -1285,6 +1356,129 @@ Future<bool?> _showLogoutDialog(BuildContext context) {
       );
     },
   );
+}
+
+Future<bool?> _showDestructiveActionDialog(
+  BuildContext context, {
+  required Key key,
+  required IconData icon,
+  required String title,
+  required String message,
+  required String confirmLabel,
+  required Key confirmKey,
+}) {
+  return showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) => AlertDialog(
+      key: key,
+      icon: Icon(icon, color: const Color(0xFFB42318), size: 30),
+      title: Text(title, textAlign: TextAlign.center),
+      content: Text(message, textAlign: TextAlign.center),
+      actions: <Widget>[
+        TextButton(
+          key: const Key('cancel-destructive-action'),
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          key: confirmKey,
+          onPressed: () => Navigator.of(context).pop(true),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFD92D20),
+            foregroundColor: Colors.white,
+          ),
+          child: Text(confirmLabel),
+        ),
+      ],
+    ),
+  );
+}
+
+class _DangerZoneCard extends StatelessWidget {
+  const _DangerZoneCard({
+    required this.isBusy,
+    required this.onDeleteData,
+    required this.onDeleteAccount,
+  });
+
+  final bool isBusy;
+  final VoidCallback onDeleteData;
+  final VoidCallback onDeleteAccount;
+
+  @override
+  Widget build(BuildContext context) {
+    const Color danger = Color(0xFFB42318);
+    return Container(
+      key: const Key('danger-zone'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4F2),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFDA29B)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Row(
+            children: <Widget>[
+              Icon(Icons.warning_amber_rounded, color: danger),
+              SizedBox(width: 8),
+              Text(
+                'Zona Bahaya',
+                style: TextStyle(
+                  color: danger,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Tindakan di bawah ini bersifat permanen dan tidak dapat dibatalkan.',
+            style: TextStyle(color: Color(0xFF7A271A), fontSize: 12),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const Key('delete-account-data-button'),
+              onPressed: isBusy ? null : onDeleteData,
+              icon: const Icon(Icons.delete_sweep_outlined),
+              label: const Text('Hapus Data Akun'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: danger,
+                side: const BorderSide(color: Color(0xFFD92D20)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              key: const Key('delete-account-button'),
+              onPressed: isBusy ? null : onDeleteAccount,
+              icon: isBusy
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.person_remove_outlined),
+              label: Text(isBusy ? 'Memproses...' : 'Hapus Akun'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFD92D20),
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ProfileHeaderCard extends StatelessWidget {

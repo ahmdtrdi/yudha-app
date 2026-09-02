@@ -40,6 +40,16 @@ class BackendUserProfileRepository implements UserProfileRepository {
     return _profileFromResponse(await _request('PATCH', body: update.toJson()));
   }
 
+  @override
+  Future<UserProfile> deleteAccountData() async {
+    return _profileFromResponse(await _request('DELETE', path: '/data'));
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    await _request('DELETE', path: '/account');
+  }
+
   UserProfile _profileFromResponse(Map<String, dynamic> response) {
     final Object? data = response['data'];
     if (data is! Map<String, dynamic>) {
@@ -53,6 +63,7 @@ class BackendUserProfileRepository implements UserProfileRepository {
   Future<Map<String, dynamic>> _request(
     String method, {
     Map<String, Object?>? body,
+    String path = '',
   }) async {
     if (!_config.hasAccessToken) {
       throw const UserProfileApiException(
@@ -60,20 +71,27 @@ class BackendUserProfileRepository implements UserProfileRepository {
       );
     }
 
-    final Uri uri = Uri.parse('${_config.baseUrl}/profile');
+    final Uri uri = Uri.parse('${_config.baseUrl}/profile$path');
     final Map<String, String> headers = <String, String>{
       'authorization': 'Bearer ${_config.accessToken}',
       'content-type': 'application/json',
     };
     final http.Response response;
     try {
-      response = method == 'PATCH'
-          ? await _client
-                .patch(uri, headers: headers, body: jsonEncode(body))
-                .timeout(_config.requestTimeout)
-          : await _client
-                .get(uri, headers: headers)
-                .timeout(_config.requestTimeout);
+      response = switch (method) {
+        'PATCH' =>
+          await _client
+              .patch(uri, headers: headers, body: jsonEncode(body))
+              .timeout(_config.requestTimeout),
+        'DELETE' =>
+          await _client
+              .delete(uri, headers: headers)
+              .timeout(_config.requestTimeout),
+        _ =>
+          await _client
+              .get(uri, headers: headers)
+              .timeout(_config.requestTimeout),
+      };
     } on TimeoutException {
       throw const UserProfileApiException(
         'Profil membutuhkan waktu terlalu lama untuk dimuat. Coba lagi.',
@@ -120,7 +138,7 @@ class BackendUserProfileRepository implements UserProfileRepository {
       return 'Profilmu belum ditemukan.';
     }
     if (statusCode >= 500) {
-      return 'Profil sedang tidak tersedia. Coba lagi sebentar.';
+      return 'Permintaan akun belum dapat diproses. Coba lagi sebentar.';
     }
     return 'Perubahan profil belum berhasil disimpan. Silakan coba lagi.';
   }

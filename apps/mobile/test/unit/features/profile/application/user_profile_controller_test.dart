@@ -55,6 +55,22 @@ class _FakeUserProfileRepository implements UserProfileRepository {
   bool shouldFail = false;
 
   @override
+  Future<void> deleteAccount() async {
+    if (shouldFail) throw Exception('Akun belum dapat dihapus.');
+  }
+
+  @override
+  Future<UserProfile> deleteAccountData() async {
+    if (shouldFail) throw Exception('Data belum dapat dihapus.');
+    return const UserProfile(
+      id: 'user-1',
+      username: 'raka',
+      fullName: 'Raka Saputra',
+      target: ProfileTarget.cpns,
+    );
+  }
+
+  @override
   Future<UserProfile> fetchProfile() async {
     return const UserProfile(
       id: 'user-1',

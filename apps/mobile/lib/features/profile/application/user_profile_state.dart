@@ -1,6 +1,6 @@
 import 'package:yudha_mobile/features/profile/domain/entities/user_profile.dart';
 
-enum UserProfileStatus { initial, loading, ready, saving, error }
+enum UserProfileStatus { initial, loading, ready, saving, deleting, error }
 
 class UserProfileState {
   const UserProfileState({

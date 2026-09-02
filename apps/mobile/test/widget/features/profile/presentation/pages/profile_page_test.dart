@@ -24,7 +24,10 @@ void main() {
     expect(find.text('Raka Saputra'), findsOneWidget);
     expect(find.text('Performa PvP'), findsOneWidget);
     expect(find.text('Learning'), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('profile-learning-link')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('profile-learning-link')),
+      findsOneWidget,
+    );
     await tester.scrollUntilVisible(
       find.text('Pengaturan Profil'),
       300,
@@ -117,6 +120,32 @@ void main() {
     expect(find.byKey(const Key('profile-edit-sheet')), findsNothing);
     expect(repository.lastUpdate, isNull);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('shows a red danger zone and confirms both delete actions', (
+    WidgetTester tester,
+  ) async {
+    await _pumpProfilePage(tester, surfaceSize: const Size(430, 700));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('danger-zone')),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Zona Bahaya'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('delete-account-data-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('delete-account-data-dialog')), findsOneWidget);
+    expect(find.text('Hapus semua data akun?'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('cancel-destructive-action')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('delete-account-button')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('delete-account-dialog')), findsOneWidget);
+    expect(find.text('Hapus akun permanen?'), findsOneWidget);
   });
 }
 
@@ -211,7 +240,7 @@ class _FakeLearningRepository implements LearningRepository {
       'assessment': <String, dynamic>{'status': 'not_available'},
       'activity': <String, dynamic>{},
       'competition': <String, dynamic>{'accuracy': <String, dynamic>{}},
-    );
+    });
   }
 
   @override
@@ -236,6 +265,12 @@ class _ProfileSettingsMemoryStorage implements ProfileSettingsStorage {
 
 class _FakeUserProfileRepository implements UserProfileRepository {
   UserProfileUpdate? lastUpdate;
+
+  @override
+  Future<void> deleteAccount() async {}
+
+  @override
+  Future<UserProfile> deleteAccountData() => fetchProfile();
 
   @override
   Future<UserProfile> fetchProfile() async {
