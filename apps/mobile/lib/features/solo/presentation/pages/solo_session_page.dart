@@ -58,11 +58,16 @@ class _SoloSessionPageState extends ConsumerState<SoloSessionPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final SoloSessionController sessionController = ref.read(
+      soloSessionControllerProvider.notifier,
+    );
     if (state == AppLifecycleState.resumed &&
         ref.read(soloSessionControllerProvider).session?.isActive == true) {
+      sessionController.resumeActiveTiming();
       unawaited(_arenaAudio.resumeMusic());
       return;
     }
+    sessionController.pauseActiveTiming();
     unawaited(_arenaAudio.pauseMusic());
   }
 
@@ -208,7 +213,9 @@ class _SoloSessionPageState extends ConsumerState<SoloSessionPage>
               feedback: state.feedback,
               selectedOption: state.selectedOption,
               hintVisible: state.hintVisible,
+              hintLoading: state.hintLoading,
               submitting: state.submitting,
+              error: state.error,
               onSelect: controller.selectAndSubmit,
               onHint: controller.showHint,
               onTimeout: controller.timeout,
@@ -675,7 +682,9 @@ class _QuestionOverlay extends StatelessWidget {
     required this.feedback,
     required this.selectedOption,
     required this.hintVisible,
+    required this.hintLoading,
     required this.submitting,
+    required this.error,
     required this.onSelect,
     required this.onHint,
     required this.onTimeout,
@@ -686,7 +695,9 @@ class _QuestionOverlay extends StatelessWidget {
   final SoloAnswerFeedback? feedback;
   final int? selectedOption;
   final bool hintVisible;
+  final bool hintLoading;
   final bool submitting;
+  final String? error;
   final Future<void> Function(int) onSelect;
   final VoidCallback onHint;
   final VoidCallback onTimeout;
@@ -808,14 +819,27 @@ class _QuestionOverlay extends StatelessWidget {
                                     key: const ValueKey<String>(
                                       'solo-show-hint',
                                     ),
-                                    onPressed: onHint,
-                                    icon: const Icon(
-                                      Icons.help_outline_rounded,
-                                      size: 18,
-                                    ),
+                                    onPressed: submitting || hintLoading
+                                        ? null
+                                        : onHint,
+                                    icon: hintLoading
+                                        ? const SizedBox.square(
+                                            dimension: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Icon(
+                                            Icons.help_outline_rounded,
+                                            size: 18,
+                                          ),
                                     label: const Text('Lihat petunjuk'),
                                   ),
                           if (!answered) const SizedBox(height: 10),
+                          if (error != null) ...<Widget>[
+                            _ErrorBanner(error!),
+                            const SizedBox(height: 10),
+                          ],
                           for (
                             int index = 0;
                             index < question.options.length;
@@ -875,9 +899,10 @@ class _QuestionOverlay extends StatelessWidget {
                                   ),
                           ),
                         ),
-                        if (!answered && !submitting)
+                        if (!answered)
                           TextButton(
-                            onPressed: submitting ? null : onBack,
+                            key: const ValueKey<String>('solo-back-to-cards'),
+                            onPressed: onBack,
                             child: const Text('Kembali ke kartu'),
                           ),
                       ],
@@ -1144,7 +1169,7 @@ class _SoloResult extends StatelessWidget {
   final VoidCallback onExit;
   @override
   Widget build(BuildContext context) {
-    final destroyed = session.completionReason == 'tower_destroyed';
+    final destroyed = session.policyStopTrigger == 'tower_destroyed';
     final stopped = session.completionReason == 'user_stopped';
     return Scaffold(
       backgroundColor: AppColors.scholarCream,

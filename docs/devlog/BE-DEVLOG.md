@@ -747,6 +747,31 @@
 - Gate 5 Solo delivery policy (session stopping rules, Focus/Standard/Speed mechanics in UI) remains blocked by explicit Decision Debt registered in PRD Section 11.22.
 - Admin content-quality dashboard and web Assessment validation runner remain deferred to future phase milestones.
 
+## 2026-09-02 - Canonical Solo Learning V2 Alignment
+
+**The Change:**
+- Added the incremental Solo Learning V2 migration and postcheck, including question revision/taxonomy/skill/exposure snapshots, server-authoritative hint timestamps, canonical attempt links, requested/effective mechanic fields, and separate `policy_completed`/`policy_stop_trigger` semantics.
+- Added the idempotent `request_solo_hint` RPC, removed client-authored hint state from answer submission, captured client-active/server/background/effective timing, classified each answer, and atomically queued it through the existing `learning_attempts` projection trigger.
+- Added demand-driven server timeout reconciliation for session recovery, canonical attempt IDs in answer responses, race-safe committed-answer replay, updated service-role grants, and expanded the Solo pgTAP contract from 11 to 17 assertions.
+- Updated NestJS `/solo` DTOs, validation, repository calls, and the dedicated hint endpoint.
+- Kept direct session recovery on the stable `solo_session_payload` RPC so active sessions created before the alignment migration remain resumable; migrated active-session lookup still performs authoritative timeout reconciliation.
+- Added a narrowly scoped fallback to the pre-alignment answer RPC when PostgREST reports that the new timing-aware signature is absent, allowing an existing session to resolve answers/timeouts and be ended while rollout catches up.
+- Matched the Solo hint repository call to the deployed five-argument RPC by sending the backend-owned request timestamp explicitly, preventing PostgREST from searching for a nonexistent four-argument overload.
+- Corrected the Solo alignment migration's revision lookup to resolve the revision ID before loading its composite row, avoiding PostgreSQL's prohibition on mixing a record variable with scalars in one `INTO` list.
+- Kept pre-alignment active sessions discoverable when an expired card still lacks a canonical revision snapshot, restoring the mobile resume/end dialog and setup resume action without weakening server-owned timeout handling for aligned sessions.
+
+**The Reasoning:**
+- A hint must become assisted evidence when the server accepts the hint request, regardless of what a client later submits. Solo answers must enter the same immutable evidence ledger as compatibility Practice before Focus, Speed, or evidence-based recommendations can safely consume them.
+
+**Verification:**
+- All 21 focused backend Solo contract/service/policy tests passed; the NestJS production build passed; all 23 infrastructure tests passed; migration structure has one transaction, six balanced function bodies, and a paired read-only postcheck.
+- The compatibility resume regression adds repository coverage and passes all 7 focused Solo repository/service tests.
+- The expired-session compatibility fallback passes all 8 focused Solo repository/service tests.
+- The hint RPC payload regression verifies all five registered arguments, including the backend-owned request timestamp.
+
+**The Tech Debt:**
+- Run the alignment and active-recovery postchecks on every deployed Supabase target; missing question-bank hints and explanations remain content-quality work owned separately from the Solo runtime.
+- Automatic expiration is reconciled by the server on answer, active-session lookup, or session recovery; a future scheduled cleanup may finalize abandoned sessions without a subsequent request.
 ## 2026-09-02 - Manual Learning Evidence and Clear Recommendation Terminology
 
 **The Change:**
@@ -767,6 +792,7 @@
 **The Tech Debt:**
 - The fixture remains active until it is explicitly invalidated with run key `manual-analytics-20260902-petergalnoel`.
 - The wire contract still uses the internal field name `confidence`; renaming it would require a versioned API migration and coordinated clients.
+
 ## 2026-09-02 - Enforce Three Canonical PvP Category Decks
 
 **The Change:**

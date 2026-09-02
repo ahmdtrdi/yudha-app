@@ -16,6 +16,7 @@ class SoloSessionState {
     this.submitting = false,
     this.questionVisible = false,
     this.hintVisible = false,
+    this.hintLoading = false,
     this.selectedOption,
     this.reaction = SoloReaction.idle,
     this.error,
@@ -28,6 +29,7 @@ class SoloSessionState {
   final bool submitting;
   final bool questionVisible;
   final bool hintVisible;
+  final bool hintLoading;
   final int? selectedOption;
   final SoloReaction reaction;
   final String? error;
@@ -44,6 +46,7 @@ class SoloSessionState {
     bool? submitting,
     bool? questionVisible,
     bool? hintVisible,
+    bool? hintLoading,
     int? selectedOption,
     bool clearSelection = false,
     SoloReaction? reaction,
@@ -59,6 +62,7 @@ class SoloSessionState {
     submitting: submitting ?? this.submitting,
     questionVisible: questionVisible ?? this.questionVisible,
     hintVisible: hintVisible ?? this.hintVisible,
+    hintLoading: hintLoading ?? this.hintLoading,
     selectedOption: clearSelection
         ? null
         : selectedOption ?? this.selectedOption,
@@ -70,9 +74,13 @@ class SoloSessionState {
 class SoloSessionController extends StateNotifier<SoloSessionState> {
   SoloSessionController(this.repository) : super(const SoloSessionState());
   final SoloRepository repository;
-  final Set<String> _hintedQuestions = <String>{};
+  final Map<String, String> _questionHints = <String, String>{};
   final Map<String, int> _selectedOptions = <String, int>{};
+  final Map<String, Stopwatch> _activeTimers = <String, Stopwatch>{};
+  final Map<String, Duration> _backgroundDurations = <String, Duration>{};
+  final Map<String, DateTime> _backgroundStartedAt = <String, DateTime>{};
   Timer? _reactionTimer;
+  bool _dismissedPendingAnswer = false;
 
   Future<bool> start({
     required SoloQuestionCount count,
@@ -117,11 +125,19 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
         state.session!.id,
         card.sessionQuestionId,
       );
+      final String? knownHint = _questionHints[card.sessionQuestionId];
+      final Stopwatch activeTimer = _activeTimers.putIfAbsent(
+        card.sessionQuestionId,
+        Stopwatch.new,
+      );
+      activeTimer.start();
       state = state.copyWith(
-        openedQuestion: question,
+        openedQuestion: knownHint == null
+            ? question
+            : question.withHint(knownHint),
         submitting: false,
         questionVisible: true,
-        hintVisible: _hintedQuestions.contains(card.sessionQuestionId),
+        hintVisible: knownHint != null,
         selectedOption: _selectedOptions[card.sessionQuestionId],
         clearSelection: !_selectedOptions.containsKey(card.sessionQuestionId),
       );
@@ -131,15 +147,71 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
   }
 
   void closeQuestion() {
-    if (!state.showFeedback && !state.submitting) {
+    if (!state.showFeedback) {
+      final String? questionId = state.openedQuestion?.sessionQuestionId;
+      if (questionId != null) {
+        _activeTimers[questionId]?.stop();
+      }
+      _dismissedPendingAnswer = state.submitting;
       state = state.copyWith(questionVisible: false);
     }
   }
 
-  void showHint() {
-    if (!state.showFeedback && state.openedQuestion != null) {
-      _hintedQuestions.add(state.openedQuestion!.sessionQuestionId);
-      state = state.copyWith(hintVisible: true);
+  void pauseActiveTiming() {
+    final SoloQuestion? question = state.openedQuestion;
+    if (question == null || !state.questionVisible || state.showFeedback) {
+      return;
+    }
+    _activeTimers[question.sessionQuestionId]?.stop();
+    _backgroundStartedAt.putIfAbsent(question.sessionQuestionId, DateTime.now);
+  }
+
+  void resumeActiveTiming() {
+    final SoloQuestion? question = state.openedQuestion;
+    if (question == null || !state.questionVisible || state.showFeedback) {
+      return;
+    }
+    final DateTime? startedAt = _backgroundStartedAt.remove(
+      question.sessionQuestionId,
+    );
+    if (startedAt != null) {
+      _backgroundDurations.update(
+        question.sessionQuestionId,
+        (Duration current) => current + DateTime.now().difference(startedAt),
+        ifAbsent: () => DateTime.now().difference(startedAt),
+      );
+    }
+    _activeTimers[question.sessionQuestionId]?.start();
+  }
+
+  Future<void> showHint() async {
+    final SoloSession? session = state.session;
+    final SoloQuestion? question = state.openedQuestion;
+    if (state.showFeedback ||
+        state.submitting ||
+        state.hintLoading ||
+        session == null ||
+        question == null) {
+      return;
+    }
+    state = state.copyWith(hintLoading: true, clearError: true);
+    try {
+      final SoloHint response = await repository.requestHint(
+        session.id,
+        question.sessionQuestionId,
+      );
+      _questionHints[question.sessionQuestionId] = response.hint;
+      final bool stillShowingQuestion =
+          state.openedQuestion?.sessionQuestionId == question.sessionQuestionId;
+      state = state.copyWith(
+        openedQuestion: stillShowingQuestion
+            ? question.withHint(response.hint)
+            : state.openedQuestion,
+        hintVisible: stillShowingQuestion ? true : state.hintVisible,
+        hintLoading: false,
+      );
+    } catch (error) {
+      state = state.copyWith(hintLoading: false, error: error.toString());
     }
   }
 
@@ -173,14 +245,24 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
         DateTime.now().isBefore(question.deadlineAt!)) {
       return;
     }
+    _dismissedPendingAnswer = false;
     state = state.copyWith(submitting: true, clearError: true);
     try {
+      final Stopwatch? activeTimer = _activeTimers[question.sessionQuestionId];
+      activeTimer?.stop();
       final response = await repository.answer(
         session.id,
         question.sessionQuestionId,
         option,
-        _hintedQuestions.contains(question.sessionQuestionId),
+        clientActiveResponseTimeMs: activeTimer?.elapsedMilliseconds,
+        backgroundDurationMs:
+            (_backgroundDurations[question.sessionQuestionId] ?? Duration.zero)
+                .inMilliseconds,
       );
+      if (_dismissedPendingAnswer) {
+        _discardCommittedQuestion(response);
+        return;
+      }
       state = state.copyWith(
         session: response.session,
         feedback: response.feedback,
@@ -189,8 +271,38 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
         reaction: SoloReaction.idle,
       );
     } catch (error) {
+      _dismissedPendingAnswer = false;
       state = state.copyWith(submitting: false, error: error.toString());
     }
+  }
+
+  void _discardCommittedQuestion(SoloAnswerResponse response) {
+    final String questionId = response.feedback.sessionQuestionId;
+    _questionHints.remove(questionId);
+    _selectedOptions.remove(questionId);
+    _activeTimers.remove(questionId);
+    _backgroundDurations.remove(questionId);
+    _backgroundStartedAt.remove(questionId);
+    _dismissedPendingAnswer = false;
+    final SoloReaction reaction = response.feedback.isCorrect
+        ? SoloReaction.attack
+        : SoloReaction.hit;
+    state = state.copyWith(
+      session: response.session,
+      clearQuestion: true,
+      clearFeedback: true,
+      clearSelection: true,
+      submitting: false,
+      questionVisible: false,
+      hintVisible: false,
+      hintLoading: false,
+      reaction: reaction,
+      clearError: true,
+    );
+    _reactionTimer?.cancel();
+    _reactionTimer = Timer(const Duration(milliseconds: 850), () {
+      state = state.copyWith(reaction: SoloReaction.idle);
+    });
   }
 
   void next() {
@@ -198,8 +310,11 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
     if (feedback == null || state.submitting) return;
     final questionId = state.openedQuestion?.sessionQuestionId;
     if (questionId != null) {
-      _hintedQuestions.remove(questionId);
+      _questionHints.remove(questionId);
       _selectedOptions.remove(questionId);
+      _activeTimers.remove(questionId);
+      _backgroundDurations.remove(questionId);
+      _backgroundStartedAt.remove(questionId);
     }
     final SoloReaction reaction = feedback.isCorrect
         ? SoloReaction.attack
@@ -211,6 +326,7 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
       clearSelection: true,
       questionVisible: false,
       hintVisible: false,
+      hintLoading: false,
       reaction: reaction,
       clearError: true,
     );

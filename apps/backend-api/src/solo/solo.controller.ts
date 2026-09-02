@@ -5,6 +5,7 @@ import {
   CreateSoloSessionDto,
   FinishSoloSessionDto,
   OpenSoloQuestionDto,
+  RequestSoloHintDto,
   SubmitSoloAnswerDto,
 } from './solo.dto';
 import { SoloService } from './solo.service';
@@ -24,6 +25,21 @@ export class SoloController {
     @Body() input: CreateSoloSessionDto,
   ) {
     return this.service.createSession(user.id, input);
+  }
+
+  @Post('sessions/:sessionId/questions/:sessionQuestionId/hint')
+  hint(
+    @GetUser() user: AuthenticatedUser,
+    @Param('sessionId') sessionId: string,
+    @Param('sessionQuestionId') sessionQuestionId: string,
+    @Body() input: RequestSoloHintDto,
+  ) {
+    return this.service.requestHint(
+      user.id,
+      sessionId,
+      sessionQuestionId,
+      input,
+    );
   }
 
   @Get('sessions/:sessionId')

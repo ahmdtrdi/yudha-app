@@ -7,6 +7,7 @@ import {
   CreateSoloSessionDto,
   FinishSoloSessionDto,
   OpenSoloQuestionDto,
+  RequestSoloHintDto,
   SubmitSoloAnswerDto,
 } from './solo.dto';
 import { SoloRepository } from './solo.repository';
@@ -45,6 +46,22 @@ export class SoloService {
     };
   }
 
+  async requestHint(
+    userId: string,
+    sessionId: string,
+    sessionQuestionId: string,
+    input: RequestSoloHintDto,
+  ) {
+    return {
+      data: await this.repository.requestHint(
+        userId,
+        this.text(sessionId, 'sessionId'),
+        this.text(sessionQuestionId, 'sessionQuestionId'),
+        this.text(input.idempotencyKey, 'idempotencyKey'),
+      ),
+    };
+  }
+
   async getSession(userId: string, sessionId: string) {
     return {
       data: await this.repository.getSession(
@@ -80,9 +97,14 @@ export class SoloService {
     input: SubmitSoloAnswerDto,
   ) {
     const selected = input.selectedOptionIndex;
-    if (input.usedHint != null && typeof input.usedHint !== 'boolean') {
-      throw new BadRequestException('usedHint must be a boolean.');
-    }
+    const activeMs = this.optionalNonNegativeInteger(
+      input.clientActiveResponseTimeMs,
+      'clientActiveResponseTimeMs',
+    );
+    const backgroundMs = this.optionalNonNegativeInteger(
+      input.backgroundDurationMs,
+      'backgroundDurationMs',
+    );
     if (
       selected != null &&
       (!Number.isInteger(selected) || selected < 0 || selected > 5)
@@ -101,7 +123,8 @@ export class SoloService {
           'sessionQuestionId',
         ),
         selectedOptionIndex: selected ?? null,
-        usedHint: input.usedHint ?? false,
+        clientActiveResponseTimeMs: activeMs,
+        backgroundDurationMs: backgroundMs,
       }),
     };
   }
@@ -118,6 +141,17 @@ export class SoloService {
         this.text(input.idempotencyKey, 'idempotencyKey'),
       ),
     };
+  }
+
+  private optionalNonNegativeInteger(
+    value: unknown,
+    field: string,
+  ): number | null {
+    if (value == null) return null;
+    if (!Number.isInteger(value) || (value as number) < 0) {
+      throw new BadRequestException(`${field} must be a non-negative integer.`);
+    }
+    return value as number;
   }
 
   private text(value: unknown, field: string): string {

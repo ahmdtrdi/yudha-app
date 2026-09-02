@@ -16,7 +16,7 @@ soloSessionControllerProvider =
       (Ref ref) => SoloSessionController(ref.watch(soloRepositoryProvider)),
     );
 
-final FutureProvider<SoloSession?> activeSoloSessionProvider =
-    FutureProvider<SoloSession?>(
+final AutoDisposeFutureProvider<SoloSession?> activeSoloSessionProvider =
+    FutureProvider.autoDispose<SoloSession?>(
       (Ref ref) => ref.watch(soloRepositoryProvider).active(),
     );

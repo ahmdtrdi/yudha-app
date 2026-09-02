@@ -89,6 +89,19 @@ void main() {
       findsOneWidget,
     );
 
+    await tester.tap(find.byKey(const ValueKey<String>('solo-back-to-cards')));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('solo-question-sheet')),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('question-card-sq-1')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey<String>('solo-show-hint')));
+    await tester.pump();
+    expect(find.text('Petunjuk server.'), findsOneWidget);
+
     await tester.tap(find.byKey(const ValueKey<String>('solo-option-2')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));
@@ -140,9 +153,10 @@ class _ArenaSoloRepository extends SoloRepository {
   Future<SoloAnswerResponse> answer(
     String sessionId,
     String questionId,
-    int? optionIndex,
-    bool usedHint,
-  ) async {
+    int? optionIndex, {
+    int? clientActiveResponseTimeMs,
+    int? backgroundDurationMs,
+  }) async {
     return SoloAnswerResponse(
       session: _session(answeredCount: 1, correctCount: 1, towerHp: 95),
       feedback: const SoloAnswerFeedback(
@@ -153,6 +167,11 @@ class _ArenaSoloRepository extends SoloRepository {
         explanation: 'Pembahasan.',
       ),
     );
+  }
+
+  @override
+  Future<SoloHint> requestHint(String sessionId, String questionId) async {
+    return SoloHint(hint: 'Petunjuk server.', requestedAt: DateTime.now());
   }
 }
 
