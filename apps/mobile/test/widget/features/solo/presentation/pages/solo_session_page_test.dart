@@ -66,6 +66,17 @@ void main() {
       );
     }
 
+    await tester.tap(find.byKey(const ValueKey<String>('solo-stop')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(
+      find.byKey(const ValueKey<String>('solo-music-volume-slider')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey<String>('solo-pause-resume')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
     await tester.tap(find.byKey(const ValueKey<String>('question-card-sq-1')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
@@ -81,11 +92,22 @@ void main() {
     await tester.tap(find.byKey(const ValueKey<String>('solo-option-2')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 120));
+    expect(controller.state.reaction, SoloReaction.idle);
+    expect(
+      find.byKey(const ValueKey<String>('solo-attack-projectile')),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const ValueKey<String>('solo-session-action')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 120));
     expect(controller.state.reaction, SoloReaction.attack);
     expect(
       find.byKey(const ValueKey<String>('solo-attack-projectile')),
       findsOneWidget,
     );
+    await tester.pump(const Duration(milliseconds: 900));
+    expect(controller.state.reaction, SoloReaction.idle);
   });
 }
 

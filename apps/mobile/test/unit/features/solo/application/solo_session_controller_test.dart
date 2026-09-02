@@ -28,6 +28,7 @@ void main() {
   test('submits hint use and applies authoritative tower state', () async {
     final repository = _FakeSoloRepository();
     final controller = SoloSessionController(repository);
+    addTearDown(controller.dispose);
     await controller.start(
       count: SoloQuestionCount.twenty,
       characterId: 'character-basic-squire',
@@ -39,8 +40,12 @@ void main() {
     expect(repository.lastOption, 2);
     expect(repository.lastUsedHint, isTrue);
     expect(controller.state.showFeedback, isTrue);
-    expect(controller.state.reaction, SoloReaction.attack);
+    expect(controller.state.reaction, SoloReaction.idle);
     expect(controller.state.session!.towerHp, 95);
+
+    controller.next();
+    expect(controller.state.showFeedback, isFalse);
+    expect(controller.state.reaction, SoloReaction.attack);
   });
 
   test('keeps answer and hint state while switching dealt cards', () async {
@@ -63,6 +68,25 @@ void main() {
     expect(controller.state.selectedOption, 1);
   });
 
+  test('defers the wrong-answer hit reaction until continue', () async {
+    final repository = _FakeSoloRepository(isCorrect: false);
+    final controller = SoloSessionController(repository);
+    addTearDown(controller.dispose);
+    await controller.start(
+      count: SoloQuestionCount.twenty,
+      characterId: 'character-basic-squire',
+    );
+    await controller.openCard(controller.state.session!.hand.first);
+    await controller.selectAndSubmit(0);
+
+    expect(controller.state.showFeedback, isTrue);
+    expect(controller.state.reaction, SoloReaction.idle);
+
+    controller.next();
+    expect(controller.state.showFeedback, isFalse);
+    expect(controller.state.reaction, SoloReaction.hit);
+  });
+
   test(
     'keeps partial attempts but returns stopped result without reward',
     () async {
@@ -81,7 +105,9 @@ void main() {
 }
 
 class _FakeSoloRepository extends SoloRepository {
-  _FakeSoloRepository() : super(accessToken: 'token');
+  _FakeSoloRepository({this.isCorrect = true}) : super(accessToken: 'token');
+
+  final bool isCorrect;
 
   int openCalls = 0;
   String? lastOpened;
@@ -112,10 +138,14 @@ class _FakeSoloRepository extends SoloRepository {
     lastOption = optionIndex;
     lastUsedHint = usedHint;
     return SoloAnswerResponse(
-      session: _session(answeredCount: 1, correctCount: 1, towerHp: 95),
-      feedback: const SoloAnswerFeedback(
+      session: _session(
+        answeredCount: 1,
+        correctCount: isCorrect ? 1 : 0,
+        towerHp: isCorrect ? 95 : 100,
+      ),
+      feedback: SoloAnswerFeedback(
         sessionQuestionId: 'sq-1',
-        isCorrect: true,
+        isCorrect: isCorrect,
         timedOut: false,
         correctOptionIndex: 2,
         explanation: 'Pembahasan.',

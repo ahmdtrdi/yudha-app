@@ -2877,13 +2877,14 @@
 - Reworked Solo setup around a runnable Rimba Yudha + Standard + Balanced + 20-question preset and moved the existing manual controls into an animated bottom sheet; mechanic and question-count choices now share one clay card component.
 - Added neutral battle presentation primitives for the clay palette, arena frame, tower, character stand, deck, card, and question-sheet frame; PvP and Solo now share the applicable frame, palette, tower, deck, question sheet, and audio path.
 - Rebuilt the Solo session as a tower-only arena with one player character, three PvP-style cards, question-only Standard countdowns, attack/impact and hit feedback, profile-controlled arena BGM, relevant SFX, and app lifecycle audio handling.
+- Added the PvP-style arena-music volume slider to the Solo pause dialog and deferred correct/wrong character reactions until the learner dismisses answer feedback with `LANJUT`.
 
 ### The Reasoning
 - One shared presentation vocabulary prevents Solo from drifting away from PvP while keeping Solo's server-owned learning state separate from PvP-only HP, round, combo, opponent, and match-clock concepts.
 
 ### Verification
-- Added widget coverage for the Edge-sized Lobby shell, intermediate and reverse Learning-menu animation, recommended/manual Solo setup, compact bottom-sheet scrolling, the one-tower arena topology, retained question countdown, and correct-answer attack effect.
-- All 184 Flutter tests pass, including 21 focused Lobby/navigation/Solo/PvP regressions. `flutter build web --debug` succeeds; its Wasm dry run reports only the existing `socket_io_common` JS-interop warning. Full `flutter analyze` remains at six unrelated pre-existing lint/deprecation findings and reports no new issue from this change. `git diff --check` passes.
+- Added widget coverage for the Edge-sized Lobby shell, intermediate and reverse Learning-menu animation, recommended/manual Solo setup, compact bottom-sheet scrolling, the one-tower arena topology, retained question countdown, pause-dialog volume control, and the deferred correct-answer attack effect; controller coverage also verifies the deferred wrong-answer hit reaction.
+- All 185 Flutter tests pass, including the focused Lobby/navigation/Solo/PvP regressions. `flutter build web --debug` succeeds; its Wasm dry run reports only the existing `socket_io_common` JS-interop warning. Focused analysis of the updated Solo controller, UI, and tests reports no issue; full `flutter analyze` remains at six unrelated pre-existing lint/deprecation findings. `git diff --check` passes.
 
 ### The Tech Debt
 - Evidence-based Recommended/Focus/Speed delivery and recommendation IDs remain gated backend work; the old PvP audio import path is retained only as a compatibility export while the implementation now lives under the shared battle module.

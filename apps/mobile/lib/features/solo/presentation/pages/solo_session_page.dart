@@ -81,16 +81,19 @@ class _SoloSessionPageState extends ConsumerState<SoloSessionPage>
     if (previous?.feedback == null && next.feedback != null) {
       if (next.feedback!.isCorrect) {
         _arenaAudio.playAnswerCorrect();
-        _arenaAudio.playCast();
-        _effectTimers.add(
-          Timer(const Duration(milliseconds: 130), _arenaAudio.playProjectile),
-        );
-        _effectTimers.add(
-          Timer(const Duration(milliseconds: 390), _arenaAudio.playImpact),
-        );
       } else {
         _arenaAudio.playAnswerWrong();
       }
+    }
+    if (previous?.reaction != next.reaction &&
+        next.reaction == SoloReaction.attack) {
+      _arenaAudio.playCast();
+      _effectTimers.add(
+        Timer(const Duration(milliseconds: 130), _arenaAudio.playProjectile),
+      );
+      _effectTimers.add(
+        Timer(const Duration(milliseconds: 390), _arenaAudio.playImpact),
+      );
     }
     final SoloSession? previousSession = previous?.session;
     final SoloSession? nextSession = next.session;
@@ -137,7 +140,9 @@ class _SoloSessionPageState extends ConsumerState<SoloSessionPage>
     if (session == null) {
       return _MissingSession(message: state.error);
     }
-    if (!session.isActive && !state.showFeedback) {
+    if (!session.isActive &&
+        !state.showFeedback &&
+        state.reaction == SoloReaction.idle) {
       return _SoloResult(
         session: session,
         onExit: () {
@@ -183,7 +188,8 @@ class _SoloSessionPageState extends ConsumerState<SoloSessionPage>
                   const SizedBox(height: 12),
                   _CardTray(
                     hand: session.hand,
-                    loading: state.submitting,
+                    loading:
+                        state.submitting || state.reaction != SoloReaction.idle,
                     activeQuestionId: activeQuestionId,
                     compact: MediaQuery.sizeOf(context).height < 720,
                     onOpen: controller.openCard,
@@ -217,23 +223,72 @@ class _SoloSessionPageState extends ConsumerState<SoloSessionPage>
   Future<void> _confirmStop(SoloSessionController controller) async {
     await _arenaAudio.pauseMusic();
     if (!mounted) return;
+    double musicVolume = ref.read(profileSettingsProvider).battleMusicVolume;
     final stop = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Akhiri latihan?'),
-        content: const Text(
-          'Jawabanmu tetap tercatat, tetapi sesi ini tidak memberikan hadiah.',
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Lanjut latihan'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Akhiri'),
-          ),
-        ],
+      builder: (BuildContext dialogContext) => StatefulBuilder(
+        builder:
+            (
+              BuildContext context,
+              void Function(void Function()) setDialogState,
+            ) => AlertDialog(
+              key: const ValueKey<String>('solo-pause-dialog'),
+              title: const Text('Latihan dijeda'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  const Text(
+                    'Atur volume musik atau lanjutkan sesi saat kamu siap.',
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: <Widget>[
+                      const Icon(Icons.music_note_rounded, size: 20),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Volume musik arena',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      Text('${(musicVolume * 100).round()}%'),
+                    ],
+                  ),
+                  Slider(
+                    key: const ValueKey<String>('solo-music-volume-slider'),
+                    value: musicVolume.clamp(0.0, 1.0),
+                    max: 1,
+                    divisions: 20,
+                    label: '${(musicVolume * 100).round()}%',
+                    onChanged: (double value) {
+                      setDialogState(() => musicVolume = value);
+                      ref
+                          .read(profileSettingsProvider.notifier)
+                          .setBattleMusicVolume(value);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Jika latihan diakhiri, jawaban tetap tercatat tetapi sesi tidak memberikan hadiah.',
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                  ),
+                ],
+              ),
+              actions: <Widget>[
+                TextButton(
+                  key: const ValueKey<String>('solo-pause-end'),
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('Akhiri'),
+                ),
+                FilledButton.icon(
+                  key: const ValueKey<String>('solo-pause-resume'),
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Text('Lanjut latihan'),
+                ),
+              ],
+            ),
       ),
     );
     if (stop == true) {
