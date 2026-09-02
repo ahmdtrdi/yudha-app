@@ -24,6 +24,10 @@ const cards: InternalCard[] = Array.from({ length: 12 }, (_, index) => ({
   damageValue: 10,
   healValue: 0,
   timeLimitSeconds: 30,
+  category: ['twk', 'tiu', 'tkp'][index % 3],
+  subcategory: ['pancasila_dan_ideologi', 'verbal', 'pelayanan_dan_integritas'][
+    index % 3
+  ],
 }));
 
 const profile = (
@@ -335,18 +339,14 @@ describe('MatchService distributed coordination', () => {
   });
 
   it.each(['casual', 'ranked'] as const)(
-    'combines both recommendation profiles for %s PvP',
+    'loads the shared balanced pool for %s PvP without recommendation IDs',
     async (mode) => {
       await service.registerSocket('socket-a', 'player-a');
       await service.registerSocket('socket-b', 'player-b');
       await service.handleJoinQueue('player-a', 'socket-a', { mode });
       await service.handleJoinQueue('player-b', 'socket-b', { mode });
 
-      expect(questions.getMatchQuestionPool).toHaveBeenCalledWith(
-        'cpns',
-        undefined,
-        ['player-a', 'player-b'],
-      );
+      expect(questions.getMatchQuestionPool).toHaveBeenCalledWith('cpns');
     },
   );
 
@@ -365,6 +365,29 @@ describe('MatchService distributed coordination', () => {
     expect(
       bot.emits.some((emit) => emit.event === SERVER_MATCH_EVENTS.matchFound),
     ).toBe(true);
+  });
+
+  it('returns recoverable QUEUE_UNAVAILABLE when Bot inventory is invalid', async () => {
+    const botBattle = (
+      service as unknown as { botBattleService: { createBotMatch: jest.Mock } }
+    ).botBattleService;
+    botBattle.createBotMatch.mockRejectedValueOnce(
+      new Error('Question pool is missing a required category.'),
+    );
+
+    const result = await service.handleJoinQueue('player-a', 'socket-a', {
+      mode: 'bot',
+    });
+
+    expect(result.emits).toEqual([
+      expect.objectContaining({
+        event: SERVER_MATCH_EVENTS.error,
+        payload: expect.objectContaining({
+          code: 'QUEUE_UNAVAILABLE',
+          details: { recoverable: true },
+        }),
+      }),
+    ]);
   });
 
   it('removes queued leases on explicit cancellation and disconnect', async () => {
@@ -506,11 +529,7 @@ describe('MatchService distributed coordination', () => {
         (emit) => emit.event === SERVER_MATCH_EVENTS.matchFound,
       ),
     ).toHaveLength(2);
-    expect(questions.getMatchQuestionPool).toHaveBeenCalledWith(
-      'cpns',
-      undefined,
-      ['player-a', 'player-b'],
-    );
+    expect(questions.getMatchQuestionPool).toHaveBeenCalledWith('cpns');
     expect(reused.ack).toEqual(
       expect.objectContaining({
         error: expect.objectContaining({ code: 'ROOM_CODE_INVALID' }),

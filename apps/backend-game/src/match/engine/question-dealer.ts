@@ -3,13 +3,6 @@ import type { BattleTarget } from '../../contracts/battle-state';
 import type { InternalCategoryDeckState } from './battle.types';
 import type { InternalCard } from '../questions/question.types';
 
-export type RecommendationTopic = {
-  category: string;
-  subcategory: string;
-};
-
-export type MatchTopicDistribution = Record<string, Record<string, number>>;
-
 @Injectable()
 export class QuestionDealer {
   static readonly HAND_SIZE = 3;
@@ -98,60 +91,13 @@ export class QuestionDealer {
     pengambilan_keputusan_kinerja: 'pengambilan_keputusan_dan_kinerja',
   };
 
-  private static readonly BASE_WEIGHT = 0.25;
-  private static readonly FOCUSED_WEIGHT = 0.55;
-  private static readonly NON_FOCUSED_WEIGHT = 0.15;
-
   /**
-   * Builds the match-wide subcategory mix in constant time (at most 24 adds).
-   * A missing recommendation contributes the standard 25/25/25/25 vector.
-   * PvP passes two entries and receives their element-wise average; bot passes
-   * only the human player's entry.
+   * Produces a randomized, evenly interleaved queue across the subcategories
+   * that are actually available inside one canonical category.
    */
-  createMatchTopicDistribution(
-    target: BattleTarget,
-    recommendations: ReadonlyArray<RecommendationTopic | null | undefined>,
-  ): MatchTopicDistribution {
-    const participantRecommendations =
-      recommendations.length > 0 ? recommendations : [null];
-    const distribution = this.emptyDistribution(target);
-
-    for (const recommendation of participantRecommendations) {
-      const normalized = this.validRecommendation(target, recommendation);
-      for (const [category, subcategories] of Object.entries(
-        QuestionDealer.SUBCATEGORY_ORDER[target],
-      )) {
-        for (const subcategory of subcategories) {
-          const focused =
-            normalized?.category === category &&
-            normalized.subcategory === subcategory;
-          const categoryIsFocused = normalized?.category === category;
-          distribution[category][subcategory] += categoryIsFocused
-            ? focused
-              ? QuestionDealer.FOCUSED_WEIGHT
-              : QuestionDealer.NON_FOCUSED_WEIGHT
-            : QuestionDealer.BASE_WEIGHT;
-        }
-      }
-    }
-
-    const divisor = participantRecommendations.length;
-    for (const category of Object.keys(distribution)) {
-      for (const subcategory of Object.keys(distribution[category])) {
-        distribution[category][subcategory] /= divisor;
-      }
-    }
-    return distribution;
-  }
-
-  /**
-   * Produces a smoothly interleaved category queue using the supplied topic
-   * weights. The hot path is O(cardCount + requestedCount * 4).
-   */
-  createAdaptiveCategoryQueue<T extends { subcategory?: string }>(
+  createBalancedCategoryQueue<T extends { subcategory?: string }>(
     cards: readonly T[],
     requestedCount: number,
-    weights?: Readonly<Record<string, number>>,
     random: () => number = Math.random,
   ): T[] {
     const count = Math.min(
@@ -169,58 +115,25 @@ export class QuestionDealer {
     }
     for (const group of groups.values()) this.shuffle(group, random);
 
-    const orderedKeys = weights
-      ? [
-          ...Object.keys(weights),
-          ...Array.from(groups.keys()).filter((key) => !(key in weights)),
-        ]
-      : Array.from(groups.keys()).sort();
-    if (orderedKeys.length <= 1 || !weights) {
-      const shuffled = [...cards];
-      this.shuffle(shuffled, random);
-      return shuffled.slice(0, count);
-    }
-
-    const positiveWeightTotal = orderedKeys.reduce(
-      (sum, key) => sum + Math.max(0, weights[key] ?? 0),
-      0,
-    );
-    const fallbackWeight = 1 / orderedKeys.length;
-    const normalizedWeights = Object.fromEntries(
-      orderedKeys.map((key) => [
-        key,
-        positiveWeightTotal > 0
-          ? Math.max(0, weights[key] ?? 0) / positiveWeightTotal
-          : fallbackWeight,
-      ]),
-    );
-    const credits = Object.fromEntries(orderedKeys.map((key) => [key, 0]));
+    const keys = Array.from(groups.keys());
     const selected: T[] = [];
 
     while (selected.length < count) {
-      let chosen: string | undefined;
-      for (const key of orderedKeys) {
+      const cycle = [...keys];
+      this.shuffle(cycle, random);
+      let drewCard = false;
+      for (const key of cycle) {
         const group = groups.get(key);
         if (!group || group.length === 0) continue;
-        credits[key] += normalizedWeights[key];
-        if (chosen === undefined || credits[key] > credits[chosen]) {
-          chosen = key;
-        }
+        const card = group.shift();
+        if (!card) continue;
+        selected.push(card);
+        drewCard = true;
+        if (selected.length === count) break;
       }
-      if (chosen === undefined) break;
-      const card = groups.get(chosen)!.shift();
-      if (!card) break;
-      selected.push(card);
-      credits[chosen] -= 1;
+      if (!drewCard) break;
     }
     return selected;
-  }
-
-  topicWeights(
-    distribution: MatchTopicDistribution,
-    category?: string,
-  ): Record<string, number> | undefined {
-    return distribution[this.categoryKey(category)];
   }
 
   createSharedQueue(
@@ -230,34 +143,6 @@ export class QuestionDealer {
     return cards.map((card) =>
       target ? this.canonicalizeCard(card, target) : this.cloneCard(card),
     );
-  }
-
-  createStartingHand(sharedQueue: InternalCard[]): InternalCard[] {
-    const selected: InternalCard[] = [];
-    const selectedIds = new Set<string>();
-    const categories = new Set<string>();
-
-    for (const card of sharedQueue) {
-      const category =
-        card.category?.trim().toLowerCase() || '__uncategorized__';
-      if (categories.has(category)) continue;
-      categories.add(category);
-      selected.push(card);
-      selectedIds.add(card.id);
-      if (selected.length === QuestionDealer.HAND_SIZE) break;
-    }
-
-    for (const card of sharedQueue) {
-      if (selected.length === QuestionDealer.HAND_SIZE) break;
-      if (selectedIds.has(card.id)) continue;
-      selectedIds.add(card.id);
-      selected.push(card);
-    }
-
-    return selected.map((card) => ({
-      ...card,
-      options: [...card.options],
-    }));
   }
 
   createCategoryDecks(
@@ -325,11 +210,6 @@ export class QuestionDealer {
     return card ? this.cloneCard(card) : undefined;
   }
 
-  drawAt(sharedQueue: InternalCard[], index: number): InternalCard | undefined {
-    const card = sharedQueue[index];
-    return card ? this.cloneCard(card) : undefined;
-  }
-
   categoryKey(category?: string): string {
     const normalized = category
       ?.trim()
@@ -352,45 +232,36 @@ export class QuestionDealer {
   deckCategoryKey(
     target: BattleTarget,
     category?: string,
-    subcategory?: string,
+    _subcategory?: string,
   ): string {
     const normalizedCategory = this.categoryKey(category);
-    const normalizedSubcategory = this.subcategoryKey(subcategory);
-    const subcategoryDeck = QuestionDealer.CATEGORY_ORDER[target].find(
-      (candidate) =>
-        QuestionDealer.SUBCATEGORY_ORDER[target][candidate]?.includes(
-          normalizedSubcategory,
-        ),
-    );
-    if (subcategoryDeck) return subcategoryDeck;
     return (
       QuestionDealer.CATEGORY_ALIASES[target][normalizedCategory] ??
       normalizedCategory
     );
   }
 
-  private emptyDistribution(target: BattleTarget): MatchTopicDistribution {
-    return Object.fromEntries(
-      Object.entries(QuestionDealer.SUBCATEGORY_ORDER[target]).map(
-        ([category, subcategories]) => [
-          category,
-          Object.fromEntries(
-            subcategories.map((subcategory) => [subcategory, 0]),
-          ),
-        ],
-      ),
+  hasRequiredCategories(
+    cards: ReadonlyArray<Pick<InternalCard, 'category'>>,
+    target: BattleTarget,
+  ): boolean {
+    const available = new Set(
+      cards.map((card) => this.deckCategoryKey(target, card.category)),
+    );
+    return QuestionDealer.CATEGORY_ORDER[target].every((category) =>
+      available.has(category),
     );
   }
 
-  private validRecommendation(
+  isValidTaxonomy(
     target: BattleTarget,
-    recommendation: RecommendationTopic | null | undefined,
-  ): RecommendationTopic | null {
-    if (!recommendation) return null;
-    const category = this.categoryKey(recommendation.category);
-    const subcategory = this.subcategoryKey(recommendation.subcategory);
-    const allowed = QuestionDealer.SUBCATEGORY_ORDER[target][category];
-    return allowed?.includes(subcategory) ? { category, subcategory } : null;
+    category?: string,
+    subcategory?: string,
+  ): boolean {
+    const canonicalCategory = this.deckCategoryKey(target, category);
+    const canonicalSubcategory = this.subcategoryKey(subcategory);
+    const allowed = QuestionDealer.SUBCATEGORY_ORDER[target][canonicalCategory];
+    return allowed?.includes(canonicalSubcategory) ?? false;
   }
 
   private categoryKeyForCard(
