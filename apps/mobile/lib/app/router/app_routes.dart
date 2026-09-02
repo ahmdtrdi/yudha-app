@@ -6,6 +6,7 @@ abstract final class AppRoutes {
   static const String confirmEmail = '/confirm-email';
   static const String lobby = '/';
   static const String pvp = '/pvp';
+  static const String pvpInsights = '/pvp/insights';
   static const String leaderboard = '/leaderboard';
   static const String analytics = '/analytics';
   static const String learning = '/learning';
@@ -34,6 +35,7 @@ abstract final class AppRoutes {
   static const Set<String> privatePaths = <String>{
     lobby,
     pvp,
+    pvpInsights,
     leaderboard,
     analytics,
     learning,

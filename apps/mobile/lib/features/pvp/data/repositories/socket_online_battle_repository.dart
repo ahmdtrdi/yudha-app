@@ -515,7 +515,7 @@ class SocketOnlineBattleRepository extends OnlineBattleRepository {
         MatchResultUpdate(
           outcome: outcome,
           reason: reason,
-          ratingDelta: _asInt(selfResult['ratingDelta']),
+          ratingDelta: _asInt(selfResult['pvpRatingDelta']),
           coinsDelta: _asInt(selfResult['coinsDelta']),
           progressionPersisted: data['progressionPersisted'] as bool? ?? false,
           matchmakingMode: _parseMatchmakingMode(data['mode']),

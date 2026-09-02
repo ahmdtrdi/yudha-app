@@ -7,6 +7,7 @@ class _ResultSection extends StatefulWidget {
     required this.hapticsEnabled,
     required this.onClaimReward,
     required this.onPractice,
+    required this.onInsights,
     required this.onReplay,
     required this.onReset,
     required this.playerDisplayName,
@@ -23,6 +24,7 @@ class _ResultSection extends StatefulWidget {
   final bool hapticsEnabled;
   final VoidCallback onClaimReward;
   final ValueChanged<String> onPractice;
+  final VoidCallback onInsights;
   final VoidCallback onReplay;
   final VoidCallback onReset;
   final String playerDisplayName;
@@ -246,6 +248,11 @@ class _ResultSectionState extends State<_ResultSection>
                                     ),
                                   ),
                                 ],
+                              ),
+                              TextButton.icon(
+                                onPressed: widget.onInsights,
+                                icon: const Icon(Icons.insights_rounded),
+                                label: const Text('Lihat PvP Insights'),
                               ),
                               if (canGoBack) ...<Widget>[
                                 const SizedBox(height: 4),
@@ -532,7 +539,7 @@ class _SurrenderResultSection extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   ranked && state.progressionPersisted
-                                      ? '$ratingText rating · '
+                                      ? '$ratingText Elo · '
                                             '+${state.coinsDelta} Y-Coin'
                                       : 'Battle dihentikan tanpa hadiah.',
                                   style: GoogleFonts.dmSans(
@@ -1569,7 +1576,7 @@ class _RewardCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  isRanked ? 'Rating & Y-Coin' : 'Mode tanpa progression',
+                  isRanked ? 'Elo & Y-Coin' : 'Mode tanpa rating',
                   style: GoogleFonts.dmSans(
                     color: _ResultSection._mutedInk,
                     fontSize: 10,
@@ -1579,7 +1586,7 @@ class _RewardCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   isRanked
-                      ? '$ratingText rating  •  +$coinsDelta Y-Coin'
+                      ? '$ratingText Elo  •  +$coinsDelta Y-Coin'
                       : 'Rating tetap',
                   style: GoogleFonts.fredoka(
                     color: _ResultSection._ink,

@@ -23,14 +23,18 @@ class LeaderboardPage extends ConsumerWidget {
     final LeaderboardEntry currentUserEntry =
         leaderboardState.currentUserEntry ??
         LeaderboardEntry(
-          rank: userRank ?? 0,
+          rank: userRank,
           playerId: progress.playerId,
           playerName: progress.displayName.isEmpty
               ? 'Kamu'
               : progress.displayName,
-          points: progress.totalPoints,
-          winRate: progress.winRate,
-          totalMatches: progress.matchesPlayed,
+          pvpRating: 1000,
+          winRate: null,
+          ratedMatches: 0,
+          wins: 0,
+          losses: 0,
+          draws: 0,
+          status: 'unrated',
           isCurrentUser: true,
         );
 
@@ -39,10 +43,10 @@ class LeaderboardPage extends ConsumerWidget {
           entry.isCurrentUser || entry.playerId == currentUserEntry.playerId,
     );
     final List<LeaderboardEntry> topThree = leaderboardState.entries
-        .where((LeaderboardEntry entry) => entry.rank <= 3)
+        .where((LeaderboardEntry entry) => (entry.rank ?? 999999) <= 3)
         .toList(growable: false);
     final List<LeaderboardEntry> otherRanks = leaderboardState.entries
-        .where((LeaderboardEntry entry) => entry.rank > 3)
+        .where((LeaderboardEntry entry) => (entry.rank ?? 0) > 3)
         .toList(growable: false);
 
     return Scaffold(
@@ -78,13 +82,13 @@ class LeaderboardPage extends ConsumerWidget {
                 child: _LeaderboardPlayerStage(
                   rank: userRank,
                   name: currentUserEntry.playerName,
-                  tierLabel: progress.tier.label.toUpperCase(),
-                  totalPoints: currentUserEntry.points,
-                  totalMatches: currentUserEntry.totalMatches,
+                  target: (leaderboardState.target ?? 'cpns').toUpperCase(),
+                  pvpRating: currentUserEntry.pvpRating,
+                  totalMatches: currentUserEntry.ratedMatches,
                   winRate: currentUserEntry.winRate,
-                  tierProgress: progress.tierProgress,
-                  pointsUntilNextTier: progress.pointsUntilNextTier,
-                  nextTierLabel: progress.nextTier?.label,
+                  wins: currentUserEntry.wins,
+                  losses: currentUserEntry.losses,
+                  draws: currentUserEntry.draws,
                 ),
               ),
               if (leaderboardState.errorMessage != null)
@@ -201,34 +205,28 @@ class _LeaderboardPlayerStage extends StatelessWidget {
   const _LeaderboardPlayerStage({
     required this.rank,
     required this.name,
-    required this.tierLabel,
-    required this.totalPoints,
+    required this.target,
+    required this.pvpRating,
     required this.totalMatches,
     required this.winRate,
-    required this.tierProgress,
-    required this.pointsUntilNextTier,
-    required this.nextTierLabel,
+    required this.wins,
+    required this.losses,
+    required this.draws,
   });
 
   final int? rank;
   final String name;
-  final String tierLabel;
-  final int totalPoints;
+  final String target;
+  final int pvpRating;
   final int totalMatches;
-  final double winRate;
-  final double tierProgress;
-  final int pointsUntilNextTier;
-  final String? nextTierLabel;
+  final double? winRate;
+  final int wins;
+  final int losses;
+  final int draws;
 
   @override
   Widget build(BuildContext context) {
     final _RankVisual rankVisual = _RankVisual.forRank(rank);
-    final String progressLabel = nextTierLabel == null
-        ? 'Tier maksimal sudah tercapai'
-        : 'Menuju tier $nextTierLabel';
-    final String progressValue = nextTierLabel == null
-        ? 'MAKSIMAL'
-        : '$pointsUntilNextTier poin lagi';
 
     return ColoredBox(
       color: AppColors.scholarCream,
@@ -306,7 +304,7 @@ class _LeaderboardPlayerStage extends StatelessWidget {
                               border: Border.all(color: Colors.white24),
                             ),
                             child: Text(
-                              tierLabel,
+                              'TARGET $target',
                               style: GoogleFonts.dmSans(
                                 color: AppColors.fireGold,
                                 fontSize: 10,
@@ -340,7 +338,7 @@ class _LeaderboardPlayerStage extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            'GLOBAL',
+                            target,
                             style: TextStyle(
                               color: rankVisual.accent,
                               fontSize: 8,
@@ -358,15 +356,17 @@ class _LeaderboardPlayerStage extends StatelessWidget {
                   children: <Widget>[
                     Expanded(
                       child: _StageStat(
-                        label: 'RANK POINTS',
-                        value: '$totalPoints',
+                        label: 'PVP RATING',
+                        value: '$pvpRating',
                       ),
                     ),
                     const _StageStatDivider(),
                     Expanded(
                       child: _StageStat(
                         label: 'WIN RATE',
-                        value: '${(winRate * 100).toStringAsFixed(0)}%',
+                        value: winRate == null
+                            ? '-'
+                            : '${(winRate! * 100).toStringAsFixed(0)}%',
                       ),
                     ),
                     const _StageStatDivider(),
@@ -378,50 +378,14 @@ class _LeaderboardPlayerStage extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 22),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        progressLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.dmSans(
-                          color: const Color(0xFFC7D9FF),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      progressValue,
-                      style: GoogleFonts.dmSans(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF07368D),
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  alignment: Alignment.centerLeft,
-                  child: FractionallySizedBox(
-                    widthFactor: tierProgress.clamp(0.0, 1.0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [AppColors.levelUpTeal, AppColors.fireGold],
-                        ),
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                    ),
+                const SizedBox(height: 16),
+                Text(
+                  '$wins menang  •  $losses kalah  •  $draws seri',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.dmSans(
+                    color: const Color(0xFFC7D9FF),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -608,7 +572,7 @@ class _PodiumPlace extends StatelessWidget {
         ),
         const SizedBox(height: 2),
         Text(
-          entry == null ? '-' : '${entry!.points} pts',
+          entry == null ? '-' : '${entry!.pvpRating} Elo',
           style: GoogleFonts.dmSans(
             color: accent,
             fontSize: isFirst ? 14 : 12,
@@ -619,7 +583,9 @@ class _PodiumPlace extends StatelessWidget {
         Text(
           entry == null
               ? 'Belum tersedia'
-              : 'WR ${(entry!.winRate * 100).toStringAsFixed(0)}%',
+              : entry!.winRate == null
+              ? 'Unrated'
+              : 'WR ${(entry!.winRate! * 100).toStringAsFixed(0)}%',
           style: GoogleFonts.dmSans(
             color: AppColors.textMuted,
             fontSize: 9,
@@ -763,7 +729,7 @@ class _LeaderboardRow extends StatelessWidget {
                   : const Color(0xFFF0F2F6),
             ),
             child: Text(
-              '${entry.rank}',
+              entry.rank?.toString() ?? '-',
               style: GoogleFonts.dmSans(
                 color: isCurrentUser
                     ? const Color(0xFF087C9E)
@@ -819,7 +785,7 @@ class _LeaderboardRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'WR ${(entry.winRate * 100).toStringAsFixed(0)}%  •  ${entry.totalMatches} pertandingan',
+                    '${entry.winRate == null ? 'WR -' : 'WR ${(entry.winRate! * 100).toStringAsFixed(0)}%'}  •  ${entry.ratedMatches} Ranked',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.dmSans(
@@ -837,7 +803,7 @@ class _LeaderboardRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: <Widget>[
               Text(
-                '${entry.points}',
+                '${entry.pvpRating}',
                 style: GoogleFonts.jetBrainsMono(
                   color: isCurrentUser
                       ? const Color(0xFF087C9E)
@@ -847,7 +813,7 @@ class _LeaderboardRow extends StatelessWidget {
                 ),
               ),
               const Text(
-                'PTS',
+                'ELO',
                 style: TextStyle(
                   color: AppColors.textMuted,
                   fontSize: 8,
@@ -908,7 +874,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Belum ada peringkat global.',
+            'Belum ada pemain Ranked untuk target ini.',
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),

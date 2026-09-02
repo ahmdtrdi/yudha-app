@@ -1,23 +1,29 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import type { Json } from '../supabase/database.types';
 import { SupabaseService } from '../supabase/supabase.service';
-import type { LeaderboardEntry } from './leaderboard.types';
+import type { LeaderboardEntry, LeaderboardPage } from './leaderboard.types';
 
 @Injectable()
 export class LeaderboardRepository {
   constructor(private readonly supabaseService: SupabaseService) {}
 
   async list(
+    userId: string,
     limit: number,
     offset: number,
-  ): Promise<{ items: LeaderboardEntry[]; total: number }> {
+  ): Promise<LeaderboardPage> {
     const { data, error } = await (this.supabaseService.getClient() as any).rpc(
-      'get_leaderboard_page',
-      { p_limit: limit, p_offset: offset },
+      'get_target_leaderboard_page',
+      { p_user_id: userId, p_limit: limit, p_offset: offset },
     );
-    if (error) throw new InternalServerErrorException(error.message);
-    const result = this.requireObject(data, 'get_leaderboard_page');
+    if (error) this.fail(error.message);
+    const result = this.requireObject(data, 'get_target_leaderboard_page');
     return {
+      target: result.target as LeaderboardPage['target'],
       items: Array.isArray(result.items)
         ? (result.items as unknown as LeaderboardEntry[])
         : [],
@@ -25,17 +31,31 @@ export class LeaderboardRepository {
     };
   }
 
-  async getUserRank(userId: string): Promise<LeaderboardEntry | null> {
+  async getUserRank(userId: string): Promise<LeaderboardEntry> {
     const { data, error } = await (this.supabaseService.getClient() as any).rpc(
-      'get_user_leaderboard_rank',
+      'get_target_leaderboard_rank',
       { p_user_id: userId },
     );
-    if (error) throw new InternalServerErrorException(error.message);
-    if (data === null) return null;
+    if (error) this.fail(error.message);
+    if (data === null) {
+      throw new InternalServerErrorException(
+        'get_target_leaderboard_rank returned no profile.',
+      );
+    }
     return this.requireObject(
       data,
-      'get_user_leaderboard_rank',
+      'get_target_leaderboard_rank',
     ) as unknown as LeaderboardEntry;
+  }
+
+  private fail(message: string): never {
+    if (message.includes('TARGET_REQUIRED')) {
+      throw new ConflictException({
+        code: 'TARGET_REQUIRED',
+        message: 'Choose a learning target before viewing the leaderboard.',
+      });
+    }
+    throw new InternalServerErrorException(message);
   }
 
   private requireObject(value: Json, operation: string) {

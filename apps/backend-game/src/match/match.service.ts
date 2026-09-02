@@ -973,6 +973,7 @@ export class MatchService {
       responseTimeMs: playerBefore?.openedCardAt
         ? Math.max(0, Date.now() - playerBefore.openedCardAt.getTime())
         : undefined,
+      openedAt: playerBefore?.openedCardAt?.toISOString(),
     };
 
     const result = this.engine.playCard(
@@ -1008,6 +1009,18 @@ export class MatchService {
       pointsBefore: snapshotBefore.points,
       pointsAfter: playerBefore?.points,
       responseTimeMs: snapshotBefore.responseTimeMs,
+      questionRevisionId: cardBefore?.questionRevisionId,
+      taxonomyVersionId: cardBefore?.taxonomyVersionId,
+      skillId: cardBefore?.skillId,
+      category: cardBefore?.category,
+      subcategory: cardBefore?.subcategory,
+      difficulty: cardBefore?.difficulty,
+      expectedTimeMs: cardBefore?.expectedTimeMs,
+      timeLimitMs: cardBefore?.timeLimitSeconds
+        ? cardBefore.timeLimitSeconds * 1000
+        : undefined,
+      openedAt: snapshotBefore.openedAt,
+      answeredAt: new Date().toISOString(),
     });
 
     const emits: MatchEmit[] = [
@@ -1050,6 +1063,7 @@ export class MatchService {
       responseTimeMs: playerBefore?.openedCardAt
         ? Math.max(0, Date.now() - playerBefore.openedCardAt.getTime())
         : undefined,
+      openedAt: playerBefore?.openedCardAt?.toISOString(),
     };
     const result = this.engine.timeoutCard(room, userId, cardId);
     if (!result.ok) return;
@@ -1065,6 +1079,19 @@ export class MatchService {
       pointsBefore: snapshotBefore.points,
       pointsAfter: playerBefore?.points,
       responseTimeMs: snapshotBefore.responseTimeMs,
+      correct: false,
+      questionRevisionId: cardBefore?.questionRevisionId,
+      taxonomyVersionId: cardBefore?.taxonomyVersionId,
+      skillId: cardBefore?.skillId,
+      category: cardBefore?.category,
+      subcategory: cardBefore?.subcategory,
+      difficulty: cardBefore?.difficulty,
+      expectedTimeMs: cardBefore?.expectedTimeMs,
+      timeLimitMs: cardBefore?.timeLimitSeconds
+        ? cardBefore.timeLimitSeconds * 1000
+        : undefined,
+      openedAt: snapshotBefore.openedAt,
+      answeredAt: new Date().toISOString(),
     });
 
     const emits: MatchEmit[] = [
@@ -1354,9 +1381,15 @@ export class MatchService {
       const deltas = await this.matchResultService.finalizeMatch(room, rpcLogs);
       if (deltas && room.result) {
         room.result.progressionPersisted = deltas.progressionApplied;
-        room.result.finalState.playerA.ratingDelta = deltas.ratingDeltaA;
+        room.result.finalState.playerA.pvpRatingDelta =
+          deltas.pvpRatingDeltaA;
+        room.result.finalState.playerA.pvpRatingAfter =
+          deltas.pvpRatingAfterA;
         room.result.finalState.playerA.coinsDelta = deltas.coinsDeltaA;
-        room.result.finalState.playerB.ratingDelta = deltas.ratingDeltaB;
+        room.result.finalState.playerB.pvpRatingDelta =
+          deltas.pvpRatingDeltaB;
+        room.result.finalState.playerB.pvpRatingAfter =
+          deltas.pvpRatingAfterB;
         room.result.finalState.playerB.coinsDelta = deltas.coinsDeltaB;
       } else if (room.result) {
         room.result.progressionPersisted = false;

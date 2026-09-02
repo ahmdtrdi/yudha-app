@@ -12,6 +12,7 @@ class LeaderboardState {
     required this.currentUserRank,
     required this.currentUserEntry,
     required this.errorMessage,
+    required this.target,
   });
 
   factory LeaderboardState.initial() {
@@ -24,6 +25,7 @@ class LeaderboardState {
       currentUserRank: null,
       currentUserEntry: null,
       errorMessage: null,
+      target: null,
     );
   }
 
@@ -35,6 +37,7 @@ class LeaderboardState {
   final int? currentUserRank;
   final LeaderboardEntry? currentUserEntry;
   final String? errorMessage;
+  final String? target;
 
   LeaderboardState copyWith({
     List<LeaderboardEntry>? entries,
@@ -47,6 +50,7 @@ class LeaderboardState {
     bool clearCurrentUser = false,
     String? errorMessage,
     bool clearError = false,
+    String? target,
   }) {
     return LeaderboardState(
       entries: entries ?? this.entries,
@@ -61,6 +65,7 @@ class LeaderboardState {
           ? null
           : currentUserEntry ?? this.currentUserEntry,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
+      target: target ?? this.target,
     );
   }
 }

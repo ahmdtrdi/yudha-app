@@ -14,7 +14,8 @@ export interface MatchHistoryEntry {
     scoreSelf: number;
     scoreOpponent: number;
   };
-  ratingDelta: number;
+  pvpRatingDelta: number | null;
+  pvpRatingAfter: number | null;
   coinsDelta: number;
   completedAt: string;
 }

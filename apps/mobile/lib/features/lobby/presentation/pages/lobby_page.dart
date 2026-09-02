@@ -35,7 +35,7 @@ class _LobbyPageState extends ConsumerState<LobbyPage> {
       orElse: () => const <String, Object?>{
         'key': 'daily_practice',
         'title': 'Daily Question',
-        'rewardRankPoints': 50,
+        'rewardYCoins': 2,
         'completed': false,
       },
     );
@@ -44,7 +44,7 @@ class _LobbyPageState extends ConsumerState<LobbyPage> {
       orElse: () => const <String, Object?>{
         'key': 'daily_pvp',
         'title': 'Daily PvP',
-        'rewardRankPoints': 80,
+        'rewardYCoins': 1,
         'completed': false,
       },
     );
@@ -125,13 +125,9 @@ class _LobbyPageState extends ConsumerState<LobbyPage> {
                               child: _LobbyProfileHeader(
                                 compact: compact,
                                 displayName: progress.displayName,
-                                tierLabel: progress.tier.label,
-                                totalPoints: progress.totalPoints,
                                 winRate: progress.winRate,
                                 streak: progress.streak,
-                                pointsUntilNextTier:
-                                    progress.pointsUntilNextTier,
-                                tierProgress: progress.tierProgress,
+                                matches: progress.matchesPlayed,
                               ),
                             ),
                           ),
@@ -344,30 +340,20 @@ class _LobbyProfileHeader extends StatelessWidget {
   const _LobbyProfileHeader({
     required this.compact,
     required this.displayName,
-    required this.tierLabel,
-    required this.totalPoints,
     required this.winRate,
     required this.streak,
-    required this.pointsUntilNextTier,
-    required this.tierProgress,
+    required this.matches,
   });
 
   final bool compact;
   final String displayName;
-  final String tierLabel;
-  final int totalPoints;
   final double winRate;
   final int streak;
-  final int pointsUntilNextTier;
-  final double tierProgress;
+  final int matches;
 
   @override
   Widget build(BuildContext context) {
     final String winRateLabel = '${(winRate * 100).toStringAsFixed(0)}%';
-    final String nextTierLabel = pointsUntilNextTier == 0
-        ? 'MAX'
-        : '$pointsUntilNextTier pts lagi';
-
     return Stack(
       key: const ValueKey<String>('lobby-profile-header'),
       children: <Widget>[
@@ -405,20 +391,13 @@ class _LobbyProfileHeader extends StatelessWidget {
                   _HeroIdentity(
                     compact: compact,
                     displayName: displayName,
-                    tierLabel: tierLabel,
                   ),
                   SizedBox(height: compact ? 26 : 32),
                   _HeroStatsPanel(
                     compact: compact,
                     winRate: winRateLabel,
                     streak: '$streak',
-                    points: '$totalPoints',
-                  ),
-                  SizedBox(height: compact ? 12 : 16),
-                  _HeroRankProgress(
-                    compact: compact,
-                    nextTierLabel: nextTierLabel,
-                    tierProgress: tierProgress,
+                    matches: '$matches',
                   ),
                 ],
               ),
@@ -434,12 +413,10 @@ class _HeroIdentity extends StatelessWidget {
   const _HeroIdentity({
     required this.compact,
     required this.displayName,
-    required this.tierLabel,
   });
 
   final bool compact;
   final String displayName;
-  final String tierLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -471,30 +448,6 @@ class _HeroIdentity extends StatelessWidget {
                     color: Colors.white,
                     fontSize: compact ? 22 : 26,
                     fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Container(
-                    key: const ValueKey<String>('lobby-hero-tier-badge'),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFD9B5),
-                      borderRadius: BorderRadius.circular(100),
-                      border: Border.all(color: const Color(0xFFF1A063)),
-                    ),
-                    child: Text(
-                      '${tierLabel.toUpperCase()} TIER',
-                      style: GoogleFonts.dmSans(
-                        color: const Color(0xFF8A471F),
-                        fontSize: compact ? 9.5 : 10.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
                   ),
                 ),
               ],
@@ -530,13 +483,13 @@ class _HeroStatsPanel extends StatelessWidget {
     required this.compact,
     required this.winRate,
     required this.streak,
-    required this.points,
+    required this.matches,
   });
 
   final bool compact;
   final String winRate;
   final String streak;
-  final String points;
+  final String matches;
 
   @override
   Widget build(BuildContext context) {
@@ -550,8 +503,8 @@ class _HeroStatsPanel extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               Text(
-                points,
-                key: const ValueKey<String>('lobby-hero-primary-points'),
+                matches,
+                key: const ValueKey<String>('lobby-hero-primary-matches'),
                 style: GoogleFonts.jetBrainsMono(
                   color: AppColors.fireGold,
                   fontSize: compact ? 22 : 26,
@@ -561,7 +514,7 @@ class _HeroStatsPanel extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                'RANK POINTS',
+                'RANKED MATCH',
                 style: GoogleFonts.dmSans(
                   color: Colors.white.withAlpha(205),
                   fontSize: compact ? 9 : 10,
@@ -683,77 +636,6 @@ class _HeroAvatar extends StatelessWidget {
   }
 }
 
-class _HeroRankProgress extends StatelessWidget {
-  const _HeroRankProgress({
-    required this.compact,
-    required this.nextTierLabel,
-    required this.tierProgress,
-  });
-
-  final bool compact;
-  final String nextTierLabel;
-  final double tierProgress;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      key: const ValueKey<String>('lobby-hero-rank-progress'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                'Menuju tier berikutnya',
-                style: GoogleFonts.dmSans(
-                  color: Colors.white.withAlpha(200),
-                  fontSize: compact ? 10 : 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            Text(
-              nextTierLabel,
-              style: GoogleFonts.jetBrainsMono(
-                color: Colors.white,
-                fontSize: compact ? 10 : 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(100),
-          child: SizedBox(
-            height: 9,
-            child: Stack(
-              children: <Widget>[
-                Container(color: const Color(0xFF062A75)),
-                FractionallySizedBox(
-                  widthFactor: tierProgress == 0
-                      ? 0.02
-                      : tierProgress.clamp(0, 1),
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: <Color>[
-                          AppColors.levelUpTeal,
-                          AppColors.fireGold,
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _QuestRoadmapSheet extends StatelessWidget {
   const _QuestRoadmapSheet({
     required this.compact,
@@ -858,7 +740,7 @@ class _QuestRoadmapSheet extends StatelessWidget {
                         ? 'Selesai hari ini'
                         : 'Selesaikan satu sesi practice',
                     xpReward:
-                        '+${((practiceMission?['rewardRankPoints'] as num?) ?? 50).toInt()} XP',
+                        '+${((practiceMission?['rewardYCoins'] as num?) ?? 2).toInt()} YCoin',
                     completed: practiceMission?['completed'] == true,
                     onTap: onPracticeTap,
                   ),
@@ -872,7 +754,7 @@ class _QuestRoadmapSheet extends StatelessWidget {
                         ? 'Selesai hari ini'
                         : 'Menangkan satu pertarungan',
                     xpReward:
-                        '+${((pvpMission?['rewardRankPoints'] as num?) ?? 80).toInt()} XP',
+                        '+${((pvpMission?['rewardYCoins'] as num?) ?? 1).toInt()} YCoin',
                     completed: pvpMission?['completed'] == true,
                     onTap: onPvpTap,
                   ),

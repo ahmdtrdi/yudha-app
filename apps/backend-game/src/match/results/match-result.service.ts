@@ -8,8 +8,10 @@ export type FinalizeResult = {
   persisted: boolean;
   reason?: string;
   matchResultId?: string;
-  ratingDeltaA?: number;
-  ratingDeltaB?: number;
+  pvpRatingDeltaA?: number | null;
+  pvpRatingDeltaB?: number | null;
+  pvpRatingAfterA?: number | null;
+  pvpRatingAfterB?: number | null;
   coinsDeltaA?: number;
   coinsDeltaB?: number;
   progressionApplied?: boolean;
@@ -17,8 +19,10 @@ export type FinalizeResult = {
 
 /** Computed deltas attached to the room after persistence */
 export type PersistedDeltas = {
-  ratingDeltaA: number;
-  ratingDeltaB: number;
+  pvpRatingDeltaA: number | null;
+  pvpRatingDeltaB: number | null;
+  pvpRatingAfterA: number | null;
+  pvpRatingAfterB: number | null;
   coinsDeltaA: number;
   coinsDeltaB: number;
   progressionApplied: boolean;
@@ -105,6 +109,20 @@ export class MatchResultService {
         points_before: this.numberValue(entry.payload.pointsBefore),
         points_after: this.numberValue(entry.payload.pointsAfter),
         response_time_ms: this.numberValue(entry.payload.responseTimeMs),
+        question_revision_id: this.stringValue(
+          entry.payload.questionRevisionId,
+        ),
+        taxonomy_version_id: this.stringValue(
+          entry.payload.taxonomyVersionId,
+        ),
+        skill_id: this.stringValue(entry.payload.skillId),
+        category_snapshot: this.stringValue(entry.payload.category),
+        subcategory_snapshot: this.stringValue(entry.payload.subcategory),
+        difficulty_snapshot: this.stringValue(entry.payload.difficulty),
+        expected_time_ms: this.numberValue(entry.payload.expectedTimeMs),
+        time_limit_ms: this.numberValue(entry.payload.timeLimitMs),
+        opened_at: this.stringValue(entry.payload.openedAt),
+        answered_at: this.stringValue(entry.payload.answeredAt),
         action_timestamp: entry.created_at,
         created_at: entry.created_at,
       }));
@@ -253,8 +271,10 @@ export class MatchResultService {
 
   private extractDeltas(result: FinalizeResult): PersistedDeltas {
     return {
-      ratingDeltaA: result.ratingDeltaA ?? 0,
-      ratingDeltaB: result.ratingDeltaB ?? 0,
+      pvpRatingDeltaA: result.pvpRatingDeltaA ?? null,
+      pvpRatingDeltaB: result.pvpRatingDeltaB ?? null,
+      pvpRatingAfterA: result.pvpRatingAfterA ?? null,
+      pvpRatingAfterB: result.pvpRatingAfterB ?? null,
       coinsDeltaA: result.coinsDeltaA ?? 0,
       coinsDeltaB: result.coinsDeltaB ?? 0,
       progressionApplied: result.progressionApplied === true,

@@ -5,6 +5,11 @@ import type {
 
 export type InternalCard = PublicQuestionCard & {
   sourceQuestionId: string;
+  questionRevisionId?: string;
+  taxonomyVersionId?: string;
+  skillId?: string;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  expectedTimeMs?: number;
   correctOptionIndex: number;
   explanation?: string;
   damageValue: number;
@@ -30,5 +35,11 @@ export type SupabaseQuestionRow = {
   hint?: string;
   target: 'cpns' | 'bumn';
   is_active: boolean;
+  question_revision_id?: string;
+  taxonomy_version_id?: string;
+  skill_id?: string;
+  difficulty_snapshot?: 'easy' | 'medium' | 'hard';
+  expected_time_ms?: number;
+  standard_time_limit_ms?: number;
 };
 
