@@ -655,7 +655,7 @@ void main() {
     expect(find.text('4 subkategori tersedia'), findsNWidgets(3));
 
     await tester.tap(
-      find.byKey(const ValueKey<String>('practice-topic-tiu::kemampuan_logis')),
+      find.byKey(const ValueKey<String>('practice-topic-tiu::logis')),
     );
     await tester.pump();
 

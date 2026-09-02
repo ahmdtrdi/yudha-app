@@ -58,6 +58,28 @@ No product feature code was changed in this documentation-only consolidation.
 ### Product reasoning
 
 - A single review document prevents the analytics blueprint, API examples, formula flow, and delivery-debt discussion from becoming competing specifications.
+
+## 2026-09-02 — Standardize Reusable Skills & SOP Documentation (`docs/skill/`)
+
+### Change
+
+- Created `docs/skill/` directory with standard operating procedures and canonical domain specifications:
+  - `docs/skill/deploy_web.md`: Panduan eksekusi kilat deployment Flutter Web ke Vercel via CLI dan verifikasi environment variables.
+  - `docs/skill/question_taxonomy.md`: Panduan taksonomi dan kategorisasi bank soal YUDHA (CPNS vs BUMN), pemetaan subkategori, dan format `primarySkillId`.
+  - `docs/skill/content_pipeline.md`: Panduan sinkronisasi konten kurikulum, pengayaan bank soal HOTS, dan unit testing.
+  - `docs/skill/supabase_ops.md`: Panduan tata kelola schema database, migrasi inkremental, dan postchecks integritas.
+- Updated `docs/AGENTS.md` to establish the rule for AI Agents to read and contribute to `docs/skill/`.
+- Updated `docs/MASTER.md` to reflect the new `docs/skill/` directory in the repository documentation index.
+
+### Product reasoning
+
+- Providing standardized, bite-sized skill files enables AI agents and human developers to execute critical, repeatable workflows (such as deployment and content classification) deterministically without context drift or ambiguity.
+- Aligning question taxonomy explicitly with visual domain contracts ensures future question imports and solo practice modes adhere strictly to canonical CPNS and BUMN blueprints.
+
+### Remaining implementation debt
+
+- None. All new documentation files are integrated into the repository guidelines and verified against existing codebase patterns.
+
 - Separating raw immutable evidence from versioned learner state allows formula calibration without rewriting learning history.
 - Separating Solo, PvP, and Assessment preserves the meaning and strength of each environment while still allowing qualified context comparisons.
 - Keeping the current Practice flow behind compatibility adapters lets evidence and analytics foundations progress without silently deciding the unresolved V2 delivery policy.

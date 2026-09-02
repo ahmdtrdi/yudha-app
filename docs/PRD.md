@@ -194,6 +194,7 @@ The canonical target taxonomy is:
 - Standard and Speed timeouts are server-authoritative, race-safe, and idempotent. Answer and reconciliation retries cannot create duplicate attempts.
 - The initial Solo slice has an approved learner-selected fixed count, target-specific Balanced allocation, no within-session duplicates, deterministic inventory fallback, explicit early stop, and resumable session behavior. Difficulty progression, adaptive delivery, final taxonomy weights, and intentional cross-session repetition remain deferred. Five questions is not a V2 invariant.
 - The initial arena deals a server-owned hand of the next three unresolved questions. A learner may choose any card in that hand; resolving it immediately replenishes the hand from the remaining locked set, so the final cards naturally reduce from three to two, one, and empty. The client cannot open an arbitrary future question or receive its prompt before it enters the hand.
+- The Solo arena presents one large `100` HP opponent tower and the learner's selected character. It has no opponent character, learner tower, learner HP, combo, round, or match clock. Standard question deadlines remain visible inside the question sheet. The arena reuses the PvP visual language, battle-card surface, effects, profile-controlled battle audio, and pause-menu music-volume control without inheriting PvP-only state. Answer feedback is shown immediately, but the correct-answer attack or wrong-answer hit reaction runs only after the learner presses `LANJUT`.
 - Returning to the hand does not pause an opened card's authoritative deadline. The learner may inspect another dealt card, while every opened Standard card continues toward its own timeout and is reconciled authoritatively when revisited or answered.
 - Until that debt closes and Gate 5 passes, the existing Practice adapter retains its locked five-question behavior, score, completion, and client contract. Its answers are backfilled into the canonical ledger only with evidence the source actually captured; missing timing, exposure, hint, version, or skill data is never fabricated.
 - Only future Solo sessions completed with `policy_completed` qualify for daily mission, streak, Hired Pass, or normal-completion effects. All retries return the original committed result without duplicating attempts, activity, or rewards.
@@ -1476,6 +1477,8 @@ The recommendation engine chooses the first three for the primary action. Delive
         └── Questions: Balanced | Recommended | Custom
 
 The default screen should not require the learner to configure both axes before every session.
+
+For the initial operational slice, Mobile renders `Sesi untukmu` as an explicitly labeled safe preset: Rimba Yudha, Standard, Balanced, and `20` questions. `Lanjut` applies that preset and proceeds to character selection. This is a runnable fallback preset, not an evidence-based Learning recommendation, and it does not send a `recommendationId`. `Atur sendiri` opens the manual configuration sheet with no preselected mechanic, count, or question-selection option. Evidence-based Recommended delivery remains unavailable until its named policy dependencies are implemented.
 
 Indonesian example:
 

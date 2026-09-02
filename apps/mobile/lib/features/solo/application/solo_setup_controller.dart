@@ -6,13 +6,29 @@ import 'package:yudha_mobile/features/solo/domain/solo_contract.dart';
 class SoloSetupController extends StateNotifier<SoloSetupState> {
   SoloSetupController() : super(const SoloSetupState());
 
+  void applyRecommendedPreset() {
+    state = const SoloSetupState(
+      mode: SoloSetupMode.auto,
+      mechanicMode: SoloMechanicMode.standard,
+      questionCount: SoloQuestionCount.twenty,
+    );
+  }
+
+  void beginManualSetup() {
+    state = const SoloSetupState();
+  }
+
   void selectMode(SoloSetupMode mode) {
     state = state.copyWith(
       mode: mode,
       clearRecommendation: mode != SoloSetupMode.auto,
       clearLegacyTopic: mode != SoloSetupMode.custom,
-      clearMechanic: mode == SoloSetupMode.auto,
-      clearQuestionCount: mode == SoloSetupMode.auto,
+      mechanicMode: mode == SoloSetupMode.auto
+          ? SoloMechanicMode.standard
+          : null,
+      questionCount: mode == SoloSetupMode.auto
+          ? SoloQuestionCount.twenty
+          : null,
     );
   }
 

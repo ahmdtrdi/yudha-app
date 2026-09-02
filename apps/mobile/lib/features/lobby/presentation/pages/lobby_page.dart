@@ -149,45 +149,54 @@ class _LobbyPageState extends ConsumerState<LobbyPage> {
                         horizontal: compact ? 20 : 24,
                         vertical: compact ? 12 : 18,
                       ),
-                      child: learningNextAction == null
-                          ? Center(
-                              child: _QuestRoadmapSheet(
-                                compact: compact,
-                                practiceMission: practiceMission,
-                                pvpMission: pvpMission,
-                                onPracticeTap: () => context.go(AppRoutes.solo),
-                                onPvpTap: () => context.go(AppRoutes.pvp),
-                                onBattleTap: () => context.go(AppRoutes.pvp),
-                              ),
-                            )
-                          : SingleChildScrollView(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: <Widget>[
-                                  _LobbyLearningCard(
-                                    recommendation: learningNextAction,
-                                    compact: compact,
-                                    onDashboard: () =>
-                                        context.go(AppRoutes.analytics),
-                                    onStart: learningNextAction.runnable
-                                        ? () => _startRecommendation(
-                                            learningNextAction,
-                                          )
-                                        : null,
+                      child: LayoutBuilder(
+                        builder:
+                            (BuildContext context, BoxConstraints constraints) {
+                              return SingleChildScrollView(
+                                key: const ValueKey<String>(
+                                  'lobby-mission-scroll-view',
+                                ),
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    minHeight: constraints.maxHeight,
                                   ),
-                                  SizedBox(height: compact ? 12 : 16),
-                                  _QuestRoadmapSheet(
-                                    compact: compact,
-                                    practiceMission: practiceMission,
-                                    pvpMission: pvpMission,
-                                    onPracticeTap: () =>
-                                        context.go(AppRoutes.solo),
-                                    onPvpTap: () => context.go(AppRoutes.pvp),
-                                    onBattleTap: () => context.go(AppRoutes.pvp),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: <Widget>[
+                                      if (learningNextAction !=
+                                          null) ...<Widget>[
+                                        _LobbyLearningCard(
+                                          recommendation: learningNextAction,
+                                          compact: compact,
+                                          onDashboard: () =>
+                                              context.go(AppRoutes.analytics),
+                                          onStart: learningNextAction.runnable
+                                              ? () => _startRecommendation(
+                                                  learningNextAction,
+                                                )
+                                              : null,
+                                        ),
+                                        SizedBox(height: compact ? 12 : 16),
+                                      ],
+                                      _QuestRoadmapSheet(
+                                        compact: compact,
+                                        practiceMission: practiceMission,
+                                        pvpMission: pvpMission,
+                                        onPracticeTap: () =>
+                                            context.go(AppRoutes.solo),
+                                        onPvpTap: () =>
+                                            context.go(AppRoutes.pvp),
+                                        onBattleTap: () =>
+                                            context.go(AppRoutes.pvp),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                            ),
+                                ),
+                              );
+                            },
+                      ),
                     ),
                   ),
                 ),

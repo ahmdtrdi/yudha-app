@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yudha_mobile/features/solo/data/solo_repository.dart';
 import 'package:yudha_mobile/features/solo/domain/solo_contract.dart';
@@ -70,6 +72,7 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
   final SoloRepository repository;
   final Set<String> _hintedQuestions = <String>{};
   final Map<String, int> _selectedOptions = <String, int>{};
+  Timer? _reactionTimer;
 
   Future<bool> start({
     required SoloQuestionCount count,
@@ -102,7 +105,12 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
   }
 
   Future<void> openCard(SoloHandCard card) async {
-    if (state.submitting || state.showFeedback || state.session == null) return;
+    if (state.submitting ||
+        state.showFeedback ||
+        state.reaction != SoloReaction.idle ||
+        state.session == null) {
+      return;
+    }
     state = state.copyWith(submitting: true, clearError: true);
     try {
       final question = await repository.open(
@@ -178,9 +186,7 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
         feedback: response.feedback,
         submitting: false,
         questionVisible: true,
-        reaction: response.feedback.isCorrect
-            ? SoloReaction.attack
-            : SoloReaction.hit,
+        reaction: SoloReaction.idle,
       );
     } catch (error) {
       state = state.copyWith(submitting: false, error: error.toString());
@@ -188,20 +194,29 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
   }
 
   void next() {
+    final SoloAnswerFeedback? feedback = state.feedback;
+    if (feedback == null || state.submitting) return;
     final questionId = state.openedQuestion?.sessionQuestionId;
     if (questionId != null) {
       _hintedQuestions.remove(questionId);
       _selectedOptions.remove(questionId);
     }
+    final SoloReaction reaction = feedback.isCorrect
+        ? SoloReaction.attack
+        : SoloReaction.hit;
+    _reactionTimer?.cancel();
     state = state.copyWith(
       clearQuestion: true,
       clearFeedback: true,
       clearSelection: true,
       questionVisible: false,
       hintVisible: false,
-      reaction: SoloReaction.idle,
+      reaction: reaction,
       clearError: true,
     );
+    _reactionTimer = Timer(const Duration(milliseconds: 850), () {
+      state = state.copyWith(reaction: SoloReaction.idle);
+    });
   }
 
   Future<bool> stop() async {
@@ -215,5 +230,11 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
       state = state.copyWith(submitting: false, error: error.toString());
       return false;
     }
+  }
+
+  @override
+  void dispose() {
+    _reactionTimer?.cancel();
+    super.dispose();
   }
 }

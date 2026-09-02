@@ -6,17 +6,128 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
+import 'package:yudha_mobile/features/battle/presentation/audio/arena_audio_controller.dart';
+import 'package:yudha_mobile/features/battle/presentation/widgets/battle_arena_widgets.dart';
 import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
+import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
+import 'package:yudha_mobile/features/profile/domain/entities/profile_settings.dart';
 import 'package:yudha_mobile/features/solo/application/solo_session_controller.dart';
 import 'package:yudha_mobile/features/solo/application/solo_session_providers.dart';
 import 'package:yudha_mobile/features/solo/domain/solo_session.dart';
 
-class SoloSessionPage extends ConsumerWidget {
+class SoloSessionPage extends ConsumerStatefulWidget {
   const SoloSessionPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SoloSessionPage> createState() => _SoloSessionPageState();
+}
+
+class _SoloSessionPageState extends ConsumerState<SoloSessionPage>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  late final AnimationController _ambientController;
+  late final ArenaAudioController _arenaAudio;
+  final List<Timer> _effectTimers = <Timer>[];
+  bool _audioStarted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final ProfileSettings settings = ref.read(profileSettingsProvider);
+    _arenaAudio = ArenaAudioController(
+      enabled: settings.soundEnabled,
+      musicLevel: settings.battleMusicVolume,
+    );
+    _ambientController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3200),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    for (final Timer timer in _effectTimers) {
+      timer.cancel();
+    }
+    _ambientController.dispose();
+    unawaited(_arenaAudio.dispose());
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        ref.read(soloSessionControllerProvider).session?.isActive == true) {
+      unawaited(_arenaAudio.resumeMusic());
+      return;
+    }
+    unawaited(_arenaAudio.pauseMusic());
+  }
+
+  void _startAudioIfNeeded() {
+    if (_audioStarted) return;
+    _audioStarted = true;
+    unawaited(_arenaAudio.start());
+  }
+
+  void _handleSessionAudio(SoloSessionState? previous, SoloSessionState next) {
+    if (previous?.openedQuestion?.sessionQuestionId !=
+            next.openedQuestion?.sessionQuestionId &&
+        next.openedQuestion != null) {
+      _arenaAudio.playCardPick();
+    }
+    if (previous?.feedback == null && next.feedback != null) {
+      if (next.feedback!.isCorrect) {
+        _arenaAudio.playAnswerCorrect();
+      } else {
+        _arenaAudio.playAnswerWrong();
+      }
+    }
+    if (previous?.reaction != next.reaction &&
+        next.reaction == SoloReaction.attack) {
+      _arenaAudio.playCast();
+      _effectTimers.add(
+        Timer(const Duration(milliseconds: 130), _arenaAudio.playProjectile),
+      );
+      _effectTimers.add(
+        Timer(const Duration(milliseconds: 390), _arenaAudio.playImpact),
+      );
+    }
+    final SoloSession? previousSession = previous?.session;
+    final SoloSession? nextSession = next.session;
+    if (previousSession?.isActive == true &&
+        nextSession != null &&
+        !nextSession.isActive) {
+      if (nextSession.towerHp == 0) {
+        _arenaAudio.playVictoryStinger();
+        _effectTimers.add(
+          Timer(const Duration(milliseconds: 1400), _arenaAudio.pauseMusic),
+        );
+      } else {
+        unawaited(_arenaAudio.pauseMusic());
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<ProfileSettings>(profileSettingsProvider, (
+      ProfileSettings? previous,
+      ProfileSettings next,
+    ) {
+      if (previous?.soundEnabled != next.soundEnabled) {
+        unawaited(_arenaAudio.setEnabled(next.soundEnabled));
+      }
+      if (previous?.battleMusicVolume != next.battleMusicVolume) {
+        unawaited(_arenaAudio.setMusicLevel(next.battleMusicVolume));
+      }
+    });
+    ref.listen<SoloSessionState>(
+      soloSessionControllerProvider,
+      _handleSessionAudio,
+    );
     final state = ref.watch(soloSessionControllerProvider);
     final controller = ref.read(soloSessionControllerProvider.notifier);
     final session = state.session;
@@ -29,7 +140,9 @@ class SoloSessionPage extends ConsumerWidget {
     if (session == null) {
       return _MissingSession(message: state.error);
     }
-    if (!session.isActive && !state.showFeedback) {
+    if (!session.isActive &&
+        !state.showFeedback &&
+        state.reaction == SoloReaction.idle) {
       return _SoloResult(
         session: session,
         onExit: () {
@@ -38,6 +151,7 @@ class SoloSessionPage extends ConsumerWidget {
         },
       );
     }
+    _startAudioIfNeeded();
 
     final character = GameEconomyCatalog.characters.firstWhere(
       (item) => item.id == session.characterId,
@@ -48,15 +162,10 @@ class SoloSessionPage extends ConsumerWidget {
       if (card.openedAt != null) activeQuestionId ??= card.sessionQuestionId;
     }
     return Scaffold(
-      backgroundColor: AppColors.scholarCream,
+      backgroundColor: BattleClayPalette.cream,
       body: Stack(
         fit: StackFit.expand,
         children: <Widget>[
-          _ArenaStage(
-            session: session,
-            character: character,
-            reaction: state.reaction,
-          ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
@@ -65,13 +174,24 @@ class SoloSessionPage extends ConsumerWidget {
                   _BattleStatus(
                     session: session,
                     submitting: state.submitting,
-                    onStop: () => _confirmStop(context, controller),
+                    onStop: () => _confirmStop(controller),
                   ),
-                  const Spacer(),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: _ArenaStage(
+                      session: session,
+                      character: character,
+                      reaction: state.reaction,
+                      ambientAnimation: _ambientController,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   _CardTray(
                     hand: session.hand,
-                    loading: state.submitting,
+                    loading:
+                        state.submitting || state.reaction != SoloReaction.idle,
                     activeQuestionId: activeQuestionId,
+                    compact: MediaQuery.sizeOf(context).height < 720,
                     onOpen: controller.openCard,
                   ),
                   if (state.error != null) ...<Widget>[
@@ -100,30 +220,82 @@ class SoloSessionPage extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmStop(
-    BuildContext context,
-    SoloSessionController controller,
-  ) async {
+  Future<void> _confirmStop(SoloSessionController controller) async {
+    await _arenaAudio.pauseMusic();
+    if (!mounted) return;
+    double musicVolume = ref.read(profileSettingsProvider).battleMusicVolume;
     final stop = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Akhiri latihan?'),
-        content: const Text(
-          'Jawabanmu tetap tercatat, tetapi sesi ini tidak memberikan hadiah.',
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Lanjut latihan'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Akhiri'),
-          ),
-        ],
+      builder: (BuildContext dialogContext) => StatefulBuilder(
+        builder:
+            (
+              BuildContext context,
+              void Function(void Function()) setDialogState,
+            ) => AlertDialog(
+              key: const ValueKey<String>('solo-pause-dialog'),
+              title: const Text('Latihan dijeda'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  const Text(
+                    'Atur volume musik atau lanjutkan sesi saat kamu siap.',
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: <Widget>[
+                      const Icon(Icons.music_note_rounded, size: 20),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Volume musik arena',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      Text('${(musicVolume * 100).round()}%'),
+                    ],
+                  ),
+                  Slider(
+                    key: const ValueKey<String>('solo-music-volume-slider'),
+                    value: musicVolume.clamp(0.0, 1.0),
+                    max: 1,
+                    divisions: 20,
+                    label: '${(musicVolume * 100).round()}%',
+                    onChanged: (double value) {
+                      setDialogState(() => musicVolume = value);
+                      ref
+                          .read(profileSettingsProvider.notifier)
+                          .setBattleMusicVolume(value);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Jika latihan diakhiri, jawaban tetap tercatat tetapi sesi tidak memberikan hadiah.',
+                    style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                  ),
+                ],
+              ),
+              actions: <Widget>[
+                TextButton(
+                  key: const ValueKey<String>('solo-pause-end'),
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('Akhiri'),
+                ),
+                FilledButton.icon(
+                  key: const ValueKey<String>('solo-pause-resume'),
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Text('Lanjut latihan'),
+                ),
+              ],
+            ),
       ),
     );
-    if (stop == true) await controller.stop();
+    if (stop == true) {
+      await controller.stop();
+    } else {
+      await _arenaAudio.resumeMusic();
+    }
   }
 }
 
@@ -132,65 +304,170 @@ class _ArenaStage extends StatelessWidget {
     required this.session,
     required this.character,
     required this.reaction,
+    required this.ambientAnimation,
   });
 
   final SoloSession session;
   final CosmeticItem character;
   final SoloReaction reaction;
+  final Animation<double> ambientAnimation;
 
   @override
   Widget build(BuildContext context) {
     final tower = GameEconomyCatalog.towers.first;
     final visuals = character.characterVisuals!;
-    final characterAsset = switch (reaction) {
-      SoloReaction.attack => visuals.attack,
-      SoloReaction.hit => visuals.hit,
-      SoloReaction.idle => visuals.ready,
+    final BattleCharacterPose pose = switch (reaction) {
+      SoloReaction.attack => BattleCharacterPose.attack,
+      SoloReaction.hit => BattleCharacterPose.hit,
+      SoloReaction.idle => BattleCharacterPose.ready,
     };
-    return Stack(
-      fit: StackFit.expand,
-      children: <Widget>[
-        Image.asset('assets/game/arena_rimba_yudha.png', fit: BoxFit.cover),
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: <Color>[
-                Color(0x22002467),
-                Color(0x0014213A),
-                Color(0x6614213A),
+    final CosmeticItem arena = GameEconomyCatalog.findArena(
+      'arena-rimba-yudha',
+    )!;
+    return BattleArenaFrame(
+      arenaKey: const ValueKey<String>('solo-battle-arena'),
+      backgroundKey: const ValueKey<String>('solo-arena-background'),
+      arenaAsset: arena.assetPath!,
+      foregroundBuilder: (BuildContext context, BoxConstraints constraints) {
+        final double width = constraints.maxWidth;
+        final double height = constraints.maxHeight;
+        final double championSize = (width * 0.38).clamp(118, 154);
+        final double towerSize = (width * 0.48).clamp(150, 205);
+        return Stack(
+          children: <Widget>[
+            const Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: <Color>[
+                      Color(0x22002467),
+                      Color(0x0014213A),
+                      Color(0x4414213A),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              key: const ValueKey<String>('solo-opponent-tower'),
+              top: height * 0.03,
+              left: (width - towerSize) / 2,
+              width: towerSize,
+              height: towerSize,
+              child: BattleTowerAsset(
+                activeAsset: tower.battleAssetPath!,
+                destroyedAsset: tower.destroyedAssetPath!,
+                destroyed: session.towerHp <= 0,
+                ambientAnimation: ambientAnimation,
+              ),
+            ),
+            Positioned(
+              bottom: -4,
+              left: (width - championSize) / 2,
+              width: championSize,
+              height: championSize,
+              child: BattleChampionStand(
+                semanticKey: const ValueKey<String>('solo-player-character'),
+                character: visuals,
+                pose: pose,
+                accent: BattleClayPalette.player,
+                destroyed: false,
+                ambientAnimation: ambientAnimation,
+              ),
+            ),
+            if (reaction == SoloReaction.attack)
+              Positioned.fill(
+                child: _SoloAttackEffect(
+                  key: ValueKey<int>(session.answeredCount),
+                ),
+              ),
+            if (reaction == SoloReaction.hit)
+              const Positioned.fill(child: _SoloHitFlash()),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SoloAttackEffect extends StatelessWidget {
+  const _SoloAttackEffect({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        return TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 720),
+          curve: Curves.easeInOutCubic,
+          builder: (BuildContext context, double progress, Widget? child) {
+            final Offset start = Offset(
+              constraints.maxWidth * 0.5,
+              constraints.maxHeight * 0.72,
+            );
+            final Offset end = Offset(
+              constraints.maxWidth * 0.5,
+              constraints.maxHeight * 0.26,
+            );
+            final Offset position = Offset.lerp(start, end, progress)!;
+            return Stack(
+              children: <Widget>[
+                Positioned(
+                  left: position.dx - 14,
+                  top: position.dy - 14,
+                  child: Opacity(
+                    opacity: progress < 0.86 ? 1 : (1 - progress) / 0.14,
+                    child: const Icon(
+                      Icons.auto_awesome_rounded,
+                      key: ValueKey<String>('solo-attack-projectile'),
+                      color: Color(0xFFFFD36A),
+                      size: 28,
+                      shadows: <Shadow>[
+                        Shadow(color: Color(0xFFFF8A38), blurRadius: 12),
+                      ],
+                    ),
+                  ),
+                ),
+                if (progress > 0.76)
+                  Positioned(
+                    left: end.dx - 30,
+                    top: end.dy - 30,
+                    child: Opacity(
+                      opacity: ((1 - progress) / 0.24).clamp(0, 1),
+                      child: const Icon(
+                        Icons.brightness_7_rounded,
+                        key: ValueKey<String>('solo-tower-impact'),
+                        color: Color(0xFFFFD36A),
+                        size: 60,
+                      ),
+                    ),
+                  ),
               ],
-            ),
-          ),
-        ),
-        Positioned(
-          top: MediaQuery.paddingOf(context).top + 82,
-          left: 0,
-          right: 0,
-          height: 145,
-          child: Image.asset(
-            session.towerHp == 0
-                ? tower.destroyedAssetPath!
-                : tower.battleAssetPath!,
-            fit: BoxFit.contain,
-          ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 158,
-          height: 245,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
-            child: Image.asset(
-              characterAsset,
-              key: ValueKey<String>(characterAsset),
-              fit: BoxFit.contain,
-            ),
-          ),
-        ),
-      ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _SoloHitFlash extends StatelessWidget {
+  const _SoloHitFlash();
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0.22, end: 0),
+      duration: const Duration(milliseconds: 420),
+      builder: (BuildContext context, double opacity, Widget? child) {
+        return ColoredBox(
+          key: const ValueKey<String>('solo-player-hit-flash'),
+          color: const Color(0xFFEF5B62).withValues(alpha: opacity),
+        );
+      },
     );
   }
 }
@@ -207,6 +484,7 @@ class _BattleStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
+    key: const ValueKey<String>('solo-battle-hud'),
     height: 64,
     padding: const EdgeInsets.symmetric(horizontal: 12),
     decoration: BoxDecoration(
@@ -301,24 +579,21 @@ class _CardTray extends StatelessWidget {
     required this.hand,
     required this.loading,
     required this.activeQuestionId,
+    required this.compact,
     required this.onOpen,
   });
   final List<SoloHandCard> hand;
   final bool loading;
   final String? activeQuestionId;
+  final bool compact;
   final ValueChanged<SoloHandCard> onOpen;
 
   @override
   Widget build(BuildContext context) => Container(
+    key: const ValueKey<String>('solo-battle-hand'),
     width: double.infinity,
-    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-    decoration: BoxDecoration(
-      color: AppColors.scholarCream,
-      borderRadius: BorderRadius.circular(22),
-      boxShadow: const <BoxShadow>[
-        BoxShadow(color: Color(0xFFC7CFDA), offset: Offset(0, 6)),
-      ],
-    ),
+    padding: EdgeInsets.fromLTRB(8, compact ? 6 : 8, 8, compact ? 7 : 10),
+    decoration: const BoxDecoration(color: BattleClayPalette.cream),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -327,94 +602,56 @@ class _CardTray extends StatelessWidget {
             Text(
               'Pilih kartu',
               style: GoogleFonts.fredoka(
-                fontWeight: FontWeight.w800,
-                color: AppColors.warriorNavy,
+                fontWeight: FontWeight.w600,
+                color: BattleClayPalette.ink,
+                fontSize: compact ? 12 : 14,
               ),
             ),
-            const Spacer(),
-            Text(
-              activeQuestionId == null
-                  ? 'Jawab untuk menyerang'
-                  : 'Timer kartu tetap berjalan',
-              style: const TextStyle(
-                fontSize: 9,
-                color: AppColors.textMuted,
-                fontWeight: FontWeight.w700,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                activeQuestionId == null
+                    ? 'Jawab untuk menyerang'
+                    : 'Timer kartu tetap berjalan',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontSize: compact ? 9 : 10,
+                  color: BattleClayPalette.mutedInk,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        Center(
-          child: AnimatedSize(
-            duration: const Duration(milliseconds: 220),
-            child: Wrap(
-              key: ValueKey<int>(hand.length),
-              spacing: 10,
-              alignment: WrapAlignment.center,
-              children: hand
-                  .map((card) {
-                    final isActive = activeQuestionId == card.sessionQuestionId;
-                    return InkWell(
-                      key: ValueKey<String>(
-                        'solo-card-${card.sessionQuestionId}',
-                      ),
-                      onTap: loading ? null : () => onOpen(card),
-                      borderRadius: BorderRadius.circular(8),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 160),
-                        width: 68,
-                        height: 96,
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isActive
-                                ? const Color(0xFF2878F0)
-                                : Colors.white,
-                            width: 2,
-                          ),
-                          boxShadow: const <BoxShadow>[
-                            BoxShadow(
-                              color: Color(0xFFB9C2D1),
-                              offset: Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: <Widget>[
-                            Image.asset(_cardAsset(card), fit: BoxFit.cover),
-                            Positioned(
-                              top: 4,
-                              right: 4,
-                              child: Container(
-                                width: 20,
-                                height: 20,
-                                alignment: Alignment.center,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF2878F0),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Text(
-                                  '${card.questionOrder}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  })
-                  .toList(growable: false),
-            ),
-          ),
+        SizedBox(height: compact ? 5 : 7),
+        BattleDeckPanel(
+          panelKey: const ValueKey<String>('solo-battle-deck-panel'),
+          compact: compact,
+          cards: hand
+              .map((SoloHandCard card) {
+                final bool isActive =
+                    activeQuestionId == card.sessionQuestionId;
+                return KeyedSubtree(
+                  key: ValueKey<String>('solo-card-${card.sessionQuestionId}'),
+                  child: Semantics(
+                    label: 'Kartu soal ${card.questionOrder}, ${card.category}',
+                    button: true,
+                    selected: isActive,
+                    child: BattleArenaCard(
+                      cardId: card.sessionQuestionId,
+                      asset: _cardAsset(card),
+                      accent: const Color(0xFF2878F0),
+                      compact: compact,
+                      enabled: !loading,
+                      selected: isActive,
+                      onTap: () => onOpen(card),
+                    ),
+                  ),
+                );
+              })
+              .toList(growable: false),
         ),
       ],
     ),
@@ -463,183 +700,191 @@ class _QuestionOverlay extends StatelessWidget {
       color: const Color(0x6609162D),
       child: Align(
         alignment: Alignment.bottomCenter,
-        child: FractionallySizedBox(
-          heightFactor: 0.76,
-          widthFactor: 1,
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: AppColors.scholarCream,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(25),
-              ),
-              boxShadow: const <BoxShadow>[
-                BoxShadow(color: Color(0xFFB8C0CD), offset: Offset(0, 6)),
-              ],
-            ),
-            child: Column(
-              children: <Widget>[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 12, 8),
-                  child: Row(
-                    children: <Widget>[
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: AppColors.fireGold,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.extension_rounded,
-                          color: Colors.white,
-                        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: FractionallySizedBox(
+            heightFactor: 0.82,
+            widthFactor: 1,
+            child: BattleQuestionSheetFrame(
+              sheetKey: const ValueKey<String>('solo-question-sheet'),
+              accent: AppColors.fireGold,
+              child: Column(
+                children: <Widget>[
+                  Align(
+                    child: Container(
+                      width: 42,
+                      height: 4,
+                      margin: const EdgeInsets.only(top: 10),
+                      decoration: BoxDecoration(
+                        color: BattleClayPalette.ink.withAlpha(28),
+                        borderRadius: BorderRadius.circular(99),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              question.category.toUpperCase(),
-                              style: GoogleFonts.fredoka(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            Text(
-                              'Soal ${question.questionOrder}',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: AppColors.textMuted,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (!answered && question.deadlineAt != null)
-                        _DeadlineTimer(
-                          key: ValueKey<DateTime>(question.deadlineAt!),
-                          deadline: question.deadlineAt!,
-                          onTimeout: onTimeout,
-                        ),
-                    ],
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 12, 8),
+                    child: Row(
                       children: <Widget>[
                         Container(
-                          padding: const EdgeInsets.all(15),
+                          width: 38,
+                          height: 38,
                           decoration: BoxDecoration(
+                            color: AppColors.fireGold,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.extension_rounded,
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: const <BoxShadow>[
-                              BoxShadow(
-                                color: Color(0xFFD7D9DC),
-                                offset: Offset(0, 3),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                question.category.toUpperCase(),
+                                style: GoogleFonts.fredoka(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              Text(
+                                'Soal ${question.questionOrder}',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: AppColors.textMuted,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ],
                           ),
-                          child: Text(
-                            question.prompt,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              height: 1.3,
-                            ),
-                          ),
                         ),
-                        const SizedBox(height: 12),
-                        if (!answered)
-                          hintVisible
-                              ? _Hint(
-                                  text: question.hint.isEmpty
-                                      ? 'Petunjuk belum tersedia untuk soal ini.'
-                                      : question.hint,
-                                )
-                              : OutlinedButton.icon(
-                                  key: const ValueKey<String>('solo-show-hint'),
-                                  onPressed: onHint,
-                                  icon: const Icon(
-                                    Icons.help_outline_rounded,
-                                    size: 18,
-                                  ),
-                                  label: const Text('Lihat petunjuk'),
-                                ),
-                        if (!answered) const SizedBox(height: 10),
-                        for (
-                          int index = 0;
-                          index < question.options.length;
-                          index++
-                        ) ...<Widget>[
-                          _Option(
-                            index: index,
-                            label: question.options[index],
-                            selected: selectedOption == index,
-                            feedback: answered,
-                            correctIndex: feedback?.correctOptionIndex,
-                            onTap: () => onSelect(index),
+                        if (!answered && question.deadlineAt != null)
+                          _DeadlineTimer(
+                            key: ValueKey<DateTime>(question.deadlineAt!),
+                            deadline: question.deadlineAt!,
+                            onTimeout: onTimeout,
                           ),
-                          const SizedBox(height: 9),
-                        ],
-                        if (answered && feedback!.explanation.isNotEmpty)
-                          _Explanation(text: feedback!.explanation),
                       ],
                     ),
                   ),
-                ),
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    16,
-                    8,
-                    16,
-                    14 + MediaQuery.paddingOf(context).bottom,
-                  ),
-                  child: Column(
-                    children: <Widget>[
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: FilledButton(
-                          key: const ValueKey<String>('solo-session-action'),
-                          onPressed: submitting || !answered ? null : onNext,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: answered
-                                ? const Color(0xFF2878F0)
-                                : AppColors.fireGold,
-                            foregroundColor: answered
-                                ? Colors.white
-                                : AppColors.warriorNavy,
-                          ),
-                          child: submitting
-                              ? const SizedBox.square(
-                                  dimension: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : Text(
-                                  answered ? 'LANJUT' : 'PILIH JAWABAN',
-                                  style: GoogleFonts.fredoka(
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Container(
+                            padding: const EdgeInsets.all(15),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: const <BoxShadow>[
+                                BoxShadow(
+                                  color: Color(0xFFD7D9DC),
+                                  offset: Offset(0, 3),
                                 ),
-                        ),
+                              ],
+                            ),
+                            child: Text(
+                              question.prompt,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                height: 1.3,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (!answered)
+                            hintVisible
+                                ? _Hint(
+                                    text: question.hint.isEmpty
+                                        ? 'Petunjuk belum tersedia untuk soal ini.'
+                                        : question.hint,
+                                  )
+                                : OutlinedButton.icon(
+                                    key: const ValueKey<String>(
+                                      'solo-show-hint',
+                                    ),
+                                    onPressed: onHint,
+                                    icon: const Icon(
+                                      Icons.help_outline_rounded,
+                                      size: 18,
+                                    ),
+                                    label: const Text('Lihat petunjuk'),
+                                  ),
+                          if (!answered) const SizedBox(height: 10),
+                          for (
+                            int index = 0;
+                            index < question.options.length;
+                            index++
+                          ) ...<Widget>[
+                            _Option(
+                              index: index,
+                              label: question.options[index],
+                              selected: selectedOption == index,
+                              feedback: answered,
+                              correctIndex: feedback?.correctOptionIndex,
+                              onTap: () => onSelect(index),
+                            ),
+                            const SizedBox(height: 9),
+                          ],
+                          if (answered && feedback!.explanation.isNotEmpty)
+                            _Explanation(text: feedback!.explanation),
+                        ],
                       ),
-                      if (!answered && !submitting)
-                        TextButton(
-                          onPressed: submitting ? null : onBack,
-                          child: const Text('Kembali ke kartu'),
-                        ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      8,
+                      16,
+                      14 + MediaQuery.paddingOf(context).bottom,
+                    ),
+                    child: Column(
+                      children: <Widget>[
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: FilledButton(
+                            key: const ValueKey<String>('solo-session-action'),
+                            onPressed: submitting || !answered ? null : onNext,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: answered
+                                  ? const Color(0xFF2878F0)
+                                  : AppColors.fireGold,
+                              foregroundColor: answered
+                                  ? Colors.white
+                                  : AppColors.warriorNavy,
+                            ),
+                            child: submitting
+                                ? const SizedBox.square(
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Text(
+                                    answered ? 'LANJUT' : 'PILIH JAWABAN',
+                                    style: GoogleFonts.fredoka(
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        if (!answered && !submitting)
+                          TextButton(
+                            onPressed: submitting ? null : onBack,
+                            child: const Text('Kembali ke kartu'),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -693,6 +938,7 @@ class _DeadlineTimerState extends State<_DeadlineTimer> {
 
   @override
   Widget build(BuildContext context) => Container(
+    key: const ValueKey<String>('solo-question-countdown'),
     width: 42,
     height: 42,
     alignment: Alignment.center,

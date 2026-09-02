@@ -154,6 +154,56 @@ void main() {
     expect(find.byKey(const ValueKey<String>('learning-menu')), findsNothing);
   });
 
+  testWidgets('animates Learning actions out of the center button', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: AppTabShell(
+            location: AppRoutes.lobby,
+            child: ColoredBox(color: Colors.white),
+          ),
+        ),
+      ),
+    );
+
+    final Offset origin = tester.getCenter(
+      find.byKey(const ValueKey<String>('learning-tab-button')),
+    );
+    await tester.tap(find.byKey(const ValueKey<String>('app-tab-Learning')));
+    await tester.pump();
+    final Offset openingSolo = tester.getCenter(
+      find.byKey(const ValueKey<String>('learning-menu-surface-Solo')),
+    );
+    await tester.pump(const Duration(milliseconds: 160));
+    final Offset midSolo = tester.getCenter(
+      find.byKey(const ValueKey<String>('learning-menu-surface-Solo')),
+    );
+    await tester.pumpAndSettle();
+    final Offset finalSolo = tester.getCenter(
+      find.byKey(const ValueKey<String>('learning-menu-surface-Solo')),
+    );
+
+    expect(
+      (openingSolo - origin).distance,
+      lessThan((midSolo - origin).distance),
+    );
+    expect(
+      (finalSolo - origin).distance,
+      greaterThan((openingSolo - origin).distance),
+    );
+    expect((midSolo - finalSolo).distance, greaterThan(1));
+
+    await tester.tapAt(const Offset(20, 100));
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(find.byKey(const ValueKey<String>('learning-menu')), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('learning-menu')), findsNothing);
+  });
+
   testWidgets('opens the Solo setup from the Learning menu', (
     WidgetTester tester,
   ) async {

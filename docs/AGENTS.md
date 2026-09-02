@@ -23,3 +23,14 @@ At the completion of a task, you must ask what my role is and check if the corre
 
 **Operational Rule**
 - After every interaction that includes a code change, you must append an entry to the corresponding file in `docs/devlog/` before finishing. Do not just suggest it. If you truly cannot write to the file (permissions/conflicts), provide the exact snippet the next person should paste. This is mandatory and should be treated as a checklist item for every task.
+
+## 3. Reusable Skills & SOPs (`docs/skill/*.md`)
+When dealing with recurring, standard, or mission-critical workflows, check `docs/skill/` first before re-inventing execution steps.
+
+- **Check Existing Skills**: Before executing repetitive operational tasks (e.g. deployment, question taxonomy classification, content seeding, database migrations), inspect `docs/skill/` for approved quick guides and execution rules:
+  - `docs/skill/deploy_web.md`: Panduan deploy Flutter Web ke Vercel via CLI/Dashboard.
+  - `docs/skill/question_taxonomy.md`: Panduan taksonomi dan kategorisasi bank soal (CPNS & BUMN).
+  - `docs/skill/content_pipeline.md`: Panduan validasi, sinkronisasi, dan seeding bank soal.
+  - `docs/skill/supabase_ops.md`: Panduan pengelolaan schema, migrasi, dan postchecks database.
+- **Document New Skills Proactively**: If you identify a workflow, pattern, or troubleshooting guide that is likely to be executed repeatedly in future AI/developer sessions, create or update the appropriate markdown file in `docs/skill/`. Keep instructions crisp, actionable, and ready for immediate AI execution.
+

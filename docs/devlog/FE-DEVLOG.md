@@ -2851,4 +2851,42 @@
 ### The Tech Debt
 - Post-session diagnostic result screen still uses legacy Practice quiz summary until Gate 5 Solo delivery migration.
 
+## 2026-09-02 - Restore Learning Route After Solo Merge
+
+### The Change
+- Restored the private `/learning` route and its `LearningPage` registration after the Solo route migration dropped that half of the earlier merge.
+- Updated stale Learning-to-Practice navigation and router tests to use the canonical Solo and explicitly named legacy compatibility routes.
+- Included `/learning` in the Learning navigation-tab active state and repaired the malformed Learning dashboard fixture in the Profile widget test.
+
+### The Reasoning
+- The Profile summary must open the dedicated Learning dashboard required by the PRD, while new navigation uses canonical Solo names and keeps `/practice` names isolated as compatibility surfaces.
+
+### Verification
+- All 18 focused router, navigation-shell, Learning, and Profile tests passed.
+- `flutter build web --debug` completed successfully and produced `build/web`; `git diff --check` completed cleanly.
+- Full Flutter analysis has no compiler errors, but still reports six unrelated pre-existing lint/deprecation findings in economy, learning/practice repositories, PvP, and a Practice test.
+
+### The Tech Debt
+- Learning recommendation launch metadata still uses the legacy `PracticeLaunchRequest` payload while `/solo` currently opens the generic Solo setup; recommendation-prefilled Solo setup remains a future contract alignment task.
+
+## 2026-09-02 - Solo Arena and Learning Navigation UI Alignment
+
+### The Change
+- Made the Lobby mission viewport scroll-safe inside the tab shell, including compact web heights that previously produced a small bottom overflow in Edge.
+- Added a reversible, reduced-motion-aware radial transition that makes Solo, PvP, and Interview emerge from the central Learning button instead of appearing abruptly.
+- Reworked Solo setup around a runnable Rimba Yudha + Standard + Balanced + 20-question preset and moved the existing manual controls into an animated bottom sheet; mechanic and question-count choices now share one clay card component.
+- Added neutral battle presentation primitives for the clay palette, arena frame, tower, character stand, deck, card, and question-sheet frame; PvP and Solo now share the applicable frame, palette, tower, deck, question sheet, and audio path.
+- Rebuilt the Solo session as a tower-only arena with one player character, three PvP-style cards, question-only Standard countdowns, attack/impact and hit feedback, profile-controlled arena BGM, relevant SFX, and app lifecycle audio handling.
+- Added the PvP-style arena-music volume slider to the Solo pause dialog and deferred correct/wrong character reactions until the learner dismisses answer feedback with `LANJUT`.
+
+### The Reasoning
+- One shared presentation vocabulary prevents Solo from drifting away from PvP while keeping Solo's server-owned learning state separate from PvP-only HP, round, combo, opponent, and match-clock concepts.
+
+### Verification
+- Added widget coverage for the Edge-sized Lobby shell, intermediate and reverse Learning-menu animation, recommended/manual Solo setup, compact bottom-sheet scrolling, the one-tower arena topology, retained question countdown, pause-dialog volume control, and the deferred correct-answer attack effect; controller coverage also verifies the deferred wrong-answer hit reaction.
+- All 185 Flutter tests pass, including the focused Lobby/navigation/Solo/PvP regressions. `flutter build web --debug` succeeds; its Wasm dry run reports only the existing `socket_io_common` JS-interop warning. Focused analysis of the updated Solo controller, UI, and tests reports no issue; full `flutter analyze` remains at six unrelated pre-existing lint/deprecation findings. `git diff --check` passes.
+
+### The Tech Debt
+- Evidence-based Recommended/Focus/Speed delivery and recommendation IDs remain gated backend work; the old PvP audio import path is retained only as a compatibility export while the implementation now lives under the shared battle module.
+
 

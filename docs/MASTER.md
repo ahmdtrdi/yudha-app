@@ -29,6 +29,11 @@ docs/
 ├─ LEARNING-SYSTEM-V2-DRAFT.md    # catatan desain V2 yang sudah diadopsi; PRD tetap kanonik
 ├─ MASTER.md                      # peta repo, dokumentasi, dan cara menjalankan app
 ├─ AGENTS.md                      # aturan kerja umum agent/developer
+├─ skill/                         # SOP & reusable execution skills untuk AI/developer
+│  ├─ deploy_web.md               # panduan deploy Flutter Web ke Vercel via CLI
+│  ├─ question_taxonomy.md        # taksonomi & kategorisasi soal (CPNS & BUMN)
+│  ├─ content_pipeline.md         # validasi, sinkronisasi & seeding bank soal
+│  └─ supabase_ops.md             # operasi migrasi & postcheck database
 ├─ devlog/
 │  ├─ AI-DEVLOG.md                # riwayat pekerjaan AI
 │  ├─ BE-DEVLOG.md                # riwayat pekerjaan backend

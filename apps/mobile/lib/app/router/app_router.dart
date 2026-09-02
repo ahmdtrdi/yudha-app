@@ -11,6 +11,7 @@ import 'package:yudha_mobile/features/interview/domain/entities/interview_launch
 import 'package:yudha_mobile/features/interview/presentation/pages/interview_page.dart';
 import 'package:yudha_mobile/features/interview/presentation/pages/interview_setup_page.dart';
 import 'package:yudha_mobile/features/leaderboard/presentation/pages/leaderboard_page.dart';
+import 'package:yudha_mobile/features/learning/presentation/pages/learning_page.dart';
 import 'package:yudha_mobile/features/lobby/presentation/pages/lobby_page.dart';
 import 'package:yudha_mobile/features/onboarding/presentation/pages/splash_page.dart';
 import 'package:yudha_mobile/features/pass/presentation/pages/hired_pass_page.dart';
@@ -120,6 +121,10 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
           GoRoute(
             path: AppRoutes.analytics,
             builder: (context, state) => const AnalyticsPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.learning,
+            builder: (context, state) => const LearningPage(),
           ),
           GoRoute(
             path: AppRoutes.solo,
