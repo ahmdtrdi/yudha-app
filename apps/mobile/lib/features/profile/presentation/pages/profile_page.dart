@@ -2112,7 +2112,7 @@ class _LearningSummaryLink extends StatelessWidget {
               'Akurasi, skill, retensi, dan aktivitas 30 hari.'
         : dashboard.accuracy.value == null
         ? 'Belum cukup bukti mandiri. Buka Learning untuk melihat data yang tersedia.'
-        : '${dashboard.accuracy.value!.round()}% akurasi mandiri dari ${dashboard.accuracy.attemptCount} percobaan · bukti ${_learningConfidence(dashboard.accuracy.confidence)}.';
+        : '${dashboard.accuracy.value!.round()}% akurasi mandiri dari ${dashboard.accuracy.attemptCount} percobaan · kekuatan bukti ${_learningConfidence(dashboard.accuracy.confidence)}.';
 
     return Material(
       color: Colors.white,

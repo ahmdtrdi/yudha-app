@@ -2889,6 +2889,25 @@
 ### The Tech Debt
 - Evidence-based Recommended/Focus/Speed delivery and recommendation IDs remain gated backend work; the old PvP audio import path is retained only as a compatibility export while the implementation now lives under the shared battle module.
 
+## 2026-09-02 - Explainable Learning Metrics
+
+### The Change
+- Added reusable Learning info buttons and a scrollable bottom sheet with a plain-language definition, inclusions, exclusions, formula, learner-specific example, and evidence window.
+- Covered raw versus smoothed accuracy, independent and unseen-independent evidence, pace ratio, evidence strength, retention, coverage, trend, and recommendation rationale.
+- Renamed user-facing Learning, Lobby, and Profile “confidence/bukti” labels to “kekuatan bukti” and surfaced each skill's trend and evidence strength beside its raw accuracy.
+- Corrected the Learning summary heading so it no longer implies every skill-state metric is limited to 30 days; explanations now identify the latest-20 state window and the separate 30-day activity window.
+
+### The Reasoning
+- The learning-v1 terms and thresholds are policy concepts, so inline explanations must distinguish learner performance from reliability of the available data.
+- A shared sheet keeps explanations consistent while allowing every entry point to use the learner's current numerator, denominator, unique-question count, ratio, or schedule.
+
+### Verification
+- Focused Dart analysis of the Learning page, explanation sheet, and widget test reports no issues.
+- Backend copy compilation and tests pass, and `git diff --check` is clean.
+- The Flutter widget runner did not complete in the Windows sandbox despite two focused attempts; it remained CPU-active without emitting test output and was stopped after static analysis completed cleanly.
+
+### The Tech Debt
+- The API property remains named `confidence` for contract compatibility even though all learner-facing copy says “kekuatan bukti.”
 ## 2026-09-02 - Harden PvP Category Deck Rendering
 
 ### The Change

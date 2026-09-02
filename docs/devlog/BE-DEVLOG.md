@@ -747,6 +747,26 @@
 - Gate 5 Solo delivery policy (session stopping rules, Focus/Standard/Speed mechanics in UI) remains blocked by explicit Decision Debt registered in PRD Section 11.22.
 - Admin content-quality dashboard and web Assessment validation runner remain deferred to future phase milestones.
 
+## 2026-09-02 - Manual Learning Evidence and Clear Recommendation Terminology
+
+**The Change:**
+- Seeded the recent CPNS Solo test account with the auditable `mixed` fixture through the existing Supabase REST workflow: 39 synthetic Solo attempts across four TIU skills.
+- Verified completed projection jobs, projected `needs_repair`, `developing`, and `secure` states, and an active `repair_accuracy` recommendation for TIU Figural.
+- Changed generated recommendation copy from personal-sounding “keyakinan” to “kekuatan bukti” while retaining the stable `confidence` API field.
+- Documented the safe seed, verification, and append-only invalidation workflow in `docs/skill/supabase_ops.md`.
+
+**The Reasoning:**
+- Synthetic evidence must remain identifiable and reversible through invalidation rather than direct mutation of the canonical attempt ledger.
+- “Kekuatan bukti” describes data reliability without implying anything about a learner's personal confidence.
+
+**Verification:**
+- Backend Learning tests passed: 26/26 across two suites.
+- Backend TypeScript compilation passed with `tsc --noEmit`.
+- Remote postcheck found 39 attempts, projected skill states, one active recommendation, and no failed projection job for the fixture.
+
+**The Tech Debt:**
+- The fixture remains active until it is explicitly invalidated with run key `manual-analytics-20260902-petergalnoel`.
+- The wire contract still uses the internal field name `confidence`; renaming it would require a versioned API migration and coordinated clients.
 ## 2026-09-02 - Enforce Three Canonical PvP Category Decks
 
 **The Change:**

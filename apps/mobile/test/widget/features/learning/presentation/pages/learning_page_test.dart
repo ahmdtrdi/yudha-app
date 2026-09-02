@@ -9,35 +9,40 @@ import 'package:yudha_mobile/features/learning/presentation/pages/learning_page.
 
 void main() {
   for (final Size size in <Size>[const Size(360, 760), const Size(700, 900)]) {
-    testWidgets('renders Learning sections without turning null into zero at $size', (
-      WidgetTester tester,
-    ) async {
-      await tester.binding.setSurfaceSize(size);
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+    testWidgets(
+      'renders Learning sections without turning null into zero at $size',
+      (WidgetTester tester) async {
+        await tester.binding.setSurfaceSize(size);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: <Override>[
-            learningRepositoryProvider.overrideWithValue(
-              const _ReadyLearningRepository(),
-            ),
-          ],
-          child: const MaterialApp(home: LearningPage()),
-        ),
-      );
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: <Override>[
+              learningRepositoryProvider.overrideWithValue(
+                const _ReadyLearningRepository(),
+              ),
+            ],
+            child: const MaterialApp(home: LearningPage()),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(const ValueKey<String>('learning-dashboard')),
-        findsOneWidget,
-      );
-      expect(find.text('Ringkasan 30 hari'), findsOneWidget);
-      expect(find.text('—'), findsWidgets);
-      expect(find.textContaining('0% akurasi mandiri'), findsNothing);
-      expect(find.text('Mengumpulkan data · 1 bukti mandiri'), findsOneWidget);
-      expect(find.text('Perlu diperbaiki · 1 bukti mandiri'), findsNothing);
-      expect(tester.takeException(), isNull);
-    });
+        expect(
+          find.byKey(const ValueKey<String>('learning-dashboard')),
+          findsOneWidget,
+        );
+        expect(find.text('Ringkasan belajar'), findsOneWidget);
+        expect(find.text('—'), findsWidgets);
+        expect(find.textContaining('0% akurasi mandiri'), findsNothing);
+        expect(
+          find.textContaining('Mengumpulkan data · 1 bukti mandiri'),
+          findsOneWidget,
+        );
+        expect(find.textContaining('Kekuatan bukti rendah'), findsWidgets);
+        expect(find.text('Perlu diperbaiki · 1 bukti mandiri'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets('shows a rollout-safe unavailable state', (
@@ -57,6 +62,42 @@ void main() {
 
     expect(find.text('Learning segera hadir'), findsOneWidget);
     expect(find.text('Buka Practice'), findsOneWidget);
+  });
+
+  testWidgets('explains evidence strength with the learner numbers', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          learningRepositoryProvider.overrideWithValue(
+            const _ReadyLearningRepository(),
+          ),
+        ],
+        child: const MaterialApp(home: LearningPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Apa artinya?').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Kekuatan bukti'), findsOneWidget);
+    expect(find.text('Yang dihitung'), findsOneWidget);
+    expect(find.text('Yang tidak dihitung'), findsOneWidget);
+    expect(find.text('Rumus'), findsOneWidget);
+    expect(find.text('Contoh dari datamu'), findsOneWidget);
+    expect(find.text('Jendela bukti'), findsOneWidget);
+    expect(
+      find.textContaining(
+        'Totalmu 0 percobaan dari 0 soal unik. Kekuatan ringkasan rendah',
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
   });
 }
 

@@ -49,3 +49,37 @@ infra/supabase/
 2. Jika migrasi menyangkut normalisasi data penting, buat file postcheck pendamping di `infra/supabase/postchecks/`.
 3. Jalankan script/test terkait di `infra/scripts/` untuk memastikan backend dan contract tetap sinkron.
 4. Catat perubahan schema ke dalam `docs/devlog/BE-DEVLOG.md` dan perbarui `PRD.md` jika mengubah kontrak publik.
+
+---
+
+## 4. Mengisi Data Learning Analytics Secara Manual
+
+Gunakan fixture hanya untuk akun development/staging yang boleh menerima data sintetis. Workflow ini menulis melalui Supabase REST API dengan service-role, memberi label `synthetic_fixture`, dan tetap mematuhi ledger `learning_attempts` yang append-only.
+
+```powershell
+# Jalankan dari root repository. Nilai konfirmasi wajib sama persis dengan user ID.
+node infra/scripts/learning-v2-cli.mjs fixture seed `
+  --user-id <USER_UUID> `
+  --confirm-disposable <USER_UUID> `
+  --run-key <RUN_KEY> `
+  --scenario mixed
+```
+
+Fixture `mixed` menambahkan 39 percobaan Solo pada empat skill, lalu mengantrekan rebuild proyeksi. Jalankan backend worker atau tunggu worker deployment memproses job sebelum membaca `GET /learning/dashboard` dan `GET /learning/recommendations/current`.
+
+Jika data uji harus dikeluarkan dari analitik, jangan menghapus atau mengubah `learning_attempts`. Invalidasi run secara auditable:
+
+```powershell
+node infra/scripts/learning-v2-cli.mjs fixture invalidate `
+  --user-id <USER_UUID> `
+  --confirm-disposable <USER_UUID> `
+  --run-key <RUN_KEY_YANG_SAMA> `
+  --reason "manual analytics fixture finished"
+```
+
+Postcheck minimum:
+
+1. Run berstatus `active` di `learning_fixture_runs`.
+2. Tepat 39 attempt memiliki `fixture_run_id` tersebut.
+3. Empat job `fixture_seeded` selesai tanpa `last_error`.
+4. `learner_skill_state` berisi hasil proyeksi dan satu `learning_recommendations` aktif tersedia.
