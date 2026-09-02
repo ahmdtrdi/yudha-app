@@ -336,15 +336,6 @@ class _InBattleSectionState extends State<_InBattleSection>
       }
     }
 
-    // The server is authoritative for the three-card hand. Taxonomy metadata
-    // may temporarily contain a legacy value, but the client must never hide
-    // a card that was already dealt. Fill any unresolved slot from the
-    // remaining server hand while preserving the three-card limit.
-    for (final BattleQuestion question in questions) {
-      if (decks.length == _arenaHandSize) break;
-      if (selectedIds.add(question.id)) decks.add(question);
-    }
-
     return decks.take(_arenaHandSize).toList(growable: false);
   }
 
@@ -3036,57 +3027,6 @@ List<String> _arenaDeckOrder(BattleTarget? target) {
 }
 
 String _arenaQuestionDeckKey(BattleQuestion question, BattleTarget? target) {
-  final String topic = _arenaTaxonomyKey(question.subcategory);
-  final String? topicDeck = switch (target) {
-    BattleTarget.bumn => switch (topic) {
-      'pancasila' ||
-      'uud_1945' ||
-      'nkri' ||
-      'bhinneka_tunggal_ika' => 'wawasan_kebangsaan',
-      'verbal' ||
-      'kemampuan_verbal' ||
-      'numerik' ||
-      'kemampuan_numerik' ||
-      'logis' ||
-      'logika' ||
-      'kemampuan_logis' ||
-      'kemampuan_logika' ||
-      'figural' ||
-      'kemampuan_figural' => 'tkd',
-      'amanah' || 'kompeten' || 'harmonis' || 'loyal' => 'akhlak',
-      _ => null,
-    },
-    BattleTarget.cpns || null => switch (topic) {
-      'pancasila_dan_ideologi' ||
-      'pancasila_ideologi' ||
-      'konstitusi_dan_negara' ||
-      'konstitusi_negara' ||
-      'sejarah_dan_kebangsaan' ||
-      'sejarah_kebangsaan' ||
-      'bhinneka_tunggal_ika' => 'twk',
-      'verbal' ||
-      'kemampuan_verbal' ||
-      'numerik' ||
-      'kemampuan_numerik' ||
-      'logis' ||
-      'logika' ||
-      'kemampuan_logis' ||
-      'kemampuan_logika' ||
-      'figural' ||
-      'kemampuan_figural' => 'tiu',
-      'pelayanan_dan_integritas' ||
-      'pelayanan_integritas' ||
-      'kerja_sama_dan_komunikasi' ||
-      'kerja_sama_komunikasi' ||
-      'adaptasi_dan_pengembangan_diri' ||
-      'adaptasi_pengembangan_diri' ||
-      'pengambilan_keputusan_dan_kinerja' ||
-      'pengambilan_keputusan_kinerja' => 'tkp',
-      _ => null,
-    },
-  };
-  if (topicDeck != null) return topicDeck;
-
   final String category = _arenaTaxonomyKey(question.category);
   return switch (target) {
     BattleTarget.bumn => switch (category) {
@@ -3095,7 +3035,12 @@ String _arenaQuestionDeckKey(BattleQuestion question, BattleTarget? target) {
       'akhlah' || 'core_values' => 'akhlak',
       _ => category,
     },
-    BattleTarget.cpns || null => category,
+    BattleTarget.cpns || null => switch (category) {
+      'wk' || 'wawasan_kebangsaan' => 'twk',
+      'tkd' || 'tes_intelegensia_umum' => 'tiu',
+      'tes_karakteristik_pribadi' => 'tkp',
+      _ => category,
+    },
   };
 }
 
@@ -3182,8 +3127,7 @@ String _arenaCardAsset(
     'logika' => _logikaCardAsset,
     'tkp' || 'karakteristik_pribadi' => _tkpCardAsset,
     'twk' || 'wk' || 'wawasan_kebangsaan' => _twkCardAsset,
-    'tkd' => _numerikCardAsset,
-    'tiu' || 'numerik' => _numerikCardAsset,
+    'numerik' => _numerikCardAsset,
     _ => effect == QuestionEffect.heal ? _akhlakCardAsset : _numerikCardAsset,
   };
 }

@@ -51,7 +51,6 @@ function createFinishedRoom(
         comboLevel: 0,
         hand: [],
         answeredCardIds: new Set(),
-        nextDrawIndex: 0,
         connected: true,
       },
       playerB: {
@@ -68,7 +67,6 @@ function createFinishedRoom(
         comboLevel: 0,
         hand: [],
         answeredCardIds: new Set(),
-        nextDrawIndex: 0,
         connected: true,
       },
     },
