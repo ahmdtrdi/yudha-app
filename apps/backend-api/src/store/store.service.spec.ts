@@ -1,25 +1,20 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
 } from '@nestjs/common';
-import type { ConfigService } from '@nestjs/config';
 import type { SupabaseService } from '../supabase/supabase.service';
 import { StoreService } from './store.service';
 
 describe('StoreService', () => {
   const rpc = jest.fn();
-  const get = jest.fn();
   let service: StoreService;
 
   beforeEach(() => {
     rpc.mockReset();
-    get.mockReset();
     service = new StoreService(
       {
         getClient: () => ({ rpc }),
       } as unknown as SupabaseService,
-      { get } as unknown as ConfigService,
     );
   });
 
@@ -112,17 +107,6 @@ describe('StoreService', () => {
     await expect(service.setLoadout('user-1', {})).rejects.toBeInstanceOf(
       BadRequestException,
     );
-    expect(rpc).not.toHaveBeenCalled();
-  });
-
-  it('keeps beta credits disabled unless explicitly enabled', async () => {
-    get.mockReturnValue('false');
-
-    await expect(
-      service.grantBetaCredit('user-1', {
-        idempotencyKey: 'request-1',
-      }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
     expect(rpc).not.toHaveBeenCalled();
   });
 });

@@ -53,6 +53,11 @@ interface CreateSessionInput {
   contextSnapshot: CompanyContextSnapshot;
 }
 
+interface CreateChargedSessionInput extends CreateSessionInput {
+  idempotencyKey: string;
+  openingQuestion: string;
+}
+
 type InterviewSessionUpdate =
   Database['public']['Tables']['interview_sessions']['Update'];
 type InterviewTurnInsert =
@@ -87,6 +92,57 @@ export class InterviewSessionRepository {
     }
 
     return this.mapSession(data);
+  }
+
+  async createChargedSession(input: CreateChargedSessionInput): Promise<{
+    session: InterviewSession;
+    openingQuestion: InterviewTurn;
+    chargedYCoins: number;
+    yCoins: number;
+    replayed: boolean;
+  }> {
+    const { data, error } = await this.supabaseService.getClient().rpc(
+      'create_interview_session_with_charge',
+      {
+        p_user_id: input.userId,
+        p_idempotency_key: input.idempotencyKey,
+        p_company_id: input.companyId,
+        p_target_role: input.targetRole,
+        p_mode: input.mode,
+        p_language: input.language,
+        p_response_style: input.responseStyle,
+        p_context_snapshot: input.contextSnapshot as unknown as Json,
+        p_opening_question: input.openingQuestion,
+      },
+    );
+    if (error) {
+      if (
+        error.message.includes('INSUFFICIENT_Y_COIN') ||
+        error.message.includes('IDEMPOTENCY_KEY_REUSED')
+      ) {
+        throw new ConflictException(error.message);
+      }
+      throw new InternalServerErrorException(error.message);
+    }
+    if (!data || Array.isArray(data) || typeof data !== 'object') {
+      throw new InternalServerErrorException(
+        'create_interview_session_with_charge returned an invalid result.',
+      );
+    }
+    const result = data as Record<string, Json | undefined>;
+    const sessionId = String(result.sessionId ?? '');
+    const openingQuestionId = String(result.openingQuestionId ?? '');
+    const [session, openingQuestion] = await Promise.all([
+      this.getOwnedSession(sessionId, input.userId),
+      this.getSessionTurn(sessionId, openingQuestionId),
+    ]);
+    return {
+      session,
+      openingQuestion,
+      chargedYCoins: Number(result.chargedYCoins ?? 0),
+      yCoins: Number(result.yCoins ?? 0),
+      replayed: result.replayed === true,
+    };
   }
 
   async getOwnedSession(

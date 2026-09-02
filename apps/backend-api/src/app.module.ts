@@ -10,7 +10,6 @@ import { LeaderboardModule } from './leaderboard/leaderboard.module';
 import { PracticeModule } from './practice/practice.module';
 import { MatchesModule } from './matches/matches.module';
 import { AnalyticsModule } from './analytics/analytics.module';
-import { HiredPassModule } from './hired-pass/hired-pass.module';
 import { StoreModule } from './store/store.module';
 import { LobbyModule } from './lobby/lobby.module';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -18,6 +17,8 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { SoloModule } from './solo/solo.module';
 import { LearningModule } from './learning/learning.module';
 import { PvpAnalyticsModule } from './pvp-analytics/pvp-analytics.module';
+import { EconomyModule } from './economy/economy.module';
+import { ProModule } from './pro/pro.module';
 
 @Module({
   imports: [
@@ -35,8 +36,9 @@ import { PvpAnalyticsModule } from './pvp-analytics/pvp-analytics.module';
     InterviewModule,
     MatchesModule,
     AnalyticsModule,
+    EconomyModule,
+    ProModule,
     StoreModule,
-    HiredPassModule,
     LobbyModule,
     NotificationsModule,
     LearningModule,

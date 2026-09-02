@@ -10,6 +10,7 @@ export class InterviewInputValidator {
   ) {}
 
   validateStartSession(input: StartInterviewSessionDto): void {
+    this.requireText(input.idempotencyKey, 'idempotencyKey', 160);
     this.requireText(input.companyId, 'companyId', 100);
     this.requireText(input.targetRole, 'targetRole', 120);
     this.requireText(input.mode, 'mode', 60);

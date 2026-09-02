@@ -44,7 +44,8 @@ export type Database = {
           equipped_avatar_id: Nullable<string>;
           equipped_arena_id: Nullable<string>;
           equipped_tower_id: Nullable<string>;
-          hired_pass_expires_at: Nullable<string>;
+          energy_balance: number;
+          energy_refilled_on: string;
           current_streak: number;
           best_streak: number;
           last_streak_date: Nullable<string>;
@@ -66,7 +67,8 @@ export type Database = {
           equipped_avatar_id?: Nullable<string>;
           equipped_arena_id?: Nullable<string>;
           equipped_tower_id?: Nullable<string>;
-          hired_pass_expires_at?: Nullable<string>;
+          energy_balance?: number;
+          energy_refilled_on?: string;
           current_streak?: number;
           best_streak?: number;
           last_streak_date?: Nullable<string>;
@@ -85,7 +87,7 @@ export type Database = {
           rarity: string;
           coin_price: number;
           is_active: boolean;
-          is_pass_exclusive: boolean;
+          is_pro_exclusive: boolean;
         };
         Insert: TimestampedInsert & {
           id: string;
@@ -95,7 +97,7 @@ export type Database = {
           rarity: string;
           coin_price?: number;
           is_active?: boolean;
-          is_pass_exclusive?: boolean;
+          is_pro_exclusive?: boolean;
         };
         Update: Partial<Database['public']['Tables']['store_items']['Insert']>;
         Relationships: [];
@@ -168,152 +170,77 @@ export type Database = {
         >;
         Relationships: [];
       };
-      hired_pass_seasons: {
-        Row: {
-          id: string;
-          name: string;
-          starts_at: string;
-          ends_at: string;
-          is_active: boolean;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id: string;
-          name: string;
-          starts_at: string;
-          ends_at: string;
-          is_active?: boolean;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: Partial<
-          Database['public']['Tables']['hired_pass_seasons']['Insert']
-        >;
-        Relationships: [];
-      };
-      hired_pass_missions: {
-        Row: {
-          id: string;
-          season_id: string;
-          title: string;
-          description: string;
-          event_type: string;
-          cadence: string;
-          target_count: number;
-          points_reward: number;
-          is_active: boolean;
-          created_at: string;
-        };
-        Insert: {
-          id: string;
-          season_id: string;
-          title: string;
-          description: string;
-          event_type: string;
-          cadence: string;
-          target_count: number;
-          points_reward: number;
-          is_active?: boolean;
-          created_at?: string;
-        };
-        Update: Partial<
-          Database['public']['Tables']['hired_pass_missions']['Insert']
-        >;
-        Relationships: [];
-      };
-      hired_pass_rewards: {
-        Row: {
-          id: string;
-          season_id: string;
-          track: string;
-          points_required: number;
-          label: string;
-          coins_reward: number;
-          item_id: Nullable<string>;
-          is_active: boolean;
-          created_at: string;
-        };
-        Insert: {
-          id: string;
-          season_id: string;
-          track: string;
-          points_required: number;
-          label: string;
-          coins_reward?: number;
-          item_id?: Nullable<string>;
-          is_active?: boolean;
-          created_at?: string;
-        };
-        Update: Partial<
-          Database['public']['Tables']['hired_pass_rewards']['Insert']
-        >;
-        Relationships: [];
-      };
-      user_hired_pass_progress: {
-        Row: {
-          user_id: string;
-          season_id: string;
-          pass_points: number;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          user_id: string;
-          season_id: string;
-          pass_points?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: Partial<
-          Database['public']['Tables']['user_hired_pass_progress']['Insert']
-        >;
-        Relationships: [];
-      };
-      user_hired_pass_mission_progress: {
-        Row: {
-          user_id: string;
-          mission_id: string;
-          period_start: string;
-          progress_count: number;
-          completed_at: Nullable<string>;
-          points_awarded_at: Nullable<string>;
-          updated_at: string;
-        };
-        Insert: {
-          user_id: string;
-          mission_id: string;
-          period_start: string;
-          progress_count?: number;
-          completed_at?: Nullable<string>;
-          points_awarded_at?: Nullable<string>;
-          updated_at?: string;
-        };
-        Update: Partial<
-          Database['public']['Tables']['user_hired_pass_mission_progress']['Insert']
-        >;
-        Relationships: [];
-      };
-      user_hired_pass_reward_claims: {
-        Row: {
-          user_id: string;
-          reward_id: string;
-          coins_awarded: number;
-          item_id: Nullable<string>;
-          claimed_at: string;
-        };
-        Insert: {
-          user_id: string;
-          reward_id: string;
-          coins_awarded?: number;
-          item_id?: Nullable<string>;
-          claimed_at?: string;
-        };
-        Update: Partial<
-          Database['public']['Tables']['user_hired_pass_reward_claims']['Insert']
-        >;
-        Relationships: [];
-      };
+      economy_policy_versions: DatabaseTable<{
+        id: string;
+        policy: Json;
+        is_active: boolean;
+        created_at: string;
+      }>;
+      energy_transactions: DatabaseTable<{
+        id: string;
+        user_id: string;
+        delta: number;
+        reason: string;
+        reference_id: Nullable<string>;
+        idempotency_key: string;
+        balance_after: number;
+        business_date: string;
+        created_at: string;
+      }>;
+      energy_reservations: DatabaseTable<{
+        id: string;
+        user_id: string;
+        mode: string;
+        reference_id: string;
+        idempotency_key: string;
+        amount: number;
+        status: string;
+        reserve_transaction_id: Nullable<string>;
+        release_transaction_id: Nullable<string>;
+        expires_at: Nullable<string>;
+        committed_at: Nullable<string>;
+        released_at: Nullable<string>;
+        release_reason: Nullable<string>;
+        created_at: string;
+      }>;
+      pro_entitlement_periods: DatabaseTable<{
+        id: string;
+        user_id: string;
+        plan_id: string;
+        source: string;
+        status: string;
+        starts_at: string;
+        ends_at: string;
+        selected_skin_id: Nullable<string>;
+        coin_transaction_id: Nullable<string>;
+        idempotency_key: string;
+        request_hash: string;
+        created_at: string;
+      }>;
+      ad_reward_claims: DatabaseTable<{
+        id: string;
+        user_id: string;
+        reward_type: string;
+        placement_id: string;
+        provider: string;
+        provider_transaction_id: string;
+        idempotency_key: string;
+        business_date: string;
+        amount_awarded: number;
+        energy_transaction_id: Nullable<string>;
+        coin_transaction_id: Nullable<string>;
+        created_at: string;
+      }>;
+      interview_session_charges: DatabaseTable<{
+        id: string;
+        user_id: string;
+        session_id: string;
+        amount: number;
+        idempotency_key: string;
+        request_hash: string;
+        coin_transaction_id: string;
+        created_at: string;
+      }>;
       questions: {
         Row: TimestampedRow & {
           id: string;
@@ -1207,42 +1134,91 @@ export type Database = {
         };
         Returns: Json;
       };
-      grant_beta_credit: {
+      get_economy_state: {
+        Args: { p_user_id: string; p_at?: string };
+        Returns: Json;
+      };
+      purchase_energy_pack: {
         Args: {
           p_user_id: string;
+          p_package_id: string;
           p_idempotency_key: string;
         };
         Returns: Json;
       };
-      claim_hired_pass_reward: {
+      activate_pro_beta: {
         Args: {
           p_user_id: string;
-          p_reward_id: string;
-        };
-        Returns: Json;
-      };
-      claim_hired_pass_reward_idempotent: {
-        Args: {
-          p_user_id: string;
-          p_reward_id: string;
+          p_plan_id: string;
+          p_skin_id: Nullable<string>;
           p_idempotency_key: string;
         };
         Returns: Json;
       };
-      activate_hired_pass_beta: {
+      claim_verified_ad_reward: {
         Args: {
           p_user_id: string;
-          p_season_id: string;
+          p_reward_type: string;
+          p_placement_id: string;
+          p_provider: string;
+          p_provider_transaction_id: string;
           p_idempotency_key: string;
         };
         Returns: Json;
       };
-      record_hired_pass_activity: {
+      create_interview_session_with_charge: {
         Args: {
           p_user_id: string;
-          p_event_type: string;
-          p_source_id: string;
-          p_occurred_at?: string;
+          p_idempotency_key: string;
+          p_company_id: string;
+          p_target_role: string;
+          p_mode: string;
+          p_language: string;
+          p_response_style: string;
+          p_context_snapshot: Json;
+          p_opening_question: string;
+        };
+        Returns: Json;
+      };
+      reserve_energy: {
+        Args: {
+          p_user_id: string;
+          p_mode: string;
+          p_reference_id: string;
+          p_idempotency_key: string;
+          p_ttl_seconds?: number;
+          p_commit_immediately?: boolean;
+        };
+        Returns: Json;
+      };
+      commit_energy_reservation: {
+        Args: {
+          p_user_id: string;
+          p_mode: string;
+          p_reference_id?: Nullable<string>;
+        };
+        Returns: Json;
+      };
+      release_energy_reservation: {
+        Args: {
+          p_user_id: string;
+          p_mode: string;
+          p_reason: string;
+          p_reference_id?: Nullable<string>;
+        };
+        Returns: Json;
+      };
+      release_expired_energy_reservations: {
+        Args: {
+          p_limit?: number;
+        };
+        Returns: number;
+      };
+      grant_completion_energy: {
+        Args: {
+          p_user_id: string;
+          p_reference_id: string;
+          p_idempotency_key: string;
         };
         Returns: Json;
       };

@@ -54,19 +54,35 @@ export class SoloRepository {
     });
   }
 
-  requestHint(
+  async requestHint(
     userId: string,
     sessionId: string,
     sessionQuestionId: string,
     idempotencyKey: string,
   ) {
-    return this.call('request_solo_hint', {
+    const result = await this.call('request_solo_hint', {
       p_user_id: userId,
       p_session_id: sessionId,
       p_session_question_id: sessionQuestionId,
       p_idempotency_key: idempotencyKey,
       p_requested_at: new Date().toISOString(),
     });
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('profiles')
+      .select('coins')
+      .eq('id', userId)
+      .single();
+    if (error || !data) {
+      throw new InternalServerErrorException(
+        error?.message ?? 'Failed to load Y-Coin balance.',
+      );
+    }
+    return { ...result, chargedYCoins: 5, yCoins: data.coins };
+  }
+
+  getEconomyState(userId: string) {
+    return this.call('get_economy_state', { p_user_id: userId });
   }
 
   async submitAnswer(input: {
@@ -124,6 +140,12 @@ export class SoloRepository {
   private throwRpcError(message: string): never {
     if (message.includes('IDEMPOTENCY_KEY_REUSED')) {
       throw new ConflictException('IDEMPOTENCY_KEY_REUSED');
+    }
+    if (
+      message.includes('INSUFFICIENT_ENERGY') ||
+      message.includes('INSUFFICIENT_Y_COIN')
+    ) {
+      throw new ConflictException(message);
     }
     if (message.includes('NOT_FOUND')) throw new NotFoundException(message);
     if (message.includes('CONFLICT') || message.includes('ACTION_REJECTED')) {

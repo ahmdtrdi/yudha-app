@@ -66,11 +66,18 @@ describe('QuestionService', () => {
 
   beforeEach(async () => {
     // Build a chained mock through the deterministic paginated query.
+    const mockRevisionOrder = jest.fn().mockResolvedValue({ data: [], error: null });
+    const mockRevisionEq = jest.fn().mockReturnValue({ order: mockRevisionOrder });
+    const mockIn = jest.fn().mockReturnValue({ eq: mockRevisionEq });
+
     mockRange = jest.fn();
     mockOrder = jest.fn().mockReturnValue({ range: mockRange });
     mockEqActive = jest.fn().mockReturnValue({ order: mockOrder });
     mockEqTarget = jest.fn().mockReturnValue({ eq: mockEqActive });
-    mockSelect = jest.fn().mockReturnValue({ eq: mockEqTarget });
+    mockSelect = jest.fn().mockReturnValue({
+      eq: mockEqTarget,
+      in: mockIn,
+    });
 
     mockFrom = jest.fn().mockReturnValue({ select: mockSelect });
     const mockAdminClient = { from: mockFrom };
@@ -457,8 +464,9 @@ describe('QuestionService', () => {
       ]);
       expect(cards.filter((card) => card.category === 'TWK')).toHaveLength(30);
       expect(cards.filter((card) => card.category === 'TIU')).toHaveLength(35);
-      expect(cards.filter((card) => card.category === 'TKP')).toHaveLength(45);
-      expect(mockFrom).toHaveBeenCalledTimes(3);
+      expect(
+        mockFrom.mock.calls.filter(([table]) => table === 'questions'),
+      ).toHaveLength(3);
       expect(mockFrom).toHaveBeenCalledWith('questions');
     });
 

@@ -60,28 +60,31 @@ export class InterviewService {
     const contextSnapshot = await this.companyContextService.resolveSnapshot(
       input.companyId.trim(),
     );
-    const session = await this.repository.createSession({
+    const openingQuestionText = this.buildOpeningQuestion(
+      contextSnapshot.companyName,
+      input.targetRole.trim(),
+    );
+    const created = await this.repository.createChargedSession({
       userId,
+      idempotencyKey: input.idempotencyKey.trim(),
       companyId: contextSnapshot.companyId,
       targetRole: input.targetRole.trim(),
       mode: input.mode.trim(),
       language: input.language?.trim() || this.defaultLanguage,
       responseStyle: input.responseStyle ?? 'text',
       contextSnapshot,
+      openingQuestion: openingQuestionText,
     });
-    const openingQuestion = await this.repository.addQuestion(
-      session.id,
-      this.buildOpeningQuestion(
-        contextSnapshot.companyName,
-        session.targetRole,
-      ),
-    );
+    const { session, openingQuestion } = created;
 
     return {
       sessionId: session.id,
       status: session.status,
       companyId: session.companyId,
       responseStyle: session.responseStyle,
+      chargedYCoins: created.chargedYCoins,
+      yCoins: created.yCoins,
+      replayed: created.replayed,
       openingQuestion: this.toQuestionResponse(
         openingQuestion,
         session.responseStyle,

@@ -22,7 +22,16 @@ describe('Gate 1 REST contracts (e2e)', () => {
     yCoins: 0,
     dailyMissions: [{ key: 'daily_practice' }, { key: 'daily_pvp' }],
     streak: { current: 1, best: 1 },
-    hiredPassSummary: { passPoints: 0 },
+    economy: {
+      energy: { balance: 10, cap: 10, unlimited: false },
+      yCoins: 0,
+      policyVersion: 'economy-policy.v1',
+    },
+    proSummary: {
+      active: false,
+      expiresAt: null,
+      unlimitedEnergy: false,
+    },
     recommendation: { type: 'practice', target: 'cpns' },
   };
 

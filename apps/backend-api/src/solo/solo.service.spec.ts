@@ -15,6 +15,9 @@ describe('SoloService Learning V2 alignment', () => {
       requestHint: jest.fn(),
       submitAnswer: jest.fn(),
       finishSession: jest.fn(),
+      getEconomyState: jest.fn().mockResolvedValue({
+        energy: { balance: 8, cap: 10, unlimited: false },
+      }),
     } as unknown as jest.Mocked<SoloRepository>;
     service = new SoloService(repository);
   });

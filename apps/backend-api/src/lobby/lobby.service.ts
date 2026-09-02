@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { AnalyticsService } from '../analytics/analytics.service';
-import { HiredPassService } from '../hired-pass/hired-pass.service';
+import { EconomyService } from '../economy/economy.service';
 import { ProfileService } from '../profile/profile.service';
 import { wibBusinessDate } from '../progression/progression.utils';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -11,13 +11,13 @@ const DAILY_MISSIONS = [
     key: 'daily_practice',
     title: 'Selesaikan Practice',
     target: 1,
-    rewardYCoins: 2,
+    rewardYCoins: 0,
   },
   {
     key: 'daily_pvp',
     title: 'Selesaikan PvP publik',
     target: 1,
-    rewardYCoins: 1,
+    rewardYCoins: 0,
   },
 ] as const;
 
@@ -26,18 +26,18 @@ export class LobbyService {
   constructor(
     private readonly profileService: ProfileService,
     private readonly analyticsService: AnalyticsService,
-    private readonly hiredPassService: HiredPassService,
+    private readonly economyService: EconomyService,
     private readonly supabaseService: SupabaseService,
     private readonly learningService: LearningService,
   ) {}
 
   async getSummary(userId: string, requestedAt = new Date()) {
     const businessDate = wibBusinessDate(requestedAt);
-    const [profile, analytics, hiredPass, missionResult, learningNextAction] =
+    const [profile, analytics, economy, missionResult, learningNextAction] =
       await Promise.all([
         this.profileService.getProfileData(userId),
         this.analyticsService.getAnalyticsData(userId, requestedAt),
-        this.hiredPassService.getStatus(userId),
+        this.economyService.getState(userId),
         this.supabaseService
           .getClient()
           .from('daily_mission_progress')
@@ -56,8 +56,6 @@ export class LobbyService {
         row,
       ]),
     );
-    const passData: any = hiredPass.data;
-
     return {
       data: {
         profile,
@@ -73,19 +71,8 @@ export class LobbyService {
           };
         }),
         streak: profile.streak,
-        hiredPassSummary: {
-          season: passData.season,
-          passPoints: passData.passPoints,
-          premiumActive: passData.entitlement.premiumActive,
-          expiresAt: passData.entitlement.expiresAt,
-          completedMissions: passData.missions.filter(
-            (mission: any) => mission.completed,
-          ).length,
-          totalMissions: passData.missions.length,
-          unclaimedRewards: passData.rewards.filter(
-            (reward: any) => !passData.claimedRewardIds.includes(reward.id),
-          ).length,
-        },
+        economy: economy.data,
+        proSummary: economy.data.pro,
         recommendation: analytics.recommendation,
         learningNextAction,
       },

@@ -12,14 +12,14 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "type", "name", "rarity", "coinPrice", "active", "passExclusive"],
+        "required": ["id", "type", "name", "rarity", "coinPrice", "active", "proExclusive"],
         "properties": {
           "id": { "type": "string", "minLength": 1 },
           "type": { "enum": ["character", "tower", "arena"] },
           "rarity": { "enum": ["common", "rare", "epic", "legendary"] },
           "coinPrice": { "type": "integer", "minimum": 0 },
           "active": { "type": "boolean" },
-          "passExclusive": { "type": "boolean" }
+          "proExclusive": { "type": "boolean" }
         }
       }
     }

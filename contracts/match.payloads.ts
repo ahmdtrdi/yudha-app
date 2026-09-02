@@ -4,11 +4,23 @@ import type {
   BattleTarget,
   MatchmakingMode,
   PublicBattleState,
-} from "./battle-state";
-import type { CardEffect } from "./question-card";
+} from './battle-state';
+import type { CardEffect } from './question-card';
+
+export type EnergyReservationInfo = {
+  reservationId?: string;
+  energyBalance?: number;
+  energyCost?: number;
+  unlimited?: boolean;
+};
 
 export type JoinQueuePayload = {
+  commandId: string;
   mode?: MatchmakingMode;
+};
+
+export type CancelQueuePayload = {
+  commandId: string;
 };
 
 export type QueueJoinedPayload = {
@@ -16,10 +28,11 @@ export type QueueJoinedPayload = {
   queueDepth: number;
   mode: MatchmakingMode;
   target: BattleTarget;
+  energy?: EnergyReservationInfo;
 };
 
 export type QueueCancelledPayload = {
-  reason: "cancelled" | "disconnected";
+  reason: 'cancelled' | 'disconnected';
 };
 
 export type CreatePrivateRoomPayload = {
@@ -40,24 +53,33 @@ export type PrivateRoomCreatedPayload = {
   code: string;
   target: BattleTarget;
   expiresAt: string;
+  energy?: EnergyReservationInfo;
 };
 
 export type PrivateRoomJoinedPayload = {
   code: string;
   roomId: string;
+  energy?: EnergyReservationInfo;
 };
 
 export type PrivateRoomCancelledPayload = {
   code: string;
-  reason: "cancelled" | "expired" | "disconnected";
+  reason: 'cancelled' | 'expired' | 'disconnected';
 };
 
 export type SocketCommandErrorCode =
-  | "VALIDATION_FAILED"
-  | "IDEMPOTENCY_KEY_REUSED"
-  | "CONFLICT"
-  | "ROOM_CODE_INVALID"
-  | "QUEUE_UNAVAILABLE";
+  | 'VALIDATION_FAILED'
+  | 'IDEMPOTENCY_KEY_REUSED'
+  | 'CONFLICT'
+  | 'ROOM_CODE_INVALID'
+  | 'QUEUE_UNAVAILABLE'
+  | 'INSUFFICIENT_ENERGY'
+  | 'INSUFFICIENT_Y_COIN'
+  | 'ENERGY_CAP_REACHED'
+  | 'AD_REWARD_LIMIT_REACHED'
+  | 'AD_VERIFICATION_FAILED'
+  | 'PRO_ALREADY_ACTIVE'
+  | 'PRO_SKIN_NOT_ELIGIBLE';
 
 export type SocketCommandAck<T> =
   | { data: T; requestId: string }
@@ -81,6 +103,7 @@ export type MatchFoundPayload = {
 };
 
 export type OpenCardPayload = {
+  commandId: string;
   roomId: string;
   cardId: string;
 };
@@ -91,6 +114,7 @@ export type OpenCardAcceptedPayload = {
 };
 
 export type PlayCardPayload = {
+  commandId: string;
   roomId: string;
   cardId: string;
   selectedOptionIndex: number;
@@ -102,36 +126,37 @@ export type PlayCardResultPayload = {
   cardId: string;
   category?: string;
   correct: boolean;
-  effect: CardEffect | "none";
+  effect: CardEffect | 'none';
   effectValue: number;
   projectileLevel: number;
 };
 
 export type CardActionRejectedPayload = {
   roomId?: string;
-  action: "open_card" | "play_card";
+  action: 'open_card' | 'play_card';
   reason: string;
   message: string;
   recoverable: boolean;
 };
 
 export type SurrenderPayload = {
+  commandId: string;
   roomId: string;
 };
 
 export type MatchResultReason =
-  | "hp_zero"
-  | "round_timeout"
-  | "surrender"
-  | "question_exhaustion"
-  | "disconnect"
-  | "draw";
+  | 'hp_zero'
+  | 'round_timeout'
+  | 'surrender'
+  | 'question_exhaustion'
+  | 'disconnect'
+  | 'draw';
 
 export type MatchResultPayload = {
   roomId: string;
   mode: MatchmakingMode;
   target: BattleTarget;
-  outcome: "win" | "lose" | "draw" | "surrender";
+  outcome: 'win' | 'lose' | 'draw' | 'surrender';
   winnerUserId: string | null;
   loserUserId: string | null;
   reason: MatchResultReason;
@@ -141,15 +166,21 @@ export type MatchResultPayload = {
       userId: string;
       hp: number;
       points: number;
-      ratingDelta?: number;
+      pvpRatingDelta?: number | null;
+      pvpRatingAfter?: number | null;
       coinsDelta?: number;
+      energyDelta?: number;
+      energyBalanceAfter?: number;
     };
     playerB: {
       userId: string;
       hp: number;
       points: number;
-      ratingDelta?: number;
+      pvpRatingDelta?: number | null;
+      pvpRatingAfter?: number | null;
       coinsDelta?: number;
+      energyDelta?: number;
+      energyBalanceAfter?: number;
     };
   };
 };

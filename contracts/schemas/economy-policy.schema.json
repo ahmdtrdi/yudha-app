@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "YUDHA Economy Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "timezone", "balancingStatus", "energy", "yCoin", "pro"],
+  "properties": {
+    "version": { "type": "string", "minLength": 1 },
+    "timezone": { "const": "Asia/Jakarta" },
+    "balancingStatus": { "enum": ["provisional", "approved"] },
+    "energy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["freeCap", "dailyRefillTo", "entryCost", "completionReward", "adReward", "adDailyLimit", "packs"],
+      "properties": {
+        "freeCap": { "type": "integer", "minimum": 1 },
+        "dailyRefillTo": { "type": "integer", "minimum": 1 },
+        "entryCost": { "type": "integer", "minimum": 1 },
+        "completionReward": { "type": "integer", "minimum": 0 },
+        "adReward": { "type": "integer", "minimum": 1 },
+        "adDailyLimit": { "type": "integer", "minimum": 0 },
+        "packs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "energy", "yCoinCost"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "energy": { "type": "integer", "minimum": 1 },
+              "yCoinCost": { "type": "integer", "minimum": 1 }
+            }
+          }
+        }
+      }
+    },
+    "yCoin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adReward", "adDailyLimit", "hintCost", "interviewCost", "proMonthlyGrant", "casualCompletionReward", "paidPackages"],
+      "properties": {
+        "adReward": { "type": "integer", "minimum": 1 },
+        "adDailyLimit": { "type": "integer", "minimum": 0 },
+        "hintCost": { "type": "integer", "minimum": 0 },
+        "interviewCost": { "type": "integer", "minimum": 0 },
+        "proMonthlyGrant": { "type": "integer", "minimum": 0 },
+        "casualCompletionReward": { "type": "integer", "minimum": 0 },
+        "paidPackages": { "type": "array", "items": { "type": "object" } }
+      }
+    },
+    "pro": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planId", "durationDays", "checkoutEnabled", "exclusiveSkinIds"],
+      "properties": {
+        "planId": { "type": "string", "minLength": 1 },
+        "durationDays": { "type": "integer", "minimum": 1 },
+        "checkoutEnabled": { "type": "boolean" },
+        "exclusiveSkinIds": { "type": "array", "minItems": 2, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+      }
+    }
+  }
+}

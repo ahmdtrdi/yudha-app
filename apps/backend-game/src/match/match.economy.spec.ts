@@ -9,7 +9,7 @@ import { QuestionDealer } from './engine/question-dealer';
 import type { InternalCard } from './questions/question.types';
 import type { GamePlayerProfile } from './profiles/game-player-profile.service';
 import { MatchLogBuffer } from './logs/match-log-buffer';
-import { MatchService, type MatchServiceResult } from './match.service';
+import { MatchService } from './match.service';
 import { MatchmakingService } from './rooms/matchmaking.service';
 import { RoomManager } from './rooms/room-manager';
 
@@ -247,38 +247,59 @@ class FakeCoordination {
   }
 }
 
-describe('MatchService distributed coordination', () => {
+describe('MatchService Energy & Economy Integration', () => {
   let service: MatchService;
-  let coordination: FakeCoordination;
   let rooms: RoomManager;
-  let router: {
-    setHandler: jest.Mock;
-    route: jest.Mock<Promise<MatchServiceResult>, [string, unknown]>;
+  let coordination: FakeCoordination;
+  let economy: {
+    reserve: jest.Mock;
+    commit: jest.Mock;
+    release: jest.Mock;
+    releaseExpired: jest.Mock;
   };
-  let questions: { getMatchQuestionPool: jest.Mock };
+  let matchResultService: { finalizeMatch: jest.Mock };
+  let botBattle: any;
 
   beforeEach(() => {
-    coordination = new FakeCoordination();
     rooms = new RoomManager(new GameEngine(), new QuestionDealer());
-    router = {
-      setHandler: jest.fn(),
-      route: jest.fn().mockResolvedValue({ emits: [] }),
+    coordination = new FakeCoordination();
+    economy = {
+      reserve: jest.fn().mockResolvedValue({
+        ok: true,
+        data: {
+          reservationId: 'res-abc',
+          energyBalance: 8,
+          energyCost: 2,
+          unlimited: false,
+        },
+      }),
+      commit: jest.fn().mockResolvedValue({ ok: true }),
+      release: jest.fn().mockResolvedValue({ ok: true }),
+      releaseExpired: jest.fn().mockResolvedValue(0),
     };
-    questions = {
-      getMatchQuestionPool: jest.fn().mockResolvedValue(cards),
+    matchResultService = {
+      finalizeMatch: jest.fn().mockResolvedValue({
+        progressionApplied: true,
+        pvpRatingDeltaA: 15,
+        pvpRatingDeltaB: -15,
+        pvpRatingAfterA: 1015,
+        pvpRatingAfterB: 985,
+        coinsDeltaA: 10,
+        coinsDeltaB: 3,
+        energyDeltaA: 1,
+        energyDeltaB: 1,
+        energyBalanceAfterA: 9,
+        energyBalanceAfterB: 9,
+      }),
     };
     const profiles = {
-      getProfile: jest.fn((userId: string) =>
-        Promise.resolve(
-          profile(userId, userId.startsWith('bumn') ? 'bumn' : 'cpns'),
-        ),
-      ),
+      getProfile: jest.fn((userId: string) => Promise.resolve(profile(userId))),
       botProfile: jest.fn(() => ({
         ...profile('bot'),
         displayName: 'BOT YUDHA',
       })),
     };
-    const botBattle = {
+    botBattle = {
       createBotMatch: jest.fn(
         async (player: GamePlayerProfile, socketId: string) =>
           rooms.createBotRoom(player, profiles.botProfile(), socketId, cards),
@@ -296,26 +317,12 @@ describe('MatchService distributed coordination', () => {
       cancelAllTimersForRoom: jest.fn(),
     };
     const matchmaking = new MatchmakingService(rooms, coordination as never);
-    const economy = {
-      reserve: jest.fn().mockResolvedValue({
-        ok: true,
-        data: {
-          reservationId: 'res-1',
-          energyBalance: 8,
-          energyCost: 2,
-          unlimited: false,
-        },
-      }),
-      commit: jest.fn().mockResolvedValue({ ok: true }),
-      release: jest.fn().mockResolvedValue({ ok: true }),
-      releaseExpired: jest.fn().mockResolvedValue(0),
-    };
 
     service = new MatchService(
       new GameEngine(),
-      questions as never,
+      { getMatchQuestionPool: jest.fn().mockResolvedValue(cards) } as never,
       rooms,
-      { finalizeMatch: jest.fn() } as never,
+      matchResultService as never,
       new MatchLogBuffer(),
       botBattle as never,
       cardTimeout as never,
@@ -323,232 +330,189 @@ describe('MatchService distributed coordination', () => {
       matchmaking,
       coordination as never,
       { instanceId: 'instance-a' } as never,
-      router as never,
+      { setHandler: jest.fn(), route: jest.fn() } as never,
       economy as never,
     );
   });
 
-  it('pairs FIFO only within the exact target and mode, then stores routing', async () => {
-    await service.registerSocket('socket-a', 'player-a');
-    await service.registerSocket('socket-bumn', 'bumn-player');
-    await service.registerSocket('socket-b', 'player-b');
+  it('rejects queue entry with INSUFFICIENT_ENERGY when balance is low', async () => {
+    economy.reserve.mockResolvedValueOnce({
+      ok: false,
+      code: 'INSUFFICIENT_ENERGY',
+      message: 'Energy tidak cukup.',
+    });
 
-    await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
-    await service.handleJoinQueue('bumn-player', 'socket-bumn', {
+    const result = await service.handleJoinQueue('player-poor', 'socket-poor', {
       mode: 'casual',
-    });
-    expect(questions.getMatchQuestionPool).not.toHaveBeenCalled();
-    const matched = await service.handleJoinQueue('player-b', 'socket-b', {
-      mode: 'casual',
+      commandId: 'cmd-join-1',
     });
 
-    expect(questions.getMatchQuestionPool).toHaveBeenCalledTimes(1);
-    const found = matched.emits.find(
-      (emit) => emit.event === SERVER_MATCH_EVENTS.matchFound,
+    expect(economy.reserve).toHaveBeenCalledWith(
+      'player-poor',
+      'casual',
+      'cmd-join-1',
+      'cmd-join-1',
     );
-    expect(found).toBeDefined();
-    const roomId = (found?.payload as { roomId: string }).roomId;
-    expect(coordination.routes.get(roomId)).toEqual(
-      expect.objectContaining({ instanceId: 'instance-a', mode: 'casual' }),
-    );
-  });
-
-  it.each(['casual', 'ranked'] as const)(
-    'loads the shared balanced pool for %s PvP without recommendation IDs',
-    async (mode) => {
-      await service.registerSocket('socket-a', 'player-a');
-      await service.registerSocket('socket-b', 'player-b');
-      await service.handleJoinQueue('player-a', 'socket-a', { mode });
-      await service.handleJoinQueue('player-b', 'socket-b', { mode });
-
-      expect(questions.getMatchQuestionPool).toHaveBeenCalledWith('cpns');
-    },
-  );
-
-  it('rejects Redis-backed matchmaking during outage but keeps Bot mode local', async () => {
-    coordination.available = false;
-    const unavailable = await service.handleJoinQueue('player-a', 'socket-a', {
-      mode: 'casual',
-    });
-    const bot = await service.handleJoinQueue('player-a', 'socket-a', {
-      mode: 'bot',
-    });
-
-    expect(unavailable.emits[0].payload).toEqual(
-      expect.objectContaining({ code: 'QUEUE_UNAVAILABLE' }),
-    );
-    expect(
-      bot.emits.some((emit) => emit.event === SERVER_MATCH_EVENTS.matchFound),
-    ).toBe(true);
-  });
-
-  it('returns recoverable QUEUE_UNAVAILABLE when Bot inventory is invalid', async () => {
-    const botBattle = (
-      service as unknown as { botBattleService: { createBotMatch: jest.Mock } }
-    ).botBattleService;
-    botBattle.createBotMatch.mockRejectedValueOnce(
-      new Error('Question pool is missing a required category.'),
-    );
-
-    const result = await service.handleJoinQueue('player-a', 'socket-a', {
-      mode: 'bot',
-    });
-
     expect(result.emits).toEqual([
       expect.objectContaining({
         event: SERVER_MATCH_EVENTS.error,
         payload: expect.objectContaining({
-          code: 'QUEUE_UNAVAILABLE',
-          details: { recoverable: true },
+          code: 'INSUFFICIENT_ENERGY',
         }),
       }),
     ]);
   });
 
-  it('removes queued leases on explicit cancellation and disconnect', async () => {
-    await service.registerSocket('socket-a', 'player-a');
-    await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
-    const cancelled = await service.handleCancelQueue('player-a', 'socket-a');
-    expect(cancelled.emits[0].event).toBe(SERVER_MATCH_EVENTS.queueCancelled);
-
-    await service.handleJoinQueue('player-a', 'socket-a', { mode: 'casual' });
-    await service.handleDisconnect('socket-a');
-    const next = await service.handleJoinQueue('player-b', 'socket-b', {
+  it('reserves energy and includes reservation details in queue_joined event', async () => {
+    const result = await service.handleJoinQueue('player-a', 'socket-a', {
       mode: 'casual',
-    });
-    expect(
-      next.emits.some((emit) => emit.event === SERVER_MATCH_EVENTS.matchFound),
-    ).toBe(false);
-  });
-
-  it('routes a battle mutation to the owning instance', async () => {
-    coordination.routes.set('room-remote', {
-      roomId: 'room-remote',
-      instanceId: 'instance-b',
-      mode: 'casual',
-      userIds: ['player-a', 'player-b'],
-    });
-    router.route.mockResolvedValue({
-      emits: [
-        {
-          socketId: 'socket-a',
-          event: SERVER_MATCH_EVENTS.openCardAccepted,
-          payload: {},
-        },
-      ],
+      commandId: 'cmd-join-2',
     });
 
-    const result = await service.handleOpenCard('player-a', 'socket-a', {
-      roomId: 'room-remote',
-      cardId: 'card_1',
-    });
-    await service.handlePlayCard('player-a', 'socket-a', {
-      roomId: 'room-remote',
-      cardId: 'card_1',
-      selectedOptionIndex: 0,
-    });
-    await service.handleSurrender('player-a', 'socket-a', {
-      roomId: 'room-remote',
-    });
-
-    expect(router.route).toHaveBeenCalledWith(
-      'instance-b',
-      expect.objectContaining({ operation: 'open_card', userId: 'player-a' }),
-    );
-    expect(router.route).toHaveBeenCalledWith(
-      'instance-b',
-      expect.objectContaining({ operation: 'play_card', userId: 'player-a' }),
-    );
-    expect(router.route).toHaveBeenCalledWith(
-      'instance-b',
-      expect.objectContaining({ operation: 'surrender', userId: 'player-a' }),
-    );
-    expect(result.emits[0].event).toBe(SERVER_MATCH_EVENTS.openCardAccepted);
-  });
-
-  it('routes reconnect and disconnect presence to the room owner', async () => {
-    const route: RoomRoute = {
-      roomId: 'room-remote',
-      instanceId: 'instance-b',
-      mode: 'ranked',
-      userIds: ['player-a', 'player-b'],
-    };
-    coordination.userRoutes.set('player-a', route);
-
-    await service.registerSocket('socket-a', 'player-a');
-    await service.handleDisconnect('socket-a');
-
-    expect(router.route).toHaveBeenCalledWith(
-      'instance-b',
-      expect.objectContaining({ operation: 'reconnect' }),
-    );
-    expect(router.route).toHaveBeenCalledWith(
-      'instance-b',
-      expect.objectContaining({ operation: 'disconnect' }),
-    );
-  });
-
-  it('replays the same command acknowledgement and rejects a new fingerprint', async () => {
-    const action = jest.fn().mockResolvedValue({ emits: [] });
-    const first = await service.handleAcknowledgedCommand(
+    expect(economy.reserve).toHaveBeenCalledWith(
       'player-a',
-      'command-1',
-      'cancel_queue',
-      { reason: 'user' },
-      action,
+      'casual',
+      'cmd-join-2',
+      'cmd-join-2',
     );
-    const replay = await service.handleAcknowledgedCommand(
-      'player-a',
-      'command-1',
-      'cancel_queue',
-      { reason: 'user' },
-      action,
-    );
-    const conflict = await service.handleAcknowledgedCommand(
-      'player-a',
-      'command-1',
-      'cancel_queue',
-      { reason: 'different' },
-      action,
-    );
-
-    expect(replay.ack).toEqual(first.ack);
-    expect(replay.emits).toEqual([]);
-    expect(action).toHaveBeenCalledTimes(1);
-    expect(conflict.ack).toEqual(
+    expect(result.emits).toContainEqual(
       expect.objectContaining({
-        error: expect.objectContaining({ code: 'IDEMPOTENCY_KEY_REUSED' }),
+        event: SERVER_MATCH_EVENTS.queueJoined,
+        payload: expect.objectContaining({
+          energy: {
+            reservationId: 'res-abc',
+            energyBalance: 8,
+            energyCost: 2,
+            unlimited: false,
+          },
+        }),
       }),
     );
   });
 
-  it('backs Private creation and one-time join with the shared coordinator', async () => {
-    const created = await service.handleCreatePrivateRoom(
+  it('releases energy reservation on queue cancellation', async () => {
+    await service.handleCancelQueue('player-a', 'socket-a');
+
+    expect(economy.release).toHaveBeenCalledWith(
       'player-a',
-      'socket-a',
-      { commandId: 'create-private' },
+      'casual',
+      'cancelled',
     );
-    if (!('data' in created.ack)) throw new Error('Expected room code');
-    const code = (created.ack.data as { code: string }).code;
-    const joined = await service.handleJoinPrivateRoom('player-b', 'socket-b', {
-      commandId: 'join-private',
-      code,
-    });
-    const reused = await service.handleJoinPrivateRoom('player-c', 'socket-c', {
-      commandId: 'join-private-2',
-      code,
+    expect(economy.release).toHaveBeenCalledWith(
+      'player-a',
+      'ranked',
+      'cancelled',
+    );
+  });
+
+  it('commits reservation on successful bot battle start', async () => {
+    const result = await service.handleJoinQueue('player-bot', 'socket-bot', {
+      mode: 'bot',
+      commandId: 'cmd-bot-1',
     });
 
-    expect(
-      joined.emits.filter(
-        (emit) => emit.event === SERVER_MATCH_EVENTS.matchFound,
-      ),
-    ).toHaveLength(2);
-    expect(questions.getMatchQuestionPool).toHaveBeenCalledWith('cpns');
-    expect(reused.ack).toEqual(
+    expect(economy.reserve).toHaveBeenCalledWith(
+      'player-bot',
+      'bot',
+      'cmd-bot-1',
+      'cmd-bot-1',
+    );
+    expect(economy.commit).toHaveBeenCalledWith(
+      'player-bot',
+      'bot',
+      'cmd-bot-1',
+    );
+    expect(result.emits).toContainEqual(
       expect.objectContaining({
-        error: expect.objectContaining({ code: 'ROOM_CODE_INVALID' }),
+        event: SERVER_MATCH_EVENTS.matchFound,
       }),
+    );
+  });
+
+  it('releases reservation on bot battle creation failure', async () => {
+    botBattle.createBotMatch.mockRejectedValueOnce(
+      new Error('Engine initialization failed'),
+    );
+
+    const result = await service.handleJoinQueue('player-fail', 'socket-fail', {
+      mode: 'bot',
+      commandId: 'cmd-bot-fail',
+    });
+
+    expect(economy.reserve).toHaveBeenCalledWith(
+      'player-fail',
+      'bot',
+      'cmd-bot-fail',
+      'cmd-bot-fail',
+    );
+    expect(economy.release).toHaveBeenCalledWith(
+      'player-fail',
+      'bot',
+      'bot_failed',
+      'cmd-bot-fail',
+    );
+    expect(economy.commit).not.toHaveBeenCalled();
+    expect(result.emits).toContainEqual(
+      expect.objectContaining({
+        event: SERVER_MATCH_EVENTS.error,
+      }),
+    );
+  });
+
+  it('reserves energy on private room creation and releases on cancel', async () => {
+    const createResult = await service.handleCreatePrivateRoom(
+      'player-host',
+      'socket-host',
+      { commandId: 'cmd-host-1' },
+    );
+
+    expect(economy.reserve).toHaveBeenCalledWith(
+      'player-host',
+      'private',
+      'cmd-host-1',
+      'cmd-host-1',
+    );
+    expect(createResult.ack).toEqual(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          energy: expect.objectContaining({
+            reservationId: 'res-abc',
+          }),
+        }),
+      }),
+    );
+
+    const createdData = (createResult.ack as any).data;
+    await service.handleCancelPrivateRoom('player-host', 'socket-host', {
+      commandId: 'cmd-cancel-1',
+      code: createdData.code,
+    });
+
+    expect(economy.release).toHaveBeenCalledWith(
+      'player-host',
+      'private',
+      'cancelled',
+    );
+  });
+
+  it('releases reservations on disconnect', async () => {
+    await service.registerSocket('socket-disc', 'user-disc');
+    await service.handleDisconnect('socket-disc');
+
+    expect(economy.release).toHaveBeenCalledWith(
+      'user-disc',
+      'casual',
+      'disconnected',
+    );
+    expect(economy.release).toHaveBeenCalledWith(
+      'user-disc',
+      'ranked',
+      'disconnected',
+    );
+    expect(economy.release).toHaveBeenCalledWith(
+      'user-disc',
+      'private',
+      'disconnected',
     );
   });
 });

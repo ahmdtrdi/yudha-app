@@ -34,15 +34,17 @@ export class SoloService {
         'Commit 5 supports only Balanced + Standard sessions.',
       );
     }
-    return {
-      data: await this.repository.createSession({
+    const data = await this.repository.createSession({
         userId,
         idempotencyKey: request.idempotencyKey,
         mechanicMode: request.mechanicMode,
         questionSelection: request.questionSelection.type,
         questionCount: request.questionCount,
         characterId: request.characterId,
-      }),
+      });
+    const economy = await this.repository.getEconomyState(userId);
+    return {
+      data: { ...data, economy },
     };
   }
 

@@ -26,15 +26,18 @@ describe('MatchesService', () => {
       ],
       error: null,
     });
-    const query = {
+    const query: any = {
       select: jest.fn(),
       or: jest.fn(),
       order: jest.fn(),
       range,
+      eq: jest.fn(),
+      in: jest.fn().mockResolvedValue({ data: [], error: null }),
     };
     query.select.mockReturnValue(query);
     query.or.mockReturnValue(query);
     query.order.mockReturnValue(query);
+    query.eq.mockReturnValue(query);
     const service = new MatchesService({
       getClient: () => ({ from: () => query }),
     } as never);
@@ -46,7 +49,7 @@ describe('MatchesService', () => {
         mode: 'private',
         opponentId: 'user-b',
         isBotMatch: false,
-        ratingDelta: 0,
+        pvpRatingDelta: null,
         coinsDelta: 0,
       }),
     );

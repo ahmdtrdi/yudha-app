@@ -61,8 +61,18 @@ describe('SoloRepository session recovery', () => {
       data: { hint: 'Mulai dari selisih.' },
       error: null,
     });
+    const from = jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          single: jest.fn().mockResolvedValue({
+            data: { coins: 95 },
+            error: null,
+          }),
+        }),
+      }),
+    });
     const supabase = {
-      getClient: () => ({ rpc }),
+      getClient: () => ({ rpc, from }),
     } as unknown as SupabaseService;
     const repository = new SoloRepository(supabase);
 
