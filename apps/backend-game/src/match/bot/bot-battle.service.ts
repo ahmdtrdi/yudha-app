@@ -59,11 +59,7 @@ export class BotBattleService {
       typeof playerOrUserId === 'string'
         ? await this.profiles.getProfile(playerOrUserId)
         : playerOrUserId;
-    const cards = await this.questions.getMatchQuestionPool(
-      player.target,
-      undefined,
-      [player.userId],
-    );
+    const cards = await this.questions.getMatchQuestionPool(player.target);
     const room = this.rooms.createBotRoom(
       player,
       this.profiles.botProfile(player.target),

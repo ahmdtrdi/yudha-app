@@ -2908,5 +2908,22 @@
 
 ### The Tech Debt
 - The API property remains named `confidence` for contract compatibility even though all learner-facing copy says “kekuatan bukti.”
+## 2026-09-02 - Harden PvP Category Deck Rendering
+
+### The Change
+- Changed the PvP hand mapper to order and deduplicate cards by canonical top-level category before rendering: CPNS `TWK/TIU/TKP` and BUMN `WK/TKD/AKHLAK`.
+- Removed the client fallback that filled a missing category slot with any remaining server card, which previously allowed a duplicated TIU or TKD deck to remain visible.
+- Kept TIU/TKD card illustrations driven by their subcategory while preventing subcategory metadata from moving a question into another deck.
+- Updated PvP widget coverage for category-first classification, fixed slot order, BUMN WK aliases, and subcategory-specific TIU/TKD artwork.
+
+### The Reasoning
+- The server owns the three-card invariant, while Mobile should render that contract faithfully and fail visibly if malformed state arrives instead of disguising it with another category. Category-first mapping also matches the canonical question taxonomy and prevents conflicting legacy subcategory metadata from changing deck identity.
+
+### Verification
+- The focused PvP widget suite passed all 8 tests.
+- Focused Flutter analysis of the changed PvP implementation and widget test completed with no issues. Full-app analysis still reports five unrelated pre-existing informational findings outside this change.
+
+### The Tech Debt
+- The hardened client mapping requires a Mobile release after Game Backend deployment. Deployed Bot and two-client human-mode visual smoke tests remain pending.
 
 

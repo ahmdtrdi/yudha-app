@@ -15,6 +15,10 @@ const cards: InternalCard[] = Array.from({ length: 12 }, (_, index) => ({
   damageValue: 10,
   healValue: 0,
   timeLimitSeconds: 30,
+  category: ['twk', 'tiu', 'tkp'][index % 3],
+  subcategory: ['pancasila_dan_ideologi', 'verbal', 'pelayanan_dan_integritas'][
+    index % 3
+  ],
 }));
 
 const profile = (userId: string): GamePlayerProfile => ({

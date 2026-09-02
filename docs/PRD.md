@@ -169,11 +169,12 @@ The canonical target taxonomy is:
 
 | Target | Category | Allowed subcategory examples |
 |---|---|---|
-| `cpns` | `twk` | nationalism, constitution, governance |
-| `cpns` | `tiu` | verbal, numerik, logika |
-| `cpns` | `tkp` | service, teamwork, integrity |
-| `bumn` | `tkd` | verbal, numerik, logika |
-| `bumn` | `akhlak` | amanah, kompeten, harmonis, loyal, adaptif, kolaboratif |
+| `cpns` | `twk` | `pancasila_dan_ideologi`, `konstitusi_dan_negara`, `sejarah_dan_kebangsaan`, `bhinneka_tunggal_ika` |
+| `cpns` | `tiu` | `verbal`, `numerik`, `logis`, `figural` |
+| `cpns` | `tkp` | `pelayanan_dan_integritas`, `kerja_sama_dan_komunikasi`, `adaptasi_dan_pengembangan_diri`, `pengambilan_keputusan_dan_kinerja` |
+| `bumn` | `wawasan_kebangsaan` (UI: `WK`) | `pancasila`, `uud_1945`, `nkri`, `bhinneka_tunggal_ika` |
+| `bumn` | `tkd` | `verbal`, `numerik`, `logis`, `figural` |
+| `bumn` | `akhlak` | `amanah`, `kompeten`, `harmonis`, `loyal` |
 
 - Each source record has a stable unique `source_key` so imports can be rerun without duplicates.
 - Every active question maps to one versioned SME-approved skill-taxonomy node. Taxonomy versions are immutable once used by evidence; mappings may be superseded without rewriting historical attempt snapshots. The actual CPNS/BUMN skill catalog remains a separate approval artifact and is not invented by this PRD.
@@ -744,13 +745,14 @@ Surrender, disconnect-forfeit, and abandoned matches never complete a daily miss
 ### 5.2 Room creation and cards
 
 1. Public queues are partitioned by target and mode. Private join validates the creator's target.
-2. The server creates a room from active target-specific database questions and assigns an owning Game Backend instance.
+2. The server loads all active target-specific database questions with deterministic pagination, validates their canonical category/subcategory paths, creates a room only when all three required top-level categories are available, and assigns an owning Game Backend instance. Missing required inventory fails recoverably with `QUEUE_UNAVAILABLE`; another category is never used as fallback.
 3. Both players use the same deterministic source pool but receive private card instances. A client receives no correct answer before its card resolves.
-4. Each player starts a round at `100 HP`, `0` points, combo `x1`, and a hand of four cards.
+4. Each player starts a round at `100 HP`, `0` points, combo `x1`, and a hand of exactly three category slots: CPNS is `TWK`, `TIU`, `TKP`; BUMN is `WK`, `TKD`, `AKHLAK`.
 5. Players act independently. Each player can have at most one opened card. Opening starts its server timer; another card cannot be opened until the current card resolves.
-6. Answer, server timeout, or surrender resolves atomically. A resolved card is consumed and replaced from the room pool.
+6. Answer, server timeout, or surrender resolves atomically. A resolved card is consumed and replaced only from the same top-level category, preserving exactly one visible card per category for the whole active round.
 7. Incoming attacks never consume or reshuffle the defender's visible hand.
-8. When the pool is exhausted, the server deterministically recycles source questions with fresh public card-instance IDs. Question exhaustion never ends a match.
+8. Within each top-level category, subcategories are selected with a randomized balanced distribution and are not weighted by either player's Learning recommendation. `category` is authoritative for deck identity; `subcategory` selects the question topic and eligible TIU/TKD illustration but never reclassifies a card into another deck.
+9. When one category pool is exhausted, the server recycles only that category's source questions with fresh public card-instance IDs. Question exhaustion never ends a match.
 
 ### 5.3 Effects, combo, and points
 

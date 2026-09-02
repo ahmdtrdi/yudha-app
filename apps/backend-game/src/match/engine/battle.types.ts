@@ -49,8 +49,6 @@ export type InternalPlayerState = {
   openedCardId?: string;
   openedCardAt?: Date;
   answeredCardIds: Set<string>;
-  nextDrawIndex: number;
-  nextDrawIndexByCategory?: Record<string, number>;
   categoryDecks?: Record<string, InternalCategoryDeckState>;
   connected: boolean;
   reconnectDeadline?: Date;
