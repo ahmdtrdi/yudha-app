@@ -407,7 +407,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('renders the additive learning recommendation with confidence', (
+  testWidgets('renders the recommendation with evidence strength', (
     WidgetTester tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(430, 1000));
@@ -438,7 +438,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('TIU Numerik'), findsOneWidget);
-    expect(find.textContaining('bukti sedang'), findsOneWidget);
+    expect(find.textContaining('kekuatan bukti sedang'), findsOneWidget);
     expect(find.text('Mulai'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

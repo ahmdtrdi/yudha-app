@@ -259,7 +259,7 @@ class _LobbyLearningCard extends StatelessWidget {
     return Semantics(
       container: true,
       label:
-          'Rekomendasi belajar ${recommendation.skillLabel}, bukti ${recommendation.confidence}',
+          'Rekomendasi belajar ${recommendation.skillLabel}, kekuatan bukti ${recommendation.confidence}',
       child: Container(
         key: const ValueKey<String>('lobby-learning-recommendation'),
         padding: EdgeInsets.all(compact ? 13 : 16),
@@ -304,7 +304,7 @@ class _LobbyLearningCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${recommendation.compatibilityLabel ?? 'Mekanik ${recommendation.mechanicMode}'} · bukti ${_lobbyConfidence(recommendation.confidence)}',
+                    '${recommendation.compatibilityLabel ?? 'Mekanik ${recommendation.mechanicMode}'} · kekuatan bukti ${_lobbyConfidence(recommendation.confidence)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
