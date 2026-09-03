@@ -42,7 +42,7 @@ void main() {
       const ProviderScope(
         child: MaterialApp(
           home: AppTabShell(
-            location: AppRoutes.analytics,
+            location: AppRoutes.learning,
             child: ColoredBox(color: Colors.white),
           ),
         ),
@@ -52,13 +52,13 @@ void main() {
     expect(find.byKey(const ValueKey<String>('app-tab-capsule')), findsOne);
     expect(find.byKey(const ValueKey<String>('app-tab-clay-base')), findsOne);
     expect(
-      find.byKey(const ValueKey<String>('app-tab-indicator-Analytics')),
+      find.byKey(const ValueKey<String>('app-tab-indicator-Learning Center')),
       findsOne,
     );
     expect(find.text('Lobby'), findsNothing);
     expect(find.text('Leaderboard'), findsNothing);
     expect(find.text('Learning'), findsNothing);
-    expect(find.text('Analytics'), findsNothing);
+    expect(find.text('Learning Center'), findsNothing);
     expect(find.text('Profile'), findsNothing);
     expect(find.byIcon(Icons.star_rounded), findsOne);
 
@@ -75,11 +75,11 @@ void main() {
     expect(learningButtonRect.top, lessThan(capsuleRect.top));
     expect(learningButtonRect.bottom, greaterThan(capsuleRect.bottom - 16));
 
-    final SemanticsNode analyticsSemantics = tester.getSemantics(
-      find.byKey(const ValueKey<String>('app-tab-Analytics')),
+    final SemanticsNode learningSemantics = tester.getSemantics(
+      find.byKey(const ValueKey<String>('app-tab-Learning Center')),
     );
     expect(
-      analyticsSemantics.getSemanticsData().flagsCollection.isSelected,
+      learningSemantics.getSemanticsData().flagsCollection.isSelected,
       ui.Tristate.isTrue,
     );
   });

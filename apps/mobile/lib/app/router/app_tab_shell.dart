@@ -324,7 +324,6 @@ class _AppTabShellState extends ConsumerState<AppTabShell>
   }
 
   bool get _isLearningRoute =>
-      widget.location.startsWith(AppRoutes.learning) ||
       widget.location.startsWith(AppRoutes.solo) ||
       widget.location.startsWith(AppRoutes.pvp) ||
       widget.location.startsWith(AppRoutes.interview);

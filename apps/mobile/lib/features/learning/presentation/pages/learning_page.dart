@@ -41,49 +41,27 @@ class _LearningPageState extends ConsumerState<LearningPage> {
     return Scaffold(
       backgroundColor: _LearningClay.cream,
       appBar: AppBar(
-        toolbarHeight: 72,
+        toolbarHeight: 56,
         elevation: 0,
-        backgroundColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        backgroundColor: const Color(0xFF1B59BA),
         foregroundColor: Colors.white,
-        centerTitle: false,
+        centerTitle: true,
         titleSpacing: 20,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-        ),
         flexibleSpace: Container(
           key: const ValueKey<String>('learning-clay-header'),
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: <Color>[_LearningClay.blue, _LearningClay.deepBlue],
-            ),
-            borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-            boxShadow: <BoxShadow>[
-              BoxShadow(color: Color(0xFF06317D), offset: Offset(0, 6)),
-            ],
-          ),
+          color: const Color(0xFF1B59BA),
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              'PERKEMBANGAN BELAJAR',
-              style: GoogleFonts.fredoka(
-                fontWeight: FontWeight.w800,
-                fontSize: 19,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const Text(
-              'Learning Center • strategi latihanmu',
-              style: TextStyle(
-                color: Color(0xFFCDE3FF),
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
+        title: Text(
+          'LEARNING CENTER',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.fredoka(
+            fontWeight: FontWeight.w800,
+            fontSize: 20,
+            letterSpacing: 0.5,
+            color: Colors.white,
+          ),
         ),
       ),
       body: _LearningBackdrop(
@@ -120,25 +98,9 @@ class _LearningPageState extends ConsumerState<LearningPage> {
                 return ListView(
                   key: const ValueKey<String>('learning-dashboard'),
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(
-                    narrow ? 16 : 24,
-                    18,
-                    narrow ? 16 : 24,
-                    28,
-                  ),
+                  padding: EdgeInsets.zero,
                   children: <Widget>[
-                    if (state.status == LearningViewStatus.loading)
-                      const LinearProgressIndicator(minHeight: 3),
-                    if (state.errorMessage != null) ...<Widget>[
-                      const SizedBox(height: 10),
-                      Text(
-                        state.errorMessage!,
-                        style: const TextStyle(color: Color(0xFFB42318)),
-                      ),
-                    ],
-                    _DashboardContext(target: data.target, asOf: data.asOf),
-                    const SizedBox(height: 12),
-                    _NextActionCard(
+                    _UnifiedLearningHero(
                       recommendation: data.nextAction,
                       sampleSize: _findSkill(
                         data.skillStates,
@@ -148,37 +110,61 @@ class _LearningPageState extends ConsumerState<LearningPage> {
                           ? () => _startRecommendation(data.nextAction!)
                           : null,
                       onCustomize: () => context.go(AppRoutes.solo),
-                    ),
-                    const SizedBox(height: 18),
-                    _SectionHeading(
-                      'Ringkasan kemajuan',
-                      explanation: _evidenceStrengthExplanation(data.accuracy),
-                    ),
-                    const SizedBox(height: 10),
-                    _SummaryGrid(dashboard: data, narrow: narrow),
-                    const SizedBox(height: 18),
-                    const _SectionHeading('Temuan utama'),
-                    const SizedBox(height: 10),
-                    _InsightPanel(dashboard: data),
-                    const SizedBox(height: 22),
-                    _DashboardSections(
-                      dashboard: data,
                       narrow: narrow,
-                      onSkillTap: _openSkillDetail,
-                      onPracticeSkill: _startSkill,
-                      onOpenCompetition: () => context.go(AppRoutes.pvp),
                     ),
-                    if (data.asOf != null) ...<Widget>[
-                      const SizedBox(height: 16),
-                      Text(
-                        'Data per ${_dateTime(data.asOf!)} · ${data.calculationVersion}',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 10,
-                        ),
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        narrow ? 16 : 24,
+                        18,
+                        narrow ? 16 : 24,
+                        28,
                       ),
-                    ],
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          if (state.status == LearningViewStatus.loading)
+                            const LinearProgressIndicator(minHeight: 3),
+                          if (state.errorMessage != null) ...<Widget>[
+                            const SizedBox(height: 10),
+                            Text(
+                              state.errorMessage!,
+                              style: const TextStyle(color: Color(0xFFB42318)),
+                            ),
+                          ],
+                          _SectionHeading(
+                            'Ringkasan kemajuan',
+                            explanation: _evidenceStrengthExplanation(
+                              data.accuracy,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          _SummaryGrid(dashboard: data, narrow: narrow),
+                          const SizedBox(height: 18),
+                          const _SectionHeading('Temuan utama'),
+                          const SizedBox(height: 10),
+                          _InsightPanel(dashboard: data),
+                          const SizedBox(height: 22),
+                          _DashboardSections(
+                            dashboard: data,
+                            narrow: narrow,
+                            onSkillTap: _openSkillDetail,
+                            onPracticeSkill: _startSkill,
+                            onOpenCompetition: () => context.go(AppRoutes.pvp),
+                          ),
+                          if (data.asOf != null) ...<Widget>[
+                            const SizedBox(height: 16),
+                            Text(
+                              'Data per ${_dateTime(data.asOf!)} · ${data.calculationVersion}',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: AppColors.textMuted,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ],
                 );
               },
@@ -260,7 +246,6 @@ abstract final class _LearningClay {
   static const Color cream = Color(0xFFFFF8EC);
   static const Color paper = Color(0xFFFFFDF8);
   static const Color blue = Color(0xFF1270E3);
-  static const Color deepBlue = Color(0xFF063C9A);
   static const Color cyan = Color(0xFF75DCEB);
   static const Color mint = Color(0xFF79D7C5);
   static const Color peach = Color(0xFFFFB878);
@@ -369,6 +354,100 @@ class _LearningSkeleton extends StatelessWidget {
   );
 }
 
+class _UnifiedLearningHero extends StatelessWidget {
+  const _UnifiedLearningHero({
+    required this.recommendation,
+    required this.sampleSize,
+    required this.onStart,
+    required this.onCustomize,
+    required this.narrow,
+  });
+
+  final LearningRecommendation? recommendation;
+  final int? sampleSize;
+  final VoidCallback? onStart;
+  final VoidCallback onCustomize;
+  final bool narrow;
+
+  @override
+  Widget build(BuildContext context) => ColoredBox(
+    color: _LearningClay.cream,
+    child: Stack(
+      children: <Widget>[
+        Positioned.fill(
+          child: const DecoratedBox(
+            decoration: BoxDecoration(
+              color: Color(0xFF103E8A),
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(
+              bottom: Radius.circular(28),
+            ),
+            child: ColoredBox(
+              color: const Color(0xFF1B59BA),
+              child: Stack(
+                children: <Widget>[
+                  Positioned(
+                    top: -15,
+                    right: -20,
+                    child: Opacity(
+                      opacity: 0.07,
+                      child: const Icon(
+                        Icons.school_rounded,
+                        size: 160,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: -40,
+                    left: -40,
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.04),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      narrow ? 16 : 24,
+                      12,
+                      narrow ? 16 : 24,
+                      22,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        const SizedBox.shrink(
+                          key: ValueKey<String>('learning-context-clay-card'),
+                        ),
+                        _NextActionCard(
+                          recommendation: recommendation,
+                          sampleSize: sampleSize,
+                          onStart: onStart,
+                          onCustomize: onCustomize,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 class _NextActionCard extends StatelessWidget {
   const _NextActionCard({
     required this.recommendation,
@@ -387,70 +466,85 @@ class _NextActionCard extends StatelessWidget {
     final LearningRecommendation? value = recommendation;
     return Container(
       key: const ValueKey<String>('learning-next-action'),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: <Color>[
-            Color(0xFF083D96),
-            Color(0xFF0757C9),
-            Color(0xFF08347C),
-          ],
-          stops: <double>[0, 0.55, 1],
-        ),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: const Color(0xFF6CBFF5), width: 1.5),
-        boxShadow: <BoxShadow>[
-          const BoxShadow(color: Color(0xFF052A68), offset: Offset(0, 8)),
-          BoxShadow(
-            color: _LearningClay.blue.withValues(alpha: 0.22),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
       child: value == null
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                const Row(
-                  children: <Widget>[
-                    Icon(Icons.auto_awesome_rounded, color: AppColors.fireGold),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Belum ada rekomendasi. Selesaikan Solo untuk menambah bukti belajar.',
-                        style: TextStyle(color: Colors.white, height: 1.4),
+          ? Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  const Row(
+                    children: <Widget>[
+                      Icon(
+                        Icons.auto_awesome_rounded,
+                        color: Color(0xFFF3BD56),
+                        size: 24,
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Belum ada rekomendasi. Selesaikan Solo untuk menambah bukti belajar.',
+                          style: TextStyle(color: Colors.white, height: 1.4),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  OutlinedButton(
+                    onPressed: onCustomize,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Color(0x66B0D1FF)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton(
-                  onPressed: onCustomize,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Color(0x669CC2FF)),
+                    child: const Text('Atur sesi Solo'),
                   ),
-                  child: const Text('Atur sesi Solo'),
-                ),
-              ],
+                ],
+              ),
             )
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        value.objectiveLabel.toUpperCase(),
-                        style: const TextStyle(
-                          color: AppColors.fireGold,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.8,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.22),
                         ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(
+                            Icons.auto_awesome_rounded,
+                            size: 12,
+                            color: Color(0xFFFFD768),
+                          ),
+                          SizedBox(width: 5),
+                          Text(
+                            'REKOMENDASI HARI INI',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     LearningInfoButton(
@@ -459,63 +553,116 @@ class _NextActionCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  value.reasonHeadline.isEmpty
-                      ? value.skillLabel
-                      : value.reasonHeadline,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  value.reasonDescription,
-                  style: const TextStyle(
-                    color: Color(0xFFD7E5FF),
-                    fontSize: 12,
-                    height: 1.4,
-                  ),
-                ),
                 const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: <Widget>[
-                    _Pill(value.skillLabel),
-                    _Pill(_mechanic(value.mechanicMode)),
-                    _Pill('Bukti ${_evidenceStrength(value.confidence)}'),
-                    if (sampleSize != null) _Pill('$sampleSize bukti mandiri'),
-                    if (value.compatibilityLabel != null)
-                      _Pill(value.compatibilityLabel!),
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: <Color>[Color(0xFF38BDF8), Color(0xFF0284C7)],
+                        ),
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: const <BoxShadow>[
+                          BoxShadow(
+                            color: Color(0xFF075985),
+                            offset: Offset(0, 3.5),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.track_changes_rounded,
+                        color: Colors.white,
+                        size: 26,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        value.reasonHeadline.isEmpty
+                            ? value.skillLabel
+                            : value.reasonHeadline,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          height: 1.22,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.13),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        value.reasonDescription,
+                        style: const TextStyle(
+                          color: Color(0xFFD6E6FF),
+                          fontSize: 12,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 7,
+                        runSpacing: 7,
+                        children: <Widget>[
+                          _Pill(value.skillLabel),
+                          _Pill(_mechanic(value.mechanicMode)),
+                          _Pill('Bukti ${_evidenceStrength(value.confidence)}'),
+                          if (sampleSize != null)
+                            _Pill('$sampleSize bukti mandiri'),
+                          if (value.compatibilityLabel != null)
+                            _Pill(value.compatibilityLabel!),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
                     onPressed: onStart,
                     style: FilledButton.styleFrom(
                       elevation: 0,
-                      backgroundColor: AppColors.fireGold,
+                      backgroundColor: const Color(0xFFE5A638),
                       foregroundColor: AppColors.warriorNavy,
                       disabledBackgroundColor: const Color(0xFF6C89A5),
                       disabledForegroundColor: Colors.white,
                       minimumSize: const Size.fromHeight(48),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
-                        side: const BorderSide(color: Color(0xFFFFE0A3)),
+                        side: const BorderSide(color: Color(0xFFFFE3B0)),
                       ),
                     ),
-                    icon: const Icon(Icons.play_arrow_rounded),
+                    icon: const Icon(Icons.play_arrow_rounded, size: 22),
                     label: Text(
                       value.runnable
                           ? value.compatibilityAdapter == 'practice_fixed_five'
                                 ? 'Mulai Practice 5 soal'
                                 : 'Mulai sesi Solo'
                           : 'Belum dapat dijalankan',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                 ),
@@ -525,7 +672,7 @@ class _NextActionCard extends StatelessWidget {
                   Text(
                     value.unavailableReason!,
                     style: const TextStyle(
-                      color: Color(0xFFD7E5FF),
+                      color: Color(0xFFD6E6FF),
                       fontSize: 10,
                     ),
                   ),
@@ -537,9 +684,16 @@ class _NextActionCard extends StatelessWidget {
                     onPressed: onCustomize,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
-                      side: const BorderSide(color: Color(0x669CC2FF)),
+                      side: const BorderSide(color: Color(0x66B0D1FF)),
+                      minimumSize: const Size.fromHeight(42),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
-                    child: const Text('Atur sendiri'),
+                    child: const Text(
+                      'Atur sendiri',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
                   ),
                 ),
               ],
@@ -556,9 +710,9 @@ class _Pill extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.15),
+      color: Colors.white.withValues(alpha: 0.14),
       borderRadius: BorderRadius.circular(99),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
     ),
     child: Text(
       label,
@@ -567,78 +721,6 @@ class _Pill extends StatelessWidget {
         fontSize: 10,
         fontWeight: FontWeight.w700,
       ),
-    ),
-  );
-}
-
-class _DashboardContext extends StatelessWidget {
-  const _DashboardContext({required this.target, required this.asOf});
-
-  final String target;
-  final DateTime? asOf;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    key: const ValueKey<String>('learning-context-clay-card'),
-    padding: const EdgeInsets.all(13),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: <Color>[Color(0xFFEAF7FF), Color(0xFFF5FFFD)],
-      ),
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: Colors.white, width: 1.4),
-      boxShadow: const <BoxShadow>[
-        BoxShadow(color: Color(0xFFC9D8DE), offset: Offset(0, 5)),
-      ],
-    ),
-    child: Row(
-      children: <Widget>[
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: _LearningClay.cyan,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white, width: 2),
-            boxShadow: const <BoxShadow>[
-              BoxShadow(color: Color(0xFF48AEBF), offset: Offset(0, 4)),
-            ],
-          ),
-          child: const Icon(
-            Icons.auto_graph_rounded,
-            color: AppColors.warriorNavy,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                'PETA BELAJAR ${target.toUpperCase()}',
-                style: const TextStyle(
-                  color: AppColors.warriorNavy,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.35,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                asOf == null
-                    ? '30 hari terakhir · sedang menyinkronkan data'
-                    : '30 hari terakhir · diperbarui ${_date(asOf!)}',
-                style: const TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const Icon(Icons.bolt_rounded, color: AppColors.fireGold, size: 22),
-      ],
     ),
   );
 }
@@ -988,7 +1070,17 @@ class _SummaryGrid extends StatelessWidget {
     final List<Widget> cards = <Widget>[
       _MetricCard(
         icon: Icons.grid_view_rounded,
-        accent: _LearningClay.cyan,
+        accent: const Color(0xFF38A8E8),
+        bgGradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[Color(0xFFF0F8FE), Color(0xFFFAFDFF)],
+        ),
+        borderColor: const Color(0xFFBAE3F7),
+        clayShadow: const Color(0xFFA2D7F5),
+        badgeColor: const Color(0xFF38A8E8),
+        labelColor: const Color(0xFF1B6A9C),
+        valueColor: const Color(0xFF0F4E75),
         label: 'Cakupan kurikulum',
         value: _percent(dashboard.coverage.value),
         detail:
@@ -997,7 +1089,17 @@ class _SummaryGrid extends StatelessWidget {
       ),
       _MetricCard(
         icon: Icons.gps_fixed_rounded,
-        accent: _LearningClay.mint,
+        accent: const Color(0xFF34B882),
+        bgGradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[Color(0xFFF1FAF5), Color(0xFFFBFEFC)],
+        ),
+        borderColor: const Color(0xFFBAECCF),
+        clayShadow: const Color(0xFF9DE0B9),
+        badgeColor: const Color(0xFF34B882),
+        labelColor: const Color(0xFF1C754E),
+        valueColor: const Color(0xFF0F5435),
         label: 'Akurasi mandiri (mentah)',
         value: _percent(dashboard.accuracy.value),
         detail:
@@ -1006,7 +1108,17 @@ class _SummaryGrid extends StatelessWidget {
       ),
       _MetricCard(
         icon: Icons.speed_rounded,
-        accent: _LearningClay.peach,
+        accent: const Color(0xFFE89A38),
+        bgGradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[Color(0xFFFFF9F2), Color(0xFFFFFDFC)],
+        ),
+        borderColor: const Color(0xFFFED8B3),
+        clayShadow: const Color(0xFFF8C697),
+        badgeColor: const Color(0xFFE89A38),
+        labelColor: const Color(0xFF9E541A),
+        valueColor: const Color(0xFF753A0D),
         label: 'Rasio tempo',
         value: dashboard.pace.value == null
             ? 'Belum cukup data'
@@ -1047,13 +1159,26 @@ class _MetricCard extends StatelessWidget {
   const _MetricCard({
     required this.icon,
     required this.accent,
+    required this.bgGradient,
+    required this.borderColor,
+    required this.clayShadow,
+    required this.badgeColor,
+    required this.labelColor,
+    required this.valueColor,
     required this.label,
     required this.value,
     required this.detail,
     required this.explanation,
   });
+
   final IconData icon;
   final Color accent;
+  final Gradient bgGradient;
+  final Color borderColor;
+  final Color clayShadow;
+  final Color badgeColor;
+  final Color labelColor;
+  final Color valueColor;
   final String label;
   final String value;
   final String detail;
@@ -1061,35 +1186,48 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    constraints: const BoxConstraints(minHeight: 118),
+    constraints: const BoxConstraints(minHeight: 122),
     padding: const EdgeInsets.all(14),
-    decoration: _clayDecoration(tint: accent.withValues(alpha: 0.08)),
+    decoration: BoxDecoration(
+      gradient: bgGradient,
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: borderColor, width: 1.8),
+      boxShadow: <BoxShadow>[
+        BoxShadow(color: clayShadow, offset: const Offset(0, 5)),
+        const BoxShadow(
+          color: Color(0x1400215A),
+          blurRadius: 14,
+          offset: Offset(0, 7),
+        ),
+      ],
+    ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Row(
           children: <Widget>[
             Container(
-              width: 32,
-              height: 32,
+              width: 34,
+              height: 34,
               decoration: BoxDecoration(
-                color: accent,
-                borderRadius: BorderRadius.circular(10),
+                color: badgeColor,
+                borderRadius: BorderRadius.circular(11),
                 border: Border.all(color: Colors.white, width: 1.5),
                 boxShadow: <BoxShadow>[
-                  BoxShadow(
-                    color: accent.withValues(alpha: 0.38),
-                    offset: const Offset(0, 3),
-                  ),
+                  BoxShadow(color: clayShadow, offset: const Offset(0, 3)),
                 ],
               ),
-              child: Icon(icon, size: 17, color: AppColors.warriorNavy),
+              child: Icon(icon, size: 18, color: Colors.white),
             ),
-            const SizedBox(width: 9),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(color: AppColors.textMuted),
+                style: TextStyle(
+                  color: labelColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
             LearningInfoButton(explanation: explanation),
@@ -1098,25 +1236,34 @@ class _MetricCard extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           value,
-          style: const TextStyle(
-            color: AppColors.warriorNavy,
-            fontSize: 20,
+          style: TextStyle(
+            color: valueColor,
+            fontSize: 22,
             fontWeight: FontWeight.w900,
+            letterSpacing: -0.2,
           ),
         ),
         const SizedBox(height: 5),
         Text(
           detail,
-          style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+          style: TextStyle(
+            color: labelColor.withValues(alpha: 0.8),
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+          ),
         ),
-        const SizedBox(height: 9),
+        const SizedBox(height: 10),
         Container(
-          height: 5,
+          height: 6,
           decoration: BoxDecoration(
             color: accent,
             borderRadius: BorderRadius.circular(99),
             boxShadow: <BoxShadow>[
-              BoxShadow(color: accent.withValues(alpha: 0.35), blurRadius: 6),
+              BoxShadow(
+                color: accent.withValues(alpha: 0.4),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
             ],
           ),
         ),
@@ -1780,47 +1927,126 @@ class _ActivityPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
+    padding: const EdgeInsets.all(16),
     decoration: _panelDecoration,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Wrap(
-          spacing: 16,
-          runSpacing: 14,
-          children: <Widget>[
-            _ActivityValue('${activity.activeLearningDays}', 'hari aktif'),
-            _ActivityValue('${activity.questionsAnswered}', 'soal dijawab'),
-            _ActivityValue('${activity.sessionCount}', 'sesi'),
-            _ActivityValue(
-              activity.activeLearningMinutes == null
-                  ? '—'
-                  : activity.activeLearningMinutes!.toStringAsFixed(1),
-              'menit terukur',
-            ),
-          ],
-        ),
-        const Divider(height: 24, color: Color(0x1400215A)),
         Row(
           children: <Widget>[
-            const Icon(
-              Icons.local_fire_department_rounded,
-              color: AppColors.fireGold,
-              size: 20,
-            ),
-            const SizedBox(width: 7),
             Expanded(
-              child: Text(
-                '${activity.streak.current} hari streak · terbaik ${activity.streak.best}',
-                style: const TextStyle(
-                  color: AppColors.textStrong,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
+              child: _ActivityValue(
+                value: '${activity.activeLearningDays}',
+                label: 'Hari aktif',
+                icon: Icons.calendar_today_rounded,
+                accent: const Color(0xFF389AD8),
+                bgGradient: const LinearGradient(
+                  colors: <Color>[Color(0xFFF1F8FD), Color(0xFFFAFCFE)],
                 ),
+                borderColor: const Color(0xFFCAE3F5),
+                shadowColor: const Color(0xFFB0D5EE),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _ActivityValue(
+                value: '${activity.questionsAnswered}',
+                label: 'Soal dijawab',
+                icon: Icons.check_circle_outline_rounded,
+                accent: const Color(0xFF32AE7C),
+                bgGradient: const LinearGradient(
+                  colors: <Color>[Color(0xFFF1FAF5), Color(0xFFFAFCFA)],
+                ),
+                borderColor: const Color(0xFFCAECDA),
+                shadowColor: const Color(0xFFAEE0C4),
               ),
             ),
           ],
         ),
+        const SizedBox(height: 10),
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: _ActivityValue(
+                value: '${activity.sessionCount}',
+                label: 'Sesi latihan',
+                icon: Icons.sports_esports_outlined,
+                accent: const Color(0xFF8057D8),
+                bgGradient: const LinearGradient(
+                  colors: <Color>[Color(0xFFF7F3FE), Color(0xFFFAFAFE)],
+                ),
+                borderColor: const Color(0xFFDFD8FB),
+                shadowColor: const Color(0xFFCCC2F5),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _ActivityValue(
+                value: activity.activeLearningMinutes == null
+                    ? '—'
+                    : activity.activeLearningMinutes!.toStringAsFixed(1),
+                label: 'Menit terukur',
+                icon: Icons.timer_outlined,
+                accent: const Color(0xFFDD882E),
+                bgGradient: const LinearGradient(
+                  colors: <Color>[Color(0xFFFFF9F0), Color(0xFFFFFDF8)],
+                ),
+                borderColor: const Color(0xFFFEDDB9),
+                shadowColor: const Color(0xFFF7C89B),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: <Color>[Color(0xFFFFF8E7), Color(0xFFFFFDF8)],
+            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFFFE5A3), width: 1.3),
+            boxShadow: const <BoxShadow>[
+              BoxShadow(color: Color(0xFFF3D27E), offset: Offset(0, 3)),
+            ],
+          ),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.fireGold,
+                  borderRadius: BorderRadius.circular(9),
+                  border: Border.all(color: Colors.white, width: 1.3),
+                  boxShadow: const <BoxShadow>[
+                    BoxShadow(color: Color(0xFFD48B00), offset: Offset(0, 2)),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.local_fire_department_rounded,
+                  color: Colors.white,
+                  size: 19,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${activity.streak.current} hari streak aktif · rekor terbaik ${activity.streak.best} hari',
+                  style: const TextStyle(
+                    color: Color(0xFF8B460E),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (activity.dailyHistory.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 16),
+          _DailyConsistencyMatrix(dailyHistory: activity.dailyHistory),
+        ],
         if (activity.weeklyActivity.isNotEmpty) ...<Widget>[
           const SizedBox(height: 16),
           const Text(
@@ -1974,35 +2200,230 @@ class _RecentSessionRow extends StatelessWidget {
   );
 }
 
+class _DailyConsistencyMatrix extends StatelessWidget {
+  const _DailyConsistencyMatrix({required this.dailyHistory});
+  final List<LearningActivityDay> dailyHistory;
+
+  @override
+  Widget build(BuildContext context) {
+    if (dailyHistory.isEmpty) return const SizedBox.shrink();
+
+    final List<LearningActivityDay> days = dailyHistory.length > 30
+        ? dailyHistory.sublist(dailyHistory.length - 30)
+        : dailyHistory;
+
+    final int activeDays = days.where((d) => d.questionsAnswered > 0).length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: <Widget>[
+            const Text(
+              'Aktivitas 30 hari terakhir',
+              style: TextStyle(
+                color: AppColors.textStrong,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            Text(
+              '$activeDays hari aktif',
+              style: const TextStyle(
+                color: AppColors.levelUpTeal,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            const int columns = 10;
+            const double gap = 5;
+            final double boxSize =
+                (constraints.maxWidth - (columns - 1) * gap) / columns;
+
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: days
+                  .map((LearningActivityDay day) {
+                    final bool isActive = day.questionsAnswered > 0;
+                    final String dayLabel = day.date != null
+                        ? '${day.date!.day}'
+                        : '';
+                    return Tooltip(
+                      message: day.date == null
+                          ? '${day.questionsAnswered} soal'
+                          : '${_date(day.date!)}: ${day.questionsAnswered} soal (${day.sessionCount} sesi)',
+                      child: Container(
+                        width: boxSize,
+                        height: boxSize,
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? const Color(0xFF2CB88F)
+                              : const Color(0xFFEFF4F9),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: isActive
+                                ? const Color(0xFF7DE6C3)
+                                : const Color(0xFFDFE6EF),
+                            width: 1.2,
+                          ),
+                          boxShadow: isActive
+                              ? const <BoxShadow>[
+                                  BoxShadow(
+                                    color: Color(0xFF1F9E79),
+                                    offset: Offset(0, 2),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Center(
+                          child: Text(
+                            dayLabel,
+                            style: TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.w800,
+                              color: isActive
+                                  ? Colors.white
+                                  : const Color(0xFF8898AA),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  })
+                  .toList(growable: false),
+            );
+          },
+        ),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: <Widget>[
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE9F0F8),
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(color: const Color(0xFFD3E0EA)),
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Text(
+              'Istirahat',
+              style: TextStyle(color: AppColors.textMuted, fontSize: 9),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: AppColors.levelUpTeal,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Text(
+              'Latihan',
+              style: TextStyle(color: AppColors.textMuted, fontSize: 9),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _ActivityValue extends StatelessWidget {
-  const _ActivityValue(this.value, this.label);
+  const _ActivityValue({
+    required this.value,
+    required this.label,
+    required this.icon,
+    required this.accent,
+    required this.bgGradient,
+    required this.borderColor,
+    required this.shadowColor,
+  });
+
   final String value;
   final String label;
+  final IconData icon;
+  final Color accent;
+  final Gradient bgGradient;
+  final Color borderColor;
+  final Color shadowColor;
 
   @override
   Widget build(BuildContext context) => Container(
-    width: 112,
     padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
     decoration: BoxDecoration(
-      color: const Color(0xFFF3F9FF),
-      borderRadius: BorderRadius.circular(15),
-      border: Border.all(color: Colors.white, width: 1.4),
-      boxShadow: const <BoxShadow>[
-        BoxShadow(color: Color(0xFFD7E1E8), offset: Offset(0, 4)),
+      gradient: bgGradient,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: borderColor, width: 1.4),
+      boxShadow: <BoxShadow>[
+        BoxShadow(color: shadowColor, offset: const Offset(0, 4)),
+        const BoxShadow(
+          color: Color(0x1000215A),
+          blurRadius: 8,
+          offset: Offset(0, 4),
+        ),
       ],
     ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    child: Row(
       children: <Widget>[
-        Text(
-          value,
-          style: const TextStyle(
-            color: AppColors.warriorNavy,
-            fontSize: 20,
-            fontWeight: FontWeight.w900,
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: accent,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.white, width: 1.4),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: accent.withValues(alpha: 0.35),
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Icon(icon, size: 17, color: Colors.white),
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  height: 1.1,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.warriorNavy,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
         ),
-        Text(label, style: const TextStyle(color: AppColors.textMuted)),
       ],
     ),
   );
