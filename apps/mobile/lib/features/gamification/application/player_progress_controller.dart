@@ -32,11 +32,13 @@ class PlayerProgressController extends StateNotifier<PlayerProgress> {
 
   void applyBattleResult({
     required BattleOutcome outcome,
+    int ratingDelta = 0,
   }) {
     if (outcome == BattleOutcome.inProgress) {
       return;
     }
 
+    final int updatedPoints = (state.totalPoints + ratingDelta).clamp(0, 99999);
     final int updatedWins = state.wins + (outcome == BattleOutcome.win ? 1 : 0);
     final int updatedLosses =
         state.losses + (outcome == BattleOutcome.lose ? 1 : 0);
@@ -51,11 +53,13 @@ class PlayerProgressController extends StateNotifier<PlayerProgress> {
     };
 
     state = state.copyWith(
+      totalPoints: updatedPoints,
       wins: updatedWins,
       losses: updatedLosses,
       draws: updatedDraws,
       streak: nextStreak,
       bestStreak: nextStreak > state.bestStreak ? nextStreak : state.bestStreak,
+      lastDelta: ratingDelta,
     );
   }
 

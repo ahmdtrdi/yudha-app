@@ -246,6 +246,59 @@ export class LearningService {
     return result.data;
   }
 
+  async getLobbySummary(userId: string) {
+    if (!this.isEnabled()) {
+      return { curriculumCoverage: null, nextAction: null };
+    }
+
+    const target = await this.repository.getUserTarget(userId);
+    const taxonomy = await this.repository.getLatestTaxonomyVersion();
+    if (!taxonomy) {
+      return { curriculumCoverage: null, nextAction: null };
+    }
+
+    const [skills, prepared, recommendation] = await Promise.all([
+      this.repository.listSkills(taxonomy.id, target),
+      this.repository.listPreparedStates(userId, target, taxonomy.id),
+      this.repository.getActiveRecommendation(userId, target),
+    ]);
+    const rowBySkill = new Map(prepared.map((row) => [row.skill_id, row]));
+    const states = skills.map((skill) => ({
+      skill,
+      state: rowBySkill.has(skill.skill_id)
+        ? stateFromRow(rowBySkill.get(skill.skill_id))
+        : emptyState(),
+    }));
+    const coverage = curriculumCoverage(
+      states.map(({ skill, state }) => ({
+        isRequired: Boolean(skill.is_required),
+        enabled: Boolean(skill.enabled),
+        uniqueQuestionCount: state.uniqueQuestionCount,
+      })),
+    );
+    const evidenceConfidence = conservativeConfidence(
+      states
+        .filter(({ state }) => state.unseenAttemptCount > 0)
+        .map(({ state }) => state.evidenceConfidence),
+    );
+    const recommendationSkill = recommendation
+      ? skills.find((skill) => skill.skill_id === recommendation.skill_ids?.[0])
+      : null;
+
+    return {
+      curriculumCoverage: {
+        value: coverage.coveragePercentage,
+        coveredSkillCount: coverage.coveredSkillCount,
+        requiredSkillCount: coverage.requiredSkillCount,
+        confidence:
+          coverage.requiredSkillCount === 0 ? 'low' : evidenceConfidence,
+      },
+      nextAction: recommendation
+        ? toRecommendation(recommendation, recommendationSkill)
+        : null,
+    };
+  }
+
   async recordRecommendationEvent(
     userId: string,
     recommendationId: string,

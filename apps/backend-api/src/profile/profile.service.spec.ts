@@ -84,6 +84,8 @@ describe('ProfileService', () => {
         username: 'player',
         fullName: 'Player One',
         target: 'cpns',
+        rankPoints: 1000,
+        tier: 'elite',
         rankedStats: {
           wins: 0,
           losses: 0,

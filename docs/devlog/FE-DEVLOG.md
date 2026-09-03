@@ -3141,3 +3141,24 @@
 
 ### The Tech Debt
 - Energy refill auto-refresh relies on user pull-to-refresh or explicit user actions; real-time push updates via SSE/WebSocket remain post-MVP.
+
+## 2026-09-03 - Refocus the Lobby Header on Learning
+
+### The Change
+- Replaced Lobby win-rate and match-count statistics with Poin Rank and the current learning streak.
+- Added the player's assessment target (`CPNS` or `BUMN`) beneath their identity instead of the competitive tier.
+- Added a full-width curriculum-coverage card with an evidence-based percentage, progress bar, covered-skill detail, and navigation to Learning.
+- Added a neutral unavailable state so absent coverage is never displayed as `0%`.
+- Extended the Lobby summary parser and player-progress projection with Rank Points, tier, and curriculum coverage.
+- Preserved the target from the authoritative Lobby profile in the player-progress projection.
+
+### The Reasoning
+- The Lobby now prioritizes the learning loop while retaining competitive progression as supporting context.
+- Making the entire coverage card actionable gives the dashboard a clear destination without adding a small, text-heavy button.
+
+### Verification
+- Repository and widget coverage was updated for populated and unavailable learning-summary states.
+- Flutter verification could not complete in this session because existing shared Dart processes held the Flutter tool without producing test output; backend and contract verification completed independently.
+
+### The Tech Debt
+- Re-run the focused gamification and Lobby Flutter suites once the existing local Flutter/Dart processes release the tool lock.

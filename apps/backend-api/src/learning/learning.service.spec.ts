@@ -44,6 +44,49 @@ describe('LearningService', () => {
     expect(result.data.competition.accuracy.value).toBeNull();
   });
 
+  it('builds the compact Lobby coverage from canonical skill evidence', async () => {
+    process.env.LEARNING_V2_ENABLED = 'true';
+    const repository = {
+      getUserTarget: jest.fn().mockResolvedValue('cpns'),
+      getLatestTaxonomyVersion: jest.fn().mockResolvedValue({ id: 'tax-1' }),
+      listSkills: jest.fn().mockResolvedValue([
+        {
+          skill_id: 'cpns.twk.1',
+          label: 'TWK 1',
+          is_required: true,
+          enabled: true,
+        },
+        {
+          skill_id: 'cpns.tiu.1',
+          label: 'TIU 1',
+          is_required: true,
+          enabled: true,
+        },
+      ]),
+      listPreparedStates: jest.fn().mockResolvedValue([
+        {
+          skill_id: 'cpns.twk.1',
+          unique_question_count: 3,
+          unseen_attempt_count: 3,
+          unseen_correct_count: 2,
+          evidence_confidence: 'medium',
+        },
+      ]),
+      getActiveRecommendation: jest.fn().mockResolvedValue(null),
+    };
+    const service = new LearningService(repository as any);
+
+    await expect(service.getLobbySummary('user-1')).resolves.toEqual({
+      curriculumCoverage: {
+        value: 50,
+        coveredSkillCount: 1,
+        requiredSkillCount: 2,
+        confidence: 'medium',
+      },
+      nextAction: null,
+    });
+  });
+
   it('returns additive coaching context without mixing evidence lanes', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-09-02T08:30:00.000Z'));
     process.env.LEARNING_V2_ENABLED = 'true';

@@ -33,6 +33,14 @@ void main() {
                   },
                   'rankPoints': 860,
                   'streak': 5,
+                  'learningSummary': <String, Object?>{
+                    'curriculumCoverage': <String, Object?>{
+                      'value': 42,
+                      'coveredSkillCount': 8,
+                      'requiredSkillCount': 19,
+                      'confidence': 'medium',
+                    },
+                  },
                   'learningNextAction': <String, Object?>{
                     'recommendationId': 'recommendation-1',
                     'target': 'cpns',
@@ -67,6 +75,11 @@ void main() {
     expect(snapshot.playerId, 'user-123');
     expect(snapshot.displayName, 'Raka Saputra');
     expect(snapshot.totalPoints, 860);
+    expect(snapshot.tier, 'elite');
+    expect(snapshot.target, 'cpns');
+    expect(snapshot.curriculumCoverage?.value, 42);
+    expect(snapshot.curriculumCoverage?.coveredSkillCount, 8);
+    expect(snapshot.curriculumCoverage?.requiredSkillCount, 19);
     expect(snapshot.wins, 18);
     expect(snapshot.losses, 4);
     expect(snapshot.draws, 2);

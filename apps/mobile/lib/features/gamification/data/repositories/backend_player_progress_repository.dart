@@ -70,6 +70,11 @@ class BackendPlayerProgressRepository implements PlayerProgressRepository {
         _asMap(profile['streak']) ??
         _asMap(payload['streak']) ??
         <String, dynamic>{};
+    final Map<String, dynamic> learningSummary =
+        _asMap(payload['learningSummary']) ?? <String, dynamic>{};
+    final Map<String, dynamic>? coverage = _asMap(
+      learningSummary['curriculumCoverage'],
+    );
     final List<Map<String, Object?>> dailyMissions =
         (payload['dailyMissions'] as List?)
             ?.map((dynamic item) => Map<String, Object?>.from(item as Map))
@@ -108,11 +113,17 @@ class BackendPlayerProgressRepository implements PlayerProgressRepository {
       wins: wins,
       losses: losses,
       draws: resolvedDraws,
+      totalPoints: _readInt(profile['rankPoints'] ?? payload['rankPoints']),
+      tier: (profile['tier'] ?? payload['tier'])?.toString() ?? 'rookie',
+      target: (profile['target'] ?? payload['target'])?.toString() ?? 'cpns',
       streak: currentStreak,
       dailyMissions: dailyMissions,
       learningNextAction: LearningRecommendation.tryFrom(
         payload['learningNextAction'],
       ),
+      curriculumCoverage: coverage == null
+          ? null
+          : LearningCoverage.fromJson(coverage),
     );
   }
 

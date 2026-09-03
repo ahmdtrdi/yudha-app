@@ -56,7 +56,17 @@ describe('LobbyService Gate 1 summary', () => {
       analyticsService as any,
       economyService as any,
       supabaseService as any,
-      { getLearningNextAction: jest.fn().mockResolvedValue(null) } as any,
+      {
+        getLobbySummary: jest.fn().mockResolvedValue({
+          curriculumCoverage: {
+            value: 42,
+            coveredSkillCount: 8,
+            requiredSkillCount: 19,
+            confidence: 'medium',
+          },
+          nextAction: null,
+        }),
+      } as any,
     );
 
     const result = await service.getSummary(
@@ -78,5 +88,13 @@ describe('LobbyService Gate 1 summary', () => {
     });
     expect(result.data.recommendation).toBe(recommendation);
     expect(result.data.learningNextAction).toBeNull();
+    expect(result.data.rankPoints).toBe(450);
+    expect(result.data.tier).toBe('warrior');
+    expect(result.data.learningSummary.curriculumCoverage).toEqual({
+      value: 42,
+      coveredSkillCount: 8,
+      requiredSkillCount: 19,
+      confidence: 'medium',
+    });
   });
 });

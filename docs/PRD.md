@@ -507,7 +507,8 @@ POST   /auth/login
 # Lobby/Profile
 GET    /lobby/summary
        → { profile, tier, rankPoints, yCoins, dailyMissions[2], streak,
-           hiredPassSummary, recommendation }
+           hiredPassSummary, recommendation,
+           learningSummary: { curriculumCoverage } }
 GET    /profile
        → { id, username, fullName, target, rankPoints, tier,
            rankedStats: { wins, losses, draws, winRate },

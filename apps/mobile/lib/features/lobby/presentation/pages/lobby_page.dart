@@ -141,9 +141,12 @@ class _LobbyPageState extends ConsumerState<LobbyPage> {
                               child: _LobbyProfileHeader(
                                 compact: compact,
                                 displayName: progress.displayName,
-                                winRate: progress.winRate,
+                                target: progress.target,
+                                rankPoints: progress.totalPoints,
                                 streak: progress.streak,
-                                matches: progress.matchesPlayed,
+                                coverage: progress.curriculumCoverage,
+                                onCoverageTap: () =>
+                                    context.go(AppRoutes.learning),
                               ),
                             ),
                           ),
@@ -356,20 +359,23 @@ class _LobbyProfileHeader extends StatelessWidget {
   const _LobbyProfileHeader({
     required this.compact,
     required this.displayName,
-    required this.winRate,
+    required this.target,
+    required this.rankPoints,
     required this.streak,
-    required this.matches,
+    required this.coverage,
+    required this.onCoverageTap,
   });
 
   final bool compact;
   final String displayName;
-  final double winRate;
+  final String target;
+  final int rankPoints;
   final int streak;
-  final int matches;
+  final LearningCoverage? coverage;
+  final VoidCallback onCoverageTap;
 
   @override
   Widget build(BuildContext context) {
-    final String winRateLabel = '${(winRate * 100).toStringAsFixed(0)}%';
     return Stack(
       key: const ValueKey<String>('lobby-profile-header'),
       children: <Widget>[
@@ -404,13 +410,22 @@ class _LobbyProfileHeader extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  _HeroIdentity(compact: compact, displayName: displayName),
-                  SizedBox(height: compact ? 26 : 32),
+                  _HeroIdentity(
+                    compact: compact,
+                    displayName: displayName,
+                    target: _targetLabel(target),
+                  ),
+                  SizedBox(height: compact ? 12 : 16),
                   _HeroStatsPanel(
                     compact: compact,
-                    winRate: winRateLabel,
-                    streak: '$streak',
-                    matches: '$matches',
+                    rankPoints: _formatRankPoints(rankPoints),
+                    streak: streak,
+                  ),
+                  SizedBox(height: compact ? 9 : 12),
+                  _CurriculumCoverageCard(
+                    compact: compact,
+                    coverage: coverage,
+                    onTap: onCoverageTap,
                   ),
                 ],
               ),
@@ -423,10 +438,15 @@ class _LobbyProfileHeader extends StatelessWidget {
 }
 
 class _HeroIdentity extends StatelessWidget {
-  const _HeroIdentity({required this.compact, required this.displayName});
+  const _HeroIdentity({
+    required this.compact,
+    required this.displayName,
+    required this.target,
+  });
 
   final bool compact;
   final String displayName;
+  final String target;
 
   @override
   Widget build(BuildContext context) {
@@ -460,6 +480,17 @@ class _HeroIdentity extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+                const SizedBox(height: 2),
+                Text(
+                  target,
+                  key: const ValueKey<String>('lobby-profile-target'),
+                  style: GoogleFonts.dmSans(
+                    color: const Color(0xFFFFD28A),
+                    fontSize: compact ? 9 : 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.7,
+                  ),
+                ),
               ],
             ),
           ),
@@ -491,112 +522,226 @@ class _HeroBackdropOrb extends StatelessWidget {
 class _HeroStatsPanel extends StatelessWidget {
   const _HeroStatsPanel({
     required this.compact,
-    required this.winRate,
+    required this.rankPoints,
     required this.streak,
-    required this.matches,
   });
 
   final bool compact;
-  final String winRate;
-  final String streak;
-  final String matches;
+  final String rankPoints;
+  final int streak;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       key: const ValueKey<String>('lobby-hero-stats-panel'),
-      crossAxisAlignment: CrossAxisAlignment.end,
       children: <Widget>[
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(
-                matches,
-                key: const ValueKey<String>('lobby-hero-primary-matches'),
-                style: GoogleFonts.jetBrainsMono(
-                  color: AppColors.fireGold,
-                  fontSize: compact ? 22 : 26,
-                  height: 1,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                'RANKED MATCH',
-                style: GoogleFonts.dmSans(
-                  color: Colors.white.withAlpha(205),
-                  fontSize: compact ? 9 : 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.7,
-                ),
-              ),
-            ],
+          child: _HeroMetric(
+            key: const ValueKey<String>('lobby-rank-points'),
+            compact: compact,
+            icon: Icons.workspace_premium_rounded,
+            value: rankPoints,
+            label: 'Poin Rank',
           ),
         ),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(
-              winRate,
-              style: GoogleFonts.jetBrainsMono(
-                color: Colors.white,
-                fontSize: compact ? 13 : 15,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            Text(
-              'Win rate',
-              style: GoogleFonts.dmSans(
-                color: Colors.white.withAlpha(180),
-                fontSize: compact ? 9 : 10,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        Container(
-          width: 1,
-          height: compact ? 30 : 34,
-          margin: EdgeInsets.symmetric(horizontal: compact ? 14 : 18),
-          color: Colors.white.withAlpha(32),
-        ),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Icon(
-                  Icons.local_fire_department_rounded,
-                  color: AppColors.fireGold,
-                  size: compact ? 13 : 15,
-                ),
-                const SizedBox(width: 3),
-                Text(
-                  streak,
-                  style: GoogleFonts.jetBrainsMono(
-                    color: Colors.white,
-                    fontSize: compact ? 13 : 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-            Text(
-              'Streak',
-              style: GoogleFonts.dmSans(
-                color: Colors.white.withAlpha(180),
-                fontSize: compact ? 9 : 10,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+        SizedBox(width: compact ? 9 : 12),
+        Expanded(
+          child: _HeroMetric(
+            key: const ValueKey<String>('lobby-streak'),
+            compact: compact,
+            icon: Icons.local_fire_department_rounded,
+            value: '$streak hari',
+            label: 'Streak belajar',
+          ),
         ),
       ],
     );
   }
 }
+
+class _HeroMetric extends StatelessWidget {
+  const _HeroMetric({
+    super.key,
+    required this.compact,
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+
+  final bool compact;
+  final IconData icon;
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 10 : 12,
+        vertical: compact ? 7 : 9,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(13),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withAlpha(22)),
+      ),
+      child: Row(
+        children: <Widget>[
+          Icon(icon, color: AppColors.fireGold, size: compact ? 17 : 19),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.jetBrainsMono(
+                    color: Colors.white,
+                    fontSize: compact ? 12 : 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  label,
+                  maxLines: 1,
+                  style: GoogleFonts.dmSans(
+                    color: Colors.white.withAlpha(180),
+                    fontSize: compact ? 8 : 9,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CurriculumCoverageCard extends StatelessWidget {
+  const _CurriculumCoverageCard({
+    required this.compact,
+    required this.coverage,
+    required this.onTap,
+  });
+
+  final bool compact;
+  final LearningCoverage? coverage;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final double? percent = coverage?.value;
+    final bool available = percent != null && coverage!.requiredSkillCount > 0;
+    final double progress = available
+        ? (percent! / 100).clamp(0, 1).toDouble()
+        : 0;
+    final String valueLabel = available ? '${percent!.round()}%' : '—';
+    final String detail = available
+        ? '${coverage!.coveredSkillCount} dari ${coverage!.requiredSkillCount} skill memiliki bukti cukup'
+        : 'Data cakupan belum tersedia';
+
+    return Material(
+      key: const ValueKey<String>('lobby-curriculum-coverage'),
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          padding: EdgeInsets.fromLTRB(
+            compact ? 11 : 13,
+            compact ? 8 : 10,
+            compact ? 8 : 10,
+            compact ? 8 : 10,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white.withAlpha(18),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withAlpha(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      'CAKUPAN KURIKULUM',
+                      style: GoogleFonts.dmSans(
+                        color: Colors.white,
+                        fontSize: compact ? 9 : 10,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    valueLabel,
+                    key: const ValueKey<String>('lobby-coverage-value'),
+                    style: GoogleFonts.jetBrainsMono(
+                      color: available ? AppColors.fireGold : Colors.white70,
+                      fontSize: compact ? 11 : 13,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ],
+              ),
+              SizedBox(height: compact ? 5 : 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: LinearProgressIndicator(
+                  key: const ValueKey<String>('lobby-coverage-progress'),
+                  value: progress,
+                  minHeight: compact ? 6 : 7,
+                  backgroundColor: Colors.white.withAlpha(30),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    available ? AppColors.fireGold : Colors.white24,
+                  ),
+                ),
+              ),
+              SizedBox(height: compact ? 4 : 5),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  detail,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.dmSans(
+                    color: Colors.white.withAlpha(190),
+                    fontSize: compact ? 8 : 9,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _formatRankPoints(int points) {
+  final String digits = points.toString();
+  return digits.replaceAllMapped(
+    RegExp(r'\B(?=(\d{3})+(?!\d))'),
+    (_) => '.',
+  );
+}
+
+String _targetLabel(String target) => target.toLowerCase() == 'bumn'
+    ? 'BUMN'
+    : 'CPNS';
 
 class _HeroAvatar extends StatelessWidget {
   const _HeroAvatar({required this.compact});

@@ -14,7 +14,6 @@ import 'package:yudha_mobile/features/learning/application/learning_providers.da
 import 'package:yudha_mobile/features/learning/data/repositories/learning_repository.dart';
 import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
 import 'package:yudha_mobile/features/lobby/presentation/pages/lobby_page.dart';
-import 'package:yudha_mobile/features/pvp/domain/entities/battle_enums.dart';
 
 void main() {
   testWidgets('renders the full-blue Lobby and quest roadmap responsively', (
@@ -23,16 +22,15 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
+    final PlayerProgressController progress = PlayerProgressController(
+      repository: const _LobbySummaryRepository(),
+    );
+    await progress.hydrateFromRepository();
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: <Override>[
-          playerProgressProvider.overrideWith((Ref ref) {
-            final PlayerProgressController controller =
-                PlayerProgressController();
-            controller.setDisplayName('Yudha');
-            controller.applyBattleResult(outcome: BattleOutcome.win);
-            return controller;
-          }),
+          playerProgressProvider.overrideWith((Ref ref) => progress),
           gameEconomyProvider.overrideWith(
             (Ref ref) => GameEconomyController(),
           ),
@@ -43,9 +41,16 @@ void main() {
     await tester.pump();
 
     expect(find.text('Yudha'), findsOneWidget);
-    expect(find.text('Win rate'), findsOneWidget);
-    expect(find.text('Streak'), findsOneWidget);
-    expect(find.text('RANKED MATCH'), findsOneWidget);
+    expect(find.text('Win rate'), findsNothing);
+    expect(find.text('RANKED MATCH'), findsNothing);
+    expect(find.text('Poin Rank'), findsOneWidget);
+    expect(find.text('Streak belajar'), findsOneWidget);
+    expect(find.text('CPNS'), findsOneWidget);
+    expect(find.text('42%'), findsOneWidget);
+    expect(
+      find.text('8 dari 19 skill memiliki bukti cukup'),
+      findsOneWidget,
+    );
     expect(find.text('MISI HARI INI'), findsOneWidget);
     expect(find.text('START BATTLE'), findsOneWidget);
     expect(find.text('XP to next rank'), findsNothing);
@@ -145,7 +150,7 @@ void main() {
     );
 
     expect(
-      find.byKey(const ValueKey<String>('lobby-hero-primary-matches')),
+      find.byKey(const ValueKey<String>('lobby-rank-points')),
       findsOneWidget,
     );
     expect(
@@ -176,7 +181,7 @@ void main() {
                 find.byKey(const ValueKey<String>('lobby-hero-identity')),
               )
               .dy,
-      closeTo(32, 0.1),
+      closeTo(16, 0.1),
     );
 
     final Container roadmap = tester.widget<Container>(
@@ -376,7 +381,7 @@ void main() {
                 find.byKey(const ValueKey<String>('lobby-hero-identity')),
               )
               .dy,
-      closeTo(26, 0.1),
+      closeTo(12, 0.1),
     );
     expect(tester.takeException(), isNull);
   });
@@ -447,6 +452,8 @@ void main() {
       find.byKey(const ValueKey<String>('lobby-mission-scroll-view')),
       findsOneWidget,
     );
+    expect(find.text('Data cakupan belum tersedia'), findsOneWidget);
+    expect(find.text('0%'), findsNothing);
     expect(find.text('START BATTLE'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -485,6 +492,31 @@ class _LearningProgressRepository extends PlayerProgressRepository {
           'label': 'Practice 5 soal (kompatibilitas)',
         },
       }),
+    );
+  }
+}
+
+class _LobbySummaryRepository extends PlayerProgressRepository {
+  const _LobbySummaryRepository();
+
+  @override
+  Future<PlayerProgressSnapshot> fetchCurrentProgress() async {
+    return const PlayerProgressSnapshot(
+      playerId: 'user-1',
+      displayName: 'Yudha',
+      totalPoints: 1050,
+      tier: 'elite',
+      target: 'cpns',
+      wins: 12,
+      losses: 4,
+      draws: 1,
+      streak: 7,
+      curriculumCoverage: LearningCoverage(
+        value: 42,
+        coveredSkillCount: 8,
+        requiredSkillCount: 19,
+        confidence: 'medium',
+      ),
     );
   }
 }
