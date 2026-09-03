@@ -27,9 +27,7 @@ export class SoloRepository {
       p_question_selection: input.questionSelection,
       p_question_count: input.questionCount,
       p_character_id: input.characterId,
-      ...(input.recommendationId
-        ? { p_recommendation_id: input.recommendationId }
-        : {}),
+      p_recommendation_id: input.recommendationId ?? null,
     });
   }
 

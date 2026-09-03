@@ -35,7 +35,7 @@ declare
   v_hash text;
   v_record public.api_idempotency_records%rowtype;
   v_selected_count integer;
-  v_rec_skill_id text;
+  v_rec_skill_ids text[];
   v_response jsonb;
 begin
   if p_idempotency_key is null or char_length(p_idempotency_key) not between 1 and 160 then
@@ -91,20 +91,24 @@ begin
   returning id into v_session_id;
 
   if p_question_selection = 'recommended' and p_recommendation_id is not null then
-    select skill_id into v_rec_skill_id
+    select skill_ids into v_rec_skill_ids
     from public.learning_recommendations
     where id = p_recommendation_id;
   end if;
 
-  if v_rec_skill_id is not null then
-    with recommended_pool as (
-      select distinct q.id
+  if v_rec_skill_ids is not null and cardinality(v_rec_skill_ids) > 0 then
+    with candidates as (
+      select q.id
       from public.questions q
       join public.question_revisions qr on qr.question_id = q.id and qr.is_active
       join public.question_skill_mappings qsm on qsm.question_revision_id = qr.id
-      where qsm.skill_id = v_rec_skill_id
+      where qsm.skill_id = any(v_rec_skill_ids)
         and q.target = v_target
         and q.is_active
+      group by q.id
+    ), recommended_pool as (
+      select id
+      from candidates
       order by random()
       limit p_question_count
     ), fill_pool as (
