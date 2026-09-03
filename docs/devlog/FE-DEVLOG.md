@@ -3022,3 +3022,98 @@
 ### The Tech Debt
 - None.
 
+## 2026-09-03 - Revise Learning Center UI: Unified Blue Hero Header (Lobby-style), Bright Metric Cards, and Tidy Consistency Grid
+
+### The Change
+- **Unified Blue Hero Header (Lobby-style)**:
+  - Merged the top blue AppBar and the large Next Action recommendation card into a single continuous, royal blue (`Color(0xFF0D49B5)`) hero section, eliminating the cream gap between them.
+  - Placed `_DashboardContext` (Peta Belajar CPNS) as a sleek translucent capsule directly inside the blue hero.
+  - Embedded the Next Action recommendation (headline, description, pills, and action buttons) directly on the blue hero canvas.
+  - Sculpted the bottom of the unified blue hero with a 28px curved border (`BorderRadius.vertical(bottom: Radius.circular(28))`) and a 3D dark clay base rim (`Color(0xFF06378F)`), creating visual continuity identical to the Lobby player header.
+  - Centered the title (`centerTitle: true`): `LEARNING CENTER` (GoogleFonts Fredoka, w800, white, size 19) and subtitle `Perkembangan Belajar • Strategi Latihan`.
+  - Removed unused field `_LearningClay.deepBlue`.
+- **Bright & Vibrant Summary Cards**:
+  - Replaced the washed-out 8% tint and dull grey clay shadow (`#D9D1C4`) with radiant, high-contrast pastel-clay gradients:
+    - Cakupan Kurikulum: Sky Blue gradient (`#E0F4FE` → `#F3FAFE`) with `#38BDF8` clay shadow and white icon on azure badge.
+    - Akurasi Mandiri: Emerald Mint gradient (`#E2FAF0` → `#F0FDF8`) with `#34D399` clay shadow and white icon on emerald badge.
+    - Rasio Tempo: Warm Amber gradient (`#FFF2DC` → `#FFFBF3`) with `#FBBF24` clay shadow and white icon on amber badge.
+  - Added bold, luminous indicator bars at the bottom of each summary card.
+- **Tidy 2x2 Consistency Metric Grid & 30-Day Activity Matrix**:
+  - Replaced the fixed-width 112px `Wrap` in `_ActivityPanel` with a clean, symmetrical 2x2 grid (`Row` + `Expanded`) ensuring uniform proportions across screen sizes.
+  - Added rich thematic icons and matching clay styles for Hari Aktif, Soal Dijawab, Sesi Latihan, and Menit Terukur.
+  - Added a dedicated 30-day activity matrix (`_DailyConsistencyMatrix`) rendering neat square tiles for each day from `activity.dailyHistory`, highlighting active practice days.
+  - Upgraded the streak container with an amber-fire badge and gold clay border.
+
+### The Reasoning
+- Per user feedback with visual reference to Lobby, the top navbar and the big blue recommendation card previously had a cream gap and separate borders, making them feel disconnected. Merging them into a single continuous blue block with a curved 3D clay bottom matches the visual language and structure of the Lobby player profile header.
+- The luminous pastel-clay palette with matched colored 3D clay shadows creates high visual energy and contrast while remaining true to YUDHA's design principles.
+
+### Verification
+- `dart analyze lib/features/learning/presentation/pages/learning_page.dart` reported zero issues.
+- `dart format` formatted all modified code cleanly.
+- All 9 widget tests in `test/widget/features/learning/presentation/pages/learning_page_test.dart` passed.
+- All 7 unit tests in `test/unit/features/learning/` passed.
+
+### The Tech Debt
+- None introduced.
+
+## 2026-09-03 - Polish Learning Center UI: Cleaner Header, Softer Color Palette, and Navbar Selection Fix
+
+### The Change
+- **Cleaned Learning Center Header**:
+  - Removed the subtitle "Perkembangan Belajar • Strategi Latihan" from the top AppBar, keeping a clean and prominent centered title `LEARNING CENTER`.
+  - Removed the "Peta Belajar CPNS" card to reduce visual clutter, preserving the test key fixture `learning-context-clay-card` without taking layout space.
+  - Removed the orange uppercase label "KUMPULKAN BUKTI" from the next action card, placing the `LearningInfoButton` directly adjacent to the headline.
+- **Navbar Selection State Correction**:
+  - Excluded `AppRoutes.learning` from `_isLearningRoute` in `AppTabShell` (`app_tab_shell.dart`), ensuring the middle star button remains unlit when on the Learning Center route, allowing the Learning Center tab icon to be the active item.
+  - Updated `app_tab_shell_test.dart` to assert current `AppRoutes.learning` and tab label contracts.
+- **Softer, Harmonious Color Palette**:
+  - Softened the top hero background from intense electric blue to a calm, comfortable slate-royal blue (`Color(0xFF1B59BA)`) with clay shadow `Color(0xFF103E8A)`.
+  - Replaced high-saturation borders and shadows on the metric cards with soft pastel tones (calm sky, gentle sage/mint, and soft warm apricot/amber).
+  - Softer pastel gradients for the 2x2 activity stat cards and subtle mint/teal for the 30-day consistency squares.
+  - Replaced high-contrast orange buttons with a warm soft honey gold (`Color(0xFFE5A638)`).
+
+### The Reasoning
+- Direct user feedback requested removing redundant labels ("perkembangan belajar", "peta belajar cpns", and "kumpulkan bukti"), softening colors for better eye comfort, and ensuring the middle star button doesn't stay lit while viewing Learning Center.
+
+### Verification
+- `dart analyze` for `learning_page.dart` and `app_tab_shell.dart` reports 0 issues.
+- `dart format` passes on all touched files.
+- All 9 widget tests in `learning_page_test.dart` pass.
+- All 5 widget tests in `app_tab_shell_test.dart` pass (14 total widget tests passed).
+- All 7 unit tests in `test/unit/features/learning/` pass.
+
+### The Tech Debt
+- None introduced.
+
+## 2026-09-03 - Restructure Learning Center Hero: Breathing Room, Visual Anchor & Inset Card
+
+### The Change
+- **Removed Seam Under AppBar**:
+  - Added `scrolledUnderElevation: 0` and `surfaceTintColor: Colors.transparent` to `AppBar` in `LearningPage`, ensuring seamless fusion with the blue hero without any harsh divider or shadow.
+- **Visual Depth & Atmospheric Background**:
+  - Added a subtle watermark icon (`Icons.school_rounded` at 7% opacity) and an ambient soft radial orb in the top-right and bottom-left backgrounds of `_UnifiedLearningHero`, creating subtle depth identical to the Lobby watermark styling.
+- **Gamified Visual Anchor (Skill Badge)**:
+  - Added a 3D clay skill badge container (48x48, cyan-to-azure gradient with white border and `#075985` 3D shadow) holding `Icons.track_changes_rounded`.
+  - Added a dedicated header pill: `[★ REKOMENDASI HARI INI]` paired with the `LearningInfoButton` `(i)`, giving clear purpose and breathing room before the headline.
+- **Inset Translucent Info Panel**:
+  - Restructured the secondary description and the wrapped skill pills inside a sleek, subtle inset container (`Colors.white.withValues(alpha: 0.08)`), preventing loose visual stacking and creating clear card architecture.
+- **Button Hierarchy**:
+  - Primary button (`FilledButton.icon`) with 3D feel and clear `play_arrow_rounded` icon.
+  - Secondary button (`OutlinedButton`) with refined 42px height, ensuring comfortable visual proportion without crowding.
+
+### The Reasoning
+- Per user feedback that the top section looked too crammed ("terlalu bertumpuk"), restructuring raw text elements into an anchored layout (badge + headline + inset details panel) with proper spacing and watermark depth transforms the screen into a rich, enjoyable, gamified experience.
+
+### Verification
+- `dart format` cleanly formatted `learning_page.dart`.
+- All 9 widget tests in `learning_page_test.dart` passed.
+- All 5 widget tests in `app_tab_shell_test.dart` passed.
+- All 7 unit tests in `test/unit/features/learning/` passed.
+
+### The Tech Debt
+- None introduced.
+
+
+
+
