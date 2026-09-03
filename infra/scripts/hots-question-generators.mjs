@@ -86,6 +86,7 @@ function verbal(index, seed, target) {
       ], answer),
       `Relasi yang dipakai adalah fungsi atau keluaran utama: ${a} menghasilkan/menggunakan ${b}, sebagaimana ${c} menghasilkan/menggunakan ${answer}.`,
       'medium',
+      'Identifikasi relasi fungsional atau fungsi utama pasangan konsep pertama untuk diterapkan pada konsep kedua.',
     );
   }
   if (family === 1) {
@@ -100,6 +101,7 @@ function verbal(index, seed, target) {
       ],
       `Anggota ${a} yang lolos termasuk ${b}, sedangkan seluruh ${b} berada di luar himpunan ${c}; karena keberadaan sebagian anggota dipastikan, sebagian ${a} pasti bukan ${c}.`,
       'hard',
+      'Gunakan hukum silogisme dan perhatikan cakupan kuantor serta diagram himpunan anggota.',
     );
   }
   if (family === 2) {
@@ -114,6 +116,7 @@ function verbal(index, seed, target) {
       ],
       `Pasangan ${names[0]}–${names[1]} harus berurutan, ${names[2]} mendahului pasangan itu, dan ${names[3]} menutup urutan.`,
       'hard',
+      'Petakan urutan pasti dan relasi posisi sebelum/sesudah antarsubjek secara bertahap.',
     );
   }
   const before = 64 + (seed % 37);
@@ -130,6 +133,7 @@ function verbal(index, seed, target) {
     ],
     'Dua indikator bergerak berlawanan. Penalaran yang sah harus mempertimbangkan efisiensi sekaligus mutu, tanpa menarik sebab yang tidak tersedia dalam data.',
     'hard',
+    'Bandingkan dua indikator perubahan secara objektif tanpa membuat asumsi di luar data yang disajikan.',
   );
 }
 
@@ -147,6 +151,8 @@ function numeric(index, seed, originalIndex = index) {
       [base - increase, base + pct, answer + increase],
       `Kenaikan = ${pct}% × ${base} = ${increase}; kapasitas baru = ${base} + ${increase} = ${answer}.`,
       'medium',
+      '',
+      'Hitung nilai kenaikan dari persentase terhadap nilai dasar, lalu jumlahkan untuk memperoleh kapasitas baru.',
     );
   }
   if (family === 1) {
@@ -162,6 +168,7 @@ function numeric(index, seed, originalIndex = index) {
       `Jumlah bagian ${ratioA + ratioB}; setiap bagian ${total} ÷ ${ratioA + ratioB} = ${multiplier}. Setelah satu bagian dipindahkan, penguatan sistem mendapat ${ratioB + 1} × ${multiplier} = ${answer} juta rupiah.`,
       'hard',
       ' juta rupiah',
+      'Cari nilai per satu bagian rasio dari total anggaran, lalu sesuaikan dengan rasio yang baru.',
     );
   }
   if (family === 2) {
@@ -177,6 +184,7 @@ function numeric(index, seed, originalIndex = index) {
       `Beban tetap ${workers} × ${days} = ${totalWork} hari-orang. Waktu baru = ${totalWork} ÷ ${newWorkers} = ${answer} hari.`,
       'hard',
       ' hari',
+      'Gunakan prinsip perbandingan berbalik nilai: total beban kerja = jumlah petugas × hari.',
     );
   }
   if (family === 3) {
@@ -189,6 +197,8 @@ function numeric(index, seed, originalIndex = index) {
       [missing - 5, missing + 5, average],
       `Total lima skor = 5 × ${average} = ${average * 5}. Jumlah empat skor = ${values.reduce((a, b) => a + b, 0)}, sehingga skor kelima ${missing}.`,
       'medium',
+      '',
+      'Hitung total seluruh skor (rata-rata × jumlah data) lalu kurangi dengan jumlah skor yang diketahui.',
     );
   }
   if (family === 4) {
@@ -208,6 +218,8 @@ function numeric(index, seed, originalIndex = index) {
       [answer - stepGrowth, answer + stepGrowth, answer + firstStep],
       `Selisih berturut-turut dimulai ${firstStep} dan naik ${stepGrowth}; selisih berikutnya ${step}, sehingga hasilnya ${answer}.`,
       'hard',
+      '',
+      'Perhatikan pola selisih antarsuku yang bertambah secara konstan.',
     );
   }
   const speed = 40 + (ordinal % 6) * 5;
@@ -223,6 +235,7 @@ function numeric(index, seed, originalIndex = index) {
     `Waktu efektif ${hours} − ${delayMinutes}/60 = ${effectiveHours} jam. Kecepatan minimum = ${distance} ÷ ${effectiveHours} = ${answer} km/jam.`,
     'hard',
     ' km/jam',
+    'Kurangi total waktu dengan durasi penundaan untuk mencari waktu efektif, lalu hitung kecepatan = jarak / waktu efektif.',
   );
 }
 
@@ -237,6 +250,7 @@ function logical(index, seed) {
       [names[1], names[3], names[4]],
       `${names[2]} pertama dan ${names[4]} terakhir. Pasangan ${names[0]}–${names[1]} harus bersebelahan sebelum ${names[3]}, sehingga pasangan hanya dapat menempati urutan kedua–ketiga.`,
       'hard',
+      'Identifikasi posisi awal dan akhir yang sudah pasti, lalu tempatkan pasangan berkas yang harus berdampingan.',
     );
   }
   if (family === 1) {
@@ -247,6 +261,7 @@ function logical(index, seed) {
       [`${a} tidak menyelesaikan audit`, `${b} tidak membuka layanan`, `${c} membuka layanan baru`],
       `Modus ponens diterapkan dua kali: audit ${a} memicu layanan ${b}, dan layanan ${b} memastikan ${c} tidak melakukan pemeliharaan.`,
       'hard',
+      'Terapkan aturan Modus Ponens secara berantai dari premis pertama ke premis berikutnya.',
     );
   }
   if (family === 2) {
@@ -261,6 +276,8 @@ function logical(index, seed) {
       [total - a, total - b, a + b - both],
       `Gabungan A atau B = ${a} + ${b} − ${both} = ${a + b - both}. Di luar gabungan = ${total} − ${a + b - both} = ${neither}.`,
       'medium',
+      '',
+      'Gunakan rumus gabungan dua himpunan: total peserta dikurangi jumlah peserta yang menguasai setidaknya satu aplikasi.',
     );
   }
   const units = orderedUnits(ordinal, 4);
@@ -274,6 +291,7 @@ function logical(index, seed) {
     ],
     `${units[2]} wajib dipilih sehingga ${units[0]} tidak dapat dipilih. Syarat minimal kemudian memaksa ${units[1]} dipilih, dan pemilihan ${units[1]} mensyaratkan ${units[3]}.`,
     'hard',
+    'Mulai dari syarat mutlak (unit yang wajib dipilih) lalu eliminasi atau sertakan unit lainnya sesuai aturan.',
   );
 }
 
@@ -292,6 +310,7 @@ function figural(index, seed) {
       symbols.filter((symbol) => symbol !== answer),
       `Rotasi membentuk siklus empat arah. Selisih ${requestedStep - 1} langkah direduksi modulo 4, kemudian diterapkan dari posisi awal sesuai arah rotasi.`,
       'medium',
+      'Gunakan pola siklus 4 arah mata angin dan hitung sisa langkah setelah dibagi 4 (modulo 4).',
     );
   }
   if (family === 1) {
@@ -309,6 +328,7 @@ function figural(index, seed) {
       shapes.flatMap((shape) => [shape, `${shape}•`, `${shape}••`]),
       `Indeks bentuk dihitung modulo 3 dan tanda titik modulo 2. Pada posisi ke-${requestedStep}, kedua siklus menghasilkan ${answer}.`,
       'hard',
+      'Pisahkan analisis siklus bentuk (lingkaran-persegi-segitiga) dan pola kemunculan titik berselang.',
     );
   }
   if (family === 2) {
@@ -326,6 +346,7 @@ function figural(index, seed) {
       [3, 4, 5, 6].flatMap((sideCount) => [1, 2, 3, 4].map((dotCount) => `${sideCount} sisi, ${dotCount} titik`)),
       `Kedua atribut berubah independen selama ${moves} langkah dan direduksi pada siklus empat nilai: sisi menjadi ${nextSides} dan titik menjadi ${nextDots}.`,
       'hard',
+      'Hitung perubahan jumlah sisi dan jumlah titik secara terpisah berdasarkan siklus masing-masing.',
     );
   }
   const row = 1 + (seed % 3);
@@ -343,6 +364,7 @@ function figural(index, seed) {
     [1, 2, 3].flatMap((rowValue) => [1, 2, 3].map((colValue) => `(${rowValue},${colValue})`)),
     `Perubahan baris dan kolom diterapkan bersamaan selama ${moves} langkah dan dihitung modulo 3, menghasilkan (${nextRow},${nextCol}).`,
     'medium',
+    'Hitung perubahan baris dan kolom secara terpisah menggunakan perpindahan melingkar (modulo 3).',
   );
 }
 
@@ -437,6 +459,17 @@ const JUDGMENT_SPECS = {
   },
 };
 
+const JUDGMENT_HINTS = {
+  'cpns/tkp/pelayanan_dan_integritas': 'Fokus pada tindakan berintegritas tinggi, kepatuhan prosedur, transparansi, dan pelayanan prima tanpa diskriminasi.',
+  'cpns/tkp/kerja_sama_dan_komunikasi': 'Pilih pendekatan komunikasi terbuka, penyamaan fakta, dan pembagian peran yang terstruktur serta solutif.',
+  'cpns/tkp/adaptasi_dan_pengembangan_diri': 'Pilih respon proaktif belajar, adaptif terhadap perubahan, dan berorientasi pada peningkatan kompetensi berkelanjutan.',
+  'cpns/tkp/pengambilan_keputusan_dan_kinerja': 'Pilih keputusan yang berbasis kriteria objektif, mempertimbangkan manajemen risiko, dan berorientasi solusi terukur.',
+  'bumn/akhlak/amanah': 'Pilih tindakan yang memegang teguh kepercayaan, jujur, transparan, dan bertanggung jawab atas setiap mandat.',
+  'bumn/akhlak/kompeten': 'Pilih tindakan yang menunjukkan semangat belajar, keunggulan mutu hasil kerja, dan transfer pengetahuan.',
+  'bumn/akhlak/harmonis': 'Pilih sikap saling peduli, menghormati keragaman, dan menjaga suasana kerja yang kondusif serta inklusif.',
+  'bumn/akhlak/loyal': 'Pilih tindakan yang berdedikasi tinggi serta mendahulukan kepentingan organisasi dan bangsa di atas kepentingan pribadi.',
+};
+
 function generateJudgment(path, index, seed) {
   const spec = JUDGMENT_SPECS[path];
   if (!spec) throw new Error(`Missing judgment specification for ${path}.`);
@@ -453,14 +486,27 @@ function generateJudgment(path, index, seed) {
     'informasi yang tersedia belum sepenuhnya lengkap',
   ];
   const constraint = constraints[Math.floor(variant / UNITS.length) % constraints.length];
+  const hint = JUDGMENT_HINTS[path] ?? `Pilih respon yang paling mencerminkan nilai ${spec.value} secara nyata dan profesional.`;
   return mcq(
     `${situation}. Kondisi di ${unit}: ${constraint}. Tindakan yang paling mencerminkan ${spec.value} adalah ....`,
     capitalize(best),
     [capitalize(risky), capitalize(passive), capitalize(partial)],
     `${rationale} Pilihan terbaik menangani akar persoalan, menjaga batas etis atau prosedural, dan memungkinkan tindak lanjut yang terukur.`,
     'hard',
+    hint,
   );
 }
+
+const CIVICS_HINTS = {
+  'cpns/twk/pancasila_dan_ideologi': 'Kaitkan keputusan dengan pengamalan nilai-nilai luhur Pancasila (kemanusiaan, musyawarah, dan keadilan sosial).',
+  'cpns/twk/konstitusi_dan_negara': 'Fokus pada supremasi hukum, pemisahan kekuasaan, akuntabilitas tata kelola, dan perlindungan hak konstitusional warga.',
+  'cpns/twk/sejarah_dan_kebangsaan': 'Analisis peristiwa dari sudut pandang sejarah kritis, semangat persatuan bangsa, dan keberlanjutan cita-cita nasional.',
+  'cpns/twk/bhinneka_tunggal_ika': 'Pilih pendekatan yang menjunjung kesetaraan, merawat kebinekaan, dan membangun integrasi nasional.',
+  'bumn/wawasan_kebangsaan/pancasila': 'Pilih kebijakan korporasi yang menyeimbangkan efisiensi bisnis dengan keadilan sosial dan kemanusiaan.',
+  'bumn/wawasan_kebangsaan/uud_1945': 'Fokus pada tata kelola yang taat asas konstitusi, kepatuhan hukum, dan pemanfaatan sumber daya untuk kemakmuran rakyat.',
+  'bumn/wawasan_kebangsaan/nkri': 'Pilih langkah yang memperkuat konektivitas antardaerah, ketahanan nasional, dan pemerataan manfaat ekonomi.',
+  'bumn/wawasan_kebangsaan/bhinneka_tunggal_ika': 'Pilih budaya kerja inklusif yang menghargai keberagaman latar belakang dan memberikan peluang yang setara.',
+};
 
 const CIVICS_SPECS = {
   'cpns/twk/pancasila_dan_ideologi': [
@@ -550,6 +596,7 @@ function generateCivics(path, index, seed) {
   ];
   const constraint = constraints[Math.floor(variant / (actors.length * UNITS.length)) % constraints.length];
   const correct = `${capitalize(answer)} serta menetapkan indikator untuk menilai dampaknya`;
+  const hint = CIVICS_HINTS[path] ?? 'Pilih opsi yang paling selaras dengan prinsip kebangsaan dan tata kelola berintegritas.';
   return mcq(
     `${situation}. ${capitalize(actor)} di ${setting} harus mengambil keputusan dengan batasan bahwa ${constraint}. Keputusan yang paling tepat berdasarkan prinsip subkategori ini adalah ....`,
     correct,
@@ -560,14 +607,15 @@ function generateCivics(path, index, seed) {
     ],
     `${rationale} Indikator dampak diperlukan agar penerapan prinsip dapat dievaluasi, bukan berhenti sebagai pernyataan normatif.`,
     'hard',
+    hint,
   );
 }
 
-function mcq(prompt, answer, distractors, explanation, difficulty) {
-  return { prompt, answer, distractors, explanation, difficulty };
+function mcq(prompt, answer, distractors, explanation, difficulty, hint = null) {
+  return { prompt, answer, distractors, explanation, difficulty, hint };
 }
 
-function numberMcq(prompt, answer, distractors, explanation, difficulty, suffix = '') {
+function numberMcq(prompt, answer, distractors, explanation, difficulty, suffix = '', hint = null) {
   const answerText = `${formatNumber(answer)}${suffix}`;
   const candidateDistractors = distractors.map((value) => `${formatNumber(value)}${suffix}`);
   const step = Math.max(1, Math.round(Math.abs(Number(answer)) * 0.1));
@@ -580,10 +628,11 @@ function numberMcq(prompt, answer, distractors, explanation, difficulty, suffix 
     takeDistinct(candidateDistractors, answerText).slice(0, 3),
     explanation,
     difficulty,
+    hint,
   );
 }
 
-function finalize({ target, category, subcategory, index, seed, prompt, answer, distractors, explanation, difficulty }) {
+function finalize({ target, category, subcategory, index, seed, prompt, answer, distractors, explanation, difficulty, hint }) {
   const values = [answer, ...takeDistinct(distractors, answer)].slice(0, 4);
   if (values.length !== 4) {
     throw new Error(`Question ${target}/${category}/${subcategory}/${index} does not have three distinct distractors.`);
@@ -621,7 +670,7 @@ function finalize({ target, category, subcategory, index, seed, prompt, answer, 
     damageValue: effect === 'damage' ? 10 : 0,
     healValue: effect === 'heal' ? 10 : 0,
     timeLimitSeconds: difficulty === 'hard' ? 90 : 75,
-    hint: null,
+    hint: hint ?? 'Perhatikan kata kunci dan aturan logika pada soal untuk menentukan pilihan terbaik.',
     active: true,
   };
 }

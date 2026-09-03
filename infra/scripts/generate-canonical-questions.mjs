@@ -53,7 +53,9 @@ export async function generateCanonicalQuestions() {
     const generated = legacy.map((record) => {
       const question = normalizeRecord(source, record);
       const previous = existingBySource.get(question.sourceKey);
-      return previous ? { ...question, revision: previous.revision } : question;
+      return previous
+        ? { ...question, revision: previous.revision, hint: previous.hint ?? question.hint }
+        : question;
     });
     const retained = existing.filter(
       (question) => !String(question.sourceKey).startsWith(`legacy:${source.target}:`),

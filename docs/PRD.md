@@ -2572,7 +2572,7 @@ Home does not lead with leaderboard rank.
 
 #### 15.2 Learning dashboard
 
-The mobile dashboard answers the five questions in Section 1 through:
+The learner-facing page name is **Perkembangan Belajar**. It is a mobile coaching dashboard, uses a fixed 30-day activity period, and answers the five questions in Section 1 through:
 
 1. **Next Solo action**
 2. **Learning summary**
@@ -2602,11 +2602,15 @@ The mobile dashboard answers the five questions in Section 1 through:
    - active days;
    - answered questions;
    - active learning minutes;
-   - recent Solo sessions.
+   - current and best streak;
+   - daily history and weekly visualization in `Asia/Jakarta`; and
+   - at most five recent Solo sessions with completion state, skills, mechanic, and answer counts.
 7. **Competition**
-   - clearly separate section for rating, tier, match record, PvP accuracy, and a qualified Solo-to-PvP comparison.
+   - clearly separate section for rank points, tier, lifetime match record, 30-day PvP accuracy, and a qualified Solo-to-PvP comparison.
 
-The dashboard window query controls visualization and activity history only. It does not rewrite learner state or lifetime exposure.
+The first viewport prioritizes the next Solo action, summary, and at most two deterministic findings. Findings are ordered from due review, largest valid decline, pace above `1.20×`, to largest valid improvement; otherwise the UI explains how to collect sufficient evidence. Skill detail opens in a bottom sheet. At widths below 600 px sections use one column; at 600 px or wider the skill map is the main column and retention/activity are supporting content.
+
+The dashboard window query controls visualization and activity history only. It does not rewrite learner state or lifetime exposure. All calendar buckets and boundaries use `Asia/Jakarta`. A failed refresh preserves the last successful dashboard and shows a non-blocking error; the first load uses a loading state and every section owns its honest empty state.
 
 #### 15.3 Skill map example
 
@@ -2793,22 +2797,35 @@ Top-level response:
     {
       "asOf": "2026-08-31T10:00:00.000Z",
       "calculationVersion": "learning-v1",
-      "activityWindow": {
-        "type": "rolling_days",
-        "days": 30
-      },
       "target": "cpns",
+      "window": {
+        "type": "rolling",
+        "days": 30,
+        "startsAt": "2026-08-01T10:00:00.000Z",
+        "endsAt": "2026-08-31T10:00:00.000Z"
+      },
       "nextAction": {},
-      "learningSummary": {},
+      "summary": {},
       "skillStates": [],
-      "learningTrend": [],
-      "modeComparison": {},
-      "retention": {},
+      "trends": [],
+      "retention": [],
       "assessment": {},
-      "weeklyActivity": [],
-      "recentSoloSessions": [],
+      "activity": {
+        "activeLearningDays": 8,
+        "questionsAnswered": 39,
+        "activeLearningMinutes": 13,
+        "sessionCount": 8,
+        "streak": {},
+        "dailyHistory": [],
+        "weeklyActivity": [],
+        "recentSessions": []
+      },
       "competition": {}
     }
+
+The Assessment object preserves the latest-result compatibility fields and additively returns comparable baseline/latest points, improvement in percentage points, and latest supported category/skill breakdowns. Improvement is null unless both results use the same blueprint version.
+
+Competition remains a separate evidence context. Its Solo comparison is null unless both Solo and PvP confidence are at least Medium under the `learning-v1` evidence-confidence policy. Activity buckets use `Asia/Jakarta`, and recent sessions are built only from owned, non-invalidated canonical Solo attempts.
 
 Every metric object with a percentage follows:
 
@@ -2820,6 +2837,8 @@ Every metric object with a percentage follows:
       "confidence": "high",
       "asOf": "2026-08-31T10:00:00.000Z"
     }
+
+Retention and Assessment compatibility fields remain flat, with additive `confidence` and `asOf` metadata. Retention accuracy stays Low confidence until the schedule projection stores the unique-question and difficulty coverage needed by the standard policy. Assessment breakdown entries also carry nullable correct/attempt counts plus confidence and as-of time. Competition accuracy uses the same metric envelope and standard evidence-confidence policy; `null` values remain unavailable and never become zero.
 
 #### 17.4 Create Solo session
 
@@ -3167,6 +3186,8 @@ Every derived state and recommendation records:
 - policy versions used for confidence, review, mechanic, and scoring.
 
 Changing learning-v1 creates a new version and recalculates projections from raw evidence. It does not mutate old attempts.
+
+The Perkembangan Belajar dashboard remains on `learning-v1`: its new activity, Assessment, retention-label, and Competition fields are additive presentation context and do not change evidence classification or skill-state formulas. Any later threshold, weighting, or state-policy change requires a new calculation version.
 
 #### 18.6 Security and privacy
 

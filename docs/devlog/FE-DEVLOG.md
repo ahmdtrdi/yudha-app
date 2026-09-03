@@ -2907,4 +2907,24 @@
 ### The Tech Debt
 - The hardened client mapping requires a Mobile release after Game Backend deployment. Deployed Bot and two-client human-mode visual smoke tests remain pending.
 
+## 2026-09-03 - Build the Perkembangan Belajar Coaching Dashboard
+
+### The Change
+- Rebuilt the Learning page as the learner-facing **Perkembangan Belajar** dashboard with a first-viewport Solo recommendation, evidence-aware summary and deterministic insights, grouped/sorted skill map, skill-detail bottom sheet, retention, 30-day consistency chart, comparable Assessment results, and visually separate Competition context.
+- Expanded the additive Flutter model for skill taxonomy, assisted evidence, pace/baseline, timeout, coverage, retention metadata, daily/weekly activity, recent Solo sessions, Assessment baseline/latest/breakdown, and Competition rank/match/comparison data while preserving null values.
+- Wired `practice_fixed_five` recommendations through `PracticeLaunchRequest` so topic and `recommendationId` reach the compatible Practice quiz, and corrected its post-start route.
+- Added first-load skeleton, stale-data refresh behavior coverage, non-blocking error handling, honest section empty states, 360/700 responsive layouts, larger-text coverage, and unavailable-CTA behavior.
+- Removed the unmounted legacy Mobile performance widget, provider, repository, entity, and their obsolete tests; Profile retains one Learning summary card that opens the new dashboard.
+
+### The Reasoning
+- Solo, Assessment, activity, and PvP communicate different kinds of evidence, so the page keeps them visibly separate and uses count, confidence, icons, and human-readable status instead of a blended score or color-only meaning.
+- A deterministic presentation mapper keeps recommendation priority and insights auditable, while a 600 px breakpoint gives phones a drill-down layout and tablets a skill-first two-column layout without adding a chart dependency.
+
+### Verification
+- Focused Flutter analysis completed with no issues; all Learning unit/widget tests pass, including parsing, stale refresh, 360x760 and 700x900 rendering, text scaling, bottom-sheet detail, recommendation event idempotency/handoff, loading, empty, and unavailable states.
+- The full Flutter suite passed all 188 tests, including Profile, Practice, Solo, PvP, and router regressions.
+
+### The Tech Debt
+- The compatibility handoff remains on legacy fixed-five Practice until the Gate 5 policy-backed Solo delivery flow is activated.
+- Retention confidence remains conservatively Low until its projection stores unique-question and difficulty coverage.
 
