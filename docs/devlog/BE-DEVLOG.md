@@ -904,6 +904,25 @@
 **The Tech Debt:**
 - Ensure production Railway deployment pulls the latest commit so the fix is active in live environments.
 
+## 2026-09-03 - Add the Learning Summary to Lobby
+
+### The Change
+- Restored canonical `rankPoints` and `tier` fields in the profile projection and surfaced them at the top level of `GET /lobby/summary`.
+- Added a compact Learning summary that calculates curriculum coverage from required, enabled skills and their prepared evidence state.
+- Reused the same Learning V2 coverage formula and confidence rules as the full Learning dashboard.
+- Extended the OpenAPI and PRD Lobby contracts and added focused service coverage.
+
+### The Reasoning
+- Lobby needs authoritative learning signals without asking the mobile client to fetch and combine the entire Learning dashboard independently.
+- Curriculum coverage represents sufficient evidence across the required taxonomy; it remains distinct from mastery or course completion.
+
+### Verification
+- Focused Profile, Lobby, and Learning service suites pass all 17 tests.
+- TypeScript no-emit compilation completed without diagnostics.
+- The OpenAPI JSON parses successfully.
+
+### The Tech Debt
+- Curriculum coverage remains unavailable when Learning V2 or its taxonomy is unavailable; the client intentionally renders that state instead of inventing a zero value.
 ## 2026-09-03 - Restore Beta Y-Coin Credits and Repair Energy Recharge Packages
 
 **The Change:**

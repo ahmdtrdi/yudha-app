@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import type { Json } from '../supabase/database.types';
 import { SupabaseService } from '../supabase/supabase.service';
-import { asNumber } from '../progression/progression.utils';
+import { asNumber, rankTier } from '../progression/progression.utils';
 
 export type UpdateProfilePayload = Record<string, unknown>;
 export type UpdateLoadoutPayload = {
@@ -233,6 +233,7 @@ export class ProfileService {
   }
 
   private presentProfile(row: Record<string, any>) {
+    const rankPoints = asNumber(row.rank_points);
     const wins = asNumber(row.wins);
     const losses = asNumber(row.losses);
     const draws = asNumber(row.draws);
@@ -242,6 +243,8 @@ export class ProfileService {
       username: String(row.username ?? ''),
       fullName: row.full_name == null ? null : String(row.full_name),
       target: row.target === 'bumn' ? 'bumn' : 'cpns',
+      rankPoints,
+      tier: rankTier(rankPoints),
       rankedStats: {
         wins,
         losses,

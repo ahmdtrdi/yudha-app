@@ -33,7 +33,7 @@ export class LobbyService {
 
   async getSummary(userId: string, requestedAt = new Date()) {
     const businessDate = wibBusinessDate(requestedAt);
-    const [profile, analytics, economy, missionResult, learningNextAction] =
+    const [profile, analytics, economy, missionResult, learningSummary] =
       await Promise.all([
         this.profileService.getProfileData(userId),
         this.analyticsService.getAnalyticsData(userId, requestedAt),
@@ -44,7 +44,7 @@ export class LobbyService {
           .select('mission_key, completed_at, reward_ycoins')
           .eq('user_id', userId)
           .eq('business_date', businessDate),
-        this.learningService.getLearningNextAction(userId),
+        this.learningService.getLobbySummary(userId),
       ]);
 
     if (missionResult.error) {
@@ -59,6 +59,8 @@ export class LobbyService {
     return {
       data: {
         profile,
+        tier: profile.tier,
+        rankPoints: profile.rankPoints,
         yCoins: profile.yCoins,
         dailyMissions: DAILY_MISSIONS.map((mission) => {
           const completed = progress.get(mission.key) as any;
@@ -74,7 +76,10 @@ export class LobbyService {
         economy: economy.data,
         proSummary: economy.data.pro,
         recommendation: analytics.recommendation,
-        learningNextAction,
+        learningNextAction: learningSummary.nextAction,
+        learningSummary: {
+          curriculumCoverage: learningSummary.curriculumCoverage,
+        },
       },
     };
   }
