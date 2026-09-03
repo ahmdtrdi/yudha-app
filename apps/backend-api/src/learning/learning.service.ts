@@ -3,7 +3,8 @@ import {
   Injectable,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { curriculumCoverage } from './learning.calculators';
+import { asNumber, rankTier } from '../progression/progression.utils';
+import { confidence, curriculumCoverage } from './learning.calculators';
 import {
   LEARNING_CALCULATION_VERSION,
   learningV2Enabled,
@@ -41,7 +42,7 @@ export class LearningService {
       throw new BadRequestException('window must be 30d.');
     }
     const asOf = new Date();
-    const startsAt = new Date(asOf.getTime() - 30 * DAY_MS).toISOString();
+    const startsAt = wibWindowStart(asOf, 30);
     const target = await this.repository.getUserTarget(userId);
     const taxonomy = await this.repository.getLatestTaxonomyVersion();
     if (!taxonomy) {
@@ -49,20 +50,23 @@ export class LearningService {
         data: emptyDashboard(target, startsAt, asOf.toISOString()),
       };
     }
-    const [skills, prepared, recommendation, retention, assessment, activity] =
-      await Promise.all([
-        this.repository.listSkills(taxonomy.id, target),
-        this.repository.listPreparedStates(userId, target, taxonomy.id),
-        this.repository.getActiveRecommendation(userId, target),
-        this.repository.listRetentionSchedules(userId, target, taxonomy.id),
-        this.repository.getLatestAssessment(userId, target),
-        this.repository.getActivity(
-          userId,
-          target,
-          startsAt,
-          asOf.toISOString(),
-        ),
-      ]);
+    const [
+      skills,
+      prepared,
+      recommendation,
+      retention,
+      assessments,
+      activity,
+      profile,
+    ] = await Promise.all([
+      this.repository.listSkills(taxonomy.id, target),
+      this.repository.listPreparedStates(userId, target, taxonomy.id),
+      this.repository.getActiveRecommendation(userId, target),
+      this.repository.listRetentionSchedules(userId, target, taxonomy.id),
+      this.repository.listAssessmentEvidence(userId, target),
+      this.repository.getActivity(userId, target, startsAt, asOf.toISOString()),
+      this.repository.getLearningProfile(userId),
+    ]);
     const rowBySkill = new Map(prepared.map((row) => [row.skill_id, row]));
     const states = skills.map((skill) => {
       const row = rowBySkill.get(skill.skill_id);
@@ -103,6 +107,16 @@ export class LearningService {
     const recommendationSkill = recommendation
       ? skills.find((skill) => skill.skill_id === recommendation.skill_ids?.[0])
       : null;
+    const skillLabels = new Map<string, string>(
+      skills.map((skill) => [String(skill.skill_id), String(skill.label)]),
+    );
+    const learningAccuracy = metric(
+      totalCorrect,
+      totalAttempts,
+      totalUniqueQuestions,
+      evidenceConfidence,
+      asOf.toISOString(),
+    );
 
     return {
       data: {
@@ -127,13 +141,7 @@ export class LearningService {
               coverage.requiredSkillCount === 0 ? 'low' : evidenceConfidence,
             asOf: asOf.toISOString(),
           },
-          unseenIndependentAccuracy: metric(
-            totalCorrect,
-            totalAttempts,
-            totalUniqueQuestions,
-            evidenceConfidence,
-            asOf.toISOString(),
-          ),
+          unseenIndependentAccuracy: learningAccuracy,
           pace: aggregatePace(states, asOf.toISOString()),
         },
         skillStates: states.map(({ skill, state, inputAsOf }) => ({
@@ -183,6 +191,7 @@ export class LearningService {
           })),
         retention: retention.map((row) => ({
           skillId: row.skill_id,
+          label: skillLabels.get(String(row.skill_id)) ?? String(row.skill_id),
           strongEvidenceAt: row.strong_evidence_at,
           reviewDueAt: row.review_due_at,
           status:
@@ -193,29 +202,23 @@ export class LearningService {
           correctCount: Number(row.retention_correct_count),
           attemptCount: Number(row.retention_attempt_count),
           accuracy: nullableNumber(row.retention_accuracy),
+          confidence: 'low' as EvidenceConfidence,
+          asOf: row.updated_at ?? row.strong_evidence_at,
         })),
-        assessment: assessment
-          ? {
-              status: assessment.validation_status,
-              score: nullableNumber(assessment.score),
-              correctCount: assessment.correct_count,
-              attemptCount: assessment.attempt_count,
-              occurredAt: assessment.occurred_at,
-              blueprintVersion: assessment.blueprint_version,
-            }
-          : {
-              status: 'not_available',
-              score: null,
-              correctCount: null,
-              attemptCount: null,
-              occurredAt: null,
-              blueprintVersion: null,
-            },
-        activity: activitySummary(soloActivity, startsAt, asOf.toISOString()),
+        assessment: assessmentSummary(assessments),
+        activity: activitySummary(
+          soloActivity,
+          startsAt,
+          asOf.toISOString(),
+          profile,
+          skillLabels,
+        ),
         competition: competitionSummary(
           competitionActivity,
           startsAt,
           asOf.toISOString(),
+          profile,
+          learningAccuracy,
         ),
       },
     };
@@ -396,10 +399,17 @@ function aggregatePace(
   };
 }
 
-function activitySummary(rows: any[], startsAt: string, endsAt: string) {
+function activitySummary(
+  rows: any[],
+  startsAt: string,
+  endsAt: string,
+  profile?: any,
+  skillLabels: Map<string, string> = new Map(),
+) {
   const measured = rows
     .map((row) => nullableNumber(row.effective_response_time_ms))
     .filter((value): value is number => value !== null);
+  const dailyHistory = dailyActivity(rows, endsAt);
   return {
     window: { days: 30, startsAt, endsAt },
     activeLearningDays: new Set(rows.map((row) => wibDate(row.source_event_at)))
@@ -416,26 +426,297 @@ function activitySummary(rows: any[], startsAt: string, endsAt: string) {
     sessionCount: new Set(
       rows.map((row) => row.source_session_key).filter(Boolean),
     ).size,
+    streak: {
+      current: asNumber(profile?.current_streak),
+      best: asNumber(profile?.best_streak),
+      lastDate: profile?.last_streak_date ?? null,
+    },
+    dailyHistory,
+    weeklyActivity: weeklyActivity(dailyHistory),
+    recentSessions: recentSessions(rows, skillLabels),
   };
 }
 
-function competitionSummary(rows: any[], startsAt: string, endsAt: string) {
+function competitionSummary(
+  rows: any[],
+  startsAt: string,
+  endsAt: string,
+  profile?: any,
+  soloAccuracy?: ReturnType<typeof metric>,
+) {
   const resolved = rows.filter((row) => typeof row.is_correct === 'boolean');
   const correct = resolved.filter((row) => row.is_correct).length;
+  const accuracyValue =
+    resolved.length === 0
+      ? null
+      : Number(((correct / resolved.length) * 100).toFixed(2));
+  const wins = asNumber(profile?.wins);
+  const losses = asNumber(profile?.losses);
+  const draws = asNumber(profile?.draws);
+  const totalMatches = wins + losses + draws;
+  const uniqueQuestionCount = new Set(
+    resolved.map((row) => row.question_revision_id).filter(Boolean),
+  ).size;
+  const pvpConfidence = confidence({
+    attemptCount: resolved.length,
+    uniqueQuestionCount,
+    difficultyLevelCount: new Set(
+      resolved.map((row) => row.effective_difficulty_level).filter(Boolean),
+    ).size,
+    latestEligibleAt: resolved[0]?.source_event_at ?? null,
+    asOf: new Date(endsAt),
+  });
+  const comparisonEligible =
+    accuracyValue !== null &&
+    pvpConfidence !== 'low' &&
+    soloAccuracy?.value !== null &&
+    soloAccuracy?.confidence !== 'low';
   return {
     separateEvidenceContext: true,
     window: { days: 30, startsAt, endsAt },
     accuracy: {
-      value:
-        resolved.length === 0
-          ? null
-          : Number(((correct / resolved.length) * 100).toFixed(2)),
+      value: accuracyValue,
       correctCount: correct,
       attemptCount: resolved.length,
-      confidence: null,
+      uniqueQuestionCount,
+      confidence: pvpConfidence,
       asOf: endsAt,
     },
+    rankPoints: asNumber(profile?.rank_points),
+    tier: rankTier(asNumber(profile?.rank_points)),
+    matchRecord: {
+      scope: 'lifetime',
+      wins,
+      losses,
+      draws,
+      totalMatches,
+      winRate:
+        totalMatches === 0
+          ? null
+          : Number(((wins / totalMatches) * 100).toFixed(2)),
+    },
+    soloComparison: comparisonEligible
+      ? {
+          gapPercentagePoints: Number(
+            (soloAccuracy!.value! - accuracyValue!).toFixed(2),
+          ),
+          solo: soloAccuracy,
+          pvp: {
+            value: accuracyValue,
+            correctCount: correct,
+            attemptCount: resolved.length,
+            asOf: endsAt,
+          },
+        }
+      : null,
   };
+}
+
+function dailyActivity(rows: any[], endsAt: string) {
+  const dates = Array.from({ length: 30 }, (_, index) =>
+    wibDate(new Date(Date.parse(endsAt) - (29 - index) * DAY_MS).toISOString()),
+  );
+  return dates.map((date) => {
+    const entries = rows.filter((row) => wibDate(row.source_event_at) === date);
+    const measured = entries
+      .map((row) => nullableNumber(row.effective_response_time_ms))
+      .filter((value): value is number => value !== null);
+    const resolved = entries.filter(
+      (row) => typeof row.is_correct === 'boolean',
+    );
+    return {
+      date,
+      questionsAnswered: entries.length,
+      correctCount: resolved.filter((row) => row.is_correct).length,
+      attemptCount: resolved.length,
+      sessionCount: new Set(
+        entries.map((row) => row.source_session_key).filter(Boolean),
+      ).size,
+      activeLearningMinutes:
+        measured.length === 0
+          ? null
+          : Number(
+              (
+                measured.reduce((sum, value) => sum + value, 0) / 60_000
+              ).toFixed(2),
+            ),
+    };
+  });
+}
+
+function weeklyActivity(days: ReturnType<typeof dailyActivity>) {
+  const buckets: Array<typeof days> = [];
+  for (let index = 0; index < days.length; index += 7) {
+    buckets.push(days.slice(index, index + 7));
+  }
+  return buckets.map((bucket) => ({
+    startsOn: bucket[0].date,
+    endsOn: bucket[bucket.length - 1].date,
+    questionsAnswered: bucket.reduce(
+      (sum, day) => sum + day.questionsAnswered,
+      0,
+    ),
+    activeLearningMinutes: bucket.every(
+      (day) => day.activeLearningMinutes === null,
+    )
+      ? null
+      : Number(
+          bucket
+            .reduce((sum, day) => sum + (day.activeLearningMinutes ?? 0), 0)
+            .toFixed(2),
+        ),
+    sessionCount: bucket.reduce((sum, day) => sum + day.sessionCount, 0),
+  }));
+}
+
+function recentSessions(rows: any[], skillLabels: Map<string, string>) {
+  const grouped = new Map<string, any[]>();
+  for (const row of rows) {
+    const key = String(row.source_session_key ?? '').trim();
+    if (!key) continue;
+    grouped.set(key, [...(grouped.get(key) ?? []), row]);
+  }
+  return Array.from(grouped.entries())
+    .map(([sessionKey, entries]) => {
+      const sorted = [...entries].sort((left, right) =>
+        String(right.source_event_at).localeCompare(
+          String(left.source_event_at),
+        ),
+      );
+      const resolved = entries.filter(
+        (row) => typeof row.is_correct === 'boolean',
+      );
+      const correctCount = resolved.filter((row) => row.is_correct).length;
+      const skillIds = Array.from(
+        new Set(
+          entries
+            .map((row) => String(row.skill_id ?? '').trim())
+            .filter(Boolean),
+        ),
+      );
+      return {
+        sessionKey,
+        lastActivityAt: sorted[0].source_event_at,
+        completionState:
+          sorted.find((row) => row.session_completion_state)
+            ?.session_completion_state ?? 'in_progress',
+        objective:
+          sorted.find((row) => row.learning_objective)?.learning_objective ??
+          null,
+        mechanicMode:
+          sorted.find((row) => row.effective_mechanic_mode)
+            ?.effective_mechanic_mode ?? null,
+        questionSelectionType:
+          sorted.find((row) => row.question_selection_type)
+            ?.question_selection_type ?? null,
+        skillIds,
+        skillLabels: skillIds.map(
+          (skillId) => skillLabels.get(skillId) ?? skillId,
+        ),
+        correctCount,
+        attemptCount: resolved.length,
+        accuracy:
+          resolved.length === 0
+            ? null
+            : Number(((correctCount / resolved.length) * 100).toFixed(2)),
+      };
+    })
+    .sort((left, right) =>
+      String(right.lastActivityAt).localeCompare(String(left.lastActivityAt)),
+    )
+    .slice(0, 5);
+}
+
+function assessmentSummary(rows: any[]) {
+  const latest = rows[0] ?? null;
+  if (!latest) {
+    return {
+      status: 'not_available',
+      score: null,
+      correctCount: null,
+      attemptCount: null,
+      occurredAt: null,
+      blueprintVersion: null,
+      confidence: 'low',
+      asOf: null,
+      baseline: null,
+      latest: null,
+      improvementPercentagePoints: null,
+      categoryBreakdown: [],
+      skillBreakdown: [],
+    };
+  }
+  const comparable = rows.filter(
+    (row) =>
+      row.blueprint_version === latest.blueprint_version &&
+      nullableNumber(row.score) !== null,
+  );
+  const baseline =
+    comparable.length > 1 ? comparable[comparable.length - 1] : null;
+  const improvement =
+    baseline &&
+    baseline.id !== latest.id &&
+    nullableNumber(latest.score) !== null
+      ? Number(
+          (
+            nullableNumber(latest.score)! - nullableNumber(baseline.score)!
+          ).toFixed(2),
+        )
+      : null;
+  return {
+    status: latest.validation_status,
+    score: nullableNumber(latest.score),
+    correctCount: latest.correct_count,
+    attemptCount: latest.attempt_count,
+    occurredAt: latest.occurred_at,
+    blueprintVersion: latest.blueprint_version,
+    confidence: assessmentConfidence(latest.validation_status),
+    asOf: latest.occurred_at,
+    baseline: baseline ? assessmentPoint(baseline) : null,
+    latest: assessmentPoint(latest),
+    improvementPercentagePoints: improvement,
+    categoryBreakdown: assessmentBreakdown(
+      latest.category_breakdown,
+      latest.validation_status,
+      latest.occurred_at,
+    ),
+    skillBreakdown: assessmentBreakdown(
+      latest.skill_breakdown,
+      latest.validation_status,
+      latest.occurred_at,
+    ),
+  };
+}
+
+function assessmentPoint(row: any) {
+  return {
+    score: nullableNumber(row.score),
+    correctCount: row.correct_count,
+    attemptCount: row.attempt_count,
+    occurredAt: row.occurred_at,
+    blueprintVersion: row.blueprint_version,
+  };
+}
+
+function assessmentBreakdown(
+  value: unknown,
+  validationStatus: string,
+  asOf: string,
+) {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry) => ({
+    ...entry,
+    correctCount: nullableNumber(entry?.correctCount),
+    attemptCount: nullableNumber(entry?.attemptCount),
+    confidence: assessmentConfidence(validationStatus),
+    asOf,
+  }));
+}
+
+function assessmentConfidence(status: string): EvidenceConfidence {
+  if (status === 'validated') return 'high';
+  if (status === 'baseline_recorded') return 'medium';
+  return 'low';
 }
 
 function emptyDashboard(
@@ -469,14 +750,7 @@ function emptyDashboard(
     skillStates: [],
     trends: [],
     retention: [],
-    assessment: {
-      status: 'not_available',
-      score: null,
-      correctCount: null,
-      attemptCount: null,
-      occurredAt: null,
-      blueprintVersion: null,
-    },
+    assessment: assessmentSummary([]),
     activity: activitySummary([], startsAt, asOf),
     competition: competitionSummary([], startsAt, asOf),
   };
@@ -506,4 +780,16 @@ function wibDate(value: string): string {
   return new Date(Date.parse(value) + 7 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
+}
+
+function wibWindowStart(asOf: Date, days: number): string {
+  const wib = new Date(asOf.getTime() + 7 * 60 * 60 * 1000);
+  return new Date(
+    Date.UTC(
+      wib.getUTCFullYear(),
+      wib.getUTCMonth(),
+      wib.getUTCDate() - (days - 1),
+    ) -
+      7 * 60 * 60 * 1000,
+  ).toISOString();
 }

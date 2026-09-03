@@ -41,6 +41,23 @@ export class LearningRepository {
     return result.data.target as LearningTarget;
   }
 
+  async getLearningProfile(userId: string): Promise<any> {
+    const result = await this.client
+      .from('profiles')
+      .select(
+        'rank_points, wins, losses, draws, current_streak, best_streak, last_streak_date',
+      )
+      .eq('id', userId)
+      .single();
+    if (result.error || !result.data) {
+      if (result.error?.code === 'PGRST116') {
+        throw new NotFoundException('Profile not found.');
+      }
+      this.fail(result.error?.message ?? 'Failed to load learner profile.');
+    }
+    return result.data;
+  }
+
   async getLatestTaxonomyVersion(): Promise<any | null> {
     const result = await this.client
       .from('learning_taxonomy_versions')
@@ -244,6 +261,20 @@ export class LearningRepository {
     return result.data ?? null;
   }
 
+  async listAssessmentEvidence(userId: string, target: LearningTarget) {
+    const result = await this.client
+      .from('assessment_evidence')
+      .select(
+        'id, blueprint_version, validation_status, score, correct_count, attempt_count, category_breakdown, skill_breakdown, occurred_at',
+      )
+      .eq('user_id', userId)
+      .eq('target', target)
+      .order('occurred_at', { ascending: false })
+      .limit(20);
+    if (result.error) this.fail(result.error.message);
+    return result.data ?? [];
+  }
+
   async getActiveRecommendation(userId: string, target: LearningTarget) {
     const now = new Date().toISOString();
     const expired = await this.client
@@ -319,7 +350,7 @@ export class LearningRepository {
       this.client
         .from('learning_attempts')
         .select(
-          'id, question_revision_id, source, source_session_key, source_event_at, effective_response_time_ms, is_correct',
+          'id, question_revision_id, source, source_session_key, source_event_at, effective_response_time_ms, effective_difficulty_level, is_correct, skill_id, category, subcategory, learning_objective, effective_mechanic_mode, question_selection_type, session_completion_state',
         )
         .eq('user_id', userId)
         .eq('target', target)
