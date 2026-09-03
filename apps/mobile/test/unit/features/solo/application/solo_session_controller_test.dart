@@ -81,6 +81,69 @@ void main() {
     expect(controller.state.selectedOption, 1);
   });
 
+  test('Focus mode removes question timer and ignores timeouts', () async {
+    final repository = _FakeSoloRepository();
+    final controller = SoloSessionController(repository);
+    addTearDown(controller.dispose);
+
+    await controller.start(
+      count: SoloQuestionCount.twenty,
+      characterId: 'character-basic-squire',
+      mechanicMode: SoloMechanicMode.focus,
+    );
+
+    expect(controller.state.session!.mechanicMode, SoloMechanicMode.focus);
+    await controller.openCard(controller.state.session!.hand.first);
+
+    // Question in focus mode must have no deadline and 0 timeLimitSeconds
+    expect(controller.state.openedQuestion!.deadlineAt, isNull);
+    expect(controller.state.openedQuestion!.timeLimitSeconds, 0);
+
+    // Calling timeout should not submit or call answer repository
+    await controller.timeout();
+    expect(repository.lastOption, isNull);
+  });
+
+  test('Speed mode halves the question time limit and deadline', () async {
+    final repository = _FakeSoloRepository();
+    final controller = SoloSessionController(repository);
+    addTearDown(controller.dispose);
+
+    await controller.start(
+      count: SoloQuestionCount.twenty,
+      characterId: 'character-basic-squire',
+      mechanicMode: SoloMechanicMode.speed,
+    );
+
+    expect(controller.state.session!.mechanicMode, SoloMechanicMode.speed);
+    await controller.openCard(controller.state.session!.hand.first);
+
+    // Base mock question has 30s. Speed mode halves it to 15s.
+    expect(controller.state.openedQuestion!.timeLimitSeconds, 15);
+    expect(controller.state.openedQuestion!.deadlineAt, isNotNull);
+    final diff = controller.state.openedQuestion!.deadlineAt!.difference(
+      controller.state.openedQuestion!.openedAt!,
+    );
+    expect(diff.inSeconds, 15);
+  });
+
+  test('passes recommendation question selection and recommendationId', () async {
+    final repository = _FakeSoloRepository();
+    final controller = SoloSessionController(repository);
+    addTearDown(controller.dispose);
+
+    await controller.start(
+      count: SoloQuestionCount.twenty,
+      characterId: 'character-basic-squire',
+      mechanicMode: SoloMechanicMode.standard,
+      questionSelection: const SoloRecommendedQuestionSelection(),
+      recommendationId: 'rec-uuid-123',
+    );
+
+    expect(repository.lastQuestionSelection?.type, SoloQuestionSelectionType.recommended);
+    expect(repository.lastRecommendationId, 'rec-uuid-123');
+  });
+
   test('a pending hint request does not trap the question sheet', () async {
     final Completer<SoloHint> hint = Completer<SoloHint>();
     final repository = _FakeSoloRepository(pendingHint: hint);
@@ -184,12 +247,24 @@ class _FakeSoloRepository extends SoloRepository {
   String? lastResumed;
   int? lastOption;
   int hintCalls = 0;
+  SoloMechanicMode? lastMechanicMode;
+  SoloQuestionSelection? lastQuestionSelection;
+  String? lastRecommendationId;
 
   @override
   Future<SoloSession> create({
     required SoloQuestionCount questionCount,
     required String characterId,
-  }) async => _session();
+    SoloMechanicMode mechanicMode = SoloMechanicMode.standard,
+    SoloQuestionSelection questionSelection =
+        const SoloBalancedQuestionSelection(),
+    String? recommendationId,
+  }) async {
+    lastMechanicMode = mechanicMode;
+    lastQuestionSelection = questionSelection;
+    lastRecommendationId = recommendationId;
+    return _session(mechanicMode: mechanicMode);
+  }
 
   @override
   Future<SoloQuestion> open(String sessionId, String questionId) async {
@@ -266,6 +341,7 @@ SoloSession _session({
   String status = 'active',
   String? completionReason,
   String? policyStopTrigger,
+  SoloMechanicMode mechanicMode = SoloMechanicMode.standard,
 }) => SoloSession(
   id: 'solo-1',
   target: 'cpns',
@@ -278,6 +354,7 @@ SoloSession _session({
   correctCount: correctCount,
   towerHp: towerHp,
   rewardCoins: 0,
+  mechanicMode: mechanicMode,
   hand: status == 'active'
       ? <SoloHandCard>[
           for (

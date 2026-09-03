@@ -1125,6 +1125,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      grant_beta_credit: {
+        Args: {
+          p_user_id: string;
+          p_idempotency_key: string;
+        };
+        Returns: Json;
+      };
       set_profile_loadout: {
         Args: {
           p_user_id: string;

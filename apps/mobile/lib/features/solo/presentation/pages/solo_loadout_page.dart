@@ -190,6 +190,9 @@ class SoloLoadoutPage extends ConsumerWidget {
                         final started = await sessionController.start(
                           count: setup.questionCount!,
                           characterId: selectedCharacter.id,
+                          mechanicMode: setup.mechanicMode!,
+                          questionSelection: setup.questionSelection,
+                          recommendationId: setup.recommendationId,
                         );
                         if (!context.mounted) return;
                         if (started) {

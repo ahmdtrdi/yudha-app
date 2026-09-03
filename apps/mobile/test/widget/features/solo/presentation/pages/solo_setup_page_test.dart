@@ -133,7 +133,7 @@ void main() {
     );
   });
 
-  testWidgets('keeps unavailable mechanic and recommendation cards disabled', (
+  testWidgets('allows selecting focus and speed mechanics and recommended mode', (
     WidgetTester tester,
   ) async {
     await pumpSolo(tester);
@@ -146,7 +146,15 @@ void main() {
             find.byKey(const ValueKey<String>('solo-mechanic-focus')),
           )
           .onTap,
-      isNull,
+      isNotNull,
+    );
+    expect(
+      tester
+          .widget<InkWell>(
+            find.byKey(const ValueKey<String>('solo-mechanic-speed')),
+          )
+          .onTap,
+      isNotNull,
     );
     expect(
       tester
@@ -154,8 +162,18 @@ void main() {
             find.byKey(const ValueKey<String>('solo-mode-recommended')),
           )
           .onTap,
-      isNull,
+      isNotNull,
     );
+
+    await tester.tap(find.byKey(const ValueKey<String>('solo-mechanic-focus')));
+    await tester.tap(find.byKey(const ValueKey<String>('solo-question-count-20')));
+    await tester.tap(find.byKey(const ValueKey<String>('solo-mode-balanced')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey<String>('solo-setup-continue')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Focus · Seimbang · 20 soal'), findsWidgets);
   });
 
   testWidgets('manual sheet remains scroll-safe on a short viewport', (

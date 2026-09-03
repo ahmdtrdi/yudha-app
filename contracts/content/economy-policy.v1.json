@@ -10,7 +10,8 @@
     "adReward": 2,
     "adDailyLimit": 3,
     "packs": [
-      { "id": "energy-5", "energy": 5, "yCoinCost": 50 }
+      { "id": "energy-5", "energy": 5, "yCoinCost": 50 },
+      { "id": "energy-12", "energy": 12, "yCoinCost": 100 }
     ]
   },
   "yCoin": {

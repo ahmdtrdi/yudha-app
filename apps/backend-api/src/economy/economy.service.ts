@@ -4,6 +4,7 @@ import {
   Inject,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import type { Json } from '../supabase/database.types';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -13,6 +14,11 @@ import {
   type ClaimAdRewardPayload,
   type PurchaseEnergyPayload,
 } from './economy.types';
+
+const ENERGY_PACKAGE_ALIASES: Readonly<Record<string, string>> = {
+  'energy-pack-5': 'energy-5',
+  'energy-pack-12': 'energy-12',
+};
 
 @Injectable()
 export class EconomyService {
@@ -57,7 +63,9 @@ export class EconomyService {
   }
 
   async purchaseEnergy(userId: string, payload: PurchaseEnergyPayload) {
-    const packageId = this.text(payload.packageId, 'packageId', 80);
+    const requestedPackageId = this.text(payload.packageId, 'packageId', 80);
+    const packageId =
+      ENERGY_PACKAGE_ALIASES[requestedPackageId] ?? requestedPackageId;
     const idempotencyKey = this.text(
       payload.idempotencyKey,
       'idempotencyKey',
@@ -135,6 +143,9 @@ export class EconomyService {
   }
 
   private throwEconomyError(message: string): never {
+    if (message.includes('NOT_FOUND')) {
+      throw new NotFoundException(message);
+    }
     if (
       message.includes('INSUFFICIENT_') ||
       message.includes('ENERGY_CAP_REACHED') ||

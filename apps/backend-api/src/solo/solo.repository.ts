@@ -18,6 +18,7 @@ export class SoloRepository {
     questionSelection: string;
     questionCount: number;
     characterId: string;
+    recommendationId?: string;
   }) {
     return this.call('create_solo_session', {
       p_user_id: input.userId,
@@ -26,6 +27,9 @@ export class SoloRepository {
       p_question_selection: input.questionSelection,
       p_question_count: input.questionCount,
       p_character_id: input.characterId,
+      ...(input.recommendationId
+        ? { p_recommendation_id: input.recommendationId }
+        : {}),
     });
   }
 

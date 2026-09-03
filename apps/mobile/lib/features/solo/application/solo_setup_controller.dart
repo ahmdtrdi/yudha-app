@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_topic.dart';
 import 'package:yudha_mobile/features/solo/application/solo_setup_state.dart';
 import 'package:yudha_mobile/features/solo/domain/solo_contract.dart';
@@ -6,7 +7,26 @@ import 'package:yudha_mobile/features/solo/domain/solo_contract.dart';
 class SoloSetupController extends StateNotifier<SoloSetupState> {
   SoloSetupController() : super(const SoloSetupState());
 
-  void applyRecommendedPreset() {
+  void applyRecommendedPreset([LearningRecommendation? recommendation]) {
+    if (recommendation != null) {
+      final String topicLabel =
+          recommendation.subcategory ??
+          recommendation.category ??
+          recommendation.skillLabel;
+      state = SoloSetupState(
+        mode: SoloSetupMode.recommended,
+        mechanicMode: SoloMechanicMode.parse(recommendation.mechanicMode),
+        questionCount: SoloQuestionCount.twenty,
+        recommendationId: recommendation.id,
+        legacyTopic: SoloLegacyTopicSelection(
+          id: recommendation.skillId,
+          category: recommendation.category ?? '',
+          subcategory: recommendation.subcategory,
+          name: '$topicLabel (Rekomendasi)',
+        ),
+      );
+      return;
+    }
     state = const SoloSetupState(
       mode: SoloSetupMode.auto,
       mechanicMode: SoloMechanicMode.standard,
@@ -21,14 +41,33 @@ class SoloSetupController extends StateNotifier<SoloSetupState> {
   void selectMode(SoloSetupMode mode) {
     state = state.copyWith(
       mode: mode,
-      clearRecommendation: mode != SoloSetupMode.auto,
-      clearLegacyTopic: mode != SoloSetupMode.custom,
+      clearRecommendation: mode != SoloSetupMode.recommended,
+      clearLegacyTopic: mode != SoloSetupMode.custom && mode != SoloSetupMode.recommended,
       mechanicMode: mode == SoloSetupMode.auto
           ? SoloMechanicMode.standard
-          : null,
+          : state.mechanicMode ?? SoloMechanicMode.standard,
       questionCount: mode == SoloSetupMode.auto
           ? SoloQuestionCount.twenty
-          : null,
+          : state.questionCount ?? SoloQuestionCount.twenty,
+    );
+  }
+
+  void selectRecommendation(LearningRecommendation recommendation) {
+    final String topicLabel =
+        recommendation.subcategory ??
+        recommendation.category ??
+        recommendation.skillLabel;
+    state = state.copyWith(
+      mode: SoloSetupMode.recommended,
+      recommendationId: recommendation.id,
+      legacyTopic: SoloLegacyTopicSelection(
+        id: recommendation.skillId,
+        category: recommendation.category ?? '',
+        subcategory: recommendation.subcategory,
+        name: '$topicLabel (Rekomendasi)',
+      ),
+      clearRecommendation: false,
+      clearLegacyTopic: false,
     );
   }
 
