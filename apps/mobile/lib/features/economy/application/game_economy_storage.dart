@@ -45,6 +45,10 @@ class SharedPreferencesGameEconomyStorage implements GameEconomyStorage {
         0,
         999999999,
       ),
+      energy: fallback.energy,
+      maxEnergy: fallback.maxEnergy,
+      dailyRefillTarget: fallback.dailyRefillTarget,
+      isPro: fallback.isPro,
       ownedItemIds: owned,
       equippedCharacterId:
           owned.contains(savedCharacter) &&

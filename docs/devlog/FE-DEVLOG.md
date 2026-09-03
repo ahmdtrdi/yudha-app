@@ -3006,3 +3006,43 @@
 ### The Tech Debt
 - A released Mobile build still depends on the deployed Learning V2 backend and aligned Solo RPC migration to expose canonical evidence from production sessions.
 
+## 2026-09-03 - Improve Backend Error Message Extraction in Learning Repository
+
+### The Change
+- Updated `apps/mobile/lib/features/learning/data/repositories/backend_learning_repository.dart` to extract nested error messages from `decoded['error']['message']` alongside `decoded['message']`.
+- Added unit test in `apps/mobile/test/unit/features/learning/data/backend_learning_repository_test.dart` verifying that nested backend error messages are parsed properly when non-2xx/503 responses occur.
+
+### The Reasoning
+- NestJS API error payloads conform to `{ "error": { "code": "...", "message": "..." } }`. The previous implementation checked only `decoded['message']`, resulting in fallback to the generic `"Gagal memuat Learning."` without the informative server error details.
+
+### Verification
+- All 4 unit tests in `backend_learning_repository_test.dart` passed.
+- All 15 Learning unit and widget tests in `apps/mobile` passed.
+
+### The Tech Debt
+- None.
+
+## 2026-09-03 - Mobile Economy UI Polishing (Energy System & YUDHA Pro)
+
+### The Change
+- Refactored `HiredPassPage` (`hired_pass_page.dart`):
+  - Made non-scrollable with `Column(mainAxisAlignment: MainAxisAlignment.spaceBetween)` and safe top margin (`EdgeInsets.fromLTRB(20, 16, 20, 24)`).
+  - Updated background to diagonal blue gradient (`topLeft` to `bottomRight`: `#0D49B5` -> `#072C73` -> `#041945`).
+- Added authoritative `⚡ 2` Energy entry cost indicators to mode entry points:
+  - Lobby `_RoadmapQuestStep` and `_ClayBattleButton` badges.
+  - Solo loadout `_StartSoloButton` ("MULAI LATIHAN") badge.
+- Added `showEnergyTopUpSheet` modal in `economy_widgets.dart`:
+  - Energy recharge packs (`energy-pack-5` for 50 Y-Coins & `energy-pack-12` for 100 Y-Coins).
+  - `_EnergyRefillTimer` countdown (`HH:MM:SS` or `MM:SS`) for daily 10 ⚡ refill reset.
+  - YUDHA Pro active status banner & Y-Coin top-up shortcut.
+- Wired backend economy API (`POST /economy/energy-purchases`):
+  - Added `purchaseEnergyPack` method to `GameEconomyRepository` and `BackendGameEconomyRepository`.
+  - Added `buyEnergyPackAuthoritative` in `GameEconomyController`.
+  - Updated `EnergyBalanceChip` `onTap` in `LobbyPage` to trigger `showEnergyTopUpSheet`.
+
+### The Reasoning
+- Aligned mobile UI with economy redesign PRD §6.2 (2 Energy entry cost & Y-Coin energy recharge packs).
+- Displaying daily refill reset timer gives non-Pro players clear visibility into free energy replenishment schedules.
+
+### The Tech Debt
+- Energy refill auto-refresh relies on user pull-to-refresh or explicit user actions; real-time push updates via SSE/WebSocket remain post-MVP.

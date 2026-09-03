@@ -8,6 +8,12 @@ enum EconomyDataSource { bundled, cache, server }
 class GameEconomyState {
   const GameEconomyState({
     required this.yCoins,
+    required this.energy,
+    required this.maxEnergy,
+    required this.dailyRefillTarget,
+    this.nextRefillAt,
+    required this.isPro,
+    this.proExpiresAt,
     required this.ownedItemIds,
     required this.equippedCharacterId,
     required this.equippedTowerId,
@@ -21,6 +27,12 @@ class GameEconomyState {
   factory GameEconomyState.initial() {
     return GameEconomyState(
       yCoins: 0,
+      energy: 10,
+      maxEnergy: 100,
+      dailyRefillTarget: 10,
+      nextRefillAt: null,
+      isPro: false,
+      proExpiresAt: null,
       ownedItemIds: const <String>{
         GameEconomyCatalog.defaultCharacterId,
         GameEconomyCatalog.defaultTowerId,
@@ -39,6 +51,12 @@ class GameEconomyState {
   }
 
   final int yCoins;
+  final int energy;
+  final int maxEnergy;
+  final int dailyRefillTarget;
+  final DateTime? nextRefillAt;
+  final bool isPro;
+  final DateTime? proExpiresAt;
   final Set<String> ownedItemIds;
   final String equippedCharacterId;
   final String equippedTowerId;
@@ -62,6 +80,12 @@ class GameEconomyState {
 
   GameEconomyState copyWith({
     int? yCoins,
+    int? energy,
+    int? maxEnergy,
+    int? dailyRefillTarget,
+    DateTime? nextRefillAt,
+    bool? isPro,
+    DateTime? proExpiresAt,
     Set<String>? ownedItemIds,
     String? equippedCharacterId,
     String? equippedTowerId,
@@ -74,6 +98,12 @@ class GameEconomyState {
   }) {
     return GameEconomyState(
       yCoins: yCoins ?? this.yCoins,
+      energy: energy ?? this.energy,
+      maxEnergy: maxEnergy ?? this.maxEnergy,
+      dailyRefillTarget: dailyRefillTarget ?? this.dailyRefillTarget,
+      nextRefillAt: nextRefillAt ?? this.nextRefillAt,
+      isPro: isPro ?? this.isPro,
+      proExpiresAt: proExpiresAt ?? this.proExpiresAt,
       ownedItemIds: ownedItemIds ?? this.ownedItemIds,
       equippedCharacterId: equippedCharacterId ?? this.equippedCharacterId,
       equippedTowerId: equippedTowerId ?? this.equippedTowerId,

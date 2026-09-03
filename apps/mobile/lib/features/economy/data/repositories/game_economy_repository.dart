@@ -3,6 +3,12 @@ import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart
 class AuthoritativeEconomySnapshot {
   const AuthoritativeEconomySnapshot({
     required this.coins,
+    required this.energy,
+    required this.maxEnergy,
+    required this.dailyRefillTarget,
+    this.nextRefillAt,
+    required this.isPro,
+    this.proExpiresAt,
     required this.ownedItemIds,
     required this.characterId,
     required this.towerId,
@@ -11,6 +17,12 @@ class AuthoritativeEconomySnapshot {
   });
 
   final int coins;
+  final int energy;
+  final int maxEnergy;
+  final int dailyRefillTarget;
+  final DateTime? nextRefillAt;
+  final bool isPro;
+  final DateTime? proExpiresAt;
   final Set<String> ownedItemIds;
   final String characterId;
   final String towerId;
@@ -32,6 +44,8 @@ abstract class GameEconomyRepository {
   });
 
   Future<AuthoritativeEconomySnapshot> grantBetaCredit({int coins = 100});
+
+  Future<AuthoritativeEconomySnapshot> purchaseEnergyPack(String packageId);
 
   void dispose() {}
 }
