@@ -167,7 +167,7 @@ class _LobbyPageState extends ConsumerState<LobbyPage> {
                                           recommendation: learningNextAction,
                                           compact: compact,
                                           onDashboard: () =>
-                                              context.go(AppRoutes.analytics),
+                                              context.go(AppRoutes.learning),
                                           onStart: learningNextAction.runnable
                                               ? () => _startRecommendation(
                                                   learningNextAction,
@@ -388,10 +388,7 @@ class _LobbyProfileHeader extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  _HeroIdentity(
-                    compact: compact,
-                    displayName: displayName,
-                  ),
+                  _HeroIdentity(compact: compact, displayName: displayName),
                   SizedBox(height: compact ? 26 : 32),
                   _HeroStatsPanel(
                     compact: compact,
@@ -410,10 +407,7 @@ class _LobbyProfileHeader extends StatelessWidget {
 }
 
 class _HeroIdentity extends StatelessWidget {
-  const _HeroIdentity({
-    required this.compact,
-    required this.displayName,
-  });
+  const _HeroIdentity({required this.compact, required this.displayName});
 
   final bool compact;
   final String displayName;

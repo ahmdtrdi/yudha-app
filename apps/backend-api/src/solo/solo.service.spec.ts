@@ -4,7 +4,9 @@ import { SoloService } from './solo.service';
 
 describe('SoloService Learning V2 alignment', () => {
   let repository: jest.Mocked<SoloRepository>;
+  let learningProjections: { rebuildAndDrainUser: jest.Mock };
   let service: SoloService;
+  const previousFlag = process.env.LEARNING_V2_ENABLED;
 
   beforeEach(() => {
     repository = {
@@ -16,7 +18,13 @@ describe('SoloService Learning V2 alignment', () => {
       submitAnswer: jest.fn(),
       finishSession: jest.fn(),
     } as unknown as jest.Mocked<SoloRepository>;
-    service = new SoloService(repository);
+    learningProjections = { rebuildAndDrainUser: jest.fn() };
+    service = new SoloService(repository, learningProjections as any);
+  });
+
+  afterEach(() => {
+    if (previousFlag === undefined) delete process.env.LEARNING_V2_ENABLED;
+    else process.env.LEARNING_V2_ENABLED = previousFlag;
   });
 
   it('creates the approved Balanced + Standard slice', async () => {
@@ -103,6 +111,60 @@ describe('SoloService Learning V2 alignment', () => {
         clientActiveResponseTimeMs: 4100,
         backgroundDurationMs: 900,
       }),
+    );
+  });
+
+  it('projects canonical evidence immediately when Solo completes', async () => {
+    process.env.LEARNING_V2_ENABLED = 'true';
+    repository.submitAnswer.mockResolvedValue({
+      status: 'completed',
+      target: 'cpns',
+      answerResult: { isCorrect: true },
+    });
+
+    await service.submitAnswer('user-1', 'solo-1', {
+      idempotencyKey: 'answer-final',
+      sessionQuestionId: 'sq-20',
+      selectedOptionIndex: 1,
+    });
+
+    expect(learningProjections.rebuildAndDrainUser).toHaveBeenCalledWith(
+      'user-1',
+      'cpns',
+    );
+  });
+
+  it('does not rebuild the dashboard projection for an active Solo session', async () => {
+    process.env.LEARNING_V2_ENABLED = 'true';
+    repository.submitAnswer.mockResolvedValue({
+      status: 'active',
+      target: 'cpns',
+      answerResult: { isCorrect: true },
+    });
+
+    await service.submitAnswer('user-1', 'solo-1', {
+      idempotencyKey: 'answer-1',
+      sessionQuestionId: 'sq-1',
+      selectedOptionIndex: 1,
+    });
+
+    expect(learningProjections.rebuildAndDrainUser).not.toHaveBeenCalled();
+  });
+
+  it('projects partial canonical evidence when Solo is stopped', async () => {
+    process.env.LEARNING_V2_ENABLED = 'true';
+    repository.finishSession.mockResolvedValue({
+      status: 'stopped',
+      target: 'bumn',
+    });
+
+    await service.finishSession('user-1', 'solo-1', {
+      idempotencyKey: 'finish-1',
+    });
+
+    expect(learningProjections.rebuildAndDrainUser).toHaveBeenCalledWith(
+      'user-1',
+      'bumn',
     );
   });
 });

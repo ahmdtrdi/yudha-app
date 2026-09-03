@@ -10,6 +10,7 @@ import 'package:yudha_mobile/features/battle/presentation/audio/arena_audio_cont
 import 'package:yudha_mobile/features/battle/presentation/widgets/battle_arena_widgets.dart';
 import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
+import 'package:yudha_mobile/features/learning/application/learning_providers.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_settings.dart';
 import 'package:yudha_mobile/features/solo/application/solo_session_controller.dart';
@@ -105,6 +106,7 @@ class _SoloSessionPageState extends ConsumerState<SoloSessionPage>
     if (previousSession?.isActive == true &&
         nextSession != null &&
         !nextSession.isActive) {
+      ref.invalidate(learningControllerProvider);
       if (nextSession.towerHp == 0) {
         _arenaAudio.playVictoryStinger();
         _effectTimers.add(

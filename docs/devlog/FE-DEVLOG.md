@@ -2967,3 +2967,42 @@
 - The compatibility handoff remains on legacy fixed-five Practice until the Gate 5 policy-backed Solo delivery flow is activated.
 - Retention confidence remains conservatively Low until its projection stores unique-question and difficulty coverage.
 
+## 2026-09-03 - Repair Learning Dashboard Merge Integration
+
+### The Change
+- Repaired the merged Learning dashboard widget tree by removing a stray Activity tap wrapper, balancing the Competition panel closure, and aligning all learner-facing evidence labels with the shared `_evidenceStrength` mapper.
+- Restored the required accuracy and pace explanations, the summary evidence-strength explanation, the Retention explanation, and the per-skill explanation entry point.
+- Updated the responsive widget assertions to scroll to dashboard and explanation-sheet content that now sits beyond the initial mobile viewport.
+
+### The Reasoning
+- The dashboard and explainable-metrics branches changed the same presentation regions. Their merged result retained fragments of both widget structures and mixed the old helper name with the new explanation contract.
+
+### Verification
+- Focused Dart analysis for Learning source and tests reports no issues.
+- All 15 Learning unit and widget tests pass, including the 360x760 and 700x900 dashboard layouts and the scrollable evidence explanation.
+- `flutter build web --debug` succeeds; its optional Wasm dry run reports only the existing `socket_io_common` JS-interop incompatibility.
+- `git diff --check` passes.
+
+### The Tech Debt
+- None introduced by this merge repair.
+
+## 2026-09-03 - Refresh Solo Evidence and Enrich the Learning Center
+
+### The Change
+- Invalidated the cached Learning dashboard when a Solo session ends and refreshed it whenever the learner enters Perkembangan Belajar, with an overlap guard to avoid duplicate requests.
+- Reworked the Learning page into the app's richer claymorphism language: layered cream backdrop, sculpted blue header and recommendation hero, raised metric/insight/skill/activity surfaces, clearer section iconography, and a visually separate Competition card.
+- Kept the existing responsive information hierarchy and evidence explanations intact at 360x760 and 700x900, including null-safe metrics, text-plus-icon status, and drill-down skill details.
+- Corrected the Lobby recommendation shortcut so “Lihat dashboard” opens Perkembangan Belajar instead of the legacy Analytics route, and aligned its merged widget fixtures with the current Lobby contract.
+
+### The Reasoning
+- A completed Solo session must not leave a previously cached dashboard visible. Refreshing at both the session boundary and page entry makes the handoff reliable even when the page/provider lifecycle varies.
+- The stronger clay hierarchy makes the next action and evidence easier to scan while staying within YUDHA's navy, cream, teal, and game-accent design system.
+
+### Verification
+- Focused Dart analysis for Learning, Solo handoff, Lobby routing, and their tests reports no issues.
+- All 15 Learning tests, 21 Solo tests, and 3 Lobby widget tests pass.
+- The Flutter web debug build succeeds; its optional Wasm dry run reports only the existing `socket_io_common` JS-interop incompatibility.
+
+### The Tech Debt
+- A released Mobile build still depends on the deployed Learning V2 backend and aligned Solo RPC migration to expose canonical evidence from production sessions.
+
