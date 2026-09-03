@@ -3141,3 +3141,21 @@
 
 ### The Tech Debt
 - Energy refill auto-refresh relies on user pull-to-refresh or explicit user actions; real-time push updates via SSE/WebSocket remain post-MVP.
+
+## 2026-09-03 - Align Mobile Energy Recharge with the Authoritative Catalog
+
+### The Change
+- Updated the Energy recharge sheet to submit the canonical package IDs `energy-5` and `energy-12`.
+- Kept the displayed package values unchanged: +5 Energy for 50 Y-Coin and +12 Energy for 100 Y-Coin.
+- Coordinated the Mobile identifiers with the API contract, active-policy migration, and backend compatibility aliases for older beta builds.
+
+### The Reasoning
+- The recharge UI previously submitted `energy-pack-5` and `energy-pack-12`, while the authoritative Supabase policy recognized `energy-5` only. The mismatch caused `NOT_FOUND: energy package` even for a package shown as purchasable.
+- Using one canonical identifier set across Mobile, contracts, and the database prevents the UI from advertising packages that the transaction function cannot resolve.
+
+### Verification
+- Backend compatibility and purchase-routing tests passed as part of the 16 focused Store/Economy tests.
+- The Mobile test runner was attempted twice but stalled without output in the local environment and was cancelled; the Mobile change itself is limited to package identifier strings.
+
+### The Tech Debt
+- The recharge sheet is still hardcoded. A later iteration should render Energy packages from `GET /economy/catalog` so balancing changes do not require a Mobile release.

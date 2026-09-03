@@ -903,3 +903,28 @@
 
 **The Tech Debt:**
 - Ensure production Railway deployment pulls the latest commit so the fix is active in live environments.
+
+## 2026-09-03 - Restore Beta Y-Coin Credits and Repair Energy Recharge Packages
+
+**The Change:**
+- Restored the authenticated `POST /store/beta-credits` controller and service flow that had been removed during the economy redesign.
+- Reinstated `ENABLE_BETA_ECONOMY_CREDIT` as an explicit server-side gate: only the normalized value `true` enables beta credits; disabled environments return `403 FEATURE_DISABLED` without calling Supabase.
+- Restored the generated `grant_beta_credit` Supabase RPC type and support for exact 100-Y-Coin increments from 100 through 10,000, including the beta package amounts used by Mobile.
+- Normalized legacy Mobile energy IDs (`energy-pack-5` and `energy-pack-12`) to the canonical `energy-5` and `energy-12` IDs before calling `purchase_energy_pack`.
+- Added `20260903160000_fix_energy_package_catalog.sql` to publish both canonical recharge packages in the active economy policy, and mapped database `NOT_FOUND` errors to HTTP 404.
+- Updated the OpenAPI contract and canonical economy-policy content to document the beta-credit request and supported energy package IDs.
+
+**The Reasoning:**
+- The Mobile client still called `/store/beta-credits`, but the economy redesign removed the matching backend route even though the environment flag and service-role database RPC remained available.
+- Energy recharge failed because Mobile package IDs did not match the IDs read by the authoritative PostgreSQL function. Canonical IDs prevent new drift, while server aliases preserve compatibility with already-installed beta builds.
+- A forward migration is required because changing contract files alone does not update an economy policy already stored in Supabase.
+
+**Verification:**
+- Focused Store and Economy suites passed all 16 tests.
+- The NestJS production build completed successfully.
+- OpenAPI and economy-policy JSON parse successfully, and the economy policy validates against its JSON schema.
+- Full TypeScript validation remains blocked by three unrelated existing errors in Learning and Solo test files; Gate 0 remains blocked by the existing premium-reward fixture at 300 points.
+
+**The Tech Debt:**
+- Deploy `20260903160000_fix_energy_package_catalog.sql` before enabling the 12-Energy package in production.
+- Beta package credits currently reuse the database's fixed 100-Y-Coin RPC in idempotent increments. A future atomic amount-aware RPC would reduce round trips for large beta packages.

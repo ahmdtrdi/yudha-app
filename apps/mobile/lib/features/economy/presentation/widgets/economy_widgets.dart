@@ -498,10 +498,10 @@ class _EnergyTopUpSheetState extends ConsumerState<_EnergyTopUpSheet> {
               cost: 50,
               icon: Icons.bolt_rounded,
               iconColor: const Color(0xFFFF9800),
-              isLoading: _pendingPackageId == 'energy-pack-5',
+              isLoading: _pendingPackageId == 'energy-5',
               onTap: economy.isPro || _pendingPackageId != null
                   ? null
-                  : () => _buyPack('energy-pack-5', '+5 Energy', 50),
+                  : () => _buyPack('energy-5', '+5 Energy', 50),
             ),
             const SizedBox(height: 8),
             _EnergyPackCard(
@@ -511,10 +511,10 @@ class _EnergyTopUpSheetState extends ConsumerState<_EnergyTopUpSheet> {
               badge: 'LEBIH HEMAT',
               icon: Icons.bolt_rounded,
               iconColor: const Color(0xFFFF9800),
-              isLoading: _pendingPackageId == 'energy-pack-12',
+              isLoading: _pendingPackageId == 'energy-12',
               onTap: economy.isPro || _pendingPackageId != null
                   ? null
-                  : () => _buyPack('energy-pack-12', '+12 Energy', 100),
+                  : () => _buyPack('energy-12', '+12 Energy', 100),
             ),
             if (!economy.isPro && economy.energy < economy.maxEnergy && economy.nextRefillAt != null) ...<Widget>[
               const SizedBox(height: 12),
