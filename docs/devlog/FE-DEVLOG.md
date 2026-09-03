@@ -3179,3 +3179,22 @@
 
 ### The Tech Debt
 - The recharge sheet is still hardcoded. A later iteration should render Energy packages from `GET /economy/catalog` so balancing changes do not require a Mobile release.
+
+## 2026-09-03 - Make Server Streak Zero Authoritative
+
+### The Change
+- Added `bestStreak` to `PlayerProgressSnapshot` and hydrated both current and best values from the Lobby profile response.
+- Changed `PlayerProgress.mergeSnapshot` to replace local streak fields with server values, including an authoritative zero.
+- Added focused coverage proving that a server streak of zero clears a stale local fallback and that current/best values hydrate independently.
+
+### The Reasoning
+- The previous merge treated `snapshot.streak == 0` as if the server had omitted the value. That preserved a local non-zero streak and could continue displaying `1` even after the backend correctly returned `0`.
+- The server owns streak qualification, so zero is meaningful authoritative data rather than a missing-value sentinel.
+
+### Verification
+- Targeted Dart analysis passed with no issues for the changed gamification source and new domain test.
+- Dart formatting completed for all changed gamification files.
+- The Flutter test runner remains unavailable in this environment because it stalls before producing test output.
+
+### The Tech Debt
+- The broader gamification controller test file still contains stale pre-redesign rank-point method contracts and should be reconciled separately before the full Mobile suite can pass.
