@@ -1,4 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { learningV2Enabled } from '../learning/learning.constants';
+import { LearningProjectionService } from '../learning/learning.projection.service';
+import type { LearningTarget } from '../learning/learning.types';
 import {
   parseSoloDraftSessionRequest,
   SoloContractValidationError,
@@ -14,7 +17,10 @@ import { SoloRepository } from './solo.repository';
 
 @Injectable()
 export class SoloService {
-  constructor(private readonly repository: SoloRepository) {}
+  constructor(
+    private readonly repository: SoloRepository,
+    private readonly learningProjections: LearningProjectionService,
+  ) {}
 
   async createSession(userId: string, input: CreateSoloSessionDto) {
     let request;
@@ -115,20 +121,22 @@ export class SoloService {
         'selectedOptionIndex must be null or an integer between 0 and 5.',
       );
     }
-    return {
-      data: await this.repository.submitAnswer({
-        userId,
-        sessionId: this.text(sessionId, 'sessionId'),
-        idempotencyKey: this.text(input.idempotencyKey, 'idempotencyKey'),
-        sessionQuestionId: this.text(
-          input.sessionQuestionId,
-          'sessionQuestionId',
-        ),
-        selectedOptionIndex: selected ?? null,
-        clientActiveResponseTimeMs: activeMs,
-        backgroundDurationMs: backgroundMs,
-      }),
-    };
+    const data = await this.repository.submitAnswer({
+      userId,
+      sessionId: this.text(sessionId, 'sessionId'),
+      idempotencyKey: this.text(input.idempotencyKey, 'idempotencyKey'),
+      sessionQuestionId: this.text(
+        input.sessionQuestionId,
+        'sessionQuestionId',
+      ),
+      selectedOptionIndex: selected ?? null,
+      clientActiveResponseTimeMs: activeMs,
+      backgroundDurationMs: backgroundMs,
+    });
+    if (data.status === 'completed') {
+      await this.rebuildLearning(userId, data.target);
+    }
+    return { data };
   }
 
   async finishSession(
@@ -136,13 +144,23 @@ export class SoloService {
     sessionId: string,
     input: FinishSoloSessionDto,
   ) {
-    return {
-      data: await this.repository.finishSession(
-        userId,
-        this.text(sessionId, 'sessionId'),
-        this.text(input.idempotencyKey, 'idempotencyKey'),
-      ),
-    };
+    const data = await this.repository.finishSession(
+      userId,
+      this.text(sessionId, 'sessionId'),
+      this.text(input.idempotencyKey, 'idempotencyKey'),
+    );
+    await this.rebuildLearning(userId, data.target);
+    return { data };
+  }
+
+  private async rebuildLearning(userId: string, target: unknown) {
+    if (!learningV2Enabled() || (target !== 'cpns' && target !== 'bumn')) {
+      return;
+    }
+    await this.learningProjections.rebuildAndDrainUser(
+      userId,
+      target as LearningTarget,
+    );
   }
 
   private optionalNonNegativeInteger(

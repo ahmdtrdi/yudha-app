@@ -12,8 +12,11 @@ class LearningController extends StateNotifier<LearningState> {
   }
 
   final LearningRepository _repository;
+  bool _loading = false;
 
   Future<void> load() async {
+    if (_loading) return;
+    _loading = true;
     state = LearningState(
       status: LearningViewStatus.loading,
       dashboard: state.dashboard,
@@ -38,6 +41,8 @@ class LearningController extends StateNotifier<LearningState> {
         dashboard: state.dashboard,
         errorMessage: error.toString(),
       );
+    } finally {
+      _loading = false;
     }
   }
 

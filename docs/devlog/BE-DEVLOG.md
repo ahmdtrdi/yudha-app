@@ -864,3 +864,22 @@
 
 **The Tech Debt:**
 - Rotate the previously embedded Supabase key in the Supabase dashboard because it must be treated as exposed.
+
+## 2026-09-03 - Project Completed Solo Sessions Immediately
+
+**The Change:**
+- Wired Solo to the Learning projection service and synchronously rebuilt the learner's target state after the final submitted answer or an explicit early finish.
+- Kept active, unfinished answer submissions free of projection work and guarded the integration behind `LEARNING_V2_ENABLED` plus canonical CPNS/BUMN targets.
+- Restored the shared `rankTier` progression utility and boundary coverage required by the merged Learning/Profile backend build.
+
+**The Reasoning:**
+- Solo answer evidence was already written to canonical `learning_attempts`, but Learning skill state and recommendations otherwise waited for the minute-based projection worker. Immediate projection on the session boundary makes a subsequent dashboard read consistent with the completed Solo result.
+- Reusing the same projection entry point as Practice preserves invalidation, ownership, and recommendation rules without introducing a second calculation path.
+
+**Verification:**
+- Focused Solo repository/service, Learning service, and progression suites pass all 20 tests.
+- The NestJS production build succeeds.
+- The full backend run passes 31 of 33 suites and 160 of 163 tests; the three remaining failures are stale Match/Profile test contracts outside the files changed here.
+
+**The Tech Debt:**
+- Environments that have not applied `20260902120000_solo_learning_v2_alignment.sql` can still fall back to the legacy Solo RPC, which does not create canonical Learning attempts; deployment must keep the migration and API release aligned.

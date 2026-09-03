@@ -21,117 +21,171 @@ class _LearningPageState extends ConsumerState<LearningPage> {
   String? _shownRecommendationId;
 
   @override
+  void initState() {
+    super.initState();
+    // Solo can finish while this app-wide provider still holds the snapshot
+    // loaded by Lobby or Profile. Entering Learning always requests the
+    // canonical post-session snapshot.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(learningControllerProvider.notifier).load();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final LearningState state = ref.watch(learningControllerProvider);
     final LearningDashboard? dashboard = state.dashboard;
     _recordShown(dashboard?.nextAction);
 
     return Scaffold(
-      backgroundColor: AppColors.scholarCream,
+      backgroundColor: _LearningClay.cream,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0D49B5),
+        toolbarHeight: 72,
+        elevation: 0,
+        backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
-        centerTitle: true,
-        title: Text(
-          'PERKEMBANGAN BELAJAR',
-          style: GoogleFonts.fredoka(fontWeight: FontWeight.w800, fontSize: 18),
+        centerTitle: false,
+        titleSpacing: 20,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
         ),
-      ),
-      body: switch ((state.status, dashboard)) {
-        (LearningViewStatus.loading, null) => const _LearningSkeleton(),
-        (LearningViewStatus.unavailable, _) => _LearningMessage(
-          icon: Icons.lock_clock_rounded,
-          title: 'Learning segera hadir',
-          message:
-              state.errorMessage ??
-              'Analitik baru sedang disiapkan. Practice tetap dapat digunakan.',
-          actionLabel: 'Buka Practice',
-          onAction: () => context.go(AppRoutes.solo),
-        ),
-        (LearningViewStatus.error, null) => _LearningMessage(
-          icon: Icons.cloud_off_rounded,
-          title: 'Learning belum dapat dimuat',
-          message: state.errorMessage ?? 'Periksa koneksi lalu coba lagi.',
-          actionLabel: 'Coba lagi',
-          onAction: ref.read(learningControllerProvider.notifier).load,
-        ),
-        (_, null) => _LearningMessage(
-          icon: Icons.insights_rounded,
-          title: 'Belum ada ringkasan',
-          message: 'Tarik ulang untuk menyiapkan ringkasan Learning.',
-          actionLabel: 'Muat ulang',
-          onAction: ref.read(learningControllerProvider.notifier).load,
-        ),
-        (_, final LearningDashboard data?) => RefreshIndicator(
-          onRefresh: ref.read(learningControllerProvider.notifier).load,
-          child: LayoutBuilder(
-            builder: (BuildContext context, BoxConstraints constraints) {
-              final bool narrow = constraints.maxWidth < 600;
-              return ListView(
-                key: const ValueKey<String>('learning-dashboard'),
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(
-                  narrow ? 16 : 24,
-                  18,
-                  narrow ? 16 : 24,
-                  28,
-                ),
-                children: <Widget>[
-                  if (state.status == LearningViewStatus.loading)
-                    const LinearProgressIndicator(minHeight: 3),
-                  if (state.errorMessage != null) ...<Widget>[
-                    const SizedBox(height: 10),
-                    Text(
-                      state.errorMessage!,
-                      style: const TextStyle(color: Color(0xFFB42318)),
-                    ),
-                  ],
-                  _DashboardContext(target: data.target, asOf: data.asOf),
-                  const SizedBox(height: 12),
-                  _NextActionCard(
-                    recommendation: data.nextAction,
-                    sampleSize: _findSkill(
-                      data.skillStates,
-                      data.nextAction?.skillId,
-                    )?.accuracy.attemptCount,
-                    onStart: data.nextAction?.runnable == true
-                        ? () => _startRecommendation(data.nextAction!)
-                        : null,
-                    onCustomize: () => context.go(AppRoutes.solo),
-                  ),
-                  const SizedBox(height: 18),
-                  const _SectionHeading('Ringkasan kemajuan'),
-                  const SizedBox(height: 10),
-                  _SummaryGrid(dashboard: data, narrow: narrow),
-                  const SizedBox(height: 18),
-                  const _SectionHeading('Temuan utama'),
-                  const SizedBox(height: 10),
-                  _InsightPanel(dashboard: data),
-                  const SizedBox(height: 22),
-                  _DashboardSections(
-                    dashboard: data,
-                    narrow: narrow,
-                    onSkillTap: _openSkillDetail,
-                    onPracticeSkill: _startSkill,
-                    onOpenCompetition: () => context.go(AppRoutes.pvp),
-                  ),
-                  if (data.asOf != null) ...<Widget>[
-                    const SizedBox(height: 16),
-                    Text(
-                      'Data per ${_dateTime(data.asOf!)} · ${data.calculationVersion}',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ],
-              );
-            },
+        flexibleSpace: Container(
+          key: const ValueKey<String>('learning-clay-header'),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: <Color>[_LearningClay.blue, _LearningClay.deepBlue],
+            ),
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+            boxShadow: <BoxShadow>[
+              BoxShadow(color: Color(0xFF06317D), offset: Offset(0, 6)),
+            ],
           ),
         ),
-      },
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'PERKEMBANGAN BELAJAR',
+              style: GoogleFonts.fredoka(
+                fontWeight: FontWeight.w800,
+                fontSize: 19,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const Text(
+              'Learning Center • strategi latihanmu',
+              style: TextStyle(
+                color: Color(0xFFCDE3FF),
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: _LearningBackdrop(
+        child: switch ((state.status, dashboard)) {
+          (LearningViewStatus.loading, null) => const _LearningSkeleton(),
+          (LearningViewStatus.unavailable, _) => _LearningMessage(
+            icon: Icons.lock_clock_rounded,
+            title: 'Learning segera hadir',
+            message:
+                state.errorMessage ??
+                'Analitik baru sedang disiapkan. Practice tetap dapat digunakan.',
+            actionLabel: 'Buka Practice',
+            onAction: () => context.go(AppRoutes.solo),
+          ),
+          (LearningViewStatus.error, null) => _LearningMessage(
+            icon: Icons.cloud_off_rounded,
+            title: 'Learning belum dapat dimuat',
+            message: state.errorMessage ?? 'Periksa koneksi lalu coba lagi.',
+            actionLabel: 'Coba lagi',
+            onAction: ref.read(learningControllerProvider.notifier).load,
+          ),
+          (_, null) => _LearningMessage(
+            icon: Icons.insights_rounded,
+            title: 'Belum ada ringkasan',
+            message: 'Tarik ulang untuk menyiapkan ringkasan Learning.',
+            actionLabel: 'Muat ulang',
+            onAction: ref.read(learningControllerProvider.notifier).load,
+          ),
+          (_, final LearningDashboard data?) => RefreshIndicator(
+            onRefresh: ref.read(learningControllerProvider.notifier).load,
+            child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                final bool narrow = constraints.maxWidth < 600;
+                return ListView(
+                  key: const ValueKey<String>('learning-dashboard'),
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                    narrow ? 16 : 24,
+                    18,
+                    narrow ? 16 : 24,
+                    28,
+                  ),
+                  children: <Widget>[
+                    if (state.status == LearningViewStatus.loading)
+                      const LinearProgressIndicator(minHeight: 3),
+                    if (state.errorMessage != null) ...<Widget>[
+                      const SizedBox(height: 10),
+                      Text(
+                        state.errorMessage!,
+                        style: const TextStyle(color: Color(0xFFB42318)),
+                      ),
+                    ],
+                    _DashboardContext(target: data.target, asOf: data.asOf),
+                    const SizedBox(height: 12),
+                    _NextActionCard(
+                      recommendation: data.nextAction,
+                      sampleSize: _findSkill(
+                        data.skillStates,
+                        data.nextAction?.skillId,
+                      )?.accuracy.attemptCount,
+                      onStart: data.nextAction?.runnable == true
+                          ? () => _startRecommendation(data.nextAction!)
+                          : null,
+                      onCustomize: () => context.go(AppRoutes.solo),
+                    ),
+                    const SizedBox(height: 18),
+                    _SectionHeading(
+                      'Ringkasan kemajuan',
+                      explanation: _evidenceStrengthExplanation(data.accuracy),
+                    ),
+                    const SizedBox(height: 10),
+                    _SummaryGrid(dashboard: data, narrow: narrow),
+                    const SizedBox(height: 18),
+                    const _SectionHeading('Temuan utama'),
+                    const SizedBox(height: 10),
+                    _InsightPanel(dashboard: data),
+                    const SizedBox(height: 22),
+                    _DashboardSections(
+                      dashboard: data,
+                      narrow: narrow,
+                      onSkillTap: _openSkillDetail,
+                      onPracticeSkill: _startSkill,
+                      onOpenCompetition: () => context.go(AppRoutes.pvp),
+                    ),
+                    if (data.asOf != null) ...<Widget>[
+                      const SizedBox(height: 16),
+                      Text(
+                        'Data per ${_dateTime(data.asOf!)} · ${data.calculationVersion}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
+            ),
+          ),
+        },
+      ),
     );
   }
 
@@ -202,6 +256,75 @@ class _LearningPageState extends ConsumerState<LearningPage> {
   }
 }
 
+abstract final class _LearningClay {
+  static const Color cream = Color(0xFFFFF8EC);
+  static const Color paper = Color(0xFFFFFDF8);
+  static const Color blue = Color(0xFF1270E3);
+  static const Color deepBlue = Color(0xFF063C9A);
+  static const Color cyan = Color(0xFF75DCEB);
+  static const Color mint = Color(0xFF79D7C5);
+  static const Color peach = Color(0xFFFFB878);
+  static const Color lavender = Color(0xFFC7B8F5);
+  static const Color clayShadow = Color(0xFFD9D1C4);
+}
+
+class _LearningBackdrop extends StatelessWidget {
+  const _LearningBackdrop({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    key: const ValueKey<String>('learning-clay-background'),
+    children: <Widget>[
+      const Positioned.fill(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: <Color>[Color(0xFFFFFBF3), _LearningClay.cream],
+            ),
+          ),
+        ),
+      ),
+      Positioned(
+        top: 34,
+        right: -38,
+        child: _BackdropOrb(
+          size: 118,
+          color: _LearningClay.cyan.withValues(alpha: 0.18),
+        ),
+      ),
+      Positioned(
+        top: 310,
+        left: -54,
+        child: _BackdropOrb(
+          size: 138,
+          color: _LearningClay.peach.withValues(alpha: 0.15),
+        ),
+      ),
+      Positioned.fill(child: child),
+    ],
+  );
+}
+
+class _BackdropOrb extends StatelessWidget {
+  const _BackdropOrb({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    child: Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    ),
+  );
+}
+
 class _LearningSkeleton extends StatelessWidget {
   const _LearningSkeleton();
 
@@ -266,10 +389,25 @@ class _NextActionCard extends StatelessWidget {
       key: const ValueKey<String>('learning-next-action'),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.warriorNavy,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(color: Color(0xFF001E51), offset: Offset(0, 6)),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            Color(0xFF083D96),
+            Color(0xFF0757C9),
+            Color(0xFF08347C),
+          ],
+          stops: <double>[0, 0.55, 1],
+        ),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: const Color(0xFF6CBFF5), width: 1.5),
+        boxShadow: <BoxShadow>[
+          const BoxShadow(color: Color(0xFF052A68), offset: Offset(0, 8)),
+          BoxShadow(
+            color: _LearningClay.blue.withValues(alpha: 0.22),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
         ],
       ),
       child: value == null
@@ -348,7 +486,7 @@ class _NextActionCard extends StatelessWidget {
                   children: <Widget>[
                     _Pill(value.skillLabel),
                     _Pill(_mechanic(value.mechanicMode)),
-                    _Pill('Bukti ${_confidence(value.confidence)}'),
+                    _Pill('Bukti ${_evidenceStrength(value.confidence)}'),
                     if (sampleSize != null) _Pill('$sampleSize bukti mandiri'),
                     if (value.compatibilityLabel != null)
                       _Pill(value.compatibilityLabel!),
@@ -359,6 +497,18 @@ class _NextActionCard extends StatelessWidget {
                   width: double.infinity,
                   child: FilledButton.icon(
                     onPressed: onStart,
+                    style: FilledButton.styleFrom(
+                      elevation: 0,
+                      backgroundColor: AppColors.fireGold,
+                      foregroundColor: AppColors.warriorNavy,
+                      disabledBackgroundColor: const Color(0xFF6C89A5),
+                      disabledForegroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: const BorderSide(color: Color(0xFFFFE0A3)),
+                      ),
+                    ),
                     icon: const Icon(Icons.play_arrow_rounded),
                     label: Text(
                       value.runnable
@@ -406,8 +556,9 @@ class _Pill extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.12),
+      color: Colors.white.withValues(alpha: 0.15),
       borderRadius: BorderRadius.circular(99),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
     ),
     child: Text(
       label,
@@ -427,40 +578,68 @@ class _DashboardContext extends StatelessWidget {
   final DateTime? asOf;
 
   @override
-  Widget build(BuildContext context) => Wrap(
-    spacing: 8,
-    runSpacing: 6,
-    crossAxisAlignment: WrapCrossAlignment.center,
-    children: <Widget>[
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppColors.levelUpTeal.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(99),
-        ),
-        child: Text(
-          target.toUpperCase(),
-          style: const TextStyle(
-            color: AppColors.levelUpTeal,
-            fontSize: 11,
-            fontWeight: FontWeight.w900,
+  Widget build(BuildContext context) => Container(
+    key: const ValueKey<String>('learning-context-clay-card'),
+    padding: const EdgeInsets.all(13),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        colors: <Color>[Color(0xFFEAF7FF), Color(0xFFF5FFFD)],
+      ),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: Colors.white, width: 1.4),
+      boxShadow: const <BoxShadow>[
+        BoxShadow(color: Color(0xFFC9D8DE), offset: Offset(0, 5)),
+      ],
+    ),
+    child: Row(
+      children: <Widget>[
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: _LearningClay.cyan,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: const <BoxShadow>[
+              BoxShadow(color: Color(0xFF48AEBF), offset: Offset(0, 4)),
+            ],
+          ),
+          child: const Icon(
+            Icons.auto_graph_rounded,
+            color: AppColors.warriorNavy,
           ),
         ),
-      ),
-      const Text(
-        '30 hari terakhir',
-        style: TextStyle(
-          color: AppColors.textStrong,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                'PETA BELAJAR ${target.toUpperCase()}',
+                style: const TextStyle(
+                  color: AppColors.warriorNavy,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.35,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                asOf == null
+                    ? '30 hari terakhir · sedang menyinkronkan data'
+                    : '30 hari terakhir · diperbarui ${_date(asOf!)}',
+                style: const TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-      if (asOf != null)
-        Text(
-          'Diperbarui ${_date(asOf!)}',
-          style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
-        ),
-    ],
+        const Icon(Icons.bolt_rounded, color: AppColors.fireGold, size: 22),
+      ],
+    ),
   );
 }
 
@@ -474,8 +653,24 @@ class _InsightPanel extends StatelessWidget {
     final List<_LearningInsight> insights = _buildInsights(dashboard);
     return Container(
       key: const ValueKey<String>('learning-insights'),
-      padding: const EdgeInsets.all(14),
-      decoration: _panelDecoration,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[Color(0xFFFFF4DE), Color(0xFFFFFBF3)],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white, width: 1.5),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(color: Color(0xFFE0C9A7), offset: Offset(0, 6)),
+          BoxShadow(
+            color: Color(0x1600215A),
+            blurRadius: 16,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
       child: Column(
         children: <Widget>[
           for (int index = 0; index < insights.length; index++) ...<Widget>[
@@ -486,8 +681,15 @@ class _InsightPanel extends StatelessWidget {
                   width: 34,
                   height: 34,
                   decoration: BoxDecoration(
-                    color: insights[index].color.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
+                    color: insights[index].color.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white, width: 1.5),
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: insights[index].color.withValues(alpha: 0.25),
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
                   child: Icon(
                     insights[index].icon,
@@ -538,7 +740,7 @@ List<_LearningInsight> _buildInsights(LearningDashboard dashboard) {
       _LearningInsight(
         Icons.event_repeat_rounded,
         const Color(0xFF7A4DA3),
-        '${due.length} skill sudah waktunya diulas. Mulai dari ${first.label}${first.attemptCount == 0 ? ' sambil mengumpulkan bukti tertunda.' : ' berdasarkan ${first.correctCount}/${first.attemptCount} bukti tertunda · bukti ${_confidence(first.confidence)}.'}',
+        '${due.length} skill sudah waktunya diulas. Mulai dari ${first.label}${first.attemptCount == 0 ? ' sambil mengumpulkan bukti tertunda.' : ' berdasarkan ${first.correctCount}/${first.attemptCount} bukti tertunda · bukti ${_evidenceStrength(first.confidence)}.'}',
       ),
     );
     mentionedSkills.add(first.skillId);
@@ -564,7 +766,7 @@ List<_LearningInsight> _buildInsights(LearningDashboard dashboard) {
       _LearningInsight(
         Icons.trending_down_rounded,
         const Color(0xFFD16B32),
-        '${state.label} berubah ${_signedPoints(state.trendPercentagePoints!)} dibanding 10 bukti sebelumnya · bukti ${_confidence(state.confidence)}.',
+        '${state.label} berubah ${_signedPoints(state.trendPercentagePoints!)} dibanding 10 bukti sebelumnya · bukti ${_evidenceStrength(state.confidence)}.',
       ),
     );
     mentionedSkills.add(state.skillId);
@@ -615,7 +817,7 @@ List<_LearningInsight> _buildInsights(LearningDashboard dashboard) {
       _LearningInsight(
         Icons.trending_up_rounded,
         AppColors.levelUpTeal,
-        '${state.label} meningkat ${_signedPoints(state.trendPercentagePoints!)} dibanding 10 bukti sebelumnya · bukti ${_confidence(state.confidence)}.',
+        '${state.label} meningkat ${_signedPoints(state.trendPercentagePoints!)} dibanding 10 bukti sebelumnya · bukti ${_evidenceStrength(state.confidence)}.',
       ),
     );
   }
@@ -667,6 +869,7 @@ class _DashboardSections extends StatelessWidget {
       children: <Widget>[
         _SectionBlock(
           title: 'Retensi',
+          explanation: _retentionExplanation(dashboard.retention),
           child: _RetentionPanel(
             items: dashboard.retention,
             skillStates: dashboard.skillStates,
@@ -711,16 +914,21 @@ class _DashboardSections extends StatelessWidget {
 }
 
 class _SectionBlock extends StatelessWidget {
-  const _SectionBlock({required this.title, required this.child});
+  const _SectionBlock({
+    required this.title,
+    required this.child,
+    this.explanation,
+  });
 
   final String title;
   final Widget child;
+  final LearningExplanation? explanation;
 
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: <Widget>[
-      _SectionHeading(title),
+      _SectionHeading(title, explanation: explanation),
       const SizedBox(height: 10),
       child,
     ],
@@ -733,21 +941,41 @@ class _SectionHeading extends StatelessWidget {
   final LearningExplanation? explanation;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: <Widget>[
-      Expanded(
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.warriorNavy,
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
+  Widget build(BuildContext context) {
+    final (IconData, Color) visual = _sectionVisual(label);
+    return Row(
+      children: <Widget>[
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: visual.$2,
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(color: Colors.white, width: 1.5),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: visual.$2.withValues(alpha: 0.45),
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Icon(visual.$1, size: 18, color: AppColors.warriorNavy),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.fredoka(
+              color: AppColors.warriorNavy,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
-      ),
-      if (explanation != null) LearningInfoButton(explanation: explanation!),
-    ],
-  );
+        if (explanation != null) LearningInfoButton(explanation: explanation!),
+      ],
+    );
+  }
 }
 
 class _SummaryGrid extends StatelessWidget {
@@ -759,6 +987,8 @@ class _SummaryGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final List<Widget> cards = <Widget>[
       _MetricCard(
+        icon: Icons.grid_view_rounded,
+        accent: _LearningClay.cyan,
         label: 'Cakupan kurikulum',
         value: _percent(dashboard.coverage.value),
         detail:
@@ -766,18 +996,24 @@ class _SummaryGrid extends StatelessWidget {
         explanation: _coverageExplanation(dashboard.coverage),
       ),
       _MetricCard(
+        icon: Icons.gps_fixed_rounded,
+        accent: _LearningClay.mint,
         label: 'Akurasi mandiri (mentah)',
         value: _percent(dashboard.accuracy.value),
         detail:
-            '${dashboard.accuracy.correctCount}/${dashboard.accuracy.attemptCount} jawaban · bukti ${_confidence(dashboard.accuracy.confidence)}',
+            '${dashboard.accuracy.correctCount}/${dashboard.accuracy.attemptCount} jawaban · bukti ${_evidenceStrength(dashboard.accuracy.confidence)}',
+        explanation: _accuracyExplanation(dashboard.accuracy),
       ),
       _MetricCard(
+        icon: Icons.speed_rounded,
+        accent: _LearningClay.peach,
         label: 'Rasio tempo',
         value: dashboard.pace.value == null
             ? 'Belum cukup data'
             : '${dashboard.pace.value!.toStringAsFixed(2)}×',
         detail:
-            '${dashboard.pace.attemptCount} jawaban layak · ${_baseline(dashboard.pace.baselineType)} · bukti ${_confidence(dashboard.pace.confidence)}',
+            '${dashboard.pace.attemptCount} jawaban layak · ${_baseline(dashboard.pace.baselineType)} · bukti ${_evidenceStrength(dashboard.pace.confidence)}',
+        explanation: _paceExplanation(dashboard.pace),
       ),
     ];
     if (narrow) {
@@ -809,11 +1045,15 @@ class _SummaryGrid extends StatelessWidget {
 
 class _MetricCard extends StatelessWidget {
   const _MetricCard({
+    required this.icon,
+    required this.accent,
     required this.label,
     required this.value,
     required this.detail,
     required this.explanation,
   });
+  final IconData icon;
+  final Color accent;
   final String label;
   final String value;
   final String detail;
@@ -821,14 +1061,31 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    constraints: const BoxConstraints(minHeight: 104),
+    constraints: const BoxConstraints(minHeight: 118),
     padding: const EdgeInsets.all(14),
-    decoration: _panelDecoration,
+    decoration: _clayDecoration(tint: accent.withValues(alpha: 0.08)),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Row(
           children: <Widget>[
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: accent,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white, width: 1.5),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: accent.withValues(alpha: 0.38),
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Icon(icon, size: 17, color: AppColors.warriorNavy),
+            ),
+            const SizedBox(width: 9),
             Expanded(
               child: Text(
                 label,
@@ -851,6 +1108,17 @@ class _MetricCard extends StatelessWidget {
         Text(
           detail,
           style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+        ),
+        const SizedBox(height: 9),
+        Container(
+          height: 5,
+          decoration: BoxDecoration(
+            color: accent,
+            borderRadius: BorderRadius.circular(99),
+            boxShadow: <BoxShadow>[
+              BoxShadow(color: accent.withValues(alpha: 0.35), blurRadius: 6),
+            ],
+          ),
         ),
       ],
     ),
@@ -895,51 +1163,56 @@ class _SkillMap extends StatelessWidget {
       final String category = state.category?.toUpperCase() ?? 'LAINNYA';
       groups.putIfAbsent(category, () => <LearningSkillState>[]).add(state);
     }
-    return Material(
-      color: Colors.white,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: Color(0x1400215A)),
-      ),
-      child: Column(
-        children: groups.entries
-            .map((entry) {
-              final bool containsRecommendation = entry.value.any(
-                (LearningSkillState state) =>
-                    state.skillId == recommendationSkillId,
-              );
-              return ExpansionTile(
-                key: ValueKey<String>('learning-skill-group-${entry.key}'),
-                initiallyExpanded: containsRecommendation || groups.length == 1,
-                tilePadding: const EdgeInsets.symmetric(horizontal: 14),
-                childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                title: Text(
-                  entry.key,
-                  style: const TextStyle(
-                    color: AppColors.warriorNavy,
-                    fontWeight: FontWeight.w900,
+    return Container(
+      decoration: _clayDecoration(),
+      child: Material(
+        color: Colors.transparent,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        child: Column(
+          children: groups.entries
+              .map((entry) {
+                final bool containsRecommendation = entry.value.any(
+                  (LearningSkillState state) =>
+                      state.skillId == recommendationSkillId,
+                );
+                return ExpansionTile(
+                  key: ValueKey<String>('learning-skill-group-${entry.key}'),
+                  initiallyExpanded:
+                      containsRecommendation || groups.length == 1,
+                  tilePadding: const EdgeInsets.symmetric(horizontal: 14),
+                  childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                  collapsedBackgroundColor: const Color(0x33EAF7FF),
+                  backgroundColor: const Color(0x22EAF7FF),
+                  iconColor: _LearningClay.blue,
+                  collapsedIconColor: AppColors.textMuted,
+                  title: Text(
+                    entry.key,
+                    style: const TextStyle(
+                      color: AppColors.warriorNavy,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
-                ),
-                subtitle: Text(
-                  '${entry.value.length} skill',
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 10,
+                  subtitle: Text(
+                    '${entry.value.length} skill',
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 10,
+                    ),
                   ),
-                ),
-                children: entry.value
-                    .map(
-                      (LearningSkillState state) => _SkillRow(
-                        state: state,
-                        recommended: state.skillId == recommendationSkillId,
-                        onTap: () => onTap(state),
-                      ),
-                    )
-                    .toList(growable: false),
-              );
-            })
-            .toList(growable: false),
+                  children: entry.value
+                      .map(
+                        (LearningSkillState state) => _SkillRow(
+                          state: state,
+                          recommended: state.skillId == recommendationSkillId,
+                          onTap: () => onTap(state),
+                        ),
+                      )
+                      .toList(growable: false),
+                );
+              })
+              .toList(growable: false),
+        ),
       ),
     );
   }
@@ -963,7 +1236,7 @@ class _SkillRow extends StatelessWidget {
     return Semantics(
       button: true,
       label:
-          '${state.label}, $status, ${state.accuracy.correctCount} dari ${state.accuracy.attemptCount} jawaban mandiri, bukti ${_confidence(state.confidence)}',
+          '${state.label}, $status, ${state.accuracy.correctCount} dari ${state.accuracy.attemptCount} jawaban mandiri, bukti ${_evidenceStrength(state.confidence)}',
       child: Material(
         color: recommended
             ? AppColors.fireGold.withValues(alpha: 0.09)
@@ -1003,7 +1276,7 @@ class _SkillRow extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        '$status · ${state.accuracy.correctCount}/${state.accuracy.attemptCount} · bukti ${_confidence(state.confidence)}',
+                        '$status · ${state.accuracy.correctCount}/${state.accuracy.attemptCount} · bukti ${_evidenceStrength(state.confidence)}',
                         style: const TextStyle(
                           color: AppColors.textMuted,
                           fontSize: 10,
@@ -1110,7 +1383,7 @@ class _SkillDetailSheet extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '${_status(skill.status, skill.confidence)} · bukti ${_confidence(skill.confidence)}',
+                        '${_status(skill.status, skill.confidence)} · bukti ${_evidenceStrength(skill.confidence)}',
                         style: TextStyle(
                           color: tone,
                           fontSize: 11,
@@ -1119,6 +1392,10 @@ class _SkillDetailSheet extends StatelessWidget {
                       ),
                     ],
                   ),
+                ),
+                LearningInfoButton(
+                  explanation: _skillExplanation(skill),
+                  color: tone,
                 ),
               ],
             ),
@@ -1324,7 +1601,7 @@ class _RetentionPanel extends StatelessWidget {
               subtitle: Text(
                 item.reviewDueAt == null
                     ? 'Tanggal ulasan belum tersedia'
-                    : '${item.status == 'due' ? 'Seharusnya diulas' : 'Ulasan'} ${_date(item.reviewDueAt!)}${item.attemptCount > 0 ? ' · ${item.accuracy?.round() ?? '—'}% (${item.correctCount}/${item.attemptCount}) · bukti ${_confidence(item.confidence)}' : ''}',
+                    : '${item.status == 'due' ? 'Seharusnya diulas' : 'Ulasan'} ${_date(item.reviewDueAt!)}${item.attemptCount > 0 ? ' · ${item.accuracy?.round() ?? '—'}% (${item.correctCount}/${item.attemptCount}) · bukti ${_evidenceStrength(item.confidence)}' : ''}',
               ),
               trailing: item.status == 'due' && skill != null
                   ? IconButton(
@@ -1425,7 +1702,7 @@ class _AssessmentPanel extends StatelessWidget {
           if (assessment.attemptCount != null) ...<Widget>[
             const SizedBox(height: 5),
             Text(
-              '${assessment.correctCount ?? '—'}/${assessment.attemptCount} jawaban · bukti ${_confidence(assessment.confidence)} · ${assessment.occurredAt == null ? 'tanggal tidak tersedia' : _date(assessment.occurredAt!)}',
+              '${assessment.correctCount ?? '—'}/${assessment.attemptCount} jawaban · bukti ${_evidenceStrength(assessment.confidence)} · ${assessment.occurredAt == null ? 'tanggal tidak tersedia' : _date(assessment.occurredAt!)}',
               style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
             ),
           ],
@@ -1480,7 +1757,7 @@ class _AssessmentPanel extends StatelessWidget {
                       children: <Widget>[
                         Expanded(child: Text(_humanizeIdentifier(item.label))),
                         Text(
-                          '${_percent(item.value)} · ${item.correctCount == null || item.attemptCount == null ? 'count —' : '${item.correctCount}/${item.attemptCount}'} · bukti ${_confidence(item.confidence)}',
+                          '${_percent(item.value)} · ${item.correctCount == null || item.attemptCount == null ? 'count —' : '${item.correctCount}/${item.attemptCount}'} · bukti ${_evidenceStrength(item.confidence)}',
                           style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w800,
@@ -1502,10 +1779,7 @@ class _ActivityPanel extends StatelessWidget {
   final LearningActivity activity;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onOpenInsights,
-    borderRadius: BorderRadius.circular(18),
-    child: Container(
+  Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(14),
     decoration: _panelDecoration,
     child: Column(
@@ -1706,8 +1980,17 @@ class _ActivityValue extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 110,
+  Widget build(BuildContext context) => Container(
+    width: 112,
+    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF3F9FF),
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: Colors.white, width: 1.4),
+      boxShadow: const <BoxShadow>[
+        BoxShadow(color: Color(0xFFD7E1E8), offset: Offset(0, 4)),
+      ],
+    ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -1732,10 +2015,23 @@ class _CompetitionPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
+    padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: AppColors.surfaceDark,
-      borderRadius: BorderRadius.circular(18),
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: <Color>[Color(0xFF142B55), Color(0xFF071A3D)],
+      ),
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: const Color(0xFF34527F)),
+      boxShadow: const <BoxShadow>[
+        BoxShadow(color: Color(0xFF030E24), offset: Offset(0, 7)),
+        BoxShadow(
+          color: Color(0x2600215A),
+          blurRadius: 16,
+          offset: Offset(0, 9),
+        ),
+      ],
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1757,7 +2053,7 @@ class _CompetitionPanel extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${competition.matchRecord.wins}M ${competition.matchRecord.losses}K ${competition.matchRecord.draws}S · ${_percent(competition.accuracy.value)} (${competition.accuracy.correctCount}/${competition.accuracy.attemptCount}) · bukti ${_confidence(competition.accuracy.confidence)}',
+                    '${competition.matchRecord.wins}M ${competition.matchRecord.losses}K ${competition.matchRecord.draws}S · ${_percent(competition.accuracy.value)} (${competition.accuracy.correctCount}/${competition.accuracy.attemptCount}) · bukti ${_evidenceStrength(competition.accuracy.confidence)}',
                     style: const TextStyle(
                       color: Color(0xFFC4D3ED),
                       fontSize: 10,
@@ -1791,7 +2087,7 @@ class _CompetitionPanel extends StatelessWidget {
         ),
       ],
     ),
-  ));
+  );
 }
 
 class _EmptyPanel extends StatelessWidget {
@@ -1805,7 +2101,19 @@ class _EmptyPanel extends StatelessWidget {
     decoration: _panelDecoration,
     child: Row(
       children: <Widget>[
-        Icon(icon, color: AppColors.levelUpTeal),
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: _LearningClay.mint.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(color: Colors.white, width: 1.4),
+            boxShadow: const <BoxShadow>[
+              BoxShadow(color: Color(0xFFA9D7CE), offset: Offset(0, 3)),
+            ],
+          ),
+          child: Icon(icon, color: AppColors.levelUpTeal),
+        ),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
@@ -1860,11 +2168,34 @@ class _LearningMessage extends StatelessWidget {
   );
 }
 
-final BoxDecoration _panelDecoration = BoxDecoration(
-  color: Colors.white,
-  borderRadius: BorderRadius.circular(18),
-  border: Border.all(color: const Color(0x1400215A)),
+BoxDecoration _clayDecoration({Color? tint}) => BoxDecoration(
+  color: tint ?? _LearningClay.paper,
+  borderRadius: BorderRadius.circular(22),
+  border: Border.all(color: Colors.white, width: 1.5),
+  boxShadow: const <BoxShadow>[
+    BoxShadow(color: _LearningClay.clayShadow, offset: Offset(0, 6)),
+    BoxShadow(color: Color(0x1200215A), blurRadius: 15, offset: Offset(0, 8)),
+  ],
 );
+
+final BoxDecoration _panelDecoration = _clayDecoration();
+
+(IconData, Color) _sectionVisual(String label) => switch (label) {
+  'Ringkasan kemajuan' => (
+    Icons.dashboard_customize_rounded,
+    _LearningClay.cyan,
+  ),
+  'Temuan utama' => (Icons.lightbulb_rounded, _LearningClay.peach),
+  'Peta skill' => (Icons.hub_rounded, _LearningClay.lavender),
+  'Retensi' => (Icons.event_repeat_rounded, _LearningClay.mint),
+  'Konsistensi 30 hari' => (
+    Icons.local_fire_department_rounded,
+    _LearningClay.peach,
+  ),
+  'Assessment' => (Icons.fact_check_rounded, _LearningClay.cyan),
+  'Competition' => (Icons.sports_kabaddi_rounded, _LearningClay.lavender),
+  _ => (Icons.auto_awesome_rounded, _LearningClay.cyan),
+};
 
 String _percent(double? value) => value == null ? '—' : '${value.round()}%';
 

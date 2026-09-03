@@ -30,10 +30,7 @@ void main() {
             final PlayerProgressController controller =
                 PlayerProgressController();
             controller.setDisplayName('Yudha');
-            controller.applyBattleResult(
-              outcome: BattleOutcome.win,
-              ratingDelta: 1050,
-            );
+            controller.applyBattleResult(outcome: BattleOutcome.win);
             return controller;
           }),
           gameEconomyProvider.overrideWith(
@@ -48,8 +45,7 @@ void main() {
     expect(find.text('Yudha'), findsOneWidget);
     expect(find.text('Win rate'), findsOneWidget);
     expect(find.text('Streak'), findsOneWidget);
-    expect(find.text('RANK POINTS'), findsOneWidget);
-    expect(find.text('Menuju tier berikutnya'), findsOneWidget);
+    expect(find.text('RANKED MATCH'), findsOneWidget);
     expect(find.text('MISI HARI INI'), findsOneWidget);
     expect(find.text('START BATTLE'), findsOneWidget);
     expect(find.text('XP to next rank'), findsNothing);
@@ -149,7 +145,7 @@ void main() {
     );
 
     expect(
-      find.byKey(const ValueKey<String>('lobby-hero-primary-points')),
+      find.byKey(const ValueKey<String>('lobby-hero-primary-matches')),
       findsOneWidget,
     );
     expect(
@@ -171,20 +167,6 @@ void main() {
     );
     expect(
       tester
-          .getTopLeft(
-            find.byKey(const ValueKey<String>('lobby-hero-stats-panel')),
-          )
-          .dy,
-      lessThan(
-        tester
-            .getTopLeft(
-              find.byKey(const ValueKey<String>('lobby-hero-rank-progress')),
-            )
-            .dy,
-      ),
-    );
-    expect(
-      tester
               .getTopLeft(
                 find.byKey(const ValueKey<String>('lobby-hero-stats-panel')),
               )
@@ -195,14 +177,6 @@ void main() {
               )
               .dy,
       closeTo(32, 0.1),
-    );
-
-    final Container tierBadge = tester.widget<Container>(
-      find.byKey(const ValueKey<String>('lobby-hero-tier-badge')),
-    );
-    expect(
-      (tierBadge.decoration! as BoxDecoration).color,
-      const Color(0xFFFFD9B5),
     );
 
     final Container roadmap = tester.widget<Container>(
@@ -486,7 +460,6 @@ class _LearningProgressRepository extends PlayerProgressRepository {
     return PlayerProgressSnapshot(
       playerId: 'user-1',
       displayName: 'Yudha',
-      totalPoints: 100,
       wins: 1,
       losses: 0,
       draws: 0,

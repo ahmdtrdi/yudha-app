@@ -85,6 +85,18 @@ void main() {
           find.byKey(const ValueKey<String>('learning-dashboard')),
           findsOneWidget,
         );
+        expect(
+          find.byKey(const ValueKey<String>('learning-clay-background')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey<String>('learning-clay-header')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey<String>('learning-context-clay-card')),
+          findsOneWidget,
+        );
         expect(find.text('Ringkasan kemajuan'), findsOneWidget);
         await tester.scrollUntilVisible(
           find.byKey(const ValueKey<String>('learning-insights')),
@@ -96,6 +108,8 @@ void main() {
         );
         expect(find.text('—'), findsWidgets);
         expect(find.textContaining('0% akurasi mandiri'), findsNothing);
+        await tester.scrollUntilVisible(find.text('Peta skill'), 250);
+        await tester.pumpAndSettle();
         expect(
           find.text('Mengumpulkan data · 0/1 · bukti rendah'),
           findsOneWidget,
@@ -256,14 +270,18 @@ void main() {
     expect(find.text('Yang dihitung'), findsOneWidget);
     expect(find.text('Yang tidak dihitung'), findsOneWidget);
     expect(find.text('Rumus'), findsOneWidget);
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, -400));
+    await tester.pumpAndSettle();
     expect(find.text('Contoh dari datamu'), findsOneWidget);
-    expect(find.text('Jendela bukti'), findsOneWidget);
     expect(
       find.textContaining(
         'Totalmu 0 percobaan dari 0 soal unik. Kekuatan ringkasan rendah',
       ),
       findsOneWidget,
     );
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, -300));
+    await tester.pumpAndSettle();
+    expect(find.text('Jendela bukti'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
