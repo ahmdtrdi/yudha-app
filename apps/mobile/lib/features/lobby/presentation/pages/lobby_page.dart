@@ -62,6 +62,18 @@ class _LobbyPageState extends ConsumerState<LobbyPage> {
         ),
         actions: <Widget>[
           Center(
+            child: EnergyBalanceChip(
+              energy: economy.isAuthoritative ? economy.energy : null,
+              isPro: economy.isPro,
+              maxEnergy: economy.maxEnergy,
+              onTap: economy.isAuthoritative
+                  ? () => showEnergyTopUpSheet(context)
+                  : null,
+              dark: true,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Center(
             child: YCoinBalanceChip(
               balance: economy.isAuthoritative ? economy.yCoins : null,
               onTap: economy.isAuthoritative
@@ -70,11 +82,15 @@ class _LobbyPageState extends ConsumerState<LobbyPage> {
               dark: true,
             ),
           ),
-          IconButton(
-            onPressed: () => context.push(AppRoutes.hiredPass),
-            tooltip: 'Hired Pass',
-            icon: const Icon(Icons.workspace_premium_rounded),
-          ),
+          const SizedBox(width: 6),
+          if (economy.isPro)
+            const Center(child: ProBadge(compact: true))
+          else
+            IconButton(
+              onPressed: () => context.push(AppRoutes.hiredPass),
+              tooltip: 'YUDHA Pro',
+              icon: const Icon(Icons.star_rounded, color: Color(0xFFFFC857)),
+            ),
           IconButton(
             onPressed: () => context.push(AppRoutes.store),
             tooltip: 'Store',
@@ -895,13 +911,38 @@ class _RoadmapQuestStep extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 6),
-                            Text(
-                              xpReward,
-                              style: GoogleFonts.jetBrainsMono(
-                                color: const Color(0xFFE9822D),
-                                fontSize: compact ? 11 : 12,
-                                fontWeight: FontWeight.w800,
-                              ),
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: <Widget>[
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: <Widget>[
+                                    const Icon(
+                                      Icons.bolt_rounded,
+                                      color: Color(0xFFFF9800),
+                                      size: 13,
+                                    ),
+                                    Text(
+                                      '2',
+                                      style: GoogleFonts.fredoka(
+                                        color: const Color(0xFFFF9800),
+                                        fontSize: compact ? 11 : 12,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  xpReward,
+                                  style: GoogleFonts.jetBrainsMono(
+                                    color: const Color(0xFFE9822D),
+                                    fontSize: compact ? 11 : 12,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -973,15 +1014,47 @@ class _ClayBattleButton extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               child: InkWell(
                 onTap: onPressed,
-                child: Center(
-                  child: Text(
-                    'START BATTLE',
-                    style: GoogleFonts.fredoka(
-                      color: const Color(0xFFC96F20),
-                      fontSize: compact ? 17 : 19,
-                      fontWeight: FontWeight.w800,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Text(
+                      'START BATTLE',
+                      style: GoogleFonts.fredoka(
+                        color: const Color(0xFFC96F20),
+                        fontSize: compact ? 17 : 19,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFC96F20),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          const Icon(
+                            Icons.bolt_rounded,
+                            color: Color(0xFFFFD8A6),
+                            size: 14,
+                          ),
+                          Text(
+                            '2',
+                            style: GoogleFonts.fredoka(
+                              color: const Color(0xFFFFD8A6),
+                              fontSize: compact ? 12 : 13,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

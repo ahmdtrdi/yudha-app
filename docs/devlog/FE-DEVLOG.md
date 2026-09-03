@@ -3022,3 +3022,27 @@
 ### The Tech Debt
 - None.
 
+## 2026-09-03 - Mobile Economy UI Polishing (Energy System & YUDHA Pro)
+
+### The Change
+- Refactored `HiredPassPage` (`hired_pass_page.dart`):
+  - Made non-scrollable with `Column(mainAxisAlignment: MainAxisAlignment.spaceBetween)` and safe top margin (`EdgeInsets.fromLTRB(20, 16, 20, 24)`).
+  - Updated background to diagonal blue gradient (`topLeft` to `bottomRight`: `#0D49B5` -> `#072C73` -> `#041945`).
+- Added authoritative `⚡ 2` Energy entry cost indicators to mode entry points:
+  - Lobby `_RoadmapQuestStep` and `_ClayBattleButton` badges.
+  - Solo loadout `_StartSoloButton` ("MULAI LATIHAN") badge.
+- Added `showEnergyTopUpSheet` modal in `economy_widgets.dart`:
+  - Energy recharge packs (`energy-pack-5` for 50 Y-Coins & `energy-pack-12` for 100 Y-Coins).
+  - `_EnergyRefillTimer` countdown (`HH:MM:SS` or `MM:SS`) for daily 10 ⚡ refill reset.
+  - YUDHA Pro active status banner & Y-Coin top-up shortcut.
+- Wired backend economy API (`POST /economy/energy-purchases`):
+  - Added `purchaseEnergyPack` method to `GameEconomyRepository` and `BackendGameEconomyRepository`.
+  - Added `buyEnergyPackAuthoritative` in `GameEconomyController`.
+  - Updated `EnergyBalanceChip` `onTap` in `LobbyPage` to trigger `showEnergyTopUpSheet`.
+
+### The Reasoning
+- Aligned mobile UI with economy redesign PRD §6.2 (2 Energy entry cost & Y-Coin energy recharge packs).
+- Displaying daily refill reset timer gives non-Pro players clear visibility into free energy replenishment schedules.
+
+### The Tech Debt
+- Energy refill auto-refresh relies on user pull-to-refresh or explicit user actions; real-time push updates via SSE/WebSocket remain post-MVP.

@@ -22,18 +22,34 @@ class BackendGameEconomyRepository extends GameEconomyRepository {
   Future<AuthoritativeEconomySnapshot> fetch() async {
     final Map<String, dynamic> data = await _request(
       'GET',
+      Uri.parse('$baseUrl/economy'),
+    );
+    final Map<String, dynamic> storeData = await _request(
+      'GET',
       Uri.parse('$baseUrl/store/items'),
     );
-    final Map<String, dynamic> equipped = _map(data['equipped']);
-    final List<CosmeticItem> items = _list(data['items'])
+    final Map<String, dynamic> equipped = _map(storeData['equipped']);
+    final List<CosmeticItem> items = _list(storeData['items'])
         .whereType<Map<String, dynamic>>()
         .map(_storeItem)
         .whereType<CosmeticItem>()
         .toList(growable: false);
+    final Map<String, dynamic> energyObj = _map(data['energy']);
+    final Map<String, dynamic> proObj = _map(data['pro']);
     return AuthoritativeEconomySnapshot(
       coins: _int(data['yCoins'] ?? data['coins']),
+      energy: _int(energyObj['current'] ?? energyObj['balance'] ?? 10),
+      maxEnergy: _int(energyObj['cap'] ?? energyObj['max'] ?? 100),
+      dailyRefillTarget: _int(energyObj['dailyRefillTarget'] ?? 10),
+      nextRefillAt: energyObj['nextRefillAt'] != null
+          ? DateTime.tryParse(energyObj['nextRefillAt'].toString())
+          : null,
+      isPro: proObj['isActive'] == true || data['isPro'] == true,
+      proExpiresAt: proObj['expiresAt'] != null
+          ? DateTime.tryParse(proObj['expiresAt'].toString())
+          : null,
       ownedItemIds: _list(
-        data['ownedItemIds'],
+        storeData['ownedItemIds'],
       ).map((Object? value) => value.toString()).toSet(),
       characterId:
           _text(equipped['characterId']) ??
@@ -123,6 +139,21 @@ class BackendGameEconomyRepository extends GameEconomyRepository {
       body: <String, Object?>{
         'coins': coins,
         'idempotencyKey': _requestId('beta-credit'),
+      },
+    );
+    return fetch();
+  }
+
+  @override
+  Future<AuthoritativeEconomySnapshot> purchaseEnergyPack(
+    String packageId,
+  ) async {
+    await _request(
+      'POST',
+      Uri.parse('$baseUrl/economy/energy-purchases'),
+      body: <String, Object?>{
+        'packageId': packageId,
+        'idempotencyKey': _requestId('energy-pack'),
       },
     );
     return fetch();

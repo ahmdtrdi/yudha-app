@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -119,6 +121,138 @@ class YCoinBalanceChip extends StatelessWidget {
   }
 }
 
+class EnergyBalanceChip extends StatelessWidget {
+  const EnergyBalanceChip({
+    required this.energy,
+    required this.isPro,
+    this.maxEnergy = 100,
+    this.onTap,
+    this.dark = false,
+    super.key,
+  });
+
+  final int? energy;
+  final bool isPro;
+  final int maxEnergy;
+  final VoidCallback? onTap;
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: dark ? Colors.white.withAlpha(24) : Colors.white,
+      borderRadius: BorderRadius.circular(13),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(13),
+        child: Container(
+          key: const ValueKey<String>('energy-balance'),
+          padding: const EdgeInsets.fromLTRB(7, 5, 10, 5),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(
+              color: isPro
+                  ? const Color(0xFFFFC857)
+                  : (dark
+                      ? Colors.white.withAlpha(60)
+                      : AppColors.warriorNavy.withAlpha(24)),
+              width: isPro ? 1.5 : 1.0,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                Icons.bolt_rounded,
+                size: 20,
+                color: isPro ? const Color(0xFFFFC857) : const Color(0xFFFF9800),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                isPro
+                    ? '∞'
+                    : (energy == null ? '—' : '$energy'),
+                style: GoogleFonts.jetBrainsMono(
+                  color: isPro
+                      ? const Color(0xFFFFC857)
+                      : (dark ? Colors.white : AppColors.textStrong),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (onTap != null && !isPro) ...<Widget>[
+                const SizedBox(width: 3),
+                Icon(
+                  Icons.add_circle_rounded,
+                  size: 16,
+                  color: dark ? const Color(0xFFFFC857) : AppColors.levelUpTeal,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ProBadge extends StatelessWidget {
+  const ProBadge({
+    this.compact = false,
+    this.onTap,
+    super.key,
+  });
+
+  final bool compact;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 6 : 10,
+          vertical: compact ? 3 : 5,
+        ),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: <Color>[Color(0xFFFFD700), Color(0xFFFF8C00)],
+          ),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: const <BoxShadow>[
+            BoxShadow(
+              color: Color(0x40FFD700),
+              blurRadius: 6,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Icon(
+              Icons.star_rounded,
+              size: 14,
+              color: Color(0xFF5A2A00),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'PRO',
+              style: GoogleFonts.fredoka(
+                color: const Color(0xFF5A2A00),
+                fontSize: compact ? 11 : 13,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class CosmeticPreview extends StatelessWidget {
   const CosmeticPreview({
     required this.item,
@@ -234,6 +368,389 @@ Future<void> showYCoinTopUpSheet(BuildContext context) {
     backgroundColor: Colors.transparent,
     builder: (BuildContext context) => const _YCoinTopUpSheet(),
   );
+}
+
+Future<void> showEnergyTopUpSheet(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (BuildContext context) => const _EnergyTopUpSheet(),
+  );
+}
+
+class _EnergyTopUpSheet extends ConsumerStatefulWidget {
+  const _EnergyTopUpSheet();
+
+  @override
+  ConsumerState<_EnergyTopUpSheet> createState() => _EnergyTopUpSheetState();
+}
+
+class _EnergyTopUpSheetState extends ConsumerState<_EnergyTopUpSheet> {
+  String? _pendingPackageId;
+
+  Future<void> _buyPack(String packageId, String packageName, int cost) async {
+    final GameEconomyState economy = ref.read(gameEconomyProvider);
+    if (economy.yCoins < cost) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Y-Coin tidak cukup. Silakan top up Y-Coin terlebih dahulu.'),
+          ),
+        );
+      return;
+    }
+    setState(() => _pendingPackageId = packageId);
+    try {
+      final EconomyActionResult result = await ref
+          .read(gameEconomyProvider.notifier)
+          .buyEnergyPackAuthoritative(packageId, packageName);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(result.message)));
+    } finally {
+      if (mounted) setState(() => _pendingPackageId = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final GameEconomyState economy = ref.watch(gameEconomyProvider);
+    final double bottomInset = MediaQuery.paddingOf(context).bottom;
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(18, 12, 18, 18 + bottomInset),
+      decoration: const BoxDecoration(
+        color: AppColors.surfaceLight,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Center(
+              child: Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.textMuted.withAlpha(50),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: <Widget>[
+                const Icon(Icons.bolt_rounded, color: Color(0xFFFF9800), size: 24),
+                const SizedBox(width: 8),
+                Text(
+                  'Recharge Energy',
+                  style: GoogleFonts.fredoka(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textStrong,
+                  ),
+                ),
+                const Spacer(),
+                YCoinBalanceChip(
+                  balance: economy.isAuthoritative ? economy.yCoins : null,
+                  onTap: () {
+                    Navigator.pop(context);
+                    showYCoinTopUpSheet(context);
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF9E6),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFFFE082)),
+              ),
+              child: Row(
+                children: <Widget>[
+                  const Icon(Icons.info_outline_rounded, color: Color(0xFFB85C1E), size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Energi digunakan untuk masuk mode Solo & PvP (2 ⚡). Bebas isi ulang dengan Y-Coin!',
+                      style: GoogleFonts.dmSans(
+                        color: const Color(0xFF6E4B12),
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _EnergyPackCard(
+              title: '+5 Energy',
+              costText: '50 Y-Coin',
+              cost: 50,
+              icon: Icons.bolt_rounded,
+              iconColor: const Color(0xFFFF9800),
+              isLoading: _pendingPackageId == 'energy-pack-5',
+              onTap: economy.isPro || _pendingPackageId != null
+                  ? null
+                  : () => _buyPack('energy-pack-5', '+5 Energy', 50),
+            ),
+            const SizedBox(height: 8),
+            _EnergyPackCard(
+              title: '+12 Energy',
+              costText: '100 Y-Coin',
+              cost: 100,
+              badge: 'LEBIH HEMAT',
+              icon: Icons.bolt_rounded,
+              iconColor: const Color(0xFFFF9800),
+              isLoading: _pendingPackageId == 'energy-pack-12',
+              onTap: economy.isPro || _pendingPackageId != null
+                  ? null
+                  : () => _buyPack('energy-pack-12', '+12 Energy', 100),
+            ),
+            if (!economy.isPro && economy.energy < economy.maxEnergy && economy.nextRefillAt != null) ...<Widget>[
+              const SizedBox(height: 12),
+              _EnergyRefillTimer(nextRefillAt: economy.nextRefillAt!),
+            ],
+            const SizedBox(height: 12),
+            if (economy.isPro)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF22C55E)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    const Icon(Icons.verified_rounded, color: Color(0xFF15803D), size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Kamu memiliki YUDHA Pro (Energi Tak Terbatas)',
+                      style: GoogleFonts.fredoka(
+                        color: const Color(0xFF15803D),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EnergyPackCard extends StatelessWidget {
+  const _EnergyPackCard({
+    required this.title,
+    required this.costText,
+    required this.cost,
+    required this.icon,
+    required this.iconColor,
+    required this.isLoading,
+    required this.onTap,
+    this.badge,
+  });
+
+  final String title;
+  final String costText;
+  final int cost;
+  final IconData icon;
+  final Color iconColor;
+  final bool isLoading;
+  final VoidCallback? onTap;
+  final String? badge;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: AppColors.warriorNavy.withAlpha(20)),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: iconColor.withAlpha(25),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: iconColor, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Text(
+                          title,
+                          style: GoogleFonts.fredoka(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textStrong,
+                          ),
+                        ),
+                        if (badge != null) ...<Widget>[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEF4444),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              badge!,
+                              style: GoogleFonts.fredoka(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      costText,
+                      style: GoogleFonts.dmSans(
+                        fontSize: 12,
+                        color: AppColors.textMuted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isLoading)
+                const SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFC857),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF6E4809)),
+                  ),
+                  child: Text(
+                    'BELI',
+                    style: GoogleFonts.fredoka(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF5A2A00),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EnergyRefillTimer extends StatefulWidget {
+  const _EnergyRefillTimer({required this.nextRefillAt});
+
+  final DateTime nextRefillAt;
+
+  @override
+  State<_EnergyRefillTimer> createState() => _EnergyRefillTimerState();
+}
+
+class _EnergyRefillTimerState extends State<_EnergyRefillTimer> {
+  Timer? _timer;
+  late Duration _remaining;
+
+  @override
+  void initState() {
+    super.initState();
+    _updateRemaining();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _updateRemaining());
+  }
+
+  void _updateRemaining() {
+    final Duration diff = widget.nextRefillAt.difference(DateTime.now());
+    setState(() {
+      _remaining = diff.isNegative ? Duration.zero : diff;
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String _format(Duration duration) {
+    final int hours = duration.inHours;
+    final String minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final String seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    if (hours > 0) {
+      final String hoursStr = hours.toString().padLeft(2, '0');
+      return '$hoursStr:$minutes:$seconds';
+    }
+    return '$minutes:$seconds';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFBFDBFE)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          const Icon(Icons.timer_outlined, color: Color(0xFF1D4ED8), size: 18),
+          const SizedBox(width: 8),
+          Text(
+            'Reset gratis 10 ⚡ harian dalam ',
+            style: GoogleFonts.dmSans(
+              color: const Color(0xFF1E40AF),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Text(
+            _format(_remaining),
+            style: GoogleFonts.fredoka(
+              color: const Color(0xFF1D4ED8),
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _YCoinTopUpSheet extends ConsumerStatefulWidget {

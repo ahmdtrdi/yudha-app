@@ -749,13 +749,47 @@ class _StartSoloButton extends StatelessWidget {
                           dimension: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Text(
-                          'MULAI LATIHAN',
-                          style: GoogleFonts.fredoka(
-                            color: const Color(0xFFB85C1E),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                          ),
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            Text(
+                              'MULAI LATIHAN',
+                              style: GoogleFonts.fredoka(
+                                color: const Color(0xFFB85C1E),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFB85C1E),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  const Icon(
+                                    Icons.bolt_rounded,
+                                    color: Colors.white,
+                                    size: 14,
+                                  ),
+                                  Text(
+                                    '2',
+                                    style: GoogleFonts.fredoka(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                 ),
               ),

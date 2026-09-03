@@ -169,6 +169,18 @@ class GameEconomyController extends StateNotifier<GameEconomyState> {
     );
   }
 
+  Future<EconomyActionResult> buyEnergyPackAuthoritative(
+    String packageId,
+    String packageName,
+  ) async {
+    final EconomyActionResult? unavailable = _mutationUnavailable();
+    if (unavailable != null) return unavailable;
+    return _runMutation(
+      () => _repository!.purchaseEnergyPack(packageId),
+      successMessage: 'Pembelian $packageName berhasil!',
+    );
+  }
+
   Future<EconomyActionResult> _runMutation(
     Future<AuthoritativeEconomySnapshot> Function() mutation, {
     required String successMessage,
@@ -207,6 +219,12 @@ class GameEconomyController extends StateNotifier<GameEconomyState> {
   void _applyAuthoritativeSnapshot(AuthoritativeEconomySnapshot snapshot) {
     state = state.copyWith(
       yCoins: snapshot.coins,
+      energy: snapshot.energy,
+      maxEnergy: snapshot.maxEnergy,
+      dailyRefillTarget: snapshot.dailyRefillTarget,
+      nextRefillAt: snapshot.nextRefillAt,
+      isPro: snapshot.isPro,
+      proExpiresAt: snapshot.proExpiresAt,
       ownedItemIds: snapshot.ownedItemIds,
       equippedCharacterId: snapshot.characterId,
       equippedTowerId: snapshot.towerId,
