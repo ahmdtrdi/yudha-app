@@ -5,12 +5,15 @@
     "start_url": "/",
     "scope": "/",
     "display": "standalone",
-    "background_color": "#1C405D",
-    "theme_color": "#1C405D",
+    "background_color": "#FFFFFF",
+    "theme_color": "#FFFFFF",
     "description": "Platform belajar persiapan CPNS dan BUMN berbasis game.",
     "lang": "id-ID",
     "dir": "ltr",
-    "categories": ["education", "games"],
+    "categories": [
+        "education",
+        "games"
+    ],
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

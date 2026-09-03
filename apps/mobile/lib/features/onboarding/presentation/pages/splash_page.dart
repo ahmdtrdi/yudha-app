@@ -46,46 +46,109 @@ class _SplashPageState extends ConsumerState<SplashPage> {
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
       child: Scaffold(
-        backgroundColor: AppColors.splashBlue,
+        backgroundColor: Colors.white,
         body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: Image.asset(
-                      'assets/branding/app-icon-new.png',
-                      width: 220,
-                      height: 220,
-                      cacheWidth: 660,
-                      fit: BoxFit.cover,
-                    ),
+          child: SizedBox.expand(
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+              builder: (BuildContext context, double value, Widget? child) {
+                return Opacity(
+                  opacity: value,
+                  child: Transform.scale(
+                    scale: 0.92 + (0.08 * value),
+                    child: child,
                   ),
-                  const SizedBox(height: 30),
-                  Text(
-                    'Menyiapkan arena belajarmu...',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.dmSans(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white.withAlpha(210),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                child: Column(
+                  children: <Widget>[
+                    const Spacer(),
+
+                    // Mascot Logo (Full, unclipped, centered with subtle warm glow)
+                    Stack(
+                      alignment: Alignment.center,
+                      children: <Widget>[
+                        Container(
+                          width: 220,
+                          height: 220,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.scholarCream.withAlpha(120),
+                          ),
+                        ),
+                        Image.asset(
+                          'assets/branding/app-icon-new.png',
+                          width: 200,
+                          height: 200,
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.high,
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  const SizedBox(
-                    height: 26,
-                    width: 26,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.6,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    const SizedBox(height: 28),
+
+                    // App Title
+                    Text(
+                      'YUDHA',
+                      style: GoogleFonts.dmSans(
+                        fontSize: 34,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 4.5,
+                        color: AppColors.warriorNavy,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+
+                    // Brand Tagline
+                    Text(
+                      'ARENA BELAJAR CPNS & BUMN',
+                      style: GoogleFonts.dmSans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 2.2,
+                        color: AppColors.levelUpTeal,
+                      ),
+                    ),
+
+                    const Spacer(),
+
+                    // Status and Loading
+                    Text(
+                      'Menyiapkan arena belajarmu...',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.dmSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: 130,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: const LinearProgressIndicator(
+                          minHeight: 4.5,
+                          backgroundColor: Color(0xFFEBF0F6),
+                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.warriorNavy),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
               ),
             ),
           ),
