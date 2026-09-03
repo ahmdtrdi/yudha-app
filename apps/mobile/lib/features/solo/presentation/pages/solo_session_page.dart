@@ -781,7 +781,7 @@ class _QuestionOverlay extends StatelessWidget {
                             ],
                           ),
                         ),
-                        if (!answered && session.mechanicMode == SoloMechanicMode.focus)
+                        if (!answered && (session.mechanicMode == SoloMechanicMode.focus || question.deadlineAt == null))
                           Container(
                             key: const ValueKey<String>('solo-focus-badge'),
                             padding: const EdgeInsets.symmetric(

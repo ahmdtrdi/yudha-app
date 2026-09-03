@@ -5,14 +5,23 @@ import 'package:yudha_mobile/features/solo/application/solo_setup_state.dart';
 import 'package:yudha_mobile/features/solo/domain/solo_contract.dart';
 
 class SoloSetupController extends StateNotifier<SoloSetupState> {
-  SoloSetupController() : super(const SoloSetupState());
+  SoloSetupController()
+      : super(
+          const SoloSetupState(
+            mode: SoloSetupMode.auto,
+            mechanicMode: SoloMechanicMode.standard,
+            questionCount: SoloQuestionCount.twenty,
+          ),
+        );
 
   void applyRecommendedPreset([LearningRecommendation? recommendation]) {
     if (recommendation != null) {
       final String topicLabel =
-          recommendation.subcategory ??
-          recommendation.category ??
-          recommendation.skillLabel;
+          recommendation.skillLabel.isNotEmpty
+              ? recommendation.skillLabel
+              : (recommendation.subcategory ??
+                  recommendation.category ??
+                  'Rekomendasi');
       state = SoloSetupState(
         mode: SoloSetupMode.recommended,
         mechanicMode: SoloMechanicMode.parse(recommendation.mechanicMode),
@@ -105,6 +114,10 @@ class SoloSetupController extends StateNotifier<SoloSetupState> {
   }
 
   void reset() {
-    state = const SoloSetupState();
+    state = const SoloSetupState(
+      mode: SoloSetupMode.auto,
+      mechanicMode: SoloMechanicMode.standard,
+      questionCount: SoloQuestionCount.twenty,
+    );
   }
 }
