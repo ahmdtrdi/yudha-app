@@ -113,10 +113,16 @@ describe('MatchResultService', () => {
       data: {
         persisted: true,
         matchResultId: 'result-123',
-        ratingDeltaA: 20,
-        ratingDeltaB: -12,
+        pvpRatingDeltaA: 20,
+        pvpRatingDeltaB: -12,
+        pvpRatingAfterA: 1020,
+        pvpRatingAfterB: 988,
         coinsDeltaA: 10,
         coinsDeltaB: 3,
+        energyDeltaA: 1,
+        energyDeltaB: 1,
+        energyBalanceAfterA: 9,
+        energyBalanceAfterB: 9,
         progressionApplied: true,
       },
       error: null,
@@ -181,10 +187,16 @@ describe('MatchResultService', () => {
       );
 
       expect(deltas).toEqual({
-        ratingDeltaA: 20,
-        ratingDeltaB: -12,
+        pvpRatingDeltaA: 20,
+        pvpRatingDeltaB: -12,
+        pvpRatingAfterA: 1020,
+        pvpRatingAfterB: 988,
         coinsDeltaA: 10,
         coinsDeltaB: 3,
+        energyDeltaA: 1,
+        energyDeltaB: 1,
+        energyBalanceAfterA: 9,
+        energyBalanceAfterB: 9,
         progressionApplied: true,
       });
     });
@@ -209,10 +221,16 @@ describe('MatchResultService', () => {
           data: {
             persisted: true,
             matchResultId: 'result-456',
-            ratingDeltaA: 20,
-            ratingDeltaB: -12,
+            pvpRatingDeltaA: 20,
+            pvpRatingDeltaB: -12,
+            pvpRatingAfterA: 1020,
+            pvpRatingAfterB: 988,
             coinsDeltaA: 10,
             coinsDeltaB: 3,
+            energyDeltaA: 1,
+            energyDeltaB: 1,
+            energyBalanceAfterA: 9,
+            energyBalanceAfterB: 9,
             progressionApplied: true,
           },
           error: null,
@@ -223,10 +241,16 @@ describe('MatchResultService', () => {
 
       expect(mockRpc).toHaveBeenCalledTimes(2);
       expect(deltas).toEqual({
-        ratingDeltaA: 20,
-        ratingDeltaB: -12,
+        pvpRatingDeltaA: 20,
+        pvpRatingDeltaB: -12,
+        pvpRatingAfterA: 1020,
+        pvpRatingAfterB: 988,
         coinsDeltaA: 10,
         coinsDeltaB: 3,
+        energyDeltaA: 1,
+        energyDeltaB: 1,
+        energyBalanceAfterA: 9,
+        energyBalanceAfterB: 9,
         progressionApplied: true,
       });
     });
@@ -237,10 +261,16 @@ describe('MatchResultService', () => {
           persisted: false,
           reason: 'duplicate',
           matchResultId: 'result-123',
-          ratingDeltaA: 20,
-          ratingDeltaB: -12,
+          pvpRatingDeltaA: 20,
+          pvpRatingDeltaB: -12,
+          pvpRatingAfterA: 1020,
+          pvpRatingAfterB: 988,
           coinsDeltaA: 10,
           coinsDeltaB: 3,
+          energyDeltaA: 1,
+          energyDeltaB: 1,
+          energyBalanceAfterA: 9,
+          energyBalanceAfterB: 9,
           progressionApplied: true,
         },
         error: null,
@@ -249,10 +279,16 @@ describe('MatchResultService', () => {
       await expect(
         service.finalizeMatch(createFinishedRoom()),
       ).resolves.toEqual({
-        ratingDeltaA: 20,
-        ratingDeltaB: -12,
+        pvpRatingDeltaA: 20,
+        pvpRatingDeltaB: -12,
+        pvpRatingAfterA: 1020,
+        pvpRatingAfterB: 988,
         coinsDeltaA: 10,
         coinsDeltaB: 3,
+        energyDeltaA: 1,
+        energyDeltaB: 1,
+        energyBalanceAfterA: 9,
+        energyBalanceAfterB: 9,
         progressionApplied: true,
       });
       expect(mockRpc).toHaveBeenCalledTimes(1);
@@ -306,10 +342,16 @@ describe('MatchResultService', () => {
       const room = createFinishedRoom({ mode: 'casual' });
 
       await expect(service.finalizeMatch(room)).resolves.toEqual({
-        ratingDeltaA: 0,
-        ratingDeltaB: 0,
+        pvpRatingDeltaA: null,
+        pvpRatingDeltaB: null,
+        pvpRatingAfterA: null,
+        pvpRatingAfterB: null,
         coinsDeltaA: 0,
         coinsDeltaB: 0,
+        energyDeltaA: undefined,
+        energyDeltaB: undefined,
+        energyBalanceAfterA: undefined,
+        energyBalanceAfterB: undefined,
         progressionApplied: false,
       });
       expect(mockRpc).toHaveBeenCalledWith(
@@ -326,8 +368,10 @@ describe('MatchResultService', () => {
         data: {
           persisted: true,
           matchResultId: 'private-result',
-          ratingDeltaA: 0,
-          ratingDeltaB: 0,
+          pvpRatingDeltaA: null,
+          pvpRatingDeltaB: null,
+          pvpRatingAfterA: null,
+          pvpRatingAfterB: null,
           coinsDeltaA: 0,
           coinsDeltaB: 0,
           progressionApplied: false,
@@ -337,10 +381,16 @@ describe('MatchResultService', () => {
       const room = createFinishedRoom({ mode: 'private' });
 
       await expect(service.finalizeMatch(room)).resolves.toEqual({
-        ratingDeltaA: 0,
-        ratingDeltaB: 0,
+        pvpRatingDeltaA: null,
+        pvpRatingDeltaB: null,
+        pvpRatingAfterA: null,
+        pvpRatingAfterB: null,
         coinsDeltaA: 0,
         coinsDeltaB: 0,
+        energyDeltaA: undefined,
+        energyDeltaB: undefined,
+        energyBalanceAfterA: undefined,
+        energyBalanceAfterB: undefined,
         progressionApplied: false,
       });
       expect(mockRpc).toHaveBeenCalledWith(

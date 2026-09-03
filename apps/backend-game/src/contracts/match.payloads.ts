@@ -7,6 +7,13 @@ import type {
 } from './battle-state';
 import type { CardEffect } from './question-card';
 
+export type EnergyReservationInfo = {
+  reservationId?: string;
+  energyBalance?: number;
+  energyCost?: number;
+  unlimited?: boolean;
+};
+
 export type JoinQueuePayload = {
   commandId: string;
   mode?: MatchmakingMode;
@@ -21,6 +28,7 @@ export type QueueJoinedPayload = {
   queueDepth: number;
   mode: MatchmakingMode;
   target: BattleTarget;
+  energy?: EnergyReservationInfo;
 };
 
 export type QueueCancelledPayload = {
@@ -45,11 +53,13 @@ export type PrivateRoomCreatedPayload = {
   code: string;
   target: BattleTarget;
   expiresAt: string;
+  energy?: EnergyReservationInfo;
 };
 
 export type PrivateRoomJoinedPayload = {
   code: string;
   roomId: string;
+  energy?: EnergyReservationInfo;
 };
 
 export type PrivateRoomCancelledPayload = {
@@ -62,7 +72,14 @@ export type SocketCommandErrorCode =
   | 'IDEMPOTENCY_KEY_REUSED'
   | 'CONFLICT'
   | 'ROOM_CODE_INVALID'
-  | 'QUEUE_UNAVAILABLE';
+  | 'QUEUE_UNAVAILABLE'
+  | 'INSUFFICIENT_ENERGY'
+  | 'INSUFFICIENT_Y_COIN'
+  | 'ENERGY_CAP_REACHED'
+  | 'AD_REWARD_LIMIT_REACHED'
+  | 'AD_VERIFICATION_FAILED'
+  | 'PRO_ALREADY_ACTIVE'
+  | 'PRO_SKIN_NOT_ELIGIBLE';
 
 export type SocketCommandAck<T> =
   | { data: T; requestId: string }
@@ -152,6 +169,8 @@ export type MatchResultPayload = {
       pvpRatingDelta?: number | null;
       pvpRatingAfter?: number | null;
       coinsDelta?: number;
+      energyDelta?: number;
+      energyBalanceAfter?: number;
     };
     playerB: {
       userId: string;
@@ -160,6 +179,8 @@ export type MatchResultPayload = {
       pvpRatingDelta?: number | null;
       pvpRatingAfter?: number | null;
       coinsDelta?: number;
+      energyDelta?: number;
+      energyBalanceAfter?: number;
     };
   };
 };

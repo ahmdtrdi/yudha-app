@@ -11,7 +11,6 @@ import { GetUser } from '../auth/decorators/get-user.decorator';
 import { SupabaseAuthGuard } from '../auth/guards/supabase-auth.guard';
 import { StoreService } from './store.service';
 import type {
-  GrantBetaCreditPayload,
   PurchaseStoreItemPayload,
   SetStoreLoadoutPayload,
   StoreItemsQuery,
@@ -50,11 +49,4 @@ export class StoreController {
     return this.storeService.setLoadout(user.id, payload);
   }
 
-  @Post('beta-credits')
-  grantBetaCredit(
-    @GetUser() user: AuthenticatedUser,
-    @Body() payload: GrantBetaCreditPayload,
-  ) {
-    return this.storeService.grantBetaCredit(user.id, payload);
-  }
 }

@@ -25,15 +25,13 @@ describe('LobbyService Gate 1 summary', () => {
     const analyticsService = {
       getAnalyticsData: jest.fn().mockResolvedValue({ recommendation }),
     };
-    const hiredPassService = {
-      getStatus: jest.fn().mockResolvedValue({
+    const economyService = {
+      getState: jest.fn().mockResolvedValue({
         data: {
-          season: { id: 'beta-2026-08' },
-          passPoints: 120,
-          entitlement: { premiumActive: false, expiresAt: null },
-          missions: [{ completed: true }],
-          rewards: [{ id: 'reward-1' }],
-          claimedRewardIds: [],
+          energy: { balance: 10, cap: 10, unlimited: false },
+          yCoins: 100,
+          policyVersion: 'economy-policy.v1',
+          pro: { active: false, expiresAt: null, unlimitedEnergy: false },
         },
       }),
     };
@@ -56,7 +54,7 @@ describe('LobbyService Gate 1 summary', () => {
     const service = new LobbyService(
       profileService as any,
       analyticsService as any,
-      hiredPassService as any,
+      economyService as any,
       supabaseService as any,
       { getLearningNextAction: jest.fn().mockResolvedValue(null) } as any,
     );

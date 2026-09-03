@@ -12,17 +12,17 @@
     { "id": "pack-6800", "coins": 6800, "priceLabel": "Rp89.000", "disabledCode": "FEATURE_DISABLED", "message": "Pembelian Y-Coin berbayar tersedia setelah masa beta." }
   ],
   "items": [
-    { "id": "character-basic-squire", "type": "character", "name": "Ody", "description": "Ksatria muda yang tangguh dan selalu siap berlatih.", "rarity": "common", "coinPrice": 0, "active": true, "passExclusive": false },
-    { "id": "character-basic-pip", "type": "character", "name": "Opy", "description": "Pemanah lincah dengan serangan alam yang presisi.", "rarity": "common", "coinPrice": 500, "active": true, "passExclusive": true },
-    { "id": "character-rare-ignis", "type": "character", "name": "Ignis", "description": "Penyihir api gesit dengan rentetan bara yang membara.", "rarity": "rare", "coinPrice": 900, "active": true, "passExclusive": false },
-    { "id": "character-rare-brock", "type": "character", "name": "Brock", "description": "Golem batu perkasa yang menghantam dengan tenaga magma.", "rarity": "rare", "coinPrice": 1100, "active": true, "passExclusive": false },
-    { "id": "character-legend-drakor", "type": "character", "name": "Drakor", "description": "Ksatria naga legendaris dengan kobaran api merah.", "rarity": "legendary", "coinPrice": 2200, "active": true, "passExclusive": false },
-    { "id": "character-legend-luna", "type": "character", "name": "Luna", "description": "Penyihir bintang legendaris dengan kekuatan galaksi.", "rarity": "legendary", "coinPrice": 2500, "active": true, "passExclusive": false },
-    { "id": "tower-garda-biru", "type": "tower", "name": "Garda Biru", "description": "Benteng batu klasik dengan panji biru.", "rarity": "common", "coinPrice": 0, "active": true, "passExclusive": false },
-    { "id": "tower-benteng-bara", "type": "tower", "name": "Benteng Bara", "description": "Menara batu hitam yang diperkuat aliran magma.", "rarity": "rare", "coinPrice": 650, "active": true, "passExclusive": true },
-    { "id": "arena-lembah-bara", "type": "arena", "name": "Lembah Bara", "description": "Lembah hijau yang berhadapan langsung dengan kawah api.", "rarity": "common", "coinPrice": 0, "active": true, "passExclusive": false },
-    { "id": "arena-padang-harmoni", "type": "arena", "name": "Padang Harmoni", "description": "Padang bunga cerah untuk duel yang tenang dan sportif.", "rarity": "common", "coinPrice": 0, "active": true, "passExclusive": false },
-    { "id": "arena-gurun-cendekia", "type": "arena", "name": "Gurun Cendekia", "description": "Arena tandus terbuka untuk adu strategi tanpa gangguan.", "rarity": "common", "coinPrice": 0, "active": true, "passExclusive": false },
-    { "id": "arena-rimba-yudha", "type": "arena", "name": "Rimba Yudha", "description": "Rimba teduh dengan cahaya alami di tengah medan duel.", "rarity": "common", "coinPrice": 0, "active": true, "passExclusive": false }
+    { "id": "character-basic-squire", "type": "character", "name": "Ody", "description": "Ksatria muda yang tangguh dan selalu siap berlatih.", "rarity": "common", "coinPrice": 0, "active": true, "proExclusive": false },
+    { "id": "character-basic-pip", "type": "character", "name": "Opy", "description": "Pemanah lincah dengan serangan alam yang presisi.", "rarity": "common", "coinPrice": 500, "active": true, "proExclusive": true },
+    { "id": "character-rare-ignis", "type": "character", "name": "Ignis", "description": "Penyihir api gesit dengan rentetan bara yang membara.", "rarity": "rare", "coinPrice": 900, "active": true, "proExclusive": false },
+    { "id": "character-rare-brock", "type": "character", "name": "Brock", "description": "Golem batu perkasa yang menghantam dengan tenaga magma.", "rarity": "rare", "coinPrice": 1100, "active": true, "proExclusive": true },
+    { "id": "character-legend-drakor", "type": "character", "name": "Drakor", "description": "Ksatria naga legendaris dengan kobaran api merah.", "rarity": "legendary", "coinPrice": 2200, "active": true, "proExclusive": false },
+    { "id": "character-legend-luna", "type": "character", "name": "Luna", "description": "Penyihir bintang legendaris dengan kekuatan galaksi.", "rarity": "legendary", "coinPrice": 2500, "active": true, "proExclusive": false },
+    { "id": "tower-garda-biru", "type": "tower", "name": "Garda Biru", "description": "Benteng batu klasik dengan panji biru.", "rarity": "common", "coinPrice": 0, "active": true, "proExclusive": false },
+    { "id": "tower-benteng-bara", "type": "tower", "name": "Benteng Bara", "description": "Menara batu hitam yang diperkuat aliran magma.", "rarity": "rare", "coinPrice": 650, "active": true, "proExclusive": false },
+    { "id": "arena-lembah-bara", "type": "arena", "name": "Lembah Bara", "description": "Lembah hijau yang berhadapan langsung dengan kawah api.", "rarity": "common", "coinPrice": 0, "active": true, "proExclusive": false },
+    { "id": "arena-padang-harmoni", "type": "arena", "name": "Padang Harmoni", "description": "Padang bunga cerah untuk duel yang tenang dan sportif.", "rarity": "common", "coinPrice": 0, "active": true, "proExclusive": false },
+    { "id": "arena-gurun-cendekia", "type": "arena", "name": "Gurun Cendekia", "description": "Arena tandus terbuka untuk adu strategi tanpa gangguan.", "rarity": "common", "coinPrice": 0, "active": true, "proExclusive": false },
+    { "id": "arena-rimba-yudha", "type": "arena", "name": "Rimba Yudha", "description": "Rimba teduh dengan cahaya alami di tengah medan duel.", "rarity": "common", "coinPrice": 0, "active": true, "proExclusive": false }
   ]
 }

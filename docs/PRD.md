@@ -57,9 +57,9 @@ The MVP serves Indonesian CPNS and BUMN candidates who want repeatable practice,
 | **Private match** | A human match created with a room code. It is unranked and has no progression. |
 | **Normal completion** | A server-finalized activity that is not abandoned or invalidated and, for a match, is not ended by either player's surrender or disconnect. A future Solo session qualifies only with completion reason `policy_completed`. |
 | **Rank points** | Persistent, non-seasonal competitive/engagement progression used for leaderboard ordering and tier. Daily Lobby missions and Ranked results both change this balance; it can increase or decrease but is never reset and is floored at zero. |
-| **Y-Coin** | Persistent, non-transferable virtual currency used for cosmetics and AI Interview sessions. It can be obtained through beta Store credits, Ranked rewards, and Hired Pass tracks. It never expires. |
-| **Pass Points** | Non-spendable progress for one Hired Pass season. They reset at season end and cannot be purchased or transferred. |
-| **Hired Pass** | The only MVP premium entitlement. It unlocks the current season's premium reward track and suppresses ad stubs until that season ends. |
+| **Energy** | Unit-based resource required for mode entry (2 Energy for Solo, Bot, Casual, Ranked, and Private). Free balance starts at and lazily refills to 10 on the first read or mutation of each WIB business day. Completed eligible sessions refund 1 Energy. Unlimited for active YUDHA Pro subscribers. Cap = 100. |
+| **Y-Coin** | Persistent, non-transferable virtual currency used for cosmetics, energy packs, Solo/Practice hints (5 Y-Coin), and AI Interview sessions (100 Y-Coin). Earned through Casual completions (+3), Ranked wins/losses/draws (+10/+3/+5), and verified rewarded ads (+10). It never expires. |
+| **YUDHA Pro** | Monthly subscription entitlement granting unlimited Energy, 500 Y-Coin per entitlement period, one exclusive skin selection, and ad suppression. |
 | **Business day** | A calendar date in `Asia/Jakarta`. Servers store timestamps in UTC and convert them for day/week/season rules. |
 
 ---
@@ -71,7 +71,7 @@ The MVP serves Indonesian CPNS and BUMN candidates who want repeatable practice,
 | # | Capability | Required outcome |
 |---|---|---|
 | 1 | Supabase email/password authentication | Secure registration, login, verification, restoration, logout, and private-route protection |
-| 2 | Authoritative Lobby | Profile/tier, two daily missions, streak, Hired Pass summary, and one next-action recommendation |
+| 2 | Authoritative Lobby | Profile/tier, two daily missions, streak, Economy & YUDHA Pro summary, and one next-action recommendation |
 | 3 | Solo learning and Practice compatibility | Approved V2 evidence, learner state, recommendation, dashboard, and future Solo contracts; the current five-question Practice flow remains available through compatibility APIs until Gate 5 |
 | 4 | Bot battle | Single-player battle through the server battle engine |
 | 5 | Casual and Ranked PvP | Same-target public matchmaking and server-authoritative real-time play |
@@ -79,9 +79,9 @@ The MVP serves Indonesian CPNS and BUMN candidates who want repeatable practice,
 | 7 | Learning analytics, tiers, and leaderboard | Transparent evidence metrics, confidence, trends, pace, retention, coverage, separate Competition results, rank points, and deterministic Solo recommendations |
 | 8 | Validated CPNS/BUMN content | Reproducible, idempotent database provisioning with content checks |
 | 9 | AI Mock Interview | Text request/response, text SSE streaming, recorded voice, live voice, evaluations, and final summary |
-| 10 | Y-Coin and Store | Repeatable beta credit, authoritative balance, character/tower catalog, purchase, inventory, and loadout |
-| 11 | Hired Pass | Server beta activation, mixed-cadence seasonal missions, free/premium tracks, permanent claimed cosmetics, and ad-free state |
-| 12 | Ad-placement stubs | Free-user result-exit trigger and premium suppression without a production ad SDK |
+| 10 | Y-Coin and Store | Authoritative balance, character/tower cosmetic catalog, energy pack purchasing, inventory, and loadout |
+| 11 | Energy & YUDHA Pro | Authoritative energy reservation/refund lifecycle, versioned economy policy, monthly YUDHA Pro beta entitlement, rewarded ad claims, and authoritative Y-Coin earn/spend ledger |
+| 12 | Ad-placement stubs | Free-user result-exit trigger and Pro suppression without a production ad SDK |
 | 13 | Multi-instance readiness | Redis-coordinated matchmaking, health/readiness, observability, graceful shutdown, integration tests, and load tests |
 
 ### 1.2 Explicitly excluded from MVP
@@ -92,8 +92,8 @@ The MVP serves Indonesian CPNS and BUMN candidates who want repeatable practice,
 - arena cosmetics or player-selected arenas;
 - Y-Coin transfer, gifting, trading, cash-out, or a player marketplace;
 - real-money payment processing and permanent payment-gateway selection;
-- production ads SDK integration, rewarded ads, and ad-funded currency;
-- auto-renewing Hired Pass subscriptions;
+- production ads SDK integration (rewarded ad verification adapter is server-stubbed until configured);
+- auto-renewing subscription billing systems;
 - a permanently designated canonical LLM provider;
 - pgvector question search; and
 - more than two human players in a match.
@@ -147,17 +147,18 @@ The learning loop is: **Solo/PvP/Assessment evidence → immutable attempts → 
 
 ### 2.3 Access and monetization
 
-| Capability | Free user | Active Hired Pass |
+| Capability | Free user | Active YUDHA Pro |
 |---|---|---|
-| Solo/Practice, Bot, Casual, Ranked, Private | Full access | Full access |
+| Mode Entry (Solo, Bot, Casual, Ranked, Private) | Costs 2 Energy (free refill to 10 daily) | Unlimited Energy |
+| Energy Completion Refund | +1 Energy on normal completion | Preserved / unaffected |
+| Energy Store Packs | 5 Energy for 50 Y-Coin, 12 Energy for 100 Y-Coin | Available (unlimited active) |
+| YUDHA Pro Monthly Grant | None | 500 Y-Coin per entitlement period |
+| Pro Exclusive Cosmetic | Preview only | Choice of 1 exclusive skin on activation |
 | AI Interview | `100 Y-Coin` per new session | Same `100 Y-Coin` cost |
 | Character/tower Store | Buy with Y-Coin | Buy with Y-Coin |
-| Free reward track | Earn and claim | Earn and claim |
-| Premium reward track | Progress visible; claims locked | Claim reached milestones, including milestones reached before activation |
-| Pass-exclusive cosmetics | Preview only | Claim from premium milestones |
-| Result-exit ad stub | Triggered at defined safe breaks | Suppressed while entitlement is active |
+| Result-exit ad stub | Triggered at defined safe breaks | Suppressed while Pro is active |
 
-There are no Solo/Practice or battle quotas. Hired Pass never changes learning content, evidence classification, recommendation priority, battle mechanics, matching, ranking, or Interview quality.
+YUDHA Pro never changes learning content, evidence classification, recommendation priority, battle mechanics, matching, ranking, or Interview quality.
 
 ---
 
@@ -198,11 +199,11 @@ The canonical target taxonomy is:
 - The Solo arena presents one large `100` HP opponent tower and the learner's selected character. It has no opponent character, learner tower, learner HP, combo, round, or match clock. Standard question deadlines remain visible inside the question sheet. The arena reuses the PvP visual language, battle-card surface, effects, profile-controlled battle audio, and pause-menu music-volume control without inheriting PvP-only state. Answer feedback is shown immediately, but the correct-answer attack or wrong-answer hit reaction runs only after the learner presses `LANJUT`.
 - Returning to the hand does not pause an opened card's authoritative deadline. The learner may inspect another dealt card, while every opened Standard card continues toward its own timeout and is reconciled authoritatively when revisited or answered.
 - Until that debt closes and Gate 5 passes, the existing Practice adapter retains its locked five-question behavior, score, completion, and client contract. Its answers are backfilled into the canonical ledger only with evidence the source actually captured; missing timing, exposure, hint, version, or skill data is never fabricated.
-- Only future Solo sessions completed with `policy_completed` qualify for daily mission, streak, Hired Pass, or normal-completion effects. All retries return the original committed result without duplicating attempts, activity, or rewards.
+- Only future Solo sessions completed with `policy_completed` qualify for daily mission, streak, or normal-completion effects. All retries return the original committed result without duplicating attempts, activity, or rewards.
 
 ### 3.3 Daily Lobby missions and rank tiers
 
-Daily Lobby missions are a separate system from Hired Pass missions. The two fixed MVP missions are:
+Daily Lobby missions are a separate system. The two fixed MVP missions are:
 
 | Mission | Completion condition | Automatic reward |
 |---|---|---:|
@@ -215,7 +216,7 @@ Daily Lobby missions are a separate system from Hired Pass missions. The two fix
 - Rewards apply automatically from idempotent server completion events; there is no manual claim button.
 - For a Ranked match, the result delta applies first and is floored at zero, then the first-of-day `+80` mission reward applies.
 - Daily mission points affect leaderboard order and tier. Tiers are Rookie `0..399`, Warrior `400..799`, Elite `800..1199`, and Legend `1200+`.
-- Daily missions have no direct Y-Coin or Pass Point reward.
+- Daily missions have no direct Y-Coin reward.
 - During compatibility, a normal five-question Practice completion satisfies Daily Solo. After Gate 5, only a Solo `policy_completed` event qualifies.
 
 ### 3.4 Streak
@@ -601,26 +602,30 @@ GET    /leaderboard/me
        → { rank, userId, username, rankPoints, tier, rankedWins, rankedWinRate }
 
 # Store
-GET    /store/items?type=character|tower
-       → { yCoins, betaMode, betaPackages, disabledPaidPackages,
-           items, ownedItemIds, equipped }
-POST   /store/beta-credits
-       { idempotencyKey, packageId: "beta-100" }
-       → { credited: 100, replayed, yCoins }
+GET    /store/items?type=character_skin|tower
+       → { yCoins, items, ownedItemIds, equipped }
 POST   /store/purchases
        { idempotencyKey, itemId }
        → { purchased, replayed, purchaseId, itemId, yCoins }
 
-# Hired Pass
-GET    /hired-pass
-       → { season, passPoints, entitlement, adFree, missions,
-           rewards, claimedRewardIds }
-POST   /hired-pass/beta-activate
-       { idempotencyKey, seasonId }
-       → { activated, replayed, entitlement }
-POST   /hired-pass/rewards/:rewardId/claim
-       { idempotencyKey }
-       → { claimed, replayed, rewardId, coinsAwarded, itemId?, yCoins }
+# Economy
+GET    /economy
+       → { policyVersion, energy: { balance, cap, unlimited, dailyFreeRefillTarget, nextRefillAt }, yCoins, pro: { active, expiresAt, unlimitedEnergy, selectedSkinId } }
+GET    /economy/catalog
+       → { policyVersion, balancingStatus, energy, paidYCoinPackages, paidPurchasesEnabled: false, disabledCode: "FEATURE_DISABLED" }
+POST   /economy/energy-purchases
+       { idempotencyKey, packageId }
+       → { purchased, replayed, packageId, energyAdded, energyBalance, coinsCharged, yCoins }
+POST   /economy/ad-rewards/claims
+       { idempotencyKey, rewardType, placementId, proofToken }
+       → { claimed, replayed, rewardType, energyAdded?, coinsAwarded?, energyBalance, yCoins }
+
+# YUDHA Pro
+GET    /pro
+       → { plan: { id, durationDays, checkoutEnabled: false, disabledCode: "FEATURE_DISABLED", benefits }, entitlement, exclusiveSkins, betaActivationEnabled }
+POST   /pro/beta-activate
+       { idempotencyKey, planId, skinId? }
+       → { activated, replayed, planId, expiresAt, coinsGranted, skinGranted, pro }
 
 # AI Interview
 POST   /interview/sessions
@@ -647,7 +652,7 @@ GET    /interview/sessions/:id/speech/questions/:turnId/audio
        → authenticated binary audio stream
 ```
 
-`POST /store/beta-credits` grants only while `ENABLE_BETA_ECONOMY_CREDIT=true`; otherwise it returns `FEATURE_DISABLED`. Each intentional tap while enabled uses a new idempotency key and grants `100 Y-Coin`; an exact retry replays without a second grant. Each `disabledPaidPackages` item supplies `disabledCode: "FEATURE_DISABLED"` and Indonesian copy explaining that purchase opens after beta. Mobile displays that copy on tap and sends no paid-package mutation.
+All real-money purchases remain disabled catalog stubs (`FEATURE_DISABLED`) with Indonesian explanatory copy until payment infrastructure is finalized. `POST /pro/beta-activate` allows testing the YUDHA Pro entitlement when `ENABLE_BETA_PRO_ACTIVATION=true`. Rewarded-ad claims verify proof tokens through the server adapter before awarding authoritative Energy or Y-Coin.
 
 ### 4.5 Interview SSE contract
 
@@ -806,55 +811,80 @@ Rank points are floored at zero. The Ranked delta commits before a first-of-day 
 
 ---
 
-## 6. Hired Pass, Y-Coin, Store, and catalog authority
+## 6. Economy: Energy, Y-Coin, YUDHA Pro, and Store authority
 
-### 6.1 Y-Coin ledger and allowed sources
+### 6.1 Versioned economy policy
 
-- The backend is authoritative for every Y-Coin delta and the resulting non-negative balance.
-- MVP positive sources are repeatable beta Store credit, Ranked results, free-track claims, and premium-track claims.
-- MVP debits are cosmetic purchases and `100 Y-Coin` Interview session charges.
-- Y-Coin never expires, cannot be transferred, and cannot be changed directly by Mobile or an authenticated database client.
-- Every mutation writes an immutable ledger entry with reason, reference, idempotency key, and balance after.
+- The economy is governed by active rows in `economy_policy_versions` (e.g. `economy-policy.v1`), ensuring provisional balancing constants can be modified without altering database schemas or application business logic.
+- Policy versions specify starting energy, daily refill targets, entry costs, completion energy refunds, max purchased energy cap, hint Y-Coin cost, Interview session cost, energy packs, and paid catalog definitions.
+- The active policy is queried via `active_economy_policy()` RPC and cached per read request.
 
-### 6.2 Beta Store behavior
+### 6.2 Authoritative Energy lifecycle and reservations
 
-- While `ENABLE_BETA_ECONOMY_CREDIT=true`, Store shows `beta-100`: `100 Y-Coin`, price label `GRATIS`.
-- The package is intentionally repeatable during beta. Each intentional tap uses a new idempotency key; a network retry with the same key returns the original result and does not double-credit.
-- Other Y-Coin packs remain visible but disabled. Tapping one displays Indonesian copy that paid top-ups become available after beta.
-- Real payment, receipt validation, refunds, and payment-gateway selection are post-MVP.
+- **Balances & Daily Refills**:
+  - Every user starts with `10` Energy.
+  - At `00:00:00 Asia/Jakarta` (WIB), free energy lazily refills up to `10` on the user's first economy read or mutation of the business day.
+  - Balances above 10 (from energy pack purchases or ad claims) are never reduced by the daily refill.
+  - Energy cannot exceed the global cap of `100` (excluding unlimited Pro).
+- **Mode Entry Costs & Refunds**:
+  - Mode entry costs `2 Energy` across Solo learning, Bot battles, Casual PvP, Ranked PvP, and Private rooms.
+  - Normal, non-abandoned completion of Solo, Bot, Casual, or Ranked restores `1 Energy` upon session/match finalization. Private rooms, abandoned sessions, forfeits, and disconnects grant no energy refund.
+- **Reservation Lifecycle for PvP & Bot**:
+  - Players reserve 2 Energy before entering matchmaking or creating/joining a room (`reserve_energy` RPC).
+  - If a player lacks sufficient energy and does not have active YUDHA Pro, the action is rejected immediately with `INSUFFICIENT_ENERGY` (`409 Conflict` or socket error).
+  - When matchmaking forms a match or a bot match starts, the reservation is committed to consumption (`commit_energy_reservation` RPC).
+  - When a player cancels matchmaking, disconnects before a match is formed, or a private room is cancelled or expires, the reservation is released (`release_energy_reservation` RPC) with reason `'cancelled'`, `'disconnected'`, or `'expired'`.
+  - Stale uncommitted reservations expire after `120 seconds` (TTL) and are reconciled periodically by background workers.
+- **Energy Store Purchases**:
+  - Users can exchange Y-Coins for Energy via `POST /economy/energy-purchases`:
+    - `energy-pack-5`: +5 Energy for 50 Y-Coin.
+    - `energy-pack-12`: +12 Energy for 100 Y-Coin.
+  - Purchasing energy that would exceed the 100 cap is rejected with `ENERGY_CAP_REACHED`.
 
-### 6.3 Cosmetic Store and loadout
+### 6.3 Authoritative Y-Coin earn and spend ledger
 
-- The server catalog is authoritative for character and tower items, rarity, Y-Coin price, availability, and Pass exclusivity.
-- Arena items are excluded. Target selects the battle arena.
-- Purchases are permanent and atomic: verify active item, reject Pass-exclusive direct purchase, reject duplicates, lock balance, debit once, grant inventory once, and return the committed balance.
-- A user can equip only an owned active character/tower. Loadout changes never affect mechanics.
-- Mobile consumes catalog results and displays server failures. It has no production static-catalog or local-purchase fallback.
+- Every Y-Coin change writes an immutable entry into `coin_transactions` with `delta`, `balance_after`, `reason`, and `idempotency_key`.
+- **Earning Sources**:
+  - Casual PvP match completion: `+3 Y-Coin`.
+  - Ranked PvP win: `+10 Y-Coin`.
+  - Ranked PvP loss: `+3 Y-Coin`.
+  - Ranked PvP draw: `+5 Y-Coin`.
+  - Verified rewarded ad claim: `+10 Y-Coin` (subject to daily claim caps).
+  - YUDHA Pro monthly entitlement grant: `+500 Y-Coin` per active 30-day period.
+- **Spending Sinks**:
+  - Solo / Practice question hint: `5 Y-Coin` (authoritative deduction).
+  - AI Mock Interview session creation: `100 Y-Coin` (atomic charge with idempotency).
+  - Energy pack purchases: `50 Y-Coin` or `100 Y-Coin`.
+  - Character & tower cosmetic skin purchases.
 
-### 6.4 Hired Pass season and entitlement
+### 6.4 YUDHA Pro monthly subscription
 
-- A season starts at `00:00:00` on the first calendar day and ends exclusively at `00:00:00` on the first day of the next month in `Asia/Jakarta`.
-- Season windows cannot overlap, and exactly one release season is active.
-- Every user earns Pass Points and can claim the free track.
-- Beta activation is a user-facing, server-authoritative action available behind its feature flag. It activates the current season once per user and grants no automatic Y-Coin.
-- The entitlement's unique user/season key enforces the activation limit. Retrying the original activation key replays its result; a later key for the same season returns the existing entitlement without another mutation.
-- Hired Pass does not auto-renew and is not prorated. It expires at season end regardless of activation date.
-- A late activation unlocks premium claims for all milestones already reached.
-- At season end, Pass Points and unclaimed rewards expire. Claimed Y-Coin remains in the balance and claimed cosmetics remain permanently owned/equippable.
-- Expiry removes premium claiming and ad-stub suppression only.
+- YUDHA Pro is a premium monthly subscription product (`pro-monthly`, duration 30 days).
+- **Core Benefits**:
+  - **Unlimited Energy**: Free entry into all Solo, Bot, and PvP modes without energy consumption or reservations.
+  - **Monthly Y-Coin Allowance**: 500 Y-Coin deposited per entitlement period.
+  - **Exclusive Skin Choice**: Select one exclusive Pro character skin upon activation.
+  - **Ad Suppression**: Automatically suppresses all post-match and result-exit ad-placement stubs.
+- **Beta Activation**:
+  - Available through `POST /pro/beta-activate` with required `planId` and `idempotencyKey` when `ENABLE_BETA_PRO_ACTIVATION=true`.
+  - Activations enforce one active period per user; duplicate active periods reject with `PRO_ALREADY_ACTIVE`.
+- **Production Checkout**:
+  - All real-money checkout endpoints remain disabled catalog stubs (`FEATURE_DISABLED`) with Indonesian copy until payment processing is configured.
 
-### 6.5 Seasonal missions and rewards
+### 6.5 Rewarded ads server verification
 
-- Each checked-in versioned season manifest defines the season ID/window, daily/weekly/whole-season missions, target counts, Pass Point awards, milestone thresholds, free rewards, premium rewards, and Pass-exclusive item IDs.
-- Daily periods reset at `00:00 Asia/Jakarta`; weekly periods start Monday `00:00 Asia/Jakarta`; whole-season progress uses the season window.
-- Allowed activity sources are eligible Solo completion, normal public PvP completion, normal Ranked completion/win, Interview completion, and streak-day creation. During compatibility, normal Practice completion adapts to eligible Solo activity; after Learning V2 Gate 5, only `policy_completed` Solo qualifies. Bot and Private never qualify.
-- One source event can advance every matching active mission once, but retries cannot increment again.
-- At each paired milestone, the premium reward contains more Y-Coin than the free reward, or contains at least one Pass-exclusive cosmetic in addition to at least the free reward's Y-Coin amount. The manifest validator enforces this rule, and every season contains at least one Pass-exclusive cosmetic.
-- Rewards require an explicit, idempotent user claim. Free rewards require points; premium rewards require points plus an active entitlement for that season.
+- Users may earn additional resources via `POST /economy/ad-rewards/claims`:
+  - Energy claim: `+1 Energy` (max 3 claims per WIB business day).
+  - Y-Coin claim: `+10 Y-Coin` (max 2 claims per WIB business day).
+- All claims require proof-token verification via the server `AdRewardVerifier` adapter.
+- In production without an active ad verification backend, claims fail closed with `AD_VERIFICATION_FAILED`.
 
-### 6.6 Catalog deployment rules
+### 6.6 Cosmetic Store and loadout
 
-Store catalogs and season manifests are version-controlled inputs validated before deployment. Validation rejects duplicate IDs, unknown types/sources, negative values, missing referenced items, overlapping seasons, unreachable milestones, premium/free pairs that violate Section 6.5, and a release with no active season. Mobile never embeds authoritative copies.
+- The server catalog is authoritative for character and tower items, rarity, Y-Coin price, availability, and Pro exclusivity.
+- Purchases are permanent and atomic: verifies active item, rejects Pro-exclusive direct purchase, rejects duplicate ownership, locks balance, debits once, and grants inventory.
+- A user can equip only an owned active character or tower. Loadout changes never affect battle mechanics or question dealing.
+- Mobile consumes catalog results and displays server failures without static catalog fallbacks.
 
 ---
 

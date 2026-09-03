@@ -12,6 +12,7 @@ import { BotBattleService } from './bot/bot-battle.service';
 import { CardTimeoutService } from './timeout/card-timeout.service';
 import { GamePlayerProfileService } from './profiles/game-player-profile.service';
 import { MatchmakingService } from './rooms/matchmaking.service';
+import { GameEconomyService } from '../economy/game-economy.service';
 
 @Module({
   imports: [SupabaseModule],
@@ -28,6 +29,7 @@ import { MatchmakingService } from './rooms/matchmaking.service';
     BotBattleService,
     CardTimeoutService,
     GamePlayerProfileService,
+    GameEconomyService,
   ],
 })
 export class MatchModule {}

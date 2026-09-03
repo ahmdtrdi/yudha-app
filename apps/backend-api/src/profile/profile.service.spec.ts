@@ -84,8 +84,6 @@ describe('ProfileService', () => {
         username: 'player',
         fullName: 'Player One',
         target: 'cpns',
-        rankPoints: 1000,
-        tier: 'elite',
         rankedStats: {
           wins: 0,
           losses: 0,
@@ -93,6 +91,10 @@ describe('ProfileService', () => {
           winRate: 0,
         },
         yCoins: 0,
+        energy: {
+          balance: 0,
+          refilledOn: null,
+        },
         characterId: null,
         towerId: 'tower-garda-biru',
         streak: {
@@ -236,7 +238,6 @@ describe('ProfileService', () => {
       data: expect.objectContaining({
         id: 'user-1',
         username: 'player',
-        rankPoints: 0,
       }),
       message: 'Account data deleted.',
     });

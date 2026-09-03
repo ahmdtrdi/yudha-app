@@ -14,6 +14,10 @@ export type FinalizeResult = {
   pvpRatingAfterB?: number | null;
   coinsDeltaA?: number;
   coinsDeltaB?: number;
+  energyDeltaA?: number;
+  energyDeltaB?: number;
+  energyBalanceAfterA?: number;
+  energyBalanceAfterB?: number;
   progressionApplied?: boolean;
 };
 
@@ -25,6 +29,10 @@ export type PersistedDeltas = {
   pvpRatingAfterB: number | null;
   coinsDeltaA: number;
   coinsDeltaB: number;
+  energyDeltaA?: number;
+  energyDeltaB?: number;
+  energyBalanceAfterA?: number;
+  energyBalanceAfterB?: number;
   progressionApplied: boolean;
 };
 
@@ -58,7 +66,7 @@ export class MatchResultService {
     let result = await this.callRpc(params, room.roomId);
     if (result) {
       await this.persistLogs(result.matchResultId, logEntries, room.roomId);
-      return this.extractDeltas(result);
+      return this.extractDeltas(result, room);
     }
 
     // Retry once after delay
@@ -69,7 +77,7 @@ export class MatchResultService {
     result = await this.callRpc(params, room.roomId);
     if (result) {
       await this.persistLogs(result.matchResultId, logEntries, room.roomId);
-      return this.extractDeltas(result);
+      return this.extractDeltas(result, room);
     }
 
     return null;
@@ -269,14 +277,40 @@ export class MatchResultService {
     return 'draw';
   }
 
-  private extractDeltas(result: FinalizeResult): PersistedDeltas {
+  private extractDeltas(
+    result: FinalizeResult,
+    room?: InternalRoomState,
+  ): PersistedDeltas {
+    const isNormal =
+      room?.result?.reason === 'hp_zero' ||
+      room?.result?.reason === 'round_timeout' ||
+      room?.result?.reason === 'question_exhaustion' ||
+      room?.result?.reason === 'draw';
+    const isCasualNormal = isNormal && room?.mode === 'casual';
+    const coinsDeltaA =
+      result.coinsDeltaA !== undefined
+        ? result.coinsDeltaA
+        : isCasualNormal
+          ? 3
+          : 0;
+    const coinsDeltaB =
+      result.coinsDeltaB !== undefined
+        ? result.coinsDeltaB
+        : isCasualNormal
+          ? 3
+          : 0;
+
     return {
       pvpRatingDeltaA: result.pvpRatingDeltaA ?? null,
       pvpRatingDeltaB: result.pvpRatingDeltaB ?? null,
       pvpRatingAfterA: result.pvpRatingAfterA ?? null,
       pvpRatingAfterB: result.pvpRatingAfterB ?? null,
-      coinsDeltaA: result.coinsDeltaA ?? 0,
-      coinsDeltaB: result.coinsDeltaB ?? 0,
+      coinsDeltaA,
+      coinsDeltaB,
+      energyDeltaA: result.energyDeltaA,
+      energyDeltaB: result.energyDeltaB,
+      energyBalanceAfterA: result.energyBalanceAfterA,
+      energyBalanceAfterB: result.energyBalanceAfterB,
       progressionApplied: result.progressionApplied === true,
     };
   }

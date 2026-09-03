@@ -63,6 +63,17 @@ export class ApiExceptionFilter implements ExceptionFilter {
     if (message.includes('IDEMPOTENCY_KEY_REUSED')) {
       return 'IDEMPOTENCY_KEY_REUSED';
     }
+    for (const code of [
+      'INSUFFICIENT_ENERGY',
+      'INSUFFICIENT_Y_COIN',
+      'ENERGY_CAP_REACHED',
+      'AD_REWARD_LIMIT_REACHED',
+      'AD_VERIFICATION_FAILED',
+      'PRO_ALREADY_ACTIVE',
+      'PRO_SKIN_NOT_ELIGIBLE',
+    ]) {
+      if (message.includes(code)) return code;
+    }
     if (message.includes('ACTION_REJECTED')) return 'ACTION_REJECTED';
     if (message.includes('FEATURE_DISABLED')) return 'FEATURE_DISABLED';
     if (status === HttpStatus.BAD_REQUEST) return 'VALIDATION_FAILED';

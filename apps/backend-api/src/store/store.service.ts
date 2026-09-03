@@ -1,16 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import type { Json } from '../supabase/database.types';
 import { SupabaseService } from '../supabase/supabase.service';
 import type {
-  GrantBetaCreditPayload,
   PurchaseStoreItemPayload,
   SetStoreLoadoutPayload,
   StoreItemsQuery,
@@ -22,7 +19,6 @@ const STORE_ITEM_TYPES = new Set(['character_skin', 'arena', 'tower']);
 export class StoreService {
   constructor(
     private readonly supabaseService: SupabaseService,
-    private readonly configService: ConfigService,
   ) {}
 
   async listItems(userId: string, query: StoreItemsQuery) {
@@ -75,7 +71,7 @@ export class StoreService {
           description: item.description,
           rarity: item.rarity,
           coinPrice: item.coin_price,
-          passExclusive: item.is_pass_exclusive,
+          proExclusive: item.is_pro_exclusive,
         })),
         ownedItemIds: (inventoryResult.data ?? []).map(
           (inventory) => inventory.item_id,
@@ -137,48 +133,6 @@ export class StoreService {
     return { data: this.requireObject(data, 'set_profile_loadout') };
   }
 
-  async grantBetaCredit(userId: string, payload: GrantBetaCreditPayload) {
-    if (
-      this.configService
-        .get<string>('ENABLE_BETA_ECONOMY_CREDIT', 'false')
-        .toLowerCase() !== 'true'
-    ) {
-      throw new ForbiddenException('Beta Y-Coin credit is disabled.');
-    }
-
-    const idempotencyKey = this.requiredText(
-      payload.idempotencyKey,
-      'idempotencyKey',
-      160,
-    );
-
-    const requestedCoins =
-      typeof payload.coins === 'number' && payload.coins > 0
-        ? Math.floor(payload.coins)
-        : typeof payload.coins === 'string' && parseInt(payload.coins, 10) > 0
-        ? parseInt(payload.coins, 10)
-        : 100;
-    const iterations = Math.max(1, Math.round(requestedCoins / 100));
-
-    let lastResult: Json | null = null;
-    for (let i = 0; i < iterations; i++) {
-      const subKey = iterations === 1 ? idempotencyKey : `${idempotencyKey}-${i}`;
-      const { data, error } = await this.supabaseService
-        .getClient()
-        .rpc('grant_beta_credit', {
-          p_user_id: userId,
-          p_idempotency_key: subKey,
-        });
-
-      if (error) {
-        this.throwEconomyError(error.message);
-      }
-      lastResult = data;
-    }
-
-    return { data: this.requireObject(lastResult, 'grant_beta_credit') };
-  }
-
   private optionalItemType(value: string | undefined): string | undefined {
     if (value === undefined || value.trim() === '') {
       return undefined;
@@ -223,6 +177,9 @@ export class StoreService {
 
   private throwEconomyError(message: string): never {
     const normalized = message.toLowerCase();
+    if (message.includes('INSUFFICIENT_Y_COIN')) {
+      throw new ConflictException(message);
+    }
     if (normalized.includes('already owned')) {
       throw new ConflictException(message);
     }

@@ -1,0 +1,36 @@
+{
+  "version": "economy-v1",
+  "timezone": "Asia/Jakarta",
+  "balancingStatus": "provisional",
+  "energy": {
+    "freeCap": 10,
+    "dailyRefillTo": 10,
+    "entryCost": 2,
+    "completionReward": 1,
+    "adReward": 2,
+    "adDailyLimit": 3,
+    "packs": [
+      { "id": "energy-5", "energy": 5, "yCoinCost": 50 }
+    ]
+  },
+  "yCoin": {
+    "adReward": 5,
+    "adDailyLimit": 3,
+    "hintCost": 5,
+    "interviewCost": 100,
+    "proMonthlyGrant": 500,
+    "casualCompletionReward": 3,
+    "paidPackages": [
+      { "id": "pack-500", "coins": 500, "priceLabel": "Rp9.000", "enabled": false },
+      { "id": "pack-1200", "coins": 1200, "priceLabel": "Rp19.000", "enabled": false },
+      { "id": "pack-2800", "coins": 2800, "priceLabel": "Rp39.000", "enabled": false },
+      { "id": "pack-6800", "coins": 6800, "priceLabel": "Rp89.000", "enabled": false }
+    ]
+  },
+  "pro": {
+    "planId": "pro-monthly",
+    "durationDays": 30,
+    "checkoutEnabled": false,
+    "exclusiveSkinIds": ["character-basic-pip", "character-rare-brock"]
+  }
+}

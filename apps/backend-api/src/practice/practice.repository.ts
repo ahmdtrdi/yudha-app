@@ -80,12 +80,24 @@ export class PracticeRepository {
     sessionQuestionId: string;
     idempotencyKey: string;
   }): Promise<Record<string, any>> {
-    return this.callJsonRpc('request_practice_hint_learning_v2', {
+    const result = await this.callJsonRpc('request_practice_hint_learning_v2', {
       p_user_id: input.userId,
       p_session_id: input.sessionId,
       p_session_question_id: input.sessionQuestionId,
       p_idempotency_key: input.idempotencyKey,
     });
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('profiles')
+      .select('coins')
+      .eq('id', input.userId)
+      .single();
+    if (error || !data) {
+      throw new InternalServerErrorException(
+        error?.message ?? 'Failed to load Y-Coin balance.',
+      );
+    }
+    return { ...result, chargedYCoins: 5, yCoins: data.coins };
   }
 
   async submitTransactionalAnswer(input: {

@@ -1,4 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { SERVER_MATCH_EVENTS } from '../contracts/match.events';
 import type {
@@ -14,6 +19,7 @@ import type {
   PrivateRoomCancelledPayload,
   PrivateRoomCreatedPayload,
   PrivateRoomJoinedPayload,
+  QueueCancelledPayload,
   SocketCommandAck,
   SocketCommandErrorCode,
   SurrenderPayload,
@@ -29,6 +35,10 @@ import {
   RoomCommandRouterService,
   type RoutedRoomCommand,
 } from '../redis/room-command-router.service';
+import {
+  GameEconomyService,
+  type GameEnergyMode,
+} from '../economy/game-economy.service';
 import { GameEngine } from './engine/game-engine';
 import type { InternalRoomState } from './engine/battle.types';
 import { QuestionService } from './questions/question.service';
@@ -91,10 +101,11 @@ type InFlightPrivateCommand = {
 };
 
 @Injectable()
-export class MatchService {
+export class MatchService implements OnModuleInit, OnModuleDestroy {
   static readonly DISCONNECT_GRACE_MS = 30_000;
   private readonly logger = new Logger(MatchService.name);
   private emitServer: ((result: MatchServiceResult) => void) | null = null;
+  private reconcilerTimer?: ReturnType<typeof setInterval>;
   private readonly roundTimers = new Map<
     string,
     ReturnType<typeof setTimeout>
@@ -134,8 +145,26 @@ export class MatchService {
     private readonly coordination: GameCoordinationService,
     private readonly redis: RedisService,
     private readonly router: RoomCommandRouterService,
+    private readonly economy: GameEconomyService,
   ) {
     this.router.setHandler((command) => this.handleRoutedCommand(command));
+  }
+
+  onModuleInit(): void {
+    this.reconcilerTimer = setInterval(() => {
+      void this.economy.releaseExpired().catch((error) => {
+        this.logger.warn(
+          `RECONCILER_ERROR: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      });
+    }, 60_000);
+    this.reconcilerTimer.unref?.();
+  }
+
+  onModuleDestroy(): void {
+    if (this.reconcilerTimer) {
+      clearInterval(this.reconcilerTimer);
+    }
   }
 
   /**
@@ -155,6 +184,7 @@ export class MatchService {
       this.scheduleRoomCleanup(room.roomId);
     });
     this.matchmaking.setExpiryCallback((reservation) => {
+      void this.economy.release(reservation.owner.userId, 'private', 'expired');
       if (!this.emitServer) return;
       const payload: PrivateRoomCancelledPayload = {
         code: reservation.code,
@@ -212,6 +242,11 @@ export class MatchService {
       await this.matchmaking.disconnectOwner(userId, socketId);
       this.clearQueueLease(userId);
       await this.coordination.cancelPublicQueue(userId);
+      await Promise.all([
+        this.economy.release(userId, 'casual', 'disconnected'),
+        this.economy.release(userId, 'ranked', 'disconnected'),
+        this.economy.release(userId, 'private', 'disconnected'),
+      ]);
     }
     const result = this.rooms.disconnectSocket(socketId);
     if (result.type === 'queued_removed') {
@@ -291,9 +326,46 @@ export class MatchService {
       };
     }
 
+    // Reserve energy before entering queue or bot mode
+    const commandId = payload?.commandId ?? randomUUID();
+    const reserve = await this.economy.reserve(
+      userId,
+      mode as GameEnergyMode,
+      commandId,
+      commandId,
+    );
+    if (!reserve.ok) {
+      return {
+        emits: [
+          {
+            socketId,
+            event: SERVER_MATCH_EVENTS.error,
+            payload: {
+              code:
+                (reserve.code as SocketCommandErrorCode) ?? 'QUEUE_UNAVAILABLE',
+              message:
+                reserve.code === 'INSUFFICIENT_ENERGY'
+                  ? 'Energy tidak cukup untuk memulai pertandingan.'
+                  : 'Layanan Energy sedang tidak tersedia. Coba lagi.',
+              details: { recoverable: reserve.code !== 'INSUFFICIENT_ENERGY' },
+            },
+          },
+        ],
+      };
+    }
+
     // Bot mode: skip queue, create match instantly
     if (mode === 'bot') {
-      return this.handleBotMode(profile, socketId);
+      const botResult = await this.handleBotMode(profile, socketId);
+      const isBotFailed = botResult.emits.some(
+        (e) => e.event === SERVER_MATCH_EVENTS.error,
+      );
+      if (isBotFailed) {
+        await this.economy.release(userId, 'bot', 'bot_failed', commandId);
+      } else {
+        await this.economy.commit(userId, 'bot', commandId);
+      }
+      return botResult;
     }
 
     const matchmakingStartedAt = Date.now();
@@ -307,6 +379,12 @@ export class MatchService {
     );
 
     if (queueResult.type === 'unavailable') {
+      await this.economy.release(
+        userId,
+        mode as GameEnergyMode,
+        'unavailable',
+        commandId,
+      );
       return {
         emits: [
           {
@@ -323,6 +401,12 @@ export class MatchService {
     }
 
     if (queueResult.type === 'conflict') {
+      await this.economy.release(
+        userId,
+        mode as GameEnergyMode,
+        'conflict',
+        commandId,
+      );
       return {
         emits: [
           {
@@ -336,6 +420,12 @@ export class MatchService {
 
     if (queueResult.type === 'queued') {
       this.scheduleQueueLease(queueResult.entry);
+      const energyData = reserve.data as {
+        reservationId?: string;
+        energyBalance?: number;
+        energyCost?: number;
+        unlimited?: boolean;
+      } | undefined;
       return {
         emits: [
           {
@@ -346,6 +436,14 @@ export class MatchService {
               queueDepth: queueResult.depth,
               mode,
               target: profile.target,
+              energy: energyData
+                ? {
+                    reservationId: energyData.reservationId,
+                    energyBalance: energyData.energyBalance,
+                    energyCost: energyData.energyCost,
+                    unlimited: energyData.unlimited,
+                  }
+                : undefined,
             },
           },
         ],
@@ -433,6 +531,11 @@ export class MatchService {
     this.roomRoutes.set(room.roomId, route);
     this.scheduleRoomRouteRefresh(route);
 
+    await Promise.all([
+      this.economy.commit(playerA.userId, mode as GameEnergyMode),
+      this.economy.commit(playerB.userId, mode as GameEnergyMode),
+    ]);
+
     const emits: MatchEmit[] = [
       {
         socketId,
@@ -488,27 +591,66 @@ export class MatchService {
     socketId: string,
     payload?: CreatePrivateRoomPayload,
   ): Promise<PrivateCommandResult> {
+    const commandId = payload?.commandId ?? randomUUID();
     return this.executePrivateCommand(
       userId,
-      payload?.commandId,
+      commandId,
       'create_private_room',
       'create_private_room',
       async (requestId) => {
         const profile = await this.loadPrivateProfile(userId, requestId);
         if (!profile.ok) return profile.result;
 
+        const reserve = await this.economy.reserve(
+          userId,
+          'private',
+          commandId,
+          commandId,
+        );
+        if (!reserve.ok) {
+          return this.privateError(
+            requestId,
+            (reserve.code as SocketCommandErrorCode) ?? 'QUEUE_UNAVAILABLE',
+            reserve.code === 'INSUFFICIENT_ENERGY'
+              ? 'Energy tidak cukup untuk membuat ruang Private.'
+              : 'Layanan Energy sedang tidak tersedia. Coba lagi.',
+            reserve.code !== 'INSUFFICIENT_ENERGY',
+          );
+        }
+
         const created = await this.matchmaking.createPrivateRoom(
           profile.profile,
           socketId,
         );
         if (!created.ok) {
+          await this.economy.release(
+            userId,
+            'private',
+            'creation_failed',
+            commandId,
+          );
           return this.privateMatchmakingFailure(created.reason, requestId);
         }
+
+        const energyData = reserve.data as {
+          reservationId?: string;
+          energyBalance?: number;
+          energyCost?: number;
+          unlimited?: boolean;
+        } | undefined;
 
         const data: PrivateRoomCreatedPayload = {
           code: created.reservation.code,
           target: created.reservation.target,
           expiresAt: created.reservation.expiresAt.toISOString(),
+          energy: energyData
+            ? {
+                reservationId: energyData.reservationId,
+                energyBalance: energyData.energyBalance,
+                energyCost: energyData.energyCost,
+                unlimited: energyData.unlimited,
+              }
+            : undefined,
         };
         return {
           ack: { data, requestId },
@@ -584,12 +726,36 @@ export class MatchService {
           return this.privateMatchmakingFailure(validation.reason, requestId);
         }
 
+        const commandId = payload?.commandId ?? randomUUID();
+        const reserve = await this.economy.reserve(
+          userId,
+          'private',
+          commandId,
+          commandId,
+        );
+        if (!reserve.ok) {
+          return this.privateError(
+            requestId,
+            (reserve.code as SocketCommandErrorCode) ?? 'QUEUE_UNAVAILABLE',
+            reserve.code === 'INSUFFICIENT_ENERGY'
+              ? 'Energy tidak cukup untuk bergabung ke ruang Private.'
+              : 'Layanan Energy sedang tidak tersedia. Coba lagi.',
+            reserve.code !== 'INSUFFICIENT_ENERGY',
+          );
+        }
+
         let cards: InternalCard[];
         try {
           cards = await this.questions.getMatchQuestionPool(
             profile.profile.target,
           );
         } catch {
+          await this.economy.release(
+            userId,
+            'private',
+            'pool_failed',
+            commandId,
+          );
           return this.privateError(
             requestId,
             'QUEUE_UNAVAILABLE',
@@ -610,6 +776,12 @@ export class MatchService {
           this.logger.error(
             `Failed to create private room: ${error instanceof Error ? error.message : String(error)}`,
           );
+          await this.economy.release(
+            userId,
+            'private',
+            'join_failed',
+            commandId,
+          );
           return this.privateError(
             requestId,
             'QUEUE_UNAVAILABLE',
@@ -618,6 +790,12 @@ export class MatchService {
           );
         }
         if (!joined.ok) {
+          await this.economy.release(
+            userId,
+            'private',
+            'join_failed',
+            commandId,
+          );
           return this.privateMatchmakingFailure(joined.reason, requestId);
         }
 
@@ -630,6 +808,12 @@ export class MatchService {
         };
         if (!(await this.coordination.registerRoom(route))) {
           this.rooms.destroyRoom(room.roomId);
+          await this.economy.release(
+            userId,
+            'private',
+            'register_failed',
+            commandId,
+          );
           return this.privateError(
             requestId,
             'QUEUE_UNAVAILABLE',
@@ -639,7 +823,31 @@ export class MatchService {
         }
         this.roomRoutes.set(room.roomId, route);
         this.scheduleRoomRouteRefresh(route);
-        const data: PrivateRoomJoinedPayload = { code, roomId: room.roomId };
+
+        await Promise.all([
+          this.economy.commit(playerA.userId, 'private'),
+          this.economy.commit(playerB.userId, 'private'),
+        ]);
+
+        const energyData = reserve.data as {
+          reservationId?: string;
+          energyBalance?: number;
+          energyCost?: number;
+          unlimited?: boolean;
+        } | undefined;
+
+        const data: PrivateRoomJoinedPayload = {
+          code,
+          roomId: room.roomId,
+          energy: energyData
+            ? {
+                reservationId: energyData.reservationId,
+                energyBalance: energyData.energyBalance,
+                energyCost: energyData.energyCost,
+                unlimited: energyData.unlimited,
+              }
+            : undefined,
+        };
         const matchFoundA: MatchFoundPayload = {
           roomId: room.roomId,
           opponentUserId: playerB.userId,
@@ -715,6 +923,7 @@ export class MatchService {
         if (!cancelled.ok) {
           return this.privateMatchmakingFailure(cancelled.reason, requestId);
         }
+        await this.economy.release(userId, 'private', 'cancelled');
         const data = { code };
         const eventPayload: PrivateRoomCancelledPayload = {
           code,
@@ -817,6 +1026,10 @@ export class MatchService {
   ): Promise<MatchServiceResult> {
     this.clearQueueLease(userId);
     const removed = await this.coordination.cancelPublicQueue(userId);
+    await Promise.all([
+      this.economy.release(userId, 'casual', 'cancelled'),
+      this.economy.release(userId, 'ranked', 'cancelled'),
+    ]);
     return {
       emits: removed
         ? [
@@ -1386,11 +1599,17 @@ export class MatchService {
         room.result.finalState.playerA.pvpRatingAfter =
           deltas.pvpRatingAfterA;
         room.result.finalState.playerA.coinsDelta = deltas.coinsDeltaA;
+        room.result.finalState.playerA.energyDelta = deltas.energyDeltaA;
+        room.result.finalState.playerA.energyBalanceAfter =
+          deltas.energyBalanceAfterA;
         room.result.finalState.playerB.pvpRatingDelta =
           deltas.pvpRatingDeltaB;
         room.result.finalState.playerB.pvpRatingAfter =
           deltas.pvpRatingAfterB;
         room.result.finalState.playerB.coinsDelta = deltas.coinsDeltaB;
+        room.result.finalState.playerB.energyDelta = deltas.energyDeltaB;
+        room.result.finalState.playerB.energyBalanceAfter =
+          deltas.energyBalanceAfterB;
       } else if (room.result) {
         room.result.progressionPersisted = false;
       }
@@ -1904,6 +2123,12 @@ export class MatchService {
     try {
       if (await this.coordination.refreshQueue(entry)) {
         this.scheduleQueueLease(entry);
+      } else {
+        await this.economy.release(
+          entry.userId,
+          entry.mode as GameEnergyMode,
+          'expired',
+        );
       }
     } catch (error) {
       this.logger.error(

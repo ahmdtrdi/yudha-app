@@ -1,6 +1,6 @@
 {
   "data": {
-    "profile": { "id": "00000000-0000-0000-0000-000000000001", "username": "Yudha", "fullName": null, "target": "cpns", "rankPoints": 450, "tier": "warrior", "rankedStats": { "wins": 3, "losses": 2, "draws": 1, "winRate": 50 }, "yCoins": 120, "characterId": "character-basic-squire", "towerId": "tower-garda-biru", "streak": { "current": 2, "best": 5, "lastDate": "2026-08-17" } },
+    "profile": { "id": "00000000-0000-0000-0000-000000000001", "username": "Yudha", "fullName": null, "target": "cpns", "rankPoints": 450, "tier": "warrior", "rankedStats": { "wins": 3, "losses": 2, "draws": 1, "winRate": 50 }, "yCoins": 120, "energy": { "balance": 10, "refilledOn": "2026-08-17" }, "characterId": "character-basic-squire", "towerId": "tower-garda-biru", "streak": { "current": 2, "best": 5, "lastDate": "2026-08-17" } },
     "tier": "warrior",
     "rankPoints": 450,
     "yCoins": 120,
@@ -9,7 +9,19 @@
       { "key": "daily_pvp", "title": "Selesaikan PvP publik", "target": 1, "rewardRankPoints": 80, "businessDate": "2026-08-17", "progress": 0, "completed": false, "completedAt": null }
     ],
     "streak": { "current": 2, "best": 5, "lastDate": "2026-08-17" },
-    "hiredPassSummary": { "season": { "id": "beta-2026-08", "name": "Beta Agustus 2026", "startsAt": "2026-07-31T17:00:00.000Z", "endsAt": "2026-08-31T17:00:00.000Z" }, "passPoints": 0, "premiumActive": false, "expiresAt": null, "completedMissions": 0, "totalMissions": 6, "unclaimedRewards": 8 },
+    "economy": {
+      "policyVersion": "economy-v1",
+      "businessDate": "2026-08-17",
+      "yCoins": 120,
+      "energy": { "balance": 10, "cap": 10, "unlimited": false, "nextRefillAt": "2026-08-18T00:00:00.000+07:00" },
+      "pro": { "active": false, "planId": null, "startsAt": null, "expiresAt": null, "selectedSkinId": null },
+      "adRewards": {
+        "enabled": false,
+        "energy": { "amount": 2, "claimedToday": 0, "dailyLimit": 3 },
+        "yCoin": { "amount": 5, "claimedToday": 0, "dailyLimit": 3 }
+      }
+    },
+    "proSummary": { "active": false, "planId": null, "startsAt": null, "expiresAt": null, "selectedSkinId": null },
     "recommendation": { "type": "practice", "target": "cpns", "category": "tiu", "subcategory": "numerik", "reason": "Akurasi Numerik masih perlu ditingkatkan.", "metrics": { "sampleSize": 8, "accuracy": 62.5, "lastPracticedAt": "2026-08-16T04:00:00.000Z" } },
     "learningNextAction": null
   }

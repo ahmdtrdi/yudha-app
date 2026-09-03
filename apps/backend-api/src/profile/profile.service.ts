@@ -252,6 +252,10 @@ export class ProfileService {
             : Number(((wins / rankedMatches) * 100).toFixed(2)),
       },
       yCoins: asNumber(row.coins),
+      energy: {
+        balance: asNumber(row.energy_balance),
+        refilledOn: row.energy_refilled_on ?? null,
+      },
       characterId: row.equipped_avatar_id ?? null,
       towerId: row.equipped_tower_id ?? null,
       streak: {
