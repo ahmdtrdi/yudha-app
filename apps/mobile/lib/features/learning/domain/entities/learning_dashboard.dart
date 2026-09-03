@@ -215,13 +215,22 @@ class LearningSkillState {
   const LearningSkillState({
     required this.skillId,
     required this.label,
+    required this.category,
+    required this.subcategory,
+    required this.requiredSkill,
     required this.status,
     required this.confidence,
     required this.accuracy,
+    required this.assistedAccuracy,
     required this.smoothedAccuracy,
     required this.hintRate,
+    required this.medianResponseTimeMs,
     required this.paceRatio,
+    required this.paceBaselineType,
+    required this.paceAttemptCount,
+    required this.timeoutRate,
     required this.trendPercentagePoints,
+    required this.coverageSufficient,
     required this.recommendedMechanic,
     required this.lastPracticedAt,
   });
@@ -230,15 +239,24 @@ class LearningSkillState {
     return LearningSkillState(
       skillId: json['skillId']?.toString() ?? '',
       label: json['label']?.toString() ?? '',
+      category: _nullableText(json['category']),
+      subcategory: _nullableText(json['subcategory']),
+      requiredSkill: json['required'] == true,
       status: json['status']?.toString() ?? 'collecting_data',
       confidence: json['evidenceConfidence']?.toString() ?? 'low',
       accuracy: LearningMetric.fromJson(
         _map(json['unseenIndependentAccuracy']),
       ),
+      assistedAccuracy: LearningMetric.fromJson(_map(json['assistedAccuracy'])),
       smoothedAccuracy: _nullableDouble(json['smoothedAccuracy']),
       hintRate: _nullableDouble(json['hintRate']),
+      medianResponseTimeMs: _nullableInt(json['medianResponseTimeMs']),
       paceRatio: _nullableDouble(json['paceRatio']),
+      paceBaselineType: _nullableText(json['paceBaselineType']),
+      paceAttemptCount: _int(json['paceAttemptCount']),
+      timeoutRate: _nullableDouble(json['timeoutRate']),
       trendPercentagePoints: _nullableDouble(json['trendPercentagePoints']),
+      coverageSufficient: json['coverageSufficient'] == true,
       recommendedMechanic:
           json['recommendedMechanic']?.toString() ?? 'standard',
       lastPracticedAt: DateTime.tryParse(
@@ -249,13 +267,22 @@ class LearningSkillState {
 
   final String skillId;
   final String label;
+  final String? category;
+  final String? subcategory;
+  final bool requiredSkill;
   final String status;
   final String confidence;
   final LearningMetric accuracy;
+  final LearningMetric assistedAccuracy;
   final double? smoothedAccuracy;
   final double? hintRate;
+  final int? medianResponseTimeMs;
   final double? paceRatio;
+  final String? paceBaselineType;
+  final int paceAttemptCount;
+  final double? timeoutRate;
   final double? trendPercentagePoints;
+  final bool coverageSufficient;
   final String recommendedMechanic;
   final DateTime? lastPracticedAt;
 }
@@ -281,50 +308,157 @@ class LearningTrend {
 class LearningRetention {
   const LearningRetention({
     required this.skillId,
+    required this.label,
     required this.status,
     required this.reviewDueAt,
     required this.accuracy,
+    required this.correctCount,
     required this.attemptCount,
+    required this.confidence,
+    required this.asOf,
   });
 
   factory LearningRetention.fromJson(Map<String, dynamic> json) {
     return LearningRetention(
       skillId: json['skillId']?.toString() ?? '',
+      label: json['label']?.toString() ?? json['skillId']?.toString() ?? '',
       status: json['status']?.toString() ?? 'scheduled',
       reviewDueAt: DateTime.tryParse(json['reviewDueAt']?.toString() ?? ''),
       accuracy: _nullableDouble(json['accuracy']),
+      correctCount: _int(json['correctCount']),
       attemptCount: _int(json['attemptCount']),
+      confidence: json['confidence']?.toString() ?? 'low',
+      asOf: DateTime.tryParse(json['asOf']?.toString() ?? ''),
     );
   }
 
   final String skillId;
+  final String label;
   final String status;
   final DateTime? reviewDueAt;
   final double? accuracy;
+  final int correctCount;
   final int attemptCount;
+  final String confidence;
+  final DateTime? asOf;
 }
 
 class LearningAssessment {
   const LearningAssessment({
     required this.status,
     required this.score,
+    required this.correctCount,
     required this.attemptCount,
     required this.occurredAt,
+    required this.confidence,
+    required this.asOf,
+    required this.baseline,
+    required this.latest,
+    required this.improvementPercentagePoints,
+    required this.categoryBreakdown,
+    required this.skillBreakdown,
   });
 
   factory LearningAssessment.fromJson(Map<String, dynamic> json) {
     return LearningAssessment(
       status: json['status']?.toString() ?? 'not_available',
       score: _nullableDouble(json['score']),
+      correctCount: _nullableInt(json['correctCount']),
       attemptCount: _nullableInt(json['attemptCount']),
       occurredAt: DateTime.tryParse(json['occurredAt']?.toString() ?? ''),
+      confidence: json['confidence']?.toString() ?? 'low',
+      asOf: DateTime.tryParse(json['asOf']?.toString() ?? ''),
+      baseline: LearningAssessmentPoint.tryFrom(json['baseline']),
+      latest: LearningAssessmentPoint.tryFrom(json['latest']),
+      improvementPercentagePoints: _nullableDouble(
+        json['improvementPercentagePoints'],
+      ),
+      categoryBreakdown: _listOfMaps(
+        json['categoryBreakdown'],
+      ).map(LearningBreakdown.fromJson).toList(growable: false),
+      skillBreakdown: _listOfMaps(
+        json['skillBreakdown'],
+      ).map(LearningBreakdown.fromJson).toList(growable: false),
     );
   }
 
   final String status;
   final double? score;
+  final int? correctCount;
   final int? attemptCount;
   final DateTime? occurredAt;
+  final String confidence;
+  final DateTime? asOf;
+  final LearningAssessmentPoint? baseline;
+  final LearningAssessmentPoint? latest;
+  final double? improvementPercentagePoints;
+  final List<LearningBreakdown> categoryBreakdown;
+  final List<LearningBreakdown> skillBreakdown;
+}
+
+class LearningAssessmentPoint {
+  const LearningAssessmentPoint({
+    required this.score,
+    required this.correctCount,
+    required this.attemptCount,
+    required this.occurredAt,
+    required this.blueprintVersion,
+  });
+
+  factory LearningAssessmentPoint.fromJson(Map<String, dynamic> json) =>
+      LearningAssessmentPoint(
+        score: _nullableDouble(json['score']),
+        correctCount: _nullableInt(json['correctCount']),
+        attemptCount: _nullableInt(json['attemptCount']),
+        occurredAt: DateTime.tryParse(json['occurredAt']?.toString() ?? ''),
+        blueprintVersion: _nullableText(json['blueprintVersion']),
+      );
+
+  static LearningAssessmentPoint? tryFrom(Object? value) => value is Map
+      ? LearningAssessmentPoint.fromJson(Map<String, dynamic>.from(value))
+      : null;
+
+  final double? score;
+  final int? correctCount;
+  final int? attemptCount;
+  final DateTime? occurredAt;
+  final String? blueprintVersion;
+}
+
+class LearningBreakdown {
+  const LearningBreakdown({
+    required this.id,
+    required this.label,
+    required this.value,
+    required this.correctCount,
+    required this.attemptCount,
+    required this.confidence,
+    required this.asOf,
+  });
+
+  factory LearningBreakdown.fromJson(Map<String, dynamic> json) {
+    final String id =
+        json['skillId']?.toString() ?? json['category']?.toString() ?? '';
+    return LearningBreakdown(
+      id: id,
+      label: json['label']?.toString() ?? id,
+      value: _nullableDouble(
+        json['score'] ?? json['accuracy'] ?? json['value'],
+      ),
+      correctCount: _nullableInt(json['correctCount']),
+      attemptCount: _nullableInt(json['attemptCount']),
+      confidence: json['confidence']?.toString() ?? 'low',
+      asOf: DateTime.tryParse(json['asOf']?.toString() ?? ''),
+    );
+  }
+
+  final String id;
+  final String label;
+  final double? value;
+  final int? correctCount;
+  final int? attemptCount;
+  final String confidence;
+  final DateTime? asOf;
 }
 
 class LearningActivity {
@@ -333,6 +467,10 @@ class LearningActivity {
     required this.questionsAnswered,
     required this.activeLearningMinutes,
     required this.sessionCount,
+    required this.streak,
+    required this.dailyHistory,
+    required this.weeklyActivity,
+    required this.recentSessions,
   });
 
   factory LearningActivity.fromJson(Map<String, dynamic> json) {
@@ -341,6 +479,16 @@ class LearningActivity {
       questionsAnswered: _int(json['questionsAnswered']),
       activeLearningMinutes: _nullableDouble(json['activeLearningMinutes']),
       sessionCount: _int(json['sessionCount']),
+      streak: LearningStreak.fromJson(_map(json['streak'])),
+      dailyHistory: _listOfMaps(
+        json['dailyHistory'],
+      ).map(LearningActivityDay.fromJson).toList(growable: false),
+      weeklyActivity: _listOfMaps(
+        json['weeklyActivity'],
+      ).map(LearningActivityWeek.fromJson).toList(growable: false),
+      recentSessions: _listOfMaps(
+        json['recentSessions'],
+      ).map(LearningRecentSession.fromJson).toList(growable: false),
     );
   }
 
@@ -348,12 +496,128 @@ class LearningActivity {
   final int questionsAnswered;
   final double? activeLearningMinutes;
   final int sessionCount;
+  final LearningStreak streak;
+  final List<LearningActivityDay> dailyHistory;
+  final List<LearningActivityWeek> weeklyActivity;
+  final List<LearningRecentSession> recentSessions;
+}
+
+class LearningStreak {
+  const LearningStreak({
+    required this.current,
+    required this.best,
+    this.lastDate,
+  });
+
+  factory LearningStreak.fromJson(Map<String, dynamic> json) => LearningStreak(
+    current: _int(json['current']),
+    best: _int(json['best']),
+    lastDate: DateTime.tryParse(json['lastDate']?.toString() ?? ''),
+  );
+
+  final int current;
+  final int best;
+  final DateTime? lastDate;
+}
+
+class LearningActivityDay {
+  const LearningActivityDay({
+    required this.date,
+    required this.questionsAnswered,
+    required this.sessionCount,
+    required this.activeLearningMinutes,
+  });
+
+  factory LearningActivityDay.fromJson(Map<String, dynamic> json) =>
+      LearningActivityDay(
+        date: DateTime.tryParse(json['date']?.toString() ?? ''),
+        questionsAnswered: _int(json['questionsAnswered']),
+        sessionCount: _int(json['sessionCount']),
+        activeLearningMinutes: _nullableDouble(json['activeLearningMinutes']),
+      );
+
+  final DateTime? date;
+  final int questionsAnswered;
+  final int sessionCount;
+  final double? activeLearningMinutes;
+}
+
+class LearningActivityWeek {
+  const LearningActivityWeek({
+    required this.startsOn,
+    required this.endsOn,
+    required this.questionsAnswered,
+    required this.sessionCount,
+    required this.activeLearningMinutes,
+  });
+
+  factory LearningActivityWeek.fromJson(Map<String, dynamic> json) =>
+      LearningActivityWeek(
+        startsOn: DateTime.tryParse(json['startsOn']?.toString() ?? ''),
+        endsOn: DateTime.tryParse(json['endsOn']?.toString() ?? ''),
+        questionsAnswered: _int(json['questionsAnswered']),
+        sessionCount: _int(json['sessionCount']),
+        activeLearningMinutes: _nullableDouble(json['activeLearningMinutes']),
+      );
+
+  final DateTime? startsOn;
+  final DateTime? endsOn;
+  final int questionsAnswered;
+  final int sessionCount;
+  final double? activeLearningMinutes;
+}
+
+class LearningRecentSession {
+  const LearningRecentSession({
+    required this.sessionKey,
+    required this.lastActivityAt,
+    required this.completionState,
+    required this.objective,
+    required this.mechanicMode,
+    required this.skillLabels,
+    required this.correctCount,
+    required this.attemptCount,
+    required this.accuracy,
+  });
+
+  factory LearningRecentSession.fromJson(Map<String, dynamic> json) =>
+      LearningRecentSession(
+        sessionKey: json['sessionKey']?.toString() ?? '',
+        lastActivityAt: DateTime.tryParse(
+          json['lastActivityAt']?.toString() ?? '',
+        ),
+        completionState: json['completionState']?.toString() ?? 'in_progress',
+        objective: _nullableText(json['objective']),
+        mechanicMode: _nullableText(json['mechanicMode']),
+        skillLabels: json['skillLabels'] is List
+            ? List<String>.unmodifiable(
+                (json['skillLabels'] as List).map((value) => value.toString()),
+              )
+            : const <String>[],
+        correctCount: _int(json['correctCount']),
+        attemptCount: _int(json['attemptCount']),
+        accuracy: _nullableDouble(json['accuracy']),
+      );
+
+  final String sessionKey;
+  final DateTime? lastActivityAt;
+  final String completionState;
+  final String? objective;
+  final String? mechanicMode;
+  final List<String> skillLabels;
+  final int correctCount;
+  final int attemptCount;
+  final double? accuracy;
 }
 
 class LearningCompetition {
   const LearningCompetition({
     required this.separateEvidenceContext,
     required this.accuracy,
+    required this.rankPoints,
+    required this.tier,
+    required this.matchRecord,
+    required this.soloComparison,
   });
 
   factory LearningCompetition.fromJson(Map<String, dynamic> json) {
@@ -368,11 +632,59 @@ class LearningCompetition {
         confidence: accuracy['confidence']?.toString() ?? 'low',
         asOf: DateTime.tryParse(accuracy['asOf']?.toString() ?? ''),
       ),
+      rankPoints: _int(json['rankPoints']),
+      tier: json['tier']?.toString() ?? 'rookie',
+      matchRecord: LearningMatchRecord.fromJson(_map(json['matchRecord'])),
+      soloComparison: LearningContextComparison.tryFrom(json['soloComparison']),
     );
   }
 
   final bool separateEvidenceContext;
   final LearningMetric accuracy;
+  final int rankPoints;
+  final String tier;
+  final LearningMatchRecord matchRecord;
+  final LearningContextComparison? soloComparison;
+}
+
+class LearningMatchRecord {
+  const LearningMatchRecord({
+    required this.wins,
+    required this.losses,
+    required this.draws,
+    required this.totalMatches,
+    required this.winRate,
+  });
+
+  factory LearningMatchRecord.fromJson(Map<String, dynamic> json) =>
+      LearningMatchRecord(
+        wins: _int(json['wins']),
+        losses: _int(json['losses']),
+        draws: _int(json['draws']),
+        totalMatches: _int(json['totalMatches']),
+        winRate: _nullableDouble(json['winRate']),
+      );
+
+  final int wins;
+  final int losses;
+  final int draws;
+  final int totalMatches;
+  final double? winRate;
+}
+
+class LearningContextComparison {
+  const LearningContextComparison({required this.gapPercentagePoints});
+
+  factory LearningContextComparison.fromJson(Map<String, dynamic> json) =>
+      LearningContextComparison(
+        gapPercentagePoints: _nullableDouble(json['gapPercentagePoints']),
+      );
+
+  static LearningContextComparison? tryFrom(Object? value) => value is Map
+      ? LearningContextComparison.fromJson(Map<String, dynamic>.from(value))
+      : null;
+
+  final double? gapPercentagePoints;
 }
 
 Map<String, dynamic> _map(Object? value) =>

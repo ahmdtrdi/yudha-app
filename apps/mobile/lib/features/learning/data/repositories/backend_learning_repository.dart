@@ -51,7 +51,7 @@ class BackendLearningRepository implements LearningRepository {
       body: <String, dynamic>{
         'idempotencyKey': 'mobile-learning-$eventType-$recommendationId',
         'eventType': eventType,
-        if (dismissalReason != null) 'dismissalReason': dismissalReason,
+        'dismissalReason': ?dismissalReason,
       },
     );
   }

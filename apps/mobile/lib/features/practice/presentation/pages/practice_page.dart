@@ -85,7 +85,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
         return;
       }
       if (started) {
-        context.push(AppRoutes.soloSession);
+        context.push(AppRoutes.legacyPracticeQuiz);
         return;
       }
       final String message =
