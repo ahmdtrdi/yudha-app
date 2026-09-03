@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { EconomyService } from './economy.service';
 
@@ -95,7 +96,7 @@ describe('EconomyService', () => {
   });
 
   describe('purchaseEnergy', () => {
-    it('calls purchase_energy_pack RPC with idempotency key', async () => {
+    it('normalizes a legacy mobile package ID before calling the RPC', async () => {
       rpc.mockResolvedValue({
         data: {
           purchased: true,
@@ -113,7 +114,7 @@ describe('EconomyService', () => {
 
       expect(rpc).toHaveBeenCalledWith('purchase_energy_pack', {
         p_user_id: 'user-1',
-        p_package_id: 'energy-pack-5',
+        p_package_id: 'energy-5',
         p_idempotency_key: 'idemp-energy-1',
       });
       expect(result.data.purchased).toBe(true);
@@ -131,6 +132,20 @@ describe('EconomyService', () => {
           idempotencyKey: 'idemp-energy-2',
         }),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('maps an unknown energy package to NotFoundException', async () => {
+      rpc.mockResolvedValue({
+        data: null,
+        error: { message: 'NOT_FOUND: energy package' },
+      });
+
+      await expect(
+        service.purchaseEnergy('user-1', {
+          packageId: 'unknown-pack',
+          idempotencyKey: 'idemp-energy-3',
+        }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

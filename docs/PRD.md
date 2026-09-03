@@ -837,8 +837,8 @@ Rank points are floored at zero. The Ranked delta commits before a first-of-day 
   - Stale uncommitted reservations expire after `120 seconds` (TTL) and are reconciled periodically by background workers.
 - **Energy Store Purchases**:
   - Users can exchange Y-Coins for Energy via `POST /economy/energy-purchases`:
-    - `energy-pack-5`: +5 Energy for 50 Y-Coin.
-    - `energy-pack-12`: +12 Energy for 100 Y-Coin.
+    - `energy-5`: +5 Energy for 50 Y-Coin.
+    - `energy-12`: +12 Energy for 100 Y-Coin.
   - Purchasing energy that would exceed the 100 cap is rejected with `ENERGY_CAP_REACHED`.
 
 ### 6.3 Authoritative Y-Coin earn and spend ledger

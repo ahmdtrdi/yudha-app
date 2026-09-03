@@ -1,13 +1,16 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { Json } from '../supabase/database.types';
 import { SupabaseService } from '../supabase/supabase.service';
 import type {
+  GrantBetaCreditPayload,
   PurchaseStoreItemPayload,
   SetStoreLoadoutPayload,
   StoreItemsQuery,
@@ -19,6 +22,7 @@ const STORE_ITEM_TYPES = new Set(['character_skin', 'arena', 'tower']);
 export class StoreService {
   constructor(
     private readonly supabaseService: SupabaseService,
+    private readonly configService: ConfigService,
   ) {}
 
   async listItems(userId: string, query: StoreItemsQuery) {
@@ -133,6 +137,41 @@ export class StoreService {
     return { data: this.requireObject(data, 'set_profile_loadout') };
   }
 
+  async grantBetaCredit(userId: string, payload: GrantBetaCreditPayload) {
+    if (!this.betaCreditEnabled()) {
+      throw new ForbiddenException(
+        'FEATURE_DISABLED: Beta Y-Coin credit is disabled.',
+      );
+    }
+
+    const idempotencyKey = this.requiredText(
+      payload.idempotencyKey,
+      'idempotencyKey',
+      160,
+    );
+    const requestedCoins = this.betaCreditAmount(payload.coins);
+    const iterations = requestedCoins / 100;
+
+    let lastResult: Json | null = null;
+    for (let index = 0; index < iterations; index += 1) {
+      const subKey =
+        iterations === 1 ? idempotencyKey : `${idempotencyKey}-${index}`;
+      const { data, error } = await this.supabaseService
+        .getClient()
+        .rpc('grant_beta_credit', {
+          p_user_id: userId,
+          p_idempotency_key: subKey,
+        });
+
+      if (error) {
+        this.throwEconomyError(error.message);
+      }
+      lastResult = data;
+    }
+
+    return { data: this.requireObject(lastResult, 'grant_beta_credit') };
+  }
+
   private optionalItemType(value: string | undefined): string | undefined {
     if (value === undefined || value.trim() === '') {
       return undefined;
@@ -164,6 +203,38 @@ export class StoreService {
       return undefined;
     }
     return this.requiredText(value, field, 120);
+  }
+
+  private betaCreditEnabled() {
+    return (
+      this.configService
+        .get<string>('ENABLE_BETA_ECONOMY_CREDIT', 'false')
+        .trim()
+        .toLowerCase() === 'true'
+    );
+  }
+
+  private betaCreditAmount(value: unknown): number {
+    if (value === undefined || value === null) {
+      return 100;
+    }
+    const amount =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string' && value.trim() !== ''
+          ? Number(value)
+          : Number.NaN;
+    if (
+      !Number.isInteger(amount) ||
+      amount < 100 ||
+      amount > 10_000 ||
+      amount % 100 !== 0
+    ) {
+      throw new BadRequestException(
+        'coins must be a multiple of 100 between 100 and 10000.',
+      );
+    }
+    return amount;
   }
 
   private requireObject(value: Json, operation: string) {
