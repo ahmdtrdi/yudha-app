@@ -80,6 +80,37 @@ void main() {
       throwsA(isA<LearningUnavailableException>()),
     );
   });
+
+  test('extracts nested error message from backend error responses', () async {
+    final BackendLearningRepository repository = BackendLearningRepository(
+      config: const LearningApiConfig(
+        baseUrl: 'https://api.example.test',
+        accessToken: 'token',
+      ),
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode(<String, dynamic>{
+            'error': <String, dynamic>{
+              'code': 'INTERNAL_ERROR',
+              'message': 'Detail kendala server',
+            },
+          }),
+          500,
+        ),
+      ),
+    );
+
+    await expectLater(
+      repository.fetchDashboard(),
+      throwsA(
+        isA<LearningApiException>().having(
+          (LearningApiException e) => e.message,
+          'message',
+          'Detail kendala server',
+        ),
+      ),
+    );
+  });
 }
 
 Map<String, dynamic> _dashboardJson() => <String, dynamic>{
