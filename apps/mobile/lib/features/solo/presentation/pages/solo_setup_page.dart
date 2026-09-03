@@ -7,20 +7,53 @@ import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
 import 'package:yudha_mobile/features/learning/application/learning_providers.dart';
+import 'package:yudha_mobile/features/learning/application/learning_state.dart';
 import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
 import 'package:yudha_mobile/features/solo/application/solo_session_providers.dart';
 import 'package:yudha_mobile/features/solo/application/solo_setup_providers.dart';
 import 'package:yudha_mobile/features/solo/application/solo_setup_state.dart';
 import 'package:yudha_mobile/features/solo/domain/solo_contract.dart';
 
-class SoloSetupPage extends ConsumerWidget {
+class SoloSetupPage extends ConsumerStatefulWidget {
   const SoloSetupPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SoloSetupPage> createState() => _SoloSetupPageState();
+}
+
+class _SoloSetupPageState extends ConsumerState<SoloSetupPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(learningControllerProvider.notifier).load();
+      final nextAction = ref.read(learningControllerProvider).dashboard?.nextAction;
+      if (nextAction != null) {
+        ref.read(soloSetupControllerProvider.notifier).applyRecommendedPreset(nextAction);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final SoloSetupState state = ref.watch(soloSetupControllerProvider);
     final controller = ref.read(soloSetupControllerProvider.notifier);
     final activeSession = ref.watch(activeSoloSessionProvider).asData?.value;
+    final learningState = ref.watch(learningControllerProvider);
+    final nextAction = learningState.dashboard?.nextAction;
+
+    ref.listen<LearningState>(learningControllerProvider, (previous, next) {
+      final rec = next.dashboard?.nextAction;
+      if (rec != null && ref.read(soloSetupControllerProvider).recommendationId == null) {
+        ref.read(soloSetupControllerProvider.notifier).applyRecommendedPreset(rec);
+      }
+    });
+
+    if (nextAction != null && state.recommendationId == null && (state.mode == null || state.mode == SoloSetupMode.auto || state.mode == SoloSetupMode.balanced)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        controller.applyRecommendedPreset(nextAction);
+      });
+    }
 
     Future<void> continueManualSetup(SoloSetupState draft) async {
       final SoloSetupMode? mode = draft.mode;
@@ -37,12 +70,13 @@ class SoloSetupPage extends ConsumerWidget {
 
     Future<void> openManualSetup() async {
       final bool hasDraft =
-          state.mode != null ||
-          state.mechanicMode != null ||
-          state.questionCount != null ||
-          state.legacyTopic != null;
-      if (!hasDraft || state.mode == SoloSetupMode.auto) {
-        controller.beginManualSetup();
+          state.mode != null && state.mode != SoloSetupMode.auto;
+      if (!hasDraft) {
+        if (nextAction != null) {
+          controller.applyRecommendedPreset(nextAction);
+        } else {
+          controller.beginManualSetup();
+        }
       }
       await showModalBottomSheet<void>(
         context: context,
@@ -162,20 +196,22 @@ class SoloSetupPage extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const SizedBox(
+                    SizedBox(
                       height: 290,
-                      child: _RecommendedSessionCard(),
+                      child: _RecommendedSessionCard(
+                        recommendation: nextAction,
+                        isLoading: learningState.status == LearningViewStatus.loading,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     _SoloSetupButton(
-                      label: 'LANJUT PILIH KARAKTER',
+                      label: nextAction != null ? 'MAIN SESI REKOMENDASI' : 'LANJUT PILIH KARAKTER',
                       enabled: true,
                       unavailable: false,
                       compact: false,
                       buttonKey: 'solo-recommended-continue',
                       surfaceKey: 'solo-recommended-button-surface',
                       onPressed: () {
-                        final nextAction = ref.read(learningControllerProvider).dashboard?.nextAction;
                         controller.applyRecommendedPreset(nextAction);
                         context.push(AppRoutes.soloLoadout);
                       },
@@ -436,25 +472,62 @@ class _ControlLabel extends StatelessWidget {
 }
 
 class _RecommendedSessionCard extends StatelessWidget {
-  const _RecommendedSessionCard();
+  const _RecommendedSessionCard({
+    this.recommendation,
+    this.isLoading = false,
+  });
+
+  final LearningRecommendation? recommendation;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
     final CosmeticItem arena = GameEconomyCatalog.findArena(
       'arena-rimba-yudha',
     )!;
-    return Semantics(
-      container: true,
-      label: 'Sesi untukmu: Standard, Seimbang, 20 soal, Rimba Yudha',
+
+    final String mechanicLabel;
+    final IconData mechanicIcon;
+    final Color mechanicColor;
+    if (recommendation?.mechanicMode == 'focus') {
+      mechanicLabel = 'Fokus';
+      mechanicIcon = Icons.self_improvement_rounded;
+      mechanicColor = const Color(0xFF2E7D32);
+    } else if (recommendation?.mechanicMode == 'speed') {
+      mechanicLabel = 'Speed';
+      mechanicIcon = Icons.bolt_rounded;
+      mechanicColor = const Color(0xFFD97706);
+    } else {
+      mechanicLabel = 'Standard';
+      mechanicIcon = Icons.timer_outlined;
+      mechanicColor = const Color(0xFF2878F0);
+    }
+
+    final String topicLabel = recommendation != null && recommendation!.skillLabel.isNotEmpty
+        ? recommendation!.skillLabel
+        : 'Seimbang';
+
+    final String title = recommendation != null && recommendation!.skillLabel.isNotEmpty
+        ? recommendation!.skillLabel
+        : 'Rimba Yudha';
+
+    final String subtitle = recommendation != null && recommendation!.reasonHeadline.isNotEmpty
+        ? recommendation!.reasonHeadline
+        : (recommendation != null && recommendation!.reasonDescription.isNotEmpty
+            ? recommendation!.reasonDescription
+            : 'Hancurkan satu tower dengan tiga kartu pilihan.');
+
+    return SizedBox(
+      width: double.infinity,
       child: Stack(
-        key: const ValueKey<String>('solo-mode-auto'),
+        clipBehavior: Clip.none,
         children: <Widget>[
-          Positioned.fill(
-            top: 9,
+          const Positioned.fill(
             child: DecoratedBox(
+              key: ValueKey<String>('solo-recommended-card-depth'),
               decoration: BoxDecoration(
-                color: const Color(0xFF1259C6),
-                borderRadius: BorderRadius.circular(24),
+                color: Color(0xFF0F2644),
+                borderRadius: BorderRadius.all(Radius.circular(24)),
               ),
             ),
           ),
@@ -489,31 +562,57 @@ class _RecommendedSessionCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const Positioned(
-                      top: 10,
-                      right: 10,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Color(0xE6FFFFFF),
-                          borderRadius: BorderRadius.all(Radius.circular(99)),
+                    if (isLoading && recommendation == null)
+                      const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            SizedBox.square(
+                              dimension: 26,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2.5,
+                              ),
+                            ),
+                            SizedBox(height: 10),
+                            Text(
+                              'Menyiapkan sesi rekomendasi...',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
                         ),
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 6,
+                      )
+                    else ...<Widget>[
+                      const Positioned(
+                        top: 10,
+                        right: 10,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Color(0xE6FFFFFF),
+                            borderRadius: BorderRadius.all(Radius.circular(99)),
                           ),
-                          child: Text(
-                            'SIAP DIMAINKAN',
-                            style: TextStyle(
-                              color: Color(0xFF1B5FC4),
-                              fontSize: 8,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.4,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 6,
+                            ),
+                            child: Text(
+                              'SIAP DIMAINKAN',
+                              style: TextStyle(
+                                color: Color(0xFF1B5FC4),
+                                fontSize: 8,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.4,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                     Positioned(
                       right: 13,
                       bottom: 16,
@@ -521,21 +620,21 @@ class _RecommendedSessionCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          const Wrap(
+                          Wrap(
                             spacing: 6,
                             runSpacing: 6,
                             children: <Widget>[
                               _RecommendationPill(
-                                icon: Icons.timer_outlined,
-                                label: 'Standard',
-                                color: Color(0xFF2878F0),
+                                icon: mechanicIcon,
+                                label: mechanicLabel,
+                                color: mechanicColor,
                               ),
                               _RecommendationPill(
                                 icon: Icons.auto_awesome_rounded,
-                                label: 'Seimbang',
-                                color: Color(0xFF20A778),
+                                label: topicLabel,
+                                color: const Color(0xFF20A778),
                               ),
-                              _RecommendationPill(
+                              const _RecommendationPill(
                                 icon: Icons.style_rounded,
                                 label: '20 soal',
                                 color: Color(0xFFF08A36),
@@ -544,7 +643,7 @@ class _RecommendedSessionCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 9),
                           Text(
-                            'Rimba Yudha',
+                            title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.fredoka(
@@ -557,11 +656,11 @@ class _RecommendedSessionCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 3),
-                          const Text(
-                            'Hancurkan satu tower dengan tiga kartu pilihan.',
-                            maxLines: 1,
+                          Text(
+                            subtitle,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: Color(0xFFE8EEF8),
                               fontSize: 10,
                               fontWeight: FontWeight.w600,

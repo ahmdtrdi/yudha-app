@@ -218,18 +218,39 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
         session.id,
         question.sessionQuestionId,
       );
-      _questionHints[question.sessionQuestionId] = response.hint;
+      final String hintText = response.hint.trim().isNotEmpty
+          ? response.hint
+          : 'Gunakan teknik eliminasi pada opsi yang paling tidak relevan, lalu periksa kata kunci utama.';
+      _questionHints[question.sessionQuestionId] = hintText;
       final bool stillShowingQuestion =
           state.openedQuestion?.sessionQuestionId == question.sessionQuestionId;
       state = state.copyWith(
         openedQuestion: stillShowingQuestion
-            ? question.withHint(response.hint)
+            ? question.withHint(hintText)
             : state.openedQuestion,
         hintVisible: stillShowingQuestion ? true : state.hintVisible,
         hintLoading: false,
       );
     } catch (error) {
-      state = state.copyWith(hintLoading: false, error: error.toString());
+      final String message = error.toString();
+      if (message.contains('ACTION_REJECTED') ||
+          message.contains('unavailable') ||
+          message.contains('not available')) {
+        const String fallbackHint =
+            'Gunakan teknik eliminasi pada opsi yang paling tidak relevan, lalu periksa kata kunci utama.';
+        _questionHints[question.sessionQuestionId] = fallbackHint;
+        final bool stillShowingQuestion =
+            state.openedQuestion?.sessionQuestionId == question.sessionQuestionId;
+        state = state.copyWith(
+          openedQuestion: stillShowingQuestion
+              ? question.withHint(fallbackHint)
+              : state.openedQuestion,
+          hintVisible: stillShowingQuestion ? true : state.hintVisible,
+          hintLoading: false,
+        );
+      } else {
+        state = state.copyWith(hintLoading: false, error: error.toString());
+      }
     }
   }
 

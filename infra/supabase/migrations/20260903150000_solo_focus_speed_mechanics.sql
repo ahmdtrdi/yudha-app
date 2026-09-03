@@ -35,7 +35,7 @@ declare
   v_hash text;
   v_record public.api_idempotency_records%rowtype;
   v_selected_count integer;
-  v_rec_skill_id text;
+  v_rec_skill_ids text[];
   v_response jsonb;
 begin
   if p_idempotency_key is null or char_length(p_idempotency_key) not between 1 and 160 then
@@ -91,20 +91,24 @@ begin
   returning id into v_session_id;
 
   if p_question_selection = 'recommended' and p_recommendation_id is not null then
-    select skill_id into v_rec_skill_id
+    select skill_ids into v_rec_skill_ids
     from public.learning_recommendations
     where id = p_recommendation_id;
   end if;
 
-  if v_rec_skill_id is not null then
-    with recommended_pool as (
-      select distinct q.id
+  if v_rec_skill_ids is not null and cardinality(v_rec_skill_ids) > 0 then
+    with candidates as (
+      select q.id
       from public.questions q
       join public.question_revisions qr on qr.question_id = q.id and qr.is_active
       join public.question_skill_mappings qsm on qsm.question_revision_id = qr.id
-      where qsm.skill_id = v_rec_skill_id
+      where qsm.skill_id = any(v_rec_skill_ids)
         and q.target = v_target
         and q.is_active
+      group by q.id
+    ), recommended_pool as (
+      select id
+      from candidates
       order by random()
       limit p_question_count
     ), fill_pool as (
@@ -300,9 +304,9 @@ begin
 
   v_base_time_sec := greatest(coalesce(v_revision.standard_time_limit_ms / 1000, v_question.time_limit_seconds), 1);
 
-  if v_session.effective_mechanic_mode = 'focus' then
+  if v_session.effective_mechanic_mode = 'focus' or v_session.mechanic_mode = 'focus' then
     v_effective_time_sec := 0;
-  elsif v_session.effective_mechanic_mode = 'speed' then
+  elsif v_session.effective_mechanic_mode = 'speed' or v_session.mechanic_mode = 'speed' then
     v_effective_time_sec := greatest(round(v_base_time_sec::numeric / 2.0)::integer, 1);
   else
     v_effective_time_sec := v_base_time_sec;
@@ -310,7 +314,7 @@ begin
 
   if v_sq.opened_at is null then
     v_sq.opened_at := v_now;
-    if v_session.effective_mechanic_mode = 'focus' then
+    if v_session.effective_mechanic_mode = 'focus' or v_session.mechanic_mode = 'focus' then
       v_sq.deadline_at := null;
     else
       v_sq.deadline_at := v_now + make_interval(secs => v_effective_time_sec);
@@ -318,6 +322,9 @@ begin
     update public.solo_session_questions
     set opened_at = v_sq.opened_at, deadline_at = v_sq.deadline_at
     where id = v_sq.id;
+  elsif (v_session.effective_mechanic_mode = 'focus' or v_session.mechanic_mode = 'focus') and v_sq.deadline_at is not null then
+    v_sq.deadline_at := null;
+    update public.solo_session_questions set deadline_at = null where id = v_sq.id;
   end if;
 
   v_response := jsonb_build_object(
@@ -448,7 +455,11 @@ begin
   select * into v_revision from public.question_revisions where id = v_sq.question_revision_id;
   if not found then raise exception using errcode = 'P0001', message = 'NOT_FOUND: question revision'; end if;
 
-  v_timed_out := (v_sq.deadline_at is not null and p_answered_at >= v_sq.deadline_at);
+  if v_session.effective_mechanic_mode = 'focus' or v_session.mechanic_mode = 'focus' then
+    v_timed_out := false;
+  else
+    v_timed_out := (v_sq.deadline_at is not null and p_answered_at >= v_sq.deadline_at);
+  end if;
   if not v_timed_out and (p_selected_option_index is null
       or p_selected_option_index < 0
       or p_selected_option_index >= jsonb_array_length(v_revision.options)) then
@@ -515,11 +526,19 @@ begin
       and public.wib_business_date(created_at) = public.wib_business_date(p_answered_at);
     v_reward := greatest(0, least(v_requested_reward, 30 - v_earned_today));
     if v_reward > 0 then
-      insert into public.coin_transactions(user_id, delta, reason, reference_id)
-      values (p_user_id, v_reward, 'solo_reward', p_session_id::text);
-      update public.profiles set coins = coins + v_reward where id = p_user_id;
+      update public.profiles
+      set coins = coins + v_reward, updated_at = p_answered_at
+      where id = p_user_id returning coins into v_balance;
+
+      insert into public.coin_transactions(
+        user_id, delta, reason, reference_id, idempotency_key, balance_after
+      ) values (
+        p_user_id, v_reward, 'solo_reward', p_session_id::text,
+        'solo:' || p_session_id::text, v_balance
+      ) on conflict (user_id, idempotency_key) do nothing;
+    else
+      select coins into v_balance from public.profiles where id = p_user_id;
     end if;
-    select coins into v_balance from public.profiles where id = p_user_id;
     update public.solo_sessions
     set status = 'completed',
         completion_reason = 'policy_completed',
@@ -547,5 +566,99 @@ begin
   return v_response;
 end;
 $$;
+
+revoke all on function public.open_solo_question(uuid, uuid, uuid, text) from public, anon, authenticated;
+grant execute on function public.open_solo_question(uuid, uuid, uuid, text) to service_role;
+
+revoke all on function public.submit_solo_answer(uuid, uuid, text, uuid, integer, integer, integer, timestamptz) from public, anon, authenticated;
+grant execute on function public.submit_solo_answer(uuid, uuid, text, uuid, integer, integer, integer, timestamptz) to service_role;
+
+create or replace function public.request_solo_hint(
+  p_user_id uuid,
+  p_session_id uuid,
+  p_session_question_id uuid,
+  p_idempotency_key text,
+  p_requested_at timestamptz default clock_timestamp()
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_session public.solo_sessions%rowtype;
+  v_sq public.solo_session_questions%rowtype;
+  v_hint text;
+  v_requested_at timestamptz;
+  v_hash text;
+  v_record public.api_idempotency_records%rowtype;
+  v_response jsonb;
+begin
+  if p_idempotency_key is null or char_length(p_idempotency_key) not between 1 and 160 then
+    raise exception using errcode = 'P0001', message = 'VALIDATION_FAILED: idempotencyKey';
+  end if;
+  v_hash := encode(extensions.digest(jsonb_build_object(
+    'sessionId', p_session_id, 'sessionQuestionId', p_session_question_id
+  )::text, 'sha256'), 'hex');
+  perform pg_advisory_xact_lock(hashtextextended(
+    p_user_id::text || ':solo.hint:' || p_idempotency_key, 0
+  ));
+  select * into v_record from public.api_idempotency_records
+  where user_id = p_user_id and operation = 'solo.hint'
+    and idempotency_key = p_idempotency_key;
+  if found then
+    if v_record.request_hash <> v_hash then
+      raise exception using errcode = 'P0001', message = 'IDEMPOTENCY_KEY_REUSED';
+    end if;
+    return v_record.response;
+  end if;
+
+  select * into v_session from public.solo_sessions
+  where id = p_session_id and user_id = p_user_id for update;
+  if not found then raise exception using errcode = 'P0001', message = 'NOT_FOUND: solo session'; end if;
+  if v_session.status <> 'active' then
+    raise exception using errcode = 'P0001', message = 'CONFLICT: solo session finished';
+  end if;
+  select * into v_sq from public.solo_session_questions
+  where id = p_session_question_id and session_id = p_session_id for update;
+  if not found or v_sq.resolved_at is not null then
+    raise exception using errcode = 'P0001', message = 'NOT_FOUND: solo question';
+  end if;
+  if v_sq.opened_at is null or v_sq.question_revision_id is null then
+    raise exception using errcode = 'P0001', message = 'CONFLICT: solo question is not open';
+  end if;
+  if (v_session.effective_mechanic_mode <> 'focus' and v_session.mechanic_mode <> 'focus')
+      and v_sq.deadline_at is not null and p_requested_at >= v_sq.deadline_at then
+    raise exception using errcode = 'P0001', message = 'CONFLICT: solo question deadline elapsed';
+  end if;
+  select hint into v_hint from public.question_revisions
+  where id = v_sq.question_revision_id;
+  if nullif(btrim(v_hint), '') is null then
+    v_hint := 'Gunakan teknik eliminasi pada opsi yang paling tidak sesuai, lalu periksa kata kunci utama.';
+  end if;
+
+  v_requested_at := coalesce(v_sq.hint_requested_at, p_requested_at);
+  if v_sq.hint_requested_at is null then
+    update public.solo_session_questions
+    set hint_requested_at = v_requested_at,
+        hint_idempotency_key = p_idempotency_key
+    where id = v_sq.id;
+  end if;
+  v_response := jsonb_build_object(
+    'sessionId', p_session_id,
+    'sessionQuestionId', p_session_question_id,
+    'hint', v_hint,
+    'requestedAt', v_requested_at,
+    'hintRequestedAt', v_requested_at
+  );
+  insert into public.api_idempotency_records(
+    user_id, operation, idempotency_key, request_hash, response
+  ) values (p_user_id, 'solo.hint', p_idempotency_key, v_hash, v_response);
+  return v_response;
+end;
+$$;
+
+revoke all on function public.request_solo_hint(uuid, uuid, uuid, text, timestamptz) from public, anon, authenticated;
+grant execute on function public.request_solo_hint(uuid, uuid, uuid, text, timestamptz) to service_role;
 
 commit;
