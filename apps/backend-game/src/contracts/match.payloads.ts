@@ -149,14 +149,16 @@ export type MatchResultPayload = {
       userId: string;
       hp: number;
       points: number;
-      ratingDelta?: number;
+      pvpRatingDelta?: number | null;
+      pvpRatingAfter?: number | null;
       coinsDelta?: number;
     };
     playerB: {
       userId: string;
       hp: number;
       points: number;
-      ratingDelta?: number;
+      pvpRatingDelta?: number | null;
+      pvpRatingAfter?: number | null;
       coinsDelta?: number;
     };
   };

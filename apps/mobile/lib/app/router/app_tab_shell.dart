@@ -39,8 +39,8 @@ class _AppTabShellState extends ConsumerState<AppTabShell>
     ),
     _TabItemData.learning(),
     _TabItemData(
-      route: AppRoutes.analytics,
-      label: 'Analytics',
+      route: AppRoutes.learning,
+      label: 'Learning Center',
       icon: Icons.analytics_outlined,
     ),
     _TabItemData(

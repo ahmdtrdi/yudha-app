@@ -72,12 +72,23 @@ class SoloSetupPage extends ConsumerWidget {
               tooltip: 'Lanjutkan sesi',
               icon: const Icon(Icons.play_circle_fill_rounded),
               onPressed: () async {
-                final resumed = await ref
-                    .read(soloSessionControllerProvider.notifier)
-                    .resume(activeSession.id);
-                if (context.mounted && resumed) {
+                final sessionController = ref.read(
+                  soloSessionControllerProvider.notifier,
+                );
+                final bool resumed = await sessionController.resume(
+                  activeSession.id,
+                );
+                if (!context.mounted) return;
+                if (resumed) {
                   context.go(AppRoutes.soloSession);
+                  return;
                 }
+                final String message =
+                    ref.read(soloSessionControllerProvider).error ??
+                    'Sesi belum bisa dilanjutkan. Coba lagi.';
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(message)));
               },
             ),
         ],

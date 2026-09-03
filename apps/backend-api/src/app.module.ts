@@ -17,6 +17,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SoloModule } from './solo/solo.module';
 import { LearningModule } from './learning/learning.module';
+import { PvpAnalyticsModule } from './pvp-analytics/pvp-analytics.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { LearningModule } from './learning/learning.module';
     LobbyModule,
     NotificationsModule,
     LearningModule,
+    PvpAnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

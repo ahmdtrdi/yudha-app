@@ -11,13 +11,13 @@ const DAILY_MISSIONS = [
     key: 'daily_practice',
     title: 'Selesaikan Practice',
     target: 1,
-    rewardRankPoints: 50,
+    rewardYCoins: 2,
   },
   {
     key: 'daily_pvp',
     title: 'Selesaikan PvP publik',
     target: 1,
-    rewardRankPoints: 80,
+    rewardYCoins: 1,
   },
 ] as const;
 
@@ -41,7 +41,7 @@ export class LobbyService {
         this.supabaseService
           .getClient()
           .from('daily_mission_progress')
-          .select('mission_key, completed_at, reward_rank_points')
+          .select('mission_key, completed_at, reward_ycoins')
           .eq('user_id', userId)
           .eq('business_date', businessDate),
         this.learningService.getLearningNextAction(userId),
@@ -61,8 +61,6 @@ export class LobbyService {
     return {
       data: {
         profile,
-        tier: profile.tier,
-        rankPoints: profile.rankPoints,
         yCoins: profile.yCoins,
         dailyMissions: DAILY_MISSIONS.map((mission) => {
           const completed = progress.get(mission.key) as any;

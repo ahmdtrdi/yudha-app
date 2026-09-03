@@ -7,6 +7,7 @@ import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/learning/application/learning_providers.dart';
 import 'package:yudha_mobile/features/learning/application/learning_state.dart';
 import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
+import 'package:yudha_mobile/features/learning/presentation/widgets/learning_explanation_sheet.dart';
 import 'package:yudha_mobile/features/practice/domain/entities/practice_launch_request.dart';
 
 class LearningPage extends ConsumerStatefulWidget {
@@ -301,14 +302,24 @@ class _NextActionCard extends StatelessWidget {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(
-                  value.objectiveLabel.toUpperCase(),
-                  style: const TextStyle(
-                    color: AppColors.fireGold,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.8,
-                  ),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        value.objectiveLabel.toUpperCase(),
+                        style: const TextStyle(
+                          color: AppColors.fireGold,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                    LearningInfoButton(
+                      explanation: _recommendationExplanation(value),
+                      color: Colors.white,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -717,17 +728,25 @@ class _SectionBlock extends StatelessWidget {
 }
 
 class _SectionHeading extends StatelessWidget {
-  const _SectionHeading(this.label);
+  const _SectionHeading(this.label, {this.explanation});
   final String label;
+  final LearningExplanation? explanation;
 
   @override
-  Widget build(BuildContext context) => Text(
-    label,
-    style: const TextStyle(
-      color: AppColors.warriorNavy,
-      fontSize: 16,
-      fontWeight: FontWeight.w900,
-    ),
+  Widget build(BuildContext context) => Row(
+    children: <Widget>[
+      Expanded(
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.warriorNavy,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+      if (explanation != null) LearningInfoButton(explanation: explanation!),
+    ],
   );
 }
 
@@ -743,16 +762,17 @@ class _SummaryGrid extends StatelessWidget {
         label: 'Cakupan kurikulum',
         value: _percent(dashboard.coverage.value),
         detail:
-            '${dashboard.coverage.coveredSkillCount}/${dashboard.coverage.requiredSkillCount} skill · ${_confidence(dashboard.coverage.confidence)}',
+            '${dashboard.coverage.coveredSkillCount}/${dashboard.coverage.requiredSkillCount} skill · kekuatan bukti ${_evidenceStrength(dashboard.coverage.confidence)}',
+        explanation: _coverageExplanation(dashboard.coverage),
       ),
       _MetricCard(
-        label: 'Akurasi mandiri',
+        label: 'Akurasi mandiri (mentah)',
         value: _percent(dashboard.accuracy.value),
         detail:
             '${dashboard.accuracy.correctCount}/${dashboard.accuracy.attemptCount} jawaban · bukti ${_confidence(dashboard.accuracy.confidence)}',
       ),
       _MetricCard(
-        label: 'Pace',
+        label: 'Rasio tempo',
         value: dashboard.pace.value == null
             ? 'Belum cukup data'
             : '${dashboard.pace.value!.toStringAsFixed(2)}×',
@@ -792,10 +812,12 @@ class _MetricCard extends StatelessWidget {
     required this.label,
     required this.value,
     required this.detail,
+    required this.explanation,
   });
   final String label;
   final String value;
   final String detail;
+  final LearningExplanation explanation;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -805,7 +827,17 @@ class _MetricCard extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(label, style: const TextStyle(color: AppColors.textMuted)),
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(color: AppColors.textMuted),
+              ),
+            ),
+            LearningInfoButton(explanation: explanation),
+          ],
+        ),
         const SizedBox(height: 8),
         Text(
           value,
@@ -1470,7 +1502,10 @@ class _ActivityPanel extends StatelessWidget {
   final LearningActivity activity;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => InkWell(
+    onTap: onOpenInsights,
+    borderRadius: BorderRadius.circular(18),
+    child: Container(
     padding: const EdgeInsets.all(14),
     decoration: _panelDecoration,
     child: Column(
@@ -1756,7 +1791,7 @@ class _CompetitionPanel extends StatelessWidget {
         ),
       ],
     ),
-  );
+  ));
 }
 
 class _EmptyPanel extends StatelessWidget {
@@ -1833,11 +1868,172 @@ final BoxDecoration _panelDecoration = BoxDecoration(
 
 String _percent(double? value) => value == null ? '—' : '${value.round()}%';
 
-String _confidence(String value) => switch (value) {
+String _evidenceStrength(String value) => switch (value) {
   'high' => 'tinggi',
   'medium' => 'sedang',
   _ => 'rendah',
 };
+
+String _trendLabel(double? value) {
+  if (value == null) return 'tren belum tersedia';
+  final String sign = value > 0 ? '+' : '';
+  return 'tren $sign${value.toStringAsFixed(1)} poin';
+}
+
+LearningExplanation _recommendationExplanation(
+  LearningRecommendation recommendation,
+) {
+  return LearningExplanation(
+    title: 'Mengapa ini direkomendasikan?',
+    definition:
+        'Sistem memilih satu tindakan Solo yang paling berguna berdasarkan bukti belajarmu saat ini.',
+    counts:
+        'Akurasi yang distabilkan, kekuatan bukti, retensi, cakupan, rasio tempo, kepentingan kurikulum, dan latihan 24 jam terakhir.',
+    doesNotCount:
+        'Kepercayaan diri pribadi. Hasil PvP dan Assessment tetap menjadi konteks terpisah dan tidak menjadi tindakan utama.',
+    formula:
+        'Urutan aturan: perbaiki akurasi → ulasan jatuh tempo → tambah bukti/cakupan → bangun kelancaran → jaga cakupan.',
+    example:
+        '${recommendation.reasonHeadline}. ${recommendation.reasonDescription} Kekuatan bukti saat ini ${_evidenceStrength(recommendation.confidence)}.',
+    evidenceWindow:
+        'Menggunakan proyeksi terbaru dari maksimal 20 bukti layak per skill. Rekomendasi dihitung ulang saat ada bukti baru dan berlaku sampai ${recommendation.expiresAt == null ? 'waktu kedaluwarsa berikutnya' : _dateTime(recommendation.expiresAt!)}.',
+  );
+}
+
+LearningExplanation _evidenceStrengthExplanation(LearningMetric metric) {
+  return LearningExplanation(
+    title: 'Kekuatan bukti',
+    definition:
+        'Ini menunjukkan seberapa dapat diandalkan datanya—bukan seberapa percaya diri kamu.',
+    counts:
+        'Jumlah percobaan mandiri pada soal baru, jumlah soal unik, variasi tingkat kesulitan, dan seberapa baru buktinya. Ringkasan memakai kekuatan terendah dari skill yang berkontribusi.',
+    doesNotCount:
+        'Perasaan yakin, keberanian menjawab, atau nilai kepribadian. Akurasi tinggi dengan data yang sedikit tetap dapat berkekuatan rendah.',
+    formula:
+        'Per skill—tinggi: ≥15 percobaan, ≥8 soal unik, ≥2 tingkat kesulitan, bukti terbaru ≤14 hari. Sedang: ≥5 percobaan, ≥3 soal unik, bukti terbaru ≤30 hari. Selain itu: rendah.',
+    example:
+        'Totalmu ${metric.attemptCount} percobaan dari ${metric.uniqueQuestionCount} soal unik. Kekuatan ringkasan ${_evidenceStrength(metric.confidence)} karena sistem memakai penilaian paling konservatif di antara skill yang berkontribusi.',
+    evidenceWindow:
+        'Dihitung dari maksimal 20 percobaan layak terbaru per skill; batas kebaruan 14 atau 30 hari diterapkan pada bukti terakhir.',
+  );
+}
+
+LearningExplanation _accuracyExplanation(
+  LearningMetric metric, {
+  double? smoothedAccuracy,
+}) {
+  final String rawExample = metric.attemptCount == 0
+      ? 'Belum ada percobaan layak untuk dihitung.'
+      : '${metric.correctCount} benar ÷ ${metric.attemptCount} percobaan = ${_percent(metric.value)} akurasi mentah.';
+  final String smoothedExample = smoothedAccuracy == null
+      ? 'Akurasi yang distabilkan ditampilkan pada detail tiap skill ketika datanya tersedia.'
+      : 'Dengan penyeimbang +2/+4, akurasi yang distabilkan menjadi ${_percent(smoothedAccuracy)}.';
+  return LearningExplanation(
+    title: 'Akurasi mentah dan distabilkan',
+    definition:
+        'Akurasi mandiri adalah hasil percobaan pertama tanpa petunjuk. “Soal baru” berarti soal itu belum pernah kamu lihat sebelumnya.',
+    counts:
+        'Jawaban valid, percobaan pertama, tanpa petunjuk. Akurasi unseen-independent hanya memakai soal baru yang belum pernah dilihat.',
+    doesNotCount:
+        'Percobaan dengan petunjuk, pengulangan soal, jawaban yang dibatalkan, dan bukti yang tidak dapat diklasifikasikan dengan aman.',
+    formula:
+        'Mentah = benar ÷ percobaan layak × 100%. Distabilkan = (benar + 2) ÷ (percobaan + 4) × 100%; angka distabilkan dipakai untuk status dan rekomendasi.',
+    example: '$rawExample $smoothedExample',
+    evidenceWindow:
+        'Maksimal 20 percobaan layak terbaru per skill. Data ini dihitung per ${metric.asOf == null ? 'pembaruan terakhir' : _dateTime(metric.asOf!)}.',
+  );
+}
+
+LearningExplanation _paceExplanation(LearningPace pace) {
+  final double? value = pace.value;
+  final String interpretation = value == null
+      ? 'Belum ada cukup percobaan dengan waktu yang dapat dibandingkan.'
+      : value == 1
+      ? 'Rasio ${value.toStringAsFixed(2)}× berarti waktumu sama dengan waktu acuan.'
+      : value < 1
+      ? 'Rasio ${value.toStringAsFixed(2)}× berarti sekitar ${((1 - value) * 100).round()}% lebih cepat dari acuan.'
+      : 'Rasio ${value.toStringAsFixed(2)}× berarti sekitar ${((value - 1) * 100).round()}% lebih lambat dari acuan.';
+  return LearningExplanation(
+    title: 'Rasio tempo',
+    definition:
+        'Rasio tempo membandingkan waktu jawaban efektifmu dengan waktu acuan soal. Nilai 1,00× berarti sesuai acuan.',
+    counts:
+        'Percobaan valid tanpa petunjuk yang memiliki waktu respons efektif dan waktu acuan yang dapat dibandingkan.',
+    doesNotCount:
+        'Waktu latar belakang, timing yang tidak valid, percobaan berbantuan, atau soal tanpa acuan yang sesuai.',
+    formula:
+        'Rasio tiap percobaan = waktu efektif ÷ waktu acuan. Rasio skill = median seluruh rasio yang dapat dibandingkan.',
+    example:
+        '$interpretation Berdasarkan ${pace.attemptCount} percobaan layak.',
+    evidenceWindow:
+        'Maksimal 20 percobaan layak terbaru per skill. Jenis acuan: ${pace.baselineType == 'calibrated'
+            ? 'waktu soal terkalibrasi'
+            : pace.baselineType == 'personal'
+            ? 'riwayat pribadimu'
+            : 'belum tersedia'}.',
+  );
+}
+
+LearningExplanation _coverageExplanation(LearningCoverage coverage) {
+  return LearningExplanation(
+    title: 'Cakupan kurikulum',
+    definition:
+        'Cakupan menunjukkan berapa banyak skill wajib yang sudah memiliki bukti belajar yang cukup.',
+    counts:
+        'Skill wajib yang aktif dan memiliki sedikitnya tiga soal unik layak.',
+    doesNotCount:
+        'Skill opsional, skill nonaktif, pengulangan soal yang sama, atau satu percobaan tunggal.',
+    formula: 'Skill wajib tercakup ÷ seluruh skill wajib aktif × 100%.',
+    example:
+        '${coverage.coveredSkillCount} dari ${coverage.requiredSkillCount} skill wajib tercakup = ${_percent(coverage.value)}.',
+    evidenceWindow:
+        'Mengikuti proyeksi terbaru tiap skill dari maksimal 20 percobaan layak; bukan hanya jumlah aktivitas 30 hari.',
+  );
+}
+
+LearningExplanation _retentionExplanation(List<LearningRetention> items) {
+  final LearningRetention? sample = items.isEmpty ? null : items.first;
+  final String example = sample == null
+      ? 'Belum ada jadwal ulasan. Jadwal pertama muncul tujuh hari setelah bukti kuat terbentuk.'
+      : sample.attemptCount == 0
+      ? '${sample.skillId} dijadwalkan untuk ulasan pada ${sample.reviewDueAt == null ? 'tanggal yang akan ditentukan' : _date(sample.reviewDueAt!)}.'
+      : '${sample.skillId}: ${sample.attemptCount} percobaan retensi menghasilkan ${_percent(sample.accuracy)}.';
+  return LearningExplanation(
+    title: 'Retensi',
+    definition:
+        'Retensi mengukur apakah pemahaman tetap bertahan saat diuji lagi setelah jeda.',
+    counts:
+        'Percobaan tertunda yang valid, mandiri, tanpa petunjuk, dan memakai soal baru yang setara.',
+    doesNotCount:
+        'Latihan langsung setelah belajar, pengulangan berbantuan, dan soal yang sudah pernah dilihat.',
+    formula:
+        'Jawaban benar pada ulasan tertunda ÷ seluruh percobaan ulasan tertunda yang layak × 100%. Nilai di bawah 75% memicu perhatian.',
+    example: example,
+    evidenceWindow:
+        'Ulasan dijadwalkan tujuh hari setelah bukti kuat. Bukti kuat yang lebih tua dari 30 hari juga dapat memicu ulasan.',
+  );
+}
+
+LearningExplanation _skillExplanation(LearningSkillState state) {
+  final String pace = state.paceRatio == null
+      ? 'rasio tempo belum tersedia'
+      : 'rasio tempo ${state.paceRatio!.toStringAsFixed(2)}×';
+  return LearningExplanation(
+    title: 'Cara membaca ${state.label}',
+    definition:
+        'Status skill merangkum akurasi mandiri, kestabilan data, tempo, dan kebutuhan ulasan.',
+    counts:
+        'Percobaan valid pertama tanpa petunjuk; metrik “soal baru” juga mensyaratkan soal belum pernah dilihat.',
+    doesNotCount:
+        'Petunjuk dan soal berulang tidak masuk akurasi soal-baru mandiri. Bukti PvP dan Assessment tetap terpisah.',
+    formula:
+        'Mentah = benar ÷ percobaan. Distabilkan = (benar + 2) ÷ (percobaan + 4). Tren = akurasi 10 terbaru − 10 sebelumnya.',
+    example:
+        '${state.accuracy.correctCount}/${state.accuracy.attemptCount} benar = ${_percent(state.accuracy.value)} mentah; ${_percent(state.smoothedAccuracy)} distabilkan; $pace; ${_trendLabel(state.trendPercentagePoints)}; kekuatan bukti ${_evidenceStrength(state.confidence)}.',
+    evidenceWindow:
+        'Status memakai maksimal 20 percobaan layak terbaru. Tren baru muncul setelah tersedia dua blok yang masing-masing berisi 10 percobaan.',
+  );
+}
 
 String _status(String value, String confidence) {
   if (confidence == 'low') return 'Mengumpulkan data';

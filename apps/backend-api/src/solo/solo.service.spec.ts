@@ -2,7 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { SoloRepository } from './solo.repository';
 import { SoloService } from './solo.service';
 
-describe('SoloService Commit 5', () => {
+describe('SoloService Learning V2 alignment', () => {
   let repository: jest.Mocked<SoloRepository>;
   let service: SoloService;
 
@@ -12,6 +12,7 @@ describe('SoloService Commit 5', () => {
       getSession: jest.fn(),
       getActiveSession: jest.fn(),
       openQuestion: jest.fn(),
+      requestHint: jest.fn(),
       submitAnswer: jest.fn(),
       finishSession: jest.fn(),
     } as unknown as jest.Mocked<SoloRepository>;
@@ -65,22 +66,43 @@ describe('SoloService Commit 5', () => {
       selectedOptionIndex: null,
     });
     expect(repository.submitAnswer).toHaveBeenCalledWith(
-      expect.objectContaining({ selectedOptionIndex: null, usedHint: false }),
+      expect.objectContaining({
+        selectedOptionIndex: null,
+        clientActiveResponseTimeMs: null,
+        backgroundDurationMs: null,
+      }),
     );
   });
 
-  it('forwards explicit hint use with the answer', async () => {
+  it('requests hints through the authoritative endpoint', async () => {
+    repository.requestHint.mockResolvedValue({ hint: 'Mulai dari selisih.' });
+    await service.requestHint('user-1', 'solo-1', 'sq-2', {
+      idempotencyKey: 'hint-1',
+    });
+    expect(repository.requestHint).toHaveBeenCalledWith(
+      'user-1',
+      'solo-1',
+      'sq-2',
+      'hint-1',
+    );
+  });
+
+  it('forwards validated client timing without client-authored hint state', async () => {
     repository.submitAnswer.mockResolvedValue({
       answerResult: { isCorrect: true },
     });
     await service.submitAnswer('user-1', 'solo-1', {
-      idempotencyKey: 'answer-hint-1',
+      idempotencyKey: 'answer-1',
       sessionQuestionId: 'sq-2',
       selectedOptionIndex: 1,
-      usedHint: true,
+      clientActiveResponseTimeMs: 4100,
+      backgroundDurationMs: 900,
     });
     expect(repository.submitAnswer).toHaveBeenCalledWith(
-      expect.objectContaining({ usedHint: true }),
+      expect.objectContaining({
+        clientActiveResponseTimeMs: 4100,
+        backgroundDurationMs: 900,
+      }),
     );
   });
 });

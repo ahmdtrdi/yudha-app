@@ -14,6 +14,7 @@ class _ArenaMenuSection extends StatefulWidget {
     required this.onStartCasual,
     required this.onStartRanked,
     required this.onStartPrivateRoom,
+    required this.onOpenInsights,
   });
 
   final String playerDisplayName;
@@ -28,6 +29,7 @@ class _ArenaMenuSection extends StatefulWidget {
   final VoidCallback onStartCasual;
   final VoidCallback onStartRanked;
   final VoidCallback onStartPrivateRoom;
+  final VoidCallback onOpenInsights;
 
   @override
   State<_ArenaMenuSection> createState() => _ArenaMenuSectionState();
@@ -165,6 +167,11 @@ class _ArenaMenuSectionState extends State<_ArenaMenuSection> {
                     buttonKey: ValueKey<String>('mode-${selected.id}'),
                     label: selected.actionLabel,
                     onPressed: selected.onStart,
+                  ),
+                  TextButton.icon(
+                    onPressed: widget.onOpenInsights,
+                    icon: const Icon(Icons.insights_rounded),
+                    label: const Text('LIHAT PVP INSIGHTS'),
                   ),
                   const SizedBox(height: 4),
                 ],

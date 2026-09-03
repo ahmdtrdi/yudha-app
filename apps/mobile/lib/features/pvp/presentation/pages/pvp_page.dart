@@ -463,6 +463,7 @@ class _PvpPageState extends ConsumerState<PvpPage> {
             controller: controller,
           );
         },
+        onOpenInsights: () => context.push(AppRoutes.pvpInsights),
       );
     }
 
@@ -509,6 +510,7 @@ class _PvpPageState extends ConsumerState<PvpPage> {
           controller.resetBattle();
           context.go(AppRoutes.solo, extra: category);
         },
+        onInsights: () => context.push(AppRoutes.pvpInsights),
         onReplay: () {
           _triggerResultExitAd(state);
           unawaited(controller.startBattle());

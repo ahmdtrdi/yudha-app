@@ -230,6 +230,42 @@ void main() {
     expect(find.text('Learning segera hadir'), findsOneWidget);
     expect(find.text('Buka Practice'), findsOneWidget);
   });
+
+  testWidgets('explains evidence strength with the learner numbers', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          learningRepositoryProvider.overrideWithValue(
+            const _ReadyLearningRepository(),
+          ),
+        ],
+        child: const MaterialApp(home: LearningPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Apa artinya?').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Kekuatan bukti'), findsOneWidget);
+    expect(find.text('Yang dihitung'), findsOneWidget);
+    expect(find.text('Yang tidak dihitung'), findsOneWidget);
+    expect(find.text('Rumus'), findsOneWidget);
+    expect(find.text('Contoh dari datamu'), findsOneWidget);
+    expect(find.text('Jendela bukti'), findsOneWidget);
+    expect(
+      find.textContaining(
+        'Totalmu 0 percobaan dari 0 soal unik. Kekuatan ringkasan rendah',
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _ReadyLearningRepository implements LearningRepository {

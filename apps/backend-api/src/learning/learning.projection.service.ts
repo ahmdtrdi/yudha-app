@@ -490,7 +490,13 @@ function reasonDescription(candidate: RecommendationCandidate): string {
   if (metric === null) {
     return `Data untuk ${candidate.skillLabel} masih dikumpulkan dari soal mandiri yang belum pernah dilihat.`;
   }
-  return `${candidate.skillLabel} memiliki akurasi mandiri soal baru ${metric}% dari ${candidate.state.unseenAttemptCount} percobaan dengan keyakinan ${candidate.state.evidenceConfidence}.`;
+  const evidenceStrength =
+    candidate.state.evidenceConfidence === 'high'
+      ? 'tinggi'
+      : candidate.state.evidenceConfidence === 'medium'
+        ? 'sedang'
+        : 'rendah';
+  return `${candidate.skillLabel} memiliki akurasi mandiri soal baru ${metric}% dari ${candidate.state.unseenAttemptCount} percobaan dengan kekuatan bukti ${evidenceStrength}.`;
 }
 
 function nullableNumber(value: unknown): number | null {

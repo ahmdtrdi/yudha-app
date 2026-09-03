@@ -21,6 +21,7 @@ import 'package:yudha_mobile/features/practice/presentation/pages/practice_quiz_
 import 'package:yudha_mobile/features/profile/presentation/pages/profile_onboarding_page.dart';
 import 'package:yudha_mobile/features/profile/presentation/pages/profile_page.dart';
 import 'package:yudha_mobile/features/pvp/presentation/pages/pvp_page.dart';
+import 'package:yudha_mobile/features/pvp_insights/presentation/pvp_insights_page.dart';
 import 'package:yudha_mobile/features/solo/presentation/pages/solo_loadout_page.dart';
 import 'package:yudha_mobile/features/solo/presentation/pages/solo_session_page.dart';
 import 'package:yudha_mobile/features/solo/presentation/pages/solo_setup_page.dart';
@@ -114,6 +115,10 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
           GoRoute(
             path: AppRoutes.pvp,
             builder: (context, state) => const PvpPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.pvpInsights,
+            builder: (context, state) => const PvpInsightsPage(),
           ),
           GoRoute(
             path: AppRoutes.leaderboard,

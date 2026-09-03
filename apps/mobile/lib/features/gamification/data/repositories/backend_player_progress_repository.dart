@@ -98,12 +98,6 @@ class BackendPlayerProgressRepository implements PlayerProgressRepository {
     final String username =
         (profile['username'] ?? payload['username'])?.toString().trim() ?? '';
     final String displayName = fullName.isNotEmpty ? fullName : username;
-    final int totalPoints = _readInt(
-      profile['rankPoints'] ??
-          payload['rankPoints'] ??
-          profile['rank_points'] ??
-          payload['rank_points'],
-    );
     final int currentStreak = _readInt(
       profile['streak']?['current'] ?? streakMap['current'] ?? 0,
     );
@@ -111,7 +105,6 @@ class BackendPlayerProgressRepository implements PlayerProgressRepository {
     return PlayerProgressSnapshot(
       playerId: (profile['id'] ?? payload['id'])?.toString() ?? 'you',
       displayName: displayName.isEmpty ? 'Kamu' : displayName,
-      totalPoints: totalPoints,
       wins: wins,
       losses: losses,
       draws: resolvedDraws,

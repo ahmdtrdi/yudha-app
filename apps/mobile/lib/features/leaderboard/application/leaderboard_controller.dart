@@ -60,6 +60,7 @@ class LeaderboardController extends StateNotifier<LeaderboardState> {
         isLoadingMore: false,
         currentUserRank: payload.currentUserRank,
         currentUserEntry: payload.currentUserEntry,
+        target: payload.target,
         status: isEmpty
             ? LeaderboardViewStatus.empty
             : LeaderboardViewStatus.success,
