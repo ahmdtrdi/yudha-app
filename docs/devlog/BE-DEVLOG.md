@@ -883,3 +883,23 @@
 
 **The Tech Debt:**
 - Environments that have not applied `20260902120000_solo_learning_v2_alignment.sql` can still fall back to the legacy Solo RPC, which does not create canonical Learning attempts; deployment must keep the migration and API release aligned.
+
+## 2026-09-03 - Fix learning_attempts Column Name in Learning Repository and Service
+
+**The Change:**
+- Fixed `apps/backend-api/src/learning/learning.repository.ts` line 353 to select `difficulty` instead of the non-existent `effective_difficulty_level` from `learning_attempts`.
+- Updated `apps/backend-api/src/learning/learning.service.ts` line 464 to use `row.difficulty ?? row.effective_difficulty_level`.
+- Updated `apps/backend-api/src/learning/learning.service.spec.ts` test mock to include `difficulty`.
+- Added migration `infra/supabase/migrations/20260903120000_alias_effective_difficulty_level.sql` adding `effective_difficulty_level` column to `learning_attempts` for backward/forward compatibility.
+
+**The Reasoning:**
+- The canonical table `learning_attempts` created in `20260901090000_learning_v2_analytics_foundation.sql` defines the column as `difficulty`, not `effective_difficulty_level`. The mismatch caused PostgREST to return a 400 error (`column learning_attempts.effective_difficulty_level does not exist`), which translated to an HTTP 500 error in NestJS `GET /learning/dashboard`, blocking the mobile Learning Center.
+- Adding the fallback `row.difficulty ?? row.effective_difficulty_level` ensures compatibility across both old mock fixtures and the real schema.
+
+**Verification:**
+- Verified query against live Supabase PostgREST returns HTTP 200 with valid records when querying `difficulty`.
+- Backend production build (`npm run build`) succeeded.
+- All 34 test suites and 171 backend tests passed via `npm test`.
+
+**The Tech Debt:**
+- Ensure production Railway deployment pulls the latest commit so the fix is active in live environments.

@@ -350,7 +350,7 @@ export class LearningRepository {
       this.client
         .from('learning_attempts')
         .select(
-          'id, question_revision_id, source, source_session_key, source_event_at, effective_response_time_ms, effective_difficulty_level, is_correct, skill_id, category, subcategory, learning_objective, effective_mechanic_mode, question_selection_type, session_completion_state',
+          'id, question_revision_id, source, source_session_key, source_event_at, effective_response_time_ms, difficulty, is_correct, skill_id, category, subcategory, learning_objective, effective_mechanic_mode, question_selection_type, session_completion_state',
         )
         .eq('user_id', userId)
         .eq('target', target)

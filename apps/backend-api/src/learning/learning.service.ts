@@ -461,7 +461,9 @@ function competitionSummary(
     attemptCount: resolved.length,
     uniqueQuestionCount,
     difficultyLevelCount: new Set(
-      resolved.map((row) => row.effective_difficulty_level).filter(Boolean),
+      resolved
+        .map((row) => row.difficulty ?? row.effective_difficulty_level)
+        .filter(Boolean),
     ).size,
     latestEligibleAt: resolved[0]?.source_event_at ?? null,
     asOf: new Date(endsAt),

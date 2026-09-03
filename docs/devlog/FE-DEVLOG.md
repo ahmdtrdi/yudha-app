@@ -3006,3 +3006,19 @@
 ### The Tech Debt
 - A released Mobile build still depends on the deployed Learning V2 backend and aligned Solo RPC migration to expose canonical evidence from production sessions.
 
+## 2026-09-03 - Improve Backend Error Message Extraction in Learning Repository
+
+### The Change
+- Updated `apps/mobile/lib/features/learning/data/repositories/backend_learning_repository.dart` to extract nested error messages from `decoded['error']['message']` alongside `decoded['message']`.
+- Added unit test in `apps/mobile/test/unit/features/learning/data/backend_learning_repository_test.dart` verifying that nested backend error messages are parsed properly when non-2xx/503 responses occur.
+
+### The Reasoning
+- NestJS API error payloads conform to `{ "error": { "code": "...", "message": "..." } }`. The previous implementation checked only `decoded['message']`, resulting in fallback to the generic `"Gagal memuat Learning."` without the informative server error details.
+
+### Verification
+- All 4 unit tests in `backend_learning_repository_test.dart` passed.
+- All 15 Learning unit and widget tests in `apps/mobile` passed.
+
+### The Tech Debt
+- None.
+
