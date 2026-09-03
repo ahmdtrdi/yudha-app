@@ -82,7 +82,9 @@ class BackendLearningRepository implements LearningRepository {
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final String message = decoded is Map
-          ? decoded['message']?.toString() ?? 'Gagal memuat Learning.'
+          ? (((decoded['error'] as Map?)?['message'] ?? decoded['message'])
+                  ?.toString() ??
+              'Gagal memuat Learning.')
           : 'Gagal memuat Learning.';
       throw LearningApiException(message);
     }

@@ -116,6 +116,7 @@ describe('LearningService', () => {
           source_session_key: 'match-1',
           source_event_at: new Date().toISOString(),
           effective_response_time_ms: 20_000,
+          difficulty: index % 2 === 0 ? 'medium' : 'hard',
           is_correct: index < 4,
           question_revision_id: `pvp-question-${index}`,
         })),
