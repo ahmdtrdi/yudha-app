@@ -11,6 +11,7 @@ class PlayerProgressSnapshot {
     this.tier = 'rookie',
     this.target = 'cpns',
     this.streak = 0,
+    this.bestStreak = 0,
     this.dailyMissions = const <Map<String, Object?>>[],
     this.learningNextAction,
     this.curriculumCoverage,
@@ -25,6 +26,7 @@ class PlayerProgressSnapshot {
   final String tier;
   final String target;
   final int streak;
+  final int bestStreak;
   final List<Map<String, Object?>> dailyMissions;
   final LearningRecommendation? learningNextAction;
   final LearningCoverage? curriculumCoverage;

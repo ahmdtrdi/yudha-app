@@ -947,3 +947,26 @@
 **The Tech Debt:**
 - Deploy `20260903160000_fix_energy_package_catalog.sql` before enabling the 12-Energy package in production.
 - Beta package credits currently reuse the database's fixed 100-Y-Coin RPC in idempotent increments. A future atomic amount-aware RPC would reduce round trips for large beta packages.
+
+## 2026-09-03 - Restrict Streaks to Completed Solo and Public PvP
+
+**The Change:**
+- Added `20260903170000_fix_streak_qualification.sql` so Practice no longer creates streak days, while a Solo transition to `completed` with `policy_completed` creates one through an authoritative database trigger.
+- Made the Practice completion snapshot's `last_streak_date` nullable in the migration and generated database type so a new user can complete Practice while correctly remaining at streak `0` with no streak date.
+- Preserved normal public Casual and Ranked completions as qualifying PvP events; Bot, Private, stopped Solo, surrender, disconnect-forfeit, and abandoned activity remain excluded.
+- Rebuilt `daily_learning_activity` from authoritative completed Solo and public PvP records, then recalculated every profile's current streak, best streak, and last streak date. Accounts without qualifying activity are reset to `0`, `0`, and `null`.
+- Added a postcheck that rejects non-qualifying streak sources and profiles that claim a streak without a qualifying ledger row.
+- Updated the PRD to remove the legacy Practice-as-Solo streak adapter.
+
+**The Reasoning:**
+- Profiles already defaulted to streak `0`, but `complete_practice_session` called `apply_streak_activity`; this made the first completed Practice session display streak `1` even when the player had never completed Solo or public PvP.
+- Solo completion had the inverse defect: it persisted completion and rewards without calling the streak function.
+- Rebuilding the derived ledger repairs existing affected accounts instead of fixing only new activity.
+
+**Verification:**
+- Reviewed the migration against the current `profiles`, `daily_learning_activity`, `practice_session_completions`, `match_results`, and `solo_sessions` contracts.
+- Added a migration postcheck for source and profile consistency.
+- A local Supabase database was not running, so the migration and postcheck still require execution in the deployment database.
+
+**The Tech Debt:**
+- Historical Hired Pass `streak_day_created` events awarded from Practice are not reversed because Pass rewards are a separate progression ledger and require an explicit product-approved reconciliation policy.

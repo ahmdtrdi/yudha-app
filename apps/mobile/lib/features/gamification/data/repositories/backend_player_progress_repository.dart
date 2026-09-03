@@ -106,6 +106,9 @@ class BackendPlayerProgressRepository implements PlayerProgressRepository {
     final int currentStreak = _readInt(
       profile['streak']?['current'] ?? streakMap['current'] ?? 0,
     );
+    final int bestStreak = _readInt(
+      profile['streak']?['best'] ?? streakMap['best'] ?? 0,
+    );
 
     return PlayerProgressSnapshot(
       playerId: (profile['id'] ?? payload['id'])?.toString() ?? 'you',
@@ -117,6 +120,7 @@ class BackendPlayerProgressRepository implements PlayerProgressRepository {
       tier: (profile['tier'] ?? payload['tier'])?.toString() ?? 'rookie',
       target: (profile['target'] ?? payload['target'])?.toString() ?? 'cpns',
       streak: currentStreak,
+      bestStreak: bestStreak,
       dailyMissions: dailyMissions,
       learningNextAction: LearningRecommendation.tryFrom(
         payload['learningNextAction'],

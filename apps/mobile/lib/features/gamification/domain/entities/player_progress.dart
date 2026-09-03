@@ -104,11 +104,6 @@ class PlayerProgress {
   }
 
   PlayerProgress mergeSnapshot(PlayerProgressSnapshot snapshot) {
-    final int mergedStreak = snapshot.streak == 0 ? streak : snapshot.streak;
-    final int mergedBestStreak = snapshot.streak == 0
-        ? bestStreak
-        : (snapshot.streak > bestStreak ? snapshot.streak : bestStreak);
-
     return copyWith(
       playerId: snapshot.playerId,
       displayName: snapshot.displayName,
@@ -118,8 +113,8 @@ class PlayerProgress {
       totalPoints: snapshot.totalPoints,
       tier: snapshot.tier,
       target: snapshot.target,
-      streak: mergedStreak,
-      bestStreak: mergedBestStreak,
+      streak: snapshot.streak,
+      bestStreak: snapshot.bestStreak,
       dailyMissions: snapshot.dailyMissions,
       learningNextAction: snapshot.learningNextAction,
       curriculumCoverage: snapshot.curriculumCoverage,

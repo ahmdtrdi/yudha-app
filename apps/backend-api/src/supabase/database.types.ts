@@ -809,7 +809,7 @@ export type Database = {
           rank_points_after: number;
           current_streak: number;
           best_streak: number;
-          last_streak_date: string;
+          last_streak_date: Nullable<string>;
           hired_pass_activity_applied: boolean;
         };
         Insert: Database['public']['Tables']['practice_session_completions']['Row'];

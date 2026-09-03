@@ -48,7 +48,7 @@ void main() {
     expect(controller.state.draws, 2);
   });
 
-  test('hydrate keeps local-only streak fields in the projection', () async {
+  test('hydrate replaces local streak fields with server values', () async {
     final PlayerProgressController controller = PlayerProgressController(
       repository: _FakePlayerProgressRepository(),
     );
@@ -56,8 +56,8 @@ void main() {
     controller.applyBattleResult(outcome: BattleOutcome.win, ratingDelta: 20);
     controller.applyBattleResult(outcome: BattleOutcome.win, ratingDelta: 10);
 
-    expect(controller.state.streak, 2);
-    expect(controller.state.bestStreak, 2);
+    expect(controller.state.streak, 0);
+    expect(controller.state.bestStreak, 0);
     expect(controller.state.lastDelta, 10);
 
     await controller.hydrateFromRepository();

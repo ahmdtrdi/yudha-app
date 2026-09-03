@@ -217,13 +217,12 @@ Daily Lobby missions are a separate system. The two fixed MVP missions are:
 - For a Ranked match, the result delta applies first and is floored at zero, then the first-of-day `+80` mission reward applies.
 - Daily mission points affect leaderboard order and tier. Tiers are Rookie `0..399`, Warrior `400..799`, Elite `800..1199`, and Legend `1200+`.
 - Daily missions have no direct Y-Coin reward.
-- During compatibility, a normal five-question Practice completion satisfies Daily Solo. After Gate 5, only a Solo `policy_completed` event qualifies.
+- A normal five-question Practice completion satisfies the Daily Practice mission but does not qualify as a streak day. Only a Solo `policy_completed` event qualifies on the learning side.
 
 ### 3.4 Streak
 
 - The server converts the authoritative completion timestamp to `Asia/Jakarta`; client time is ignored.
-- A streak-qualifying activity is an eligible Solo completion or a normal public Casual/Ranked completion. During compatibility, a normal five-question Practice completion is the Solo event adapter; after Gate 5, only `policy_completed` qualifies.
-- Bot, Private, abandoned, surrender, disconnect-forfeit, and Interview activities do not qualify.
+- A streak-qualifying activity is an eligible Solo `policy_completed` completion or a normal public Casual/Ranked completion. Practice, stopped/abandoned Solo sessions, Bot, Private, surrender, and abandoned PvP do not qualify.
 - At most one streak day exists per user per business date.
 - The first qualifying date sets `currentStreak=1`. The next consecutive date increments it. A gap of at least one complete business date resets the next activity to `1`.
 - There is no grace day or offline backdating. `bestStreak` never decreases.
