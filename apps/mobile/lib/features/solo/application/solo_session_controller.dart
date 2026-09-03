@@ -85,6 +85,10 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
   Future<bool> start({
     required SoloQuestionCount count,
     required String characterId,
+    SoloMechanicMode mechanicMode = SoloMechanicMode.standard,
+    SoloQuestionSelection questionSelection =
+        const SoloBalancedQuestionSelection(),
+    String? recommendationId,
   }) async {
     state = const SoloSessionState(loading: true);
     try {
@@ -92,6 +96,9 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
         session: await repository.create(
           questionCount: count,
           characterId: characterId,
+          mechanicMode: mechanicMode,
+          questionSelection: questionSelection,
+          recommendationId: recommendationId,
         ),
       );
       return true;
@@ -121,10 +128,21 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
     }
     state = state.copyWith(submitting: true, clearError: true);
     try {
-      final question = await repository.open(
+      SoloQuestion question = await repository.open(
         state.session!.id,
         card.sessionQuestionId,
       );
+      if (state.session?.mechanicMode == SoloMechanicMode.focus) {
+        question = question.copyWith(clearDeadline: true, timeLimitSeconds: 0);
+      } else if (state.session?.mechanicMode == SoloMechanicMode.speed &&
+          question.openedAt != null &&
+          question.deadlineAt != null) {
+        final int halfSec = (question.timeLimitSeconds / 2).ceil().clamp(1, 9999);
+        question = question.copyWith(
+          timeLimitSeconds: halfSec,
+          deadlineAt: question.openedAt!.add(Duration(seconds: halfSec)),
+        );
+      }
       final String? knownHint = _questionHints[card.sessionQuestionId];
       final Stopwatch activeTimer = _activeTimers.putIfAbsent(
         card.sessionQuestionId,
@@ -238,6 +256,9 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
         question == null ||
         state.submitting ||
         state.showFeedback) {
+      return;
+    }
+    if (session.mechanicMode == SoloMechanicMode.focus && option == null) {
       return;
     }
     if (option == null &&

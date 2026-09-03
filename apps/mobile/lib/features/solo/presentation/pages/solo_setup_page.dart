@@ -6,6 +6,8 @@ import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
+import 'package:yudha_mobile/features/learning/application/learning_providers.dart';
+import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
 import 'package:yudha_mobile/features/solo/application/solo_session_providers.dart';
 import 'package:yudha_mobile/features/solo/application/solo_setup_providers.dart';
 import 'package:yudha_mobile/features/solo/application/solo_setup_state.dart';
@@ -173,7 +175,8 @@ class SoloSetupPage extends ConsumerWidget {
                       buttonKey: 'solo-recommended-continue',
                       surfaceKey: 'solo-recommended-button-surface',
                       onPressed: () {
-                        controller.applyRecommendedPreset();
+                        final nextAction = ref.read(learningControllerProvider).dashboard?.nextAction;
+                        controller.applyRecommendedPreset(nextAction);
                         context.push(AppRoutes.soloLoadout);
                       },
                     ),
@@ -202,9 +205,12 @@ class _ManualSetupSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final SoloSetupState state = ref.watch(soloSetupControllerProvider);
     final controller = ref.read(soloSetupControllerProvider.notifier);
+    final learningState = ref.watch(learningControllerProvider);
+    final nextAction = learningState.dashboard?.nextAction;
     final String actionLabel = switch (state.mode) {
       SoloSetupMode.custom when state.legacyTopic == null => 'PILIH TOPIK',
-      SoloSetupMode.recommended => 'REKOMENDASI BELUM TERSEDIA',
+      SoloSetupMode.recommended when state.recommendationId == null && nextAction == null =>
+        'REKOMENDASI BELUM TERSEDIA',
       SoloSetupMode.balanced when !state.canOpenLoadout => 'LENGKAPI SETUP',
       _ => 'LANJUT PILIH KARAKTER',
     };
@@ -287,12 +293,27 @@ class _ManualSetupSheet extends ConsumerWidget {
                       ) ...<Widget>[
                         Expanded(
                           child: _SoloModeCard(
-                            spec: _customModeSpecs[index],
+                            spec: _customModeSpecs[index].mode == SoloSetupMode.recommended && state.legacyTopic != null
+                                ? _customModeSpecs[index].copyWithDescription(state.legacyTopic!.name)
+                                : (_customModeSpecs[index].mode == SoloSetupMode.recommended && nextAction != null
+                                    ? _customModeSpecs[index].copyWithDescription(
+                                        nextAction.subcategory ?? nextAction.category ?? nextAction.skillLabel,
+                                      )
+                                    : _customModeSpecs[index]),
                             selected:
                                 state.mode == _customModeSpecs[index].mode,
-                            onTap: () => controller.selectMode(
-                              _customModeSpecs[index].mode,
-                            ),
+                            onTap: () {
+                              final specMode = _customModeSpecs[index].mode;
+                              if (specMode == SoloSetupMode.recommended) {
+                                if (nextAction != null) {
+                                  controller.selectRecommendation(nextAction);
+                                } else {
+                                  controller.selectMode(SoloSetupMode.recommended);
+                                }
+                              } else {
+                                controller.selectMode(specMode);
+                              }
+                            },
                           ),
                         ),
                         if (index < _customModeSpecs.length - 1)
@@ -338,6 +359,15 @@ class _SoloModeSpec {
   final bool unavailable;
 
   CosmeticItem get arena => GameEconomyCatalog.findArena(arenaId)!;
+
+  _SoloModeSpec copyWithDescription(String newDescription) => _SoloModeSpec(
+    mode: mode,
+    title: title,
+    description: newDescription,
+    arenaId: arenaId,
+    accent: accent,
+    unavailable: unavailable,
+  );
 }
 
 const List<_SoloModeSpec> _customModeSpecs = <_SoloModeSpec>[
@@ -354,7 +384,7 @@ const List<_SoloModeSpec> _customModeSpecs = <_SoloModeSpec>[
     description: 'Topik terlemah',
     arenaId: 'arena-lembah-bara',
     accent: Color(0xFFF08A36),
-    unavailable: true,
+    unavailable: false,
   ),
   _SoloModeSpec(
     mode: SoloSetupMode.custom,
@@ -618,8 +648,7 @@ class _MechanicSelector extends StatelessWidget {
               child: _MechanicChoice(
                 mode: SoloMechanicMode.values[index],
                 selected: selected == SoloMechanicMode.values[index],
-                enabled:
-                    SoloMechanicMode.values[index] == SoloMechanicMode.standard,
+                enabled: true,
                 onTap: () => onSelected(SoloMechanicMode.values[index]),
               ),
             ),

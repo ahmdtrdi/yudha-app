@@ -22,12 +22,18 @@ class SoloRepository {
   Future<SoloSession> create({
     required SoloQuestionCount questionCount,
     required String characterId,
+    SoloMechanicMode mechanicMode = SoloMechanicMode.standard,
+    SoloQuestionSelection questionSelection =
+        const SoloBalancedQuestionSelection(),
+    String? recommendationId,
   }) => _post('/solo/sessions', <String, dynamic>{
     'idempotencyKey': _key('create'),
-    'mechanicMode': 'standard',
+    'mechanicMode': mechanicMode.wireValue,
     'questionCount': questionCount.value,
-    'questionSelection': <String, dynamic>{'type': 'balanced'},
+    'questionSelection': questionSelection.toJson(),
     'characterId': characterId,
+    if (recommendationId != null && recommendationId.trim().isNotEmpty)
+      'recommendationId': recommendationId.trim(),
   }).then(SoloSession.fromJson);
 
   Future<SoloSession> get(String sessionId) =>
