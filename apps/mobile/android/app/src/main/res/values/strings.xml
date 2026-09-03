@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">YUDHA</string>
     <string name="daily_reminders_channel_name">Pengingat harian</string>
     <string name="daily_reminders_channel_description">Pengingat misi harian dan streak YUDHA</string>
 </resources>

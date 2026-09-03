@@ -17,6 +17,7 @@ class LoginPage extends ConsumerStatefulWidget {
 class _LoginPageState extends ConsumerState<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _obscurePassword = true;
   String? _emailError;
   String? _passwordError;
 
@@ -62,6 +63,50 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     context.go(AppRoutes.postLoginDestination(GoRouterState.of(context).uri));
   }
 
+  InputDecoration _clayInputDecoration({
+    required String labelText,
+    required String hintText,
+    required IconData prefixIcon,
+    String? errorText,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      labelText: labelText,
+      hintText: hintText,
+      errorText: errorText,
+      prefixIcon: Icon(prefixIcon, size: 20, color: AppColors.textMuted),
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: const Color(0xFFFBF9F5),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      labelStyle: GoogleFonts.dmSans(
+        color: AppColors.textMuted,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      ),
+      hintStyle: GoogleFonts.dmSans(
+        color: AppColors.textMuted.withAlpha(120),
+        fontSize: 14,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFFE5DDD0), width: 1.5),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: AppColors.warriorNavy, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFFD94848), width: 1.5),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFFD94848), width: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final AppAuthState authState = ref.watch(authProvider);
@@ -71,32 +116,75 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 430),
               child: Container(
-                padding: const EdgeInsets.fromLTRB(18, 24, 18, 18),
+                padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: AppColors.warriorNavy.withValues(alpha: 0.12),
+                    color: const Color(0xFFE5DDD0),
+                    width: 1.5,
                   ),
+                  boxShadow: const <BoxShadow>[
+                    BoxShadow(
+                      color: Color(0xFFE6DDD0),
+                      offset: Offset(0, 6),
+                      blurRadius: 0,
+                    ),
+                    BoxShadow(
+                      color: Color(0x0C000000),
+                      offset: Offset(0, 10),
+                      blurRadius: 18,
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Mascot Brand Badge (Clay circular inset)
+                    Center(
+                      child: Container(
+                        width: 76,
+                        height: 76,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFBF9F5),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFFE8E0D2),
+                            width: 1.5,
+                          ),
+                          boxShadow: const <BoxShadow>[
+                            BoxShadow(
+                              color: Color(0xFFE6DDD0),
+                              offset: Offset(0, 3),
+                              blurRadius: 0,
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.all(10),
+                        child: Image.asset(
+                          'assets/branding/app-icon-new.png',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
                     Text(
                       'Selamat Datang',
+                      textAlign: TextAlign.center,
                       style: GoogleFonts.fredoka(
                         color: AppColors.warriorNavy,
-                        fontSize: 22,
+                        fontSize: 24,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Text(
                       'Masuk ke arena belajar YUDHA.',
+                      textAlign: TextAlign.center,
                       style: GoogleFonts.dmSans(
                         color: AppColors.textMuted,
                         fontSize: 14,
@@ -138,37 +226,72 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           setState(() => _emailError = null);
                         }
                       },
-                      decoration: InputDecoration(
+                      decoration: _clayInputDecoration(
                         labelText: 'Email',
                         hintText: 'Masukkan email kamu',
+                        prefixIcon: Icons.alternate_email_rounded,
                         errorText: _emailError,
                       ),
                     ),
                     const SizedBox(height: 16),
                     TextField(
                       controller: _passwordController,
-                      obscureText: true,
+                      obscureText: _obscurePassword,
                       textInputAction: TextInputAction.done,
                       onChanged: (_) {
                         if (_passwordError != null) {
                           setState(() => _passwordError = null);
                         }
                       },
-                      decoration: InputDecoration(
+                      decoration: _clayInputDecoration(
                         labelText: 'Password',
                         hintText: '********',
+                        prefixIcon: Icons.lock_outline_rounded,
                         errorText: _passwordError,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            size: 20,
+                            color: AppColors.textMuted,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 28),
-                    SizedBox(
+                    const SizedBox(height: 26),
+                    // Tactile Clay Button
+                    Container(
                       height: 52,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: authState.isLoading
+                            ? null
+                            : const <BoxShadow>[
+                                BoxShadow(
+                                  color: Color(0xFF071F52),
+                                  offset: Offset(0, 4),
+                                  blurRadius: 0,
+                                ),
+                              ],
+                      ),
                       child: FilledButton(
                         onPressed: authState.isLoading ? null : _submit,
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.warriorNavy,
+                          elevation: 0,
+                          shadowColor: Colors.transparent,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(16),
+                            side: const BorderSide(
+                              color: Color(0x33FFFFFF),
+                              width: 1,
+                            ),
                           ),
                         ),
                         child: authState.isLoading
@@ -182,25 +305,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               )
                             : Text(
                                 'Masuk',
-                                style: GoogleFonts.dmSans(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0,
+                                style: GoogleFonts.fredoka(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5,
                                 ),
                               ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 18),
                     TextButton(
                       onPressed: () {
                         ref.read(authProvider.notifier).clearError();
                         context.go(AppRoutes.profileSetup);
                       },
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.warriorNavy,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
                       child: Text(
                         'Belum punya akun? Daftar',
                         style: GoogleFonts.dmSans(
-                          color: AppColors.warriorNavy,
                           fontWeight: FontWeight.w700,
+                          fontSize: 14,
                         ),
                       ),
                     ),
@@ -223,22 +350,29 @@ class _AuthErrorBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.redAccent.withAlpha(18),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.redAccent.withAlpha(80)),
+        color: const Color(0xFFFFF1F1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFFD4D4), width: 1.5),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0xFFF7DDDD),
+            offset: Offset(0, 2),
+            blurRadius: 0,
+          ),
+        ],
       ),
       child: Row(
         children: <Widget>[
-          const Icon(Icons.info_outline, color: Colors.redAccent, size: 18),
+          const Icon(Icons.info_outline_rounded, color: Color(0xFFD94848), size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(
-                color: AppColors.textStrong,
-                fontSize: 12,
+              style: GoogleFonts.dmSans(
+                color: const Color(0xFF7A2020),
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
             ),
