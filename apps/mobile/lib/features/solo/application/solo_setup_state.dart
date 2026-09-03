@@ -33,12 +33,40 @@ class SoloSetupState {
   final SoloLegacyTopicSelection? legacyTopic;
   final String? characterId;
 
-  bool get usesUnavailableRecommendation => mode == SoloSetupMode.recommended;
+  bool get usesUnavailableRecommendation =>
+      mode == SoloSetupMode.recommended &&
+      (recommendationId == null || recommendationId!.trim().isEmpty);
 
-  bool get canOpenLoadout =>
-      (mode == SoloSetupMode.auto || mode == SoloSetupMode.balanced) &&
-      mechanicMode == SoloMechanicMode.standard &&
-      questionCount != null;
+  bool get canOpenLoadout {
+    if (mechanicMode == null || questionCount == null || mode == null) {
+      return false;
+    }
+    switch (mode!) {
+      case SoloSetupMode.auto:
+      case SoloSetupMode.balanced:
+        return true;
+      case SoloSetupMode.recommended:
+        return recommendationId != null && recommendationId!.trim().isNotEmpty;
+      case SoloSetupMode.custom:
+        return legacyTopic != null;
+    }
+  }
+
+  SoloQuestionSelection get questionSelection {
+    switch (mode) {
+      case SoloSetupMode.recommended:
+        return const SoloRecommendedQuestionSelection();
+      case SoloSetupMode.custom:
+        if (legacyTopic != null) {
+          return SoloCustomQuestionSelection(<String>[legacyTopic!.id]);
+        }
+        return const SoloBalancedQuestionSelection();
+      case SoloSetupMode.auto:
+      case SoloSetupMode.balanced:
+      case null:
+        return const SoloBalancedQuestionSelection();
+    }
+  }
 
   SoloSetupState copyWith({
     SoloSetupMode? mode,

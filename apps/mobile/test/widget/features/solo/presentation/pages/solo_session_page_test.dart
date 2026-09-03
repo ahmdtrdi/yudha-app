@@ -131,7 +131,11 @@ class _ArenaSoloRepository extends SoloRepository {
   Future<SoloSession> create({
     required SoloQuestionCount questionCount,
     required String characterId,
-  }) async => _session();
+    SoloMechanicMode mechanicMode = SoloMechanicMode.standard,
+    SoloQuestionSelection questionSelection =
+        const SoloBalancedQuestionSelection(),
+    String? recommendationId,
+  }) async => _session(mechanicMode: mechanicMode);
 
   @override
   Future<SoloQuestion> open(String sessionId, String questionId) async {
@@ -153,7 +157,7 @@ class _ArenaSoloRepository extends SoloRepository {
   Future<SoloAnswerResponse> answer(
     String sessionId,
     String questionId,
-    int? optionIndex, {
+    int? selectedOptionIndex, {
     int? clientActiveResponseTimeMs,
     int? backgroundDurationMs,
   }) async {
@@ -179,6 +183,7 @@ SoloSession _session({
   int answeredCount = 0,
   int correctCount = 0,
   int towerHp = 100,
+  SoloMechanicMode mechanicMode = SoloMechanicMode.standard,
 }) {
   return SoloSession(
     id: 'solo-1',
@@ -190,6 +195,7 @@ SoloSession _session({
     correctCount: correctCount,
     towerHp: towerHp,
     rewardCoins: 0,
+    mechanicMode: mechanicMode,
     hand: <SoloHandCard>[
       for (int order = answeredCount + 1; order <= answeredCount + 3; order++)
         SoloHandCard(

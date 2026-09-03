@@ -15,6 +15,7 @@ import 'package:yudha_mobile/features/profile/application/profile_settings_provi
 import 'package:yudha_mobile/features/profile/domain/entities/profile_settings.dart';
 import 'package:yudha_mobile/features/solo/application/solo_session_controller.dart';
 import 'package:yudha_mobile/features/solo/application/solo_session_providers.dart';
+import 'package:yudha_mobile/features/solo/domain/solo_contract.dart';
 import 'package:yudha_mobile/features/solo/domain/solo_session.dart';
 
 class SoloSessionPage extends ConsumerStatefulWidget {
@@ -195,10 +196,10 @@ class _SoloSessionPageState extends ConsumerState<SoloSessionPage>
                   const SizedBox(height: 12),
                   _CardTray(
                     hand: session.hand,
-                    loading:
-                        state.submitting || state.reaction != SoloReaction.idle,
+                    loading: state.submitting,
                     activeQuestionId: activeQuestionId,
                     compact: MediaQuery.sizeOf(context).height < 720,
+                    mechanicMode: session.mechanicMode,
                     onOpen: controller.openCard,
                   ),
                   if (state.error != null) ...<Widget>[
@@ -211,6 +212,7 @@ class _SoloSessionPageState extends ConsumerState<SoloSessionPage>
           ),
           if (state.questionVisible && state.openedQuestion != null)
             _QuestionOverlay(
+              session: state.session ?? session,
               question: state.openedQuestion!,
               feedback: state.feedback,
               selectedOption: state.selectedOption,
@@ -589,12 +591,14 @@ class _CardTray extends StatelessWidget {
     required this.loading,
     required this.activeQuestionId,
     required this.compact,
+    required this.mechanicMode,
     required this.onOpen,
   });
   final List<SoloHandCard> hand;
   final bool loading;
   final String? activeQuestionId;
   final bool compact;
+  final SoloMechanicMode mechanicMode;
   final ValueChanged<SoloHandCard> onOpen;
 
   @override
@@ -621,7 +625,9 @@ class _CardTray extends StatelessWidget {
               child: Text(
                 activeQuestionId == null
                     ? 'Jawab untuk menyerang'
-                    : 'Timer kartu tetap berjalan',
+                    : (mechanicMode == SoloMechanicMode.focus
+                        ? 'Fokus menjawab'
+                        : 'Timer kartu tetap berjalan'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.right,
@@ -680,6 +686,7 @@ String _cardAsset(SoloHandCard card) {
 
 class _QuestionOverlay extends StatelessWidget {
   const _QuestionOverlay({
+    required this.session,
     required this.question,
     required this.feedback,
     required this.selectedOption,
@@ -693,6 +700,7 @@ class _QuestionOverlay extends StatelessWidget {
     required this.onBack,
     required this.onNext,
   });
+  final SoloSession session;
   final SoloQuestion question;
   final SoloAnswerFeedback? feedback;
   final int? selectedOption;
@@ -773,7 +781,42 @@ class _QuestionOverlay extends StatelessWidget {
                             ],
                           ),
                         ),
-                        if (!answered && question.deadlineAt != null)
+                        if (!answered && session.mechanicMode == SoloMechanicMode.focus)
+                          Container(
+                            key: const ValueKey<String>('solo-focus-badge'),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8F5E9),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFF4CAF50),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Icon(
+                                  Icons.self_improvement_rounded,
+                                  size: 14,
+                                  color: Color(0xFF2E7D32),
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Santai',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF2E7D32),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else if (!answered && question.deadlineAt != null)
                           _DeadlineTimer(
                             key: ValueKey<DateTime>(question.deadlineAt!),
                             deadline: question.deadlineAt!,

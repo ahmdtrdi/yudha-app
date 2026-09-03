@@ -33,21 +33,24 @@ export class SoloService {
       throw error;
     }
     if (
-      request.mechanicMode !== 'standard' ||
-      request.questionSelection.type !== 'balanced'
+      !['standard', 'focus', 'speed'].includes(request.mechanicMode) ||
+      !['balanced', 'recommended'].includes(request.questionSelection.type)
     ) {
       throw new BadRequestException(
-        'Commit 5 supports only Balanced + Standard sessions.',
+        'Unsupported mechanic mode or question selection.',
       );
     }
     const data = await this.repository.createSession({
-        userId,
-        idempotencyKey: request.idempotencyKey,
-        mechanicMode: request.mechanicMode,
-        questionSelection: request.questionSelection.type,
-        questionCount: request.questionCount,
-        characterId: request.characterId,
-      });
+      userId,
+      idempotencyKey: request.idempotencyKey,
+      mechanicMode: request.mechanicMode,
+      questionSelection: request.questionSelection.type,
+      questionCount: request.questionCount,
+      characterId: request.characterId,
+      ...(request.recommendationId
+        ? { recommendationId: request.recommendationId }
+        : {}),
+    });
     const economy = await this.repository.getEconomyState(userId);
     return {
       data: { ...data, economy },

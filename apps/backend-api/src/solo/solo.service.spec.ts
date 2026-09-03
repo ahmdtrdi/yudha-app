@@ -49,23 +49,60 @@ describe('SoloService Learning V2 alignment', () => {
     });
   });
 
-  it.each([
-    ['focus', { type: 'balanced' }],
-    ['standard', { type: 'recommended' }],
-  ])(
-    'rejects unavailable %s / %p combinations',
-    async (mechanicMode, questionSelection) => {
-      await expect(
-        service.createSession('user-1', {
-          idempotencyKey: 'create-1',
-          mechanicMode,
-          questionCount: 20,
-          questionSelection,
-          characterId: 'character-basic-squire',
-        }),
-      ).rejects.toBeInstanceOf(BadRequestException);
+  it.each(['focus', 'speed'] as const)(
+    'creates %s sessions with balanced selection',
+    async (mechanicMode) => {
+      repository.createSession.mockResolvedValue({ sessionId: `solo-${mechanicMode}` });
+      await service.createSession('user-1', {
+        idempotencyKey: `create-${mechanicMode}`,
+        mechanicMode,
+        questionCount: 20,
+        questionSelection: { type: 'balanced' },
+        characterId: 'character-basic-squire',
+      });
+      expect(repository.createSession).toHaveBeenCalledWith({
+        userId: 'user-1',
+        idempotencyKey: `create-${mechanicMode}`,
+        mechanicMode,
+        questionSelection: 'balanced',
+        questionCount: 20,
+        characterId: 'character-basic-squire',
+      });
     },
   );
+
+  it('creates recommended sessions with recommendationId', async () => {
+    repository.createSession.mockResolvedValue({ sessionId: 'solo-rec' });
+    await service.createSession('user-1', {
+      idempotencyKey: 'create-rec',
+      mechanicMode: 'focus',
+      questionCount: 20,
+      questionSelection: { type: 'recommended' },
+      recommendationId: 'rec-123',
+      characterId: 'character-basic-squire',
+    });
+    expect(repository.createSession).toHaveBeenCalledWith({
+      userId: 'user-1',
+      idempotencyKey: 'create-rec',
+      mechanicMode: 'focus',
+      questionSelection: 'recommended',
+      questionCount: 20,
+      characterId: 'character-basic-squire',
+      recommendationId: 'rec-123',
+    });
+  });
+
+  it('rejects unsupported question selection combinations', async () => {
+    await expect(
+      service.createSession('user-1', {
+        idempotencyKey: 'create-custom',
+        mechanicMode: 'standard',
+        questionCount: 20,
+        questionSelection: { type: 'custom', skillIds: ['skill-1'] },
+        characterId: 'character-basic-squire',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
 
   it('submits null as an authoritative timeout reconciliation', async () => {
     repository.submitAnswer.mockResolvedValue({
