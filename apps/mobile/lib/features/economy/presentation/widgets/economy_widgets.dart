@@ -6,11 +6,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_controller.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_providers.dart';
-import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/arena_visual_theme.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
-import 'package:yudha_mobile/features/economy/presentation/widgets/payment_confirmation_modal.dart';
 
 String formatYCoins(int value) {
   final String digits = value.toString();
@@ -154,8 +152,8 @@ class EnergyBalanceChip extends StatelessWidget {
               color: isPro
                   ? const Color(0xFFFFC857)
                   : (dark
-                      ? Colors.white.withAlpha(60)
-                      : AppColors.warriorNavy.withAlpha(24)),
+                        ? Colors.white.withAlpha(60)
+                        : AppColors.warriorNavy.withAlpha(24)),
               width: isPro ? 1.5 : 1.0,
             ),
           ),
@@ -165,13 +163,13 @@ class EnergyBalanceChip extends StatelessWidget {
               Icon(
                 Icons.bolt_rounded,
                 size: 20,
-                color: isPro ? const Color(0xFFFFC857) : const Color(0xFFFF9800),
+                color: isPro
+                    ? const Color(0xFFFFC857)
+                    : const Color(0xFFFF9800),
               ),
               const SizedBox(width: 4),
               Text(
-                isPro
-                    ? '∞'
-                    : (energy == null ? '—' : '$energy'),
+                isPro ? '∞' : (energy == null ? '—' : '$energy'),
                 style: GoogleFonts.jetBrainsMono(
                   color: isPro
                       ? const Color(0xFFFFC857)
@@ -197,11 +195,7 @@ class EnergyBalanceChip extends StatelessWidget {
 }
 
 class ProBadge extends StatelessWidget {
-  const ProBadge({
-    this.compact = false,
-    this.onTap,
-    super.key,
-  });
+  const ProBadge({this.compact = false, this.onTap, super.key});
 
   final bool compact;
   final VoidCallback? onTap;
@@ -231,11 +225,7 @@ class ProBadge extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            const Icon(
-              Icons.star_rounded,
-              size: 14,
-              color: Color(0xFF5A2A00),
-            ),
+            const Icon(Icons.star_rounded, size: 14, color: Color(0xFF5A2A00)),
             const SizedBox(width: 4),
             Text(
               'PRO',
@@ -396,7 +386,9 @@ class _EnergyTopUpSheetState extends ConsumerState<_EnergyTopUpSheet> {
         ..hideCurrentSnackBar()
         ..showSnackBar(
           const SnackBar(
-            content: Text('Y-Coin tidak cukup. Silakan top up Y-Coin terlebih dahulu.'),
+            content: Text(
+              'Y-Coin tidak cukup. Silakan top up Y-Coin terlebih dahulu.',
+            ),
           ),
         );
       return;
@@ -445,7 +437,11 @@ class _EnergyTopUpSheetState extends ConsumerState<_EnergyTopUpSheet> {
             const SizedBox(height: 12),
             Row(
               children: <Widget>[
-                const Icon(Icons.bolt_rounded, color: Color(0xFFFF9800), size: 24),
+                const Icon(
+                  Icons.bolt_rounded,
+                  color: Color(0xFFFF9800),
+                  size: 24,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Recharge Energy',
@@ -475,7 +471,11 @@ class _EnergyTopUpSheetState extends ConsumerState<_EnergyTopUpSheet> {
               ),
               child: Row(
                 children: <Widget>[
-                  const Icon(Icons.info_outline_rounded, color: Color(0xFFB85C1E), size: 20),
+                  const Icon(
+                    Icons.info_outline_rounded,
+                    color: Color(0xFFB85C1E),
+                    size: 20,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -516,7 +516,9 @@ class _EnergyTopUpSheetState extends ConsumerState<_EnergyTopUpSheet> {
                   ? null
                   : () => _buyPack('energy-12', '+12 Energy', 100),
             ),
-            if (!economy.isPro && economy.energy < economy.maxEnergy && economy.nextRefillAt != null) ...<Widget>[
+            if (!economy.isPro &&
+                economy.energy < economy.maxEnergy &&
+                economy.nextRefillAt != null) ...<Widget>[
               const SizedBox(height: 12),
               _EnergyRefillTimer(nextRefillAt: economy.nextRefillAt!),
             ],
@@ -532,7 +534,11 @@ class _EnergyTopUpSheetState extends ConsumerState<_EnergyTopUpSheet> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: <Widget>[
-                    const Icon(Icons.verified_rounded, color: Color(0xFF15803D), size: 20),
+                    const Icon(
+                      Icons.verified_rounded,
+                      color: Color(0xFF15803D),
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'Kamu memiliki YUDHA Pro (Energi Tak Terbatas)',
@@ -614,7 +620,10 @@ class _EnergyPackCard extends StatelessWidget {
                         if (badge != null) ...<Widget>[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFEF4444),
                               borderRadius: BorderRadius.circular(6),
@@ -650,7 +659,10 @@ class _EnergyPackCard extends StatelessWidget {
                 )
               else
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFC857),
                     borderRadius: BorderRadius.circular(12),
@@ -690,7 +702,10 @@ class _EnergyRefillTimerState extends State<_EnergyRefillTimer> {
   void initState() {
     super.initState();
     _updateRemaining();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _updateRemaining());
+    _timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _updateRemaining(),
+    );
   }
 
   void _updateRemaining() {
@@ -708,8 +723,14 @@ class _EnergyRefillTimerState extends State<_EnergyRefillTimer> {
 
   String _format(Duration duration) {
     final int hours = duration.inHours;
-    final String minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final String seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final String minutes = duration.inMinutes
+        .remainder(60)
+        .toString()
+        .padLeft(2, '0');
+    final String seconds = duration.inSeconds
+        .remainder(60)
+        .toString()
+        .padLeft(2, '0');
     if (hours > 0) {
       final String hoursStr = hours.toString().padLeft(2, '0');
       return '$hoursStr:$minutes:$seconds';
@@ -753,65 +774,11 @@ class _EnergyRefillTimerState extends State<_EnergyRefillTimer> {
   }
 }
 
-class _YCoinTopUpSheet extends ConsumerStatefulWidget {
+class _YCoinTopUpSheet extends ConsumerWidget {
   const _YCoinTopUpSheet();
 
   @override
-  ConsumerState<_YCoinTopUpSheet> createState() => _YCoinTopUpSheetState();
-}
-
-class _YCoinTopUpSheetState extends ConsumerState<_YCoinTopUpSheet> {
-  String? _pendingPackageId;
-
-  Future<void> _handlePackageTap(YCoinTopUpPackage package) async {
-    if (_pendingPackageId != null) {
-      return;
-    }
-    final bool? confirmed = await showDummyPaymentConfirmation(
-      context: context,
-      title: '+${formatYCoins(package.totalCoins)} Y-Coin',
-      subtitle: package.bonusCoins > 0
-          ? 'Termasuk bonus +${package.bonusCoins} Y-Coin (Paket Beta)'
-          : 'Paket Y-Coin Top Up (Beta Access Available)',
-      priceLabel: '${package.priceLabel} (Beta)',
-      badgeText: 'BETA ACCESS AVAILABLE',
-      icon: Icons.monetization_on_rounded,
-      themeColor: AppColors.levelUpTeal,
-    );
-
-    if (confirmed == true && mounted) {
-      await _topUp(package);
-    }
-  }
-
-  Future<void> _topUp(YCoinTopUpPackage package) async {
-    if (_pendingPackageId != null) {
-      return;
-    }
-    setState(() {
-      _pendingPackageId = package.id;
-    });
-    try {
-      final EconomyActionResult result = await ref
-          .read(gameEconomyProvider.notifier)
-          .topUpAuthoritative(package);
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(result.message)));
-    } finally {
-      if (mounted) {
-        setState(() {
-          _pendingPackageId = null;
-        });
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final GameEconomyState economy = ref.watch(gameEconomyProvider);
     final int? balance = economy.isAuthoritative ? economy.yCoins : null;
     final double bottomInset = MediaQuery.paddingOf(context).bottom;
@@ -854,7 +821,7 @@ class _YCoinTopUpSheetState extends ConsumerState<_YCoinTopUpSheet> {
                         ),
                       ),
                       Text(
-                        'Saldo beta saat ini',
+                        'Saldo saat ini',
                         style: GoogleFonts.dmSans(
                           color: AppColors.textMuted,
                           fontSize: 12,
@@ -893,174 +860,68 @@ class _YCoinTopUpSheetState extends ConsumerState<_YCoinTopUpSheet> {
               const SizedBox(height: 12),
             ],
             Container(
-              padding: const EdgeInsets.all(12),
+              key: const ValueKey<String>('y-coin-purchases-unavailable'),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF0C7),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFFFD77B)),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: AppColors.levelUpTeal.withAlpha(70)),
               ),
-              child: Row(
+              child: Column(
                 children: <Widget>[
-                  const Icon(Icons.science_rounded, color: Color(0xFF865710)),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Beta sandbox: konfirmasi pembayaran simulasi. Semua paket aktif (Beta Access Available).',
-                      style: GoogleFonts.dmSans(
-                        color: const Color(0xFF6E4B12),
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
-                        height: 1.3,
-                      ),
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: AppColors.levelUpTeal.withAlpha(20),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.shopping_bag_outlined,
+                      color: AppColors.levelUpTeal,
+                      size: 27,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Pembelian Y-Coin belum tersedia',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.fredoka(
+                      color: AppColors.textStrong,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Fitur pembelian dinonaktifkan pada versi pengujian ini. '
+                    'Saat tersedia, pembelian produk digital akan diproses '
+                    'secara aman melalui Google Play.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.dmSans(
+                      color: AppColors.textMuted,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      height: 1.4,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: GameEconomyCatalog.topUpPackages
-                      .map(
-                        (YCoinTopUpPackage package) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: _TopUpPackageTile(
-                            package: package,
-                            isLoading: _pendingPackageId == package.id,
-                            onTap:
-                                economy.isAuthoritative &&
-                                    _pendingPackageId == null
-                                ? () => _handlePackageTap(package)
-                                : null,
-                          ),
-                        ),
-                      )
-                      .toList(),
+            const SizedBox(height: 14),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.levelUpTeal,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
+              child: const Text('MENGERTI'),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TopUpPackageTile extends StatelessWidget {
-  const _TopUpPackageTile({
-    required this.package,
-    required this.isLoading,
-    required this.onTap,
-  });
-
-  final YCoinTopUpPackage package;
-  final bool isLoading;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        key: ValueKey<String>('top-up-${package.id}'),
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: AppColors.levelUpTeal.withAlpha(80),
-            ),
-          ),
-          child: Row(
-            children: <Widget>[
-              const YCoinMark(size: 34),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Text(
-                          '+${formatYCoins(package.totalCoins)} Y-Coin',
-                          style: GoogleFonts.dmSans(
-                            color: AppColors.textStrong,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.levelUpTeal.withAlpha(22),
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: Text(
-                            'BETA',
-                            style: GoogleFonts.dmSans(
-                              color: AppColors.levelUpTeal,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      package.bonusCoins > 0
-                          ? 'Bonus +${package.bonusCoins} • Beta Access Available'
-                          : 'Beta Access Available',
-                      style: GoogleFonts.dmSans(
-                        color: AppColors.levelUpTeal,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                child: isLoading
-                    ? const SizedBox(
-                        key: ValueKey<String>('top-up-loading'),
-                        width: 30,
-                        height: 30,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.6,
-                          color: AppColors.levelUpTeal,
-                        ),
-                      )
-                    : Container(
-                        key: const ValueKey<String>('top-up-price'),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 11,
-                          vertical: 7,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.levelUpTeal,
-                          borderRadius: BorderRadius.circular(11),
-                        ),
-                        child: Text(
-                          package.priceLabel,
-                          style: GoogleFonts.dmSans(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-              ),
-            ],
-          ),
         ),
       ),
     );

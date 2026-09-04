@@ -12,7 +12,7 @@ import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state
 import 'package:yudha_mobile/features/store/presentation/pages/store_page.dart';
 
 void main() {
-  testWidgets('beta +100 top-up increases the Y-Coin balance', (
+  testWidgets('Y-Coin purchase is unavailable without Google Play Billing', (
     WidgetTester tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(411, 914));
@@ -40,15 +40,18 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey<String>('y-coin-balance')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey<String>('top-up-beta-100')));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey<String>('confirm-dummy-payment-button')),
-    );
-    await tester.pumpAndSettle();
 
-    expect(container.read(gameEconomyProvider).yCoins, 3100);
-    expect(find.text('3.100'), findsNWidgets(2));
+    expect(
+      find.byKey(const ValueKey<String>('y-coin-purchases-unavailable')),
+      findsOneWidget,
+    );
+    expect(find.text('Pembelian Y-Coin belum tersedia'), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('top-up-beta-100')), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('confirm-dummy-payment-button')),
+      findsNothing,
+    );
+    expect(container.read(gameEconomyProvider).yCoins, 3000);
   });
 
   testWidgets('shows a blocking progress overlay while purchase is pending', (
@@ -155,6 +158,10 @@ class _DelayedEconomyRepository extends GameEconomyRepository {
 
   AuthoritativeEconomySnapshot get _initial => AuthoritativeEconomySnapshot(
     coins: 3000,
+    energy: 10,
+    maxEnergy: 10,
+    dailyRefillTarget: 10,
+    isPro: false,
     ownedItemIds: <String>{
       GameEconomyCatalog.defaultCharacterId,
       GameEconomyCatalog.defaultTowerId,
@@ -179,6 +186,11 @@ class _DelayedEconomyRepository extends GameEconomyRepository {
   }
 
   @override
+  Future<AuthoritativeEconomySnapshot> purchaseEnergyPack(String packageId) {
+    return Future<AuthoritativeEconomySnapshot>.value(_initial);
+  }
+
+  @override
   Future<AuthoritativeEconomySnapshot> setLoadout({
     String? characterId,
     String? towerId,
@@ -191,6 +203,10 @@ class _DelayedEconomyRepository extends GameEconomyRepository {
     _purchaseCompleter.complete(
       AuthoritativeEconomySnapshot(
         coins: 2500,
+        energy: 10,
+        maxEnergy: 10,
+        dailyRefillTarget: 10,
+        isPro: false,
         ownedItemIds: <String>{
           GameEconomyCatalog.defaultCharacterId,
           GameEconomyCatalog.defaultTowerId,
@@ -207,6 +223,10 @@ class _DelayedEconomyRepository extends GameEconomyRepository {
   AuthoritativeEconomySnapshot _snapshot({required int coins}) {
     return AuthoritativeEconomySnapshot(
       coins: coins,
+      energy: _initial.energy,
+      maxEnergy: _initial.maxEnergy,
+      dailyRefillTarget: _initial.dailyRefillTarget,
+      isPro: _initial.isPro,
       ownedItemIds: _initial.ownedItemIds,
       characterId: _initial.characterId,
       towerId: _initial.towerId,
@@ -235,6 +255,10 @@ class _FailingEconomyRepository extends GameEconomyRepository {
 
   @override
   Future<AuthoritativeEconomySnapshot> purchaseAndEquip(CosmeticItem item) =>
+      fetch();
+
+  @override
+  Future<AuthoritativeEconomySnapshot> purchaseEnergyPack(String packageId) =>
       fetch();
 
   @override
