@@ -76,7 +76,7 @@ The MVP serves Indonesian CPNS and BUMN candidates who want repeatable practice,
 
 The commercial economy model aligns subscription pricing, coin policies, top-up packaging, and platform assumptions with the financial model:
 
-- **YUDHA Pro Subscription Policy**: Monthly Pro is priced per month (30-day entitlement period). The Pro coin mechanism active subscribers receive an elevated daily coin earning ceilingper day across eligible play. An elevated earning cap is an earning ceiling through gameplay, not an automatic daily coin grant.
+- **YUDHA Pro Subscription Policy**: Monthly Pro provides a 30-day entitlement period. Under Policy 1, active subscribers receive an elevated daily coin earning ceiling across eligible play. An elevated earning cap is an earning ceiling through gameplay, not an automatic daily coin grant.
 - **Core Pro Benefits**: Unlimited Energy across Solo, Bot, and all PvP modes (no reservations required), ad suppression (all interstitial and result-exit stubs suppressed; rewarded ads issue coins), one exclusive character skin selection on activation, and the Policy 1 elevated daily coin earning ceiling.
 - **Purchased Y-Coin Top-Up**: Planned real-money coin purchases are disabled stubs (`FEATURE_DISABLED`) during the pilot and are scheduled for commercial rollout alongside payments.
 - **Commercial Billing Assumptions**: Subscriptions and top-up billings assume standard platform/billing fees of `15.0%` (Google Play), a `0.0%` subscription refund allowance, a `2.0%` coin purchase refund allowance, and a `1-month` settlement collection lag.
@@ -207,18 +207,18 @@ The learning loop is: **Solo/PvP/Assessment evidence → immutable attempts → 
 
 The following table describes the commercial access and monetization structure aligned with the financial model:
 
-| Capability | Free user | Active YUDHA Pro (`Rp 39,000`/month) |
+| Capability | Free user | Active YUDHA Pro |
 |---|---|---|
 | Mode Entry (Solo, Bot, Casual, Ranked, Private) | Costs 2 Energy (free refill up to 10 daily) | Unlimited Energy |
 | Energy Completion Refund | +1 Energy on normal completion | Preserved / unaffected |
-| Energy Store Packs | 5 Energy for 50 Y-Coin, 12 Energy for 100 Y-Coin | Available (unlimited active) |
-| Daily Coin Earning Ceiling | 30 Y-Coin daily cap (applies to Solo rewards) | 50 Y-Coin daily cap across eligible play (Policy 1; no passive grant) |
+| Energy Store Packs | Energy packs exchangeable for Y-Coin | Available (unlimited active) |
+| Daily Coin Earning Ceiling | Standard daily cap (applies to Solo rewards) | Elevated daily cap across eligible play (Policy 1; no passive grant) |
 | Pro Exclusive Cosmetic | Preview only | Choice of 1 exclusive skin on activation |
-| AI Interview | `100 Y-Coin` per new session (text or live voice) | Same `100 Y-Coin` cost |
+| AI Interview | Session charge in Y-Coin (text or live voice) | Same session charge |
 | Character/tower Store | Buy with Y-Coin | Buy with Y-Coin |
 | Rewarded Ads | Can claim Energy or Y-Coin (subject to daily cap) | Rewarded ads award Y-Coin (daily cap) |
 | Result-exit ad stub | Triggered at defined safe breaks | Suppressed while Pro is active |
-| Paid Y-Coin Top-Up | Rp 200/coin anchor, 500 coins for Rp 79,000 (proposal) | Same catalog |
+| Paid Y-Coin Top-Up | Catalog top-up packages (proposal; FEATURE_DISABLED during pilot) | Same catalog |
 
 YUDHA Pro never changes learning content, evidence classification, recommendation priority, battle mechanics, matching, ranking, or Interview quality.
 
@@ -273,7 +273,7 @@ Daily Lobby missions are a separate system. The two fixed MVP missions are:
 | Daily PvP | Normally complete one public Casual or Ranked match, regardless of outcome | `+80 rank_points` |
 
 - Each mission can reward a user once per `Asia/Jakarta` business date.
-- Solo never mutates competitive rank points. Its initial direct result reward is server-authoritative Y-Coin: `+10` when every question is correct and the tower is destroyed, `+3` when all questions are resolved but the tower remains, and `0` when the learner stops early. Direct Solo rewards are capped at `30` Y-Coin per WIB business date.
+- Solo never mutates competitive rank points. Its direct result reward is server-authoritative Y-Coin: awarded when every question is correct and the tower is destroyed, or when all questions are resolved but the tower remains, while stopping early awards no Y-Coin. Direct Solo rewards are capped by the daily Solo coin cap per WIB business date.
 - A mission date runs from `00:00:00` inclusive to the next `00:00:00` exclusive in `Asia/Jakarta`; an activity belongs to the date containing its server completion timestamp.
 - Rewards apply automatically from idempotent server completion events; there is no manual claim button.
 - For a Ranked match, the result delta applies first and is floored at zero, then the first-of-day `+80` mission reward applies.
@@ -684,7 +684,7 @@ POST   /economy/ad-rewards/claims
 
 # YUDHA Pro
 GET    /pro
-       → { plan: { id, priceLabel: "Rp39.000", durationDays: 30, checkoutEnabled: false, disabledCode: "FEATURE_DISABLED", benefits }, entitlement, exclusiveSkins, betaActivationEnabled }
+       → { plan: { id, priceLabel, durationDays: 30, checkoutEnabled: false, disabledCode: "FEATURE_DISABLED", benefits }, entitlement, exclusiveSkins, betaActivationEnabled }
 POST   /pro/beta-activate
        { idempotencyKey, planId, skinId? }
        → { activated, replayed, planId, expiresAt, coinsGranted: 0, skinGranted, pro }
@@ -907,34 +907,30 @@ Rank points are floored at zero. The Ranked delta commits before a first-of-day 
 
 - Every Y-Coin change writes an immutable entry into `coin_transactions` with `delta`, `balance_after`, `reason`, and `idempotency_key`.
 - **Earning Sources**:
-  - Solo normal completion: `+10 Y-Coin` (perfect completion) or `+3 Y-Coin` (other normal completion), subject to the daily free earning cap of `30 Y-Coin`. Early stop awards `0 Y-Coin`.
-  - Casual PvP match completion: `+3 Y-Coin`.
-  - Ranked PvP win: `+10 Y-Coin`.
-  - Ranked PvP loss: `+3 Y-Coin`.
-  - Ranked PvP draw: `+5 Y-Coin`.
+  - Solo normal completion: awards Y-Coin (with bonus for perfect completion), subject to the daily free earning cap. Early stop awards no Y-Coin.
+  - Casual PvP match completion: awards Y-Coin.
+  - Ranked PvP match completion: awards Y-Coin (scaled by win, draw, or loss outcome).
   - Verified rewarded ad claims: awards Y-Coin (subject to the daily ad claim cap).
-  - YUDHA Pro elevated daily cap (Policy 1): Active Pro subscribers have an elevated daily coin earning ceiling of `50 Y-Coin` per day across eligible play (replacing passive monthly grants).
+  - YUDHA Pro elevated daily cap (Policy 1): Active Pro subscribers receive an elevated daily coin earning ceiling across eligible play (replacing passive monthly grants).
 - **Paid Top-Up Packages (Commercial Plan)**:
-  - Single coin retail anchor: `Rp 200` per coin.
-  - Core bundle proposal: `500 Y-Coin` bundle for `Rp 79,000` (effective `Rp 158` per coin).
-  - Commercial platform assumptions: 15.0% platform fee, 2.0% refund allowance, 1-month collection lag.
+  - Top-up packages are governed by catalog configuration; platform fee, refund allowance, and collection lag are modeled in the financial plan.
   - Stubs in pilot: `paidYCoinPackages` remain disabled catalog stubs (`FEATURE_DISABLED`) with Indonesian copy until payment gateway release.
 - **Spending Sinks**:
-  - Solo / Practice question hint: `5 Y-Coin` (authoritative deduction).
-  - AI Mock Interview session creation: `100 Y-Coin` (atomic charge with idempotency, same for text and live voice).
-  - Energy pack purchases: `50 Y-Coin` (5 Energy) or `100 Y-Coin` (12 Energy).
+  - Solo / Practice question hints (authoritative deduction).
+  - AI Mock Interview session creation (atomic charge with idempotency, same for text and live voice).
+  - Energy pack purchases.
   - Character & tower cosmetic skin purchases.
 
 ### 6.4 YUDHA Pro monthly subscription
 
-- YUDHA Pro is a premium monthly subscription product (`pro-monthly`, duration 30 days) priced at `Rp 39,000` / month.
+- YUDHA Pro is a premium monthly subscription product (`pro-monthly`, duration 30 days).
 - **Core Benefits**:
   - **Unlimited Energy**: Free entry into all Solo, Bot, and PvP modes without energy consumption or reservations.
-  - **Elevated Daily Coin Earning Ceiling (Policy 1)**: Daily coin earning ceiling across eligible play is elevated to `50 Y-Coin` per day (compared to `30 Y-Coin` for free Solo play). There is no automatic daily coin grant; users earn toward the ceiling through active play.
+  - **Elevated Daily Coin Earning Ceiling (Policy 1)**: Daily coin earning ceiling across eligible play is elevated compared to free play. There is no automatic daily coin grant; users earn toward the ceiling through active play.
   - **Exclusive Skin Choice**: Select one exclusive Pro character skin upon activation.
   - **Ad Suppression**: Automatically suppresses all post-match and result-exit ad-placement stubs.
 - **Commercial Billing Assumptions**:
-  - Billed monthly at `Rp 39,000` (Google Play platform fee `15.0%`, refund allowance `0.0%`, `1-month` collection lag).
+  - Billed monthly (Google Play platform fee, refund allowance, and collection lag modeled in the financial plan).
 - **Beta Activation**:
   - Available through `POST /pro/beta-activate` with required `planId` and `idempotencyKey` when `ENABLE_BETA_PRO_ACTIVATION=true`.
   - Activations enforce one active period per user; duplicate active periods reject with `PRO_ALREADY_ACTIVE`.
@@ -1752,7 +1748,7 @@ Only completion reason **policy_completed** qualifies for:
 
 For the initial fixed-count policy, both `tower_destroyed` and `questions_completed` map to completion reason `policy_completed`, with the visible result stored as `policyStopTrigger`. `user_stopped`, inventory-exhausted, and abandoned outcomes do not qualify. Early-stop attempts remain valid learning evidence, but early stop grants no direct Y-Coin, mission, streak, or Hired Pass progression.
 
-The direct Solo result reward is idempotent and never changes competitive rank: `tower_destroyed` grants `10` Y-Coin, `questions_completed` grants `3`, and `user_stopped` grants `0`, subject to a `30` Y-Coin Solo cap per WIB business date for free users (elevated to `50` Y-Coin per business date for active YUDHA Pro subscribers under Policy 1).
+The direct Solo result reward is idempotent and never changes competitive rank: normal completion (`tower_destroyed` or `questions_completed`) awards Y-Coin (with a bonus for perfect completion), while `user_stopped` grants no Y-Coin, subject to the daily Solo coin cap per WIB business date for free users (elevated for active YUDHA Pro subscribers under Policy 1).
 
 **Current compatibility:** The current five-question Practice flow continues to use the approved PRD completion and reward behavior until V2 delivery is approved and migrated.
 
