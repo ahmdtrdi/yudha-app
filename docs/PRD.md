@@ -1,8 +1,8 @@
 # YUDHA — Product Requirements and Architecture Contract
 
 > **Status:** Approved product contract; Learning V2 Gate 5 remains blocked by explicit decision debt
-> **Version:** 2.0
-> **Last updated:** 2026-09-01
+> **Version:** 2.1
+> **Last updated:** 2026-09-05
 > **Product timezone:** `Asia/Jakarta` (WIB, UTC+7)
 > **User-facing language:** Indonesian
 > **Audience:** Product, Mobile, Web, App Backend, Game Backend, Data, AI, Security, DevOps, Content, and QA
@@ -24,11 +24,11 @@ This file is the single source of truth for YUDHA product behavior, business rul
 
 ### 0.1 One-liner
 
-**YUDHA (Your Ultimate Digital Hiring Arena)** is a gamified learning platform that builds CPNS and BUMN selection readiness through Solo learning, real-time card battles, explainable analytics, future Assessment evidence, and AI mock interviews with text and voice interaction.
+**YUDHA (Your Ultimate Digital Hiring Arena)** is a gamified recruitment-preparation platform for early-career candidates, initially serving CPNS and BUMN selection through Solo learning, real-time card battles, explainable analytics, future Assessment evidence, and AI mock interviews with text and voice interaction.
 
 ### 0.2 Target user and product promise
 
-The MVP serves Indonesian CPNS and BUMN candidates who want repeatable practice, visible learning progress, and realistic interview rehearsal. YUDHA is a learning product. It does not guarantee employment, predict an official examination result, or issue an official certification.
+The MVP serves Indonesian CPNS and BUMN candidates who want repeatable practice, visible learning progress, and realistic interview rehearsal. Future expansion may serve other recruitment processes with general aptitude tests and interviews after their content and assessment requirements are validated. This direction does not add target identifiers or expand the current MVP. YUDHA is a learning product. It does not guarantee employment, predict an official examination result, or issue an official certification.
 
 ### 0.3 Product principles
 
@@ -64,6 +64,50 @@ The MVP serves Indonesian CPNS and BUMN candidates who want repeatable practice,
 
 ---
 
+### 0.5 Market and customer lifecycle
+
+- The market includes incoming graduates and ongoing employer recruitment, with additional peaks around major selection events. Joint BUMN recruitment and individual employer hiring are distinct demand sources; neither establishes constant monthly demand by itself.
+- Market sizing counts unique relevant candidates rather than summing applications across employers. Candidate volume is not assumed to equal paying demand.
+- The expected lifecycle is free exploration, active preparation, possible paid preparation, cancellation or inactivity, and possible return for another recruitment opportunity. This is a hypothesis to validate, not a mandatory sequence.
+- New and retained free users may both upgrade. Subscription cancellation, product inactivity, and returning to paid service are different events. Conversion and retention are measured by acquisition cohort and, when voluntarily provided, proximity to a relevant test.
+- Broader aptitude-test coverage follows evidence from the initial segments. Each expansion needs validated skill overlap, original or appropriately licensed content, SME review, delivery capacity, acquisition evidence, and an explicit cost plan. Employer names alone do not establish test coverage or affiliation.
+
+### 0.6 Commercial economy decision status
+
+The numerical energy, reward, price, and entitlement rules elsewhere in this document remain the current pilot/development contract. They are not a finalized commercial offer. Engineering continues to follow that contract until an explicit versioned replacement is approved; this section does not enable alternative behavior in code.
+
+- The Pro coin mechanism remains undecided: a grant per entitlement period (currently 500 coins in the pilot contract) versus a higher daily limit on coins earned through eligible play. A higher earning limit is not an automatic daily grant and does not guarantee that users earn the limit.
+- The alternatives must be evaluated separately using actual earning opportunities, eligible rewards, active days, wallet carryover, spending choices, interview demand, willingness to pay, and delivery costs. They must not be combined by default or described as interchangeable benefits.
+- Existing pilot Pro benefits are unlimited energy, ad suppression, the current coin grant, and an exclusive skin. Under the current 100-coin interview charge, allocating the entire 500-coin grant to interviews can fund five sessions; it is not an independent five-session entitlement or a final commercial promise.
+- Product owns the final commercial policy decision with Backend, Mobile, AI, Finance, and QA review. Approval requires a versioned policy, consistent benefit descriptions, aligned financial assumptions, entitlement/ledger acceptance evidence, and measured or explicitly provisional behavioral inputs.
+- Structured paid preparation programs, separately priced interview packages, and paid Assessment benefits remain experiments or future proposals. This document does not approve their implementation or revenue assumptions.
+
+### 0.7 Business measurement and validation
+
+Commercial launch requires an approved event schema and reporting definitions with stable user, session, acquisition-cohort, and policy identifiers. Sensitive interview content and raw audio are not business-analytics payloads. Events must be deduplicated and distinguish actual purchases from beta entitlements.
+
+| Metric or event | Definition / required evidence |
+|---|---|
+| Registration and activation | Registration is separate from activation. Before a pilot cohort is evaluated, Product must version the qualifying first-value activity and denominator; an install or login alone is not evidence of learning activation. |
+| Acquisition source | Record available channel/campaign attribution and spend, preserve unknown attribution, and distinguish paid acquisition from organic and referral activity. |
+| First-time paid conversion | First successful real paid entitlement, separated into newly activated and retained-free cohorts with explicit observation windows; never count the same person twice as a first-time payer. |
+| Renewal and cancellation | Record successful subsequent paid periods, cancellation request, and actual entitlement expiry separately. A cancellation request does not immediately imply inactivity. |
+| Reactivation | Record return to qualifying product activity after a versioned inactivity window; distinguish this from a former subscriber purchasing again. |
+| Activity and retention | Report qualifying learning/interview activity, cohort denominators, observation windows, and sample sizes. Report free and paid activity separately. |
+| Preparation context | Recruitment target and optional expected test timing may support analysis. Collect only necessary context, permit unknown values, and do not infer a scheduled exam from general company interest. |
+| Payment and value feedback | Measure genuine purchase behavior at the offered price, voluntary upgrade/cancellation reasons, refunds, and renewal across preparation periods. |
+| Learning improvement | Compare unseen, comparable questions before and after preparation, with exposure controls, sample sizes, elapsed time, and attrition. Repeated-question accuracy or battle wins alone do not establish improvement. |
+| Interview delivery cost | Correlate provider usage and billed cost with text or live-voice sessions, including retries, failures, fallback, transcription input duration, generated speech, and reasoning usage. Report typical and heavy usage without retaining raw candidate audio for analytics. |
+
+Forecast conversion, lifetime value, seasonality, and unit costs remain assumptions until supported by these observations. No universal conversion or retention threshold is asserted by this PRD; experiment success criteria must be declared before evaluation.
+
+### 0.8 Operating capacity
+
+- Product/Support owns support workload and response targets; staffing plans use ticket volume, handling time, and available staff hours.
+- Content/SME owns content rights, skill coverage, unseen-question inventory, review throughput, revision/error workload, and expansion readiness. Minimum release question counts are not a long-term inventory plan.
+- Backend/DevOps owns measured concurrent-session capacity, traffic, storage, reliability, and infrastructure expansion triggers. AI owns speech/reasoning usage and delivery-cost observations.
+- Finance records fixed budgets, usage-based costs, planned hires with start dates and responsibilities, and capacity-based increases in the financial model. Costs may stay flat within demonstrated capacity; an arbitrary forecast boundary does not justify delaying a known capacity need.
+
 ## 1. Product boundaries
 
 ### 1.1 Included in MVP
@@ -84,7 +128,7 @@ The MVP serves Indonesian CPNS and BUMN candidates who want repeatable practice,
 | 12 | Ad-placement stubs | Free-user result-exit trigger and Pro suppression without a production ad SDK |
 | 13 | Multi-instance readiness | Redis-coordinated matchmaking, health/readiness, observability, graceful shutdown, integration tests, and load tests |
 
-### 1.2 Explicitly excluded from MVP
+### 1.2 Explicitly excluded from pilot MVP
 
 - community discussions, guilds, tournaments, spectators, and battle replays;
 - content marketplace, official certification, and institutional/B2B dashboards;
@@ -95,8 +139,9 @@ The MVP serves Indonesian CPNS and BUMN candidates who want repeatable practice,
 - production ads SDK integration (rewarded ad verification adapter is server-stubbed until configured);
 - auto-renewing subscription billing systems;
 - a permanently designated canonical LLM provider;
-- pgvector question search; and
-- more than two human players in a match.
+- pgvector question search;
+- more than two human players in a match; and
+- additional recruitment targets beyond CPNS/BUMN until separately approved.
 
 ### 1.3 MVP acceptance definition
 
@@ -112,6 +157,19 @@ The MVP is pilot-ready only when:
 - Product, Mobile, Backend, Game Backend, AI, DevOps, Content, and QA accept their criteria in this document.
 
 ---
+
+### 1.4 Commercial readiness after the pilot
+
+Pilot acceptance in Section 1.3 is not authorization to collect real-money payments or report beta activations as revenue. Commercial release additionally requires:
+
+- an approved commercial economy and Pro offer resolving Section 0.6, with consistent in-app benefits, prices, terms, and financial assumptions;
+- real payment processing for each enabled paid product, verified server-side settlement/entitlement events, idempotent activation, expiry, refunds/revocation, purchase restoration where applicable, and payment failure/reconciliation handling;
+- an explicit renewal policy: if auto-renewal is offered, cancellation and renewal billing must be implemented and tested; otherwise the product must clearly describe manual repurchase and expiry;
+- production ad integration and verified rewarded claims before advertising revenue is assumed for an enabled surface; an ad-free commercial launch may defer this revenue stream;
+- the business measurement definitions and instrumentation in Section 0.7, plus operational owners and capacity plans in Section 0.8;
+- demonstrated end-to-end purchase, entitlement, refund, and enabled ad flows in the applicable test environment, followed by launch approval from Product, Backend, Mobile, Finance, and QA.
+
+The financial plan separates pilot/build spending from commercial operation and starts subscription, top-up, and advertising revenue only when the corresponding capability is available. Detailed payment contracts and implementations remain follow-up delivery work; these readiness requirements do not imply they are already implemented.
 
 ## 2. User journeys and access model
 
@@ -146,6 +204,8 @@ The learning loop is: **Solo/PvP/Assessment evidence → immutable attempts → 
 - Target selects one canonical arena: CPNS users see the CPNS arena and BUMN users see the BUMN arena. `equipped_arena_id` is compatibility-only and has no MVP behavior.
 
 ### 2.3 Access and monetization
+
+The following table describes the current pilot contract, subject to the explicit commercial decision in Section 0.6. It must not be presented as a finalized paid offer before Section 1.4 approval.
 
 | Capability | Free user | Active YUDHA Pro |
 |---|---|---|
@@ -932,6 +992,8 @@ The final summary contains overall/dimension scores, evidence-based strengths, i
 - Prompts, candidate text, evaluations, and provider errors use request/session correlation while excluding secrets from logs.
 
 ### 7.4 Text and voice behavior
+
+The current primary interview modes for product and financial planning are text and live push-to-talk voice. Live voice uses a chained speech-to-text, text reasoning/evaluation, and text-to-speech pipeline: audio chunks travel during capture, but transcription and answer evaluation follow answer completion. It is turn-based and does not imply a native continuous speech-to-speech provider. Recorded upload is a fallback transport within the voice experience, not a separately priced third mode. Voice cost assumptions must include fallback/retry usage and actual input/output speech duration; native speech-to-speech is not the current baseline.
 
 - Text answers support ordinary REST and SSE streaming. Both paths use the same idempotency claim and persist the same final turn.
 - Recorded voice remains a failure fallback that uploads audio, receives a transcript, lets the user review/edit it, and submits the reviewed text as the answer.
