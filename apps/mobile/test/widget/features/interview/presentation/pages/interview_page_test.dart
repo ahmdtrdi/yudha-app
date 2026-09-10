@@ -473,6 +473,18 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Berpikir...'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('interview-voice-mode-card')),
+          matching: find.byKey(const ValueKey<String>('voice-thinking-status')),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('interview-question-surface')),
+        findsNothing,
+      );
+
       await tester.pump(const Duration(seconds: 3));
       await tester.pump(const Duration(milliseconds: 250));
       expect(find.text('Menimbang...'), findsOneWidget);

@@ -453,7 +453,9 @@ class _InterviewPageState extends ConsumerState<InterviewPage>
                               .retry(),
                         ),
                       Expanded(
-                        child: state.status == InterviewViewStatus.starting
+                        child:
+                            state.status == InterviewViewStatus.starting &&
+                                (!isVoiceMode || state.useTextFallback)
                             ? const Center(
                                 child: Padding(
                                   padding: EdgeInsets.all(24),
@@ -834,7 +836,8 @@ class _VoiceRoomPanel extends StatelessWidget {
           LiveInterviewPhase.evaluating,
           LiveInterviewPhase.reconnecting,
         }.contains(state.livePhase) ||
-        state.status == InterviewViewStatus.submitting;
+        state.status == InterviewViewStatus.submitting ||
+        state.status == InterviewViewStatus.starting;
     final bool isActive = switch (state.livePhase) {
       LiveInterviewPhase.connecting ||
       LiveInterviewPhase.interviewerSpeaking ||
@@ -992,14 +995,23 @@ class _VoiceRoomPanel extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        copy.subtitle,
-                        style: GoogleFonts.dmSans(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
-                          fontSize: 11,
+                      if (isThinking)
+                        _TypingBubble(
+                          key: const ValueKey<String>('voice-thinking-status'),
+                          inline: true,
+                          label: state.status == InterviewViewStatus.submitting
+                              ? 'Menyiapkan hasil interview...'
+                              : copy.subtitle,
+                        )
+                      else
+                        Text(
+                          copy.subtitle,
+                          style: GoogleFonts.dmSans(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 11,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -1034,52 +1046,38 @@ class _VoiceRoomPanel extends StatelessWidget {
               ),
             ),
           ),
-          Container(
-            key: const ValueKey<String>('interview-question-surface'),
-            width: double.infinity,
-            constraints: BoxConstraints(
-              minHeight: 85,
-              maxHeight: isThinking ? double.infinity : 130,
+          if (!isThinking)
+            Container(
+              key: const ValueKey<String>('interview-question-surface'),
+              width: double.infinity,
+              constraints: const BoxConstraints(minHeight: 85, maxHeight: 130),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(26),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color: Colors.white.withAlpha(60),
+                  width: 1.2,
+                ),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: const Color(0xFF002966).withAlpha(50),
+                    blurRadius: 0,
+                    offset: const Offset(0, 4),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withAlpha(15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: _ScrollableInterviewQuestion(
+                text:
+                    currentQuestion?.text ??
+                    'Menyiapkan pertanyaan interview...',
+              ),
             ),
-            padding: isThinking
-                ? EdgeInsets.zero
-                : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: isThinking
-                ? null
-                : BoxDecoration(
-                    color: Colors.white.withAlpha(26),
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: Colors.white.withAlpha(60),
-                      width: 1.2,
-                    ),
-                    boxShadow: <BoxShadow>[
-                      BoxShadow(
-                        color: const Color(0xFF002966).withAlpha(50),
-                        blurRadius: 0,
-                        offset: const Offset(0, 4),
-                      ),
-                      BoxShadow(
-                        color: Colors.black.withAlpha(15),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-            child: isThinking
-                ? _TypingBubble(
-                    key: const ValueKey<String>('voice-thinking-status'),
-                    showAvatar: false,
-                    label: state.status == InterviewViewStatus.submitting
-                        ? 'Menyiapkan hasil interview...'
-                        : copy.subtitle,
-                  )
-                : _ScrollableInterviewQuestion(
-                    text:
-                        currentQuestion?.text ??
-                        'Menyiapkan pertanyaan interview...',
-                  ),
-          ),
           if (latestCandidateAnswer != null) ...<Widget>[
             const SizedBox(height: 8),
             Container(
@@ -2253,8 +2251,8 @@ class _MessageEntrance extends StatelessWidget {
 }
 
 class _TypingBubble extends StatefulWidget {
-  const _TypingBubble({required this.label, this.showAvatar = true, super.key});
-  final bool showAvatar;
+  const _TypingBubble({required this.label, this.inline = false, super.key});
+  final bool inline;
   final String label;
 
   @override
@@ -2313,18 +2311,65 @@ class _TypingBubbleState extends State<_TypingBubble>
 
   @override
   Widget build(BuildContext context) {
+    if (widget.inline) {
+      return Semantics(
+        liveRegion: true,
+        label: widget.label,
+        child: ExcludeSemantics(
+          child: Row(
+            children: <Widget>[
+              AnimatedBuilder(
+                animation: _animation,
+                builder: (context, child) => Opacity(
+                  opacity: 0.65 + 0.35 * math.sin(_animation.value * math.pi),
+                  child: child,
+                ),
+                child: Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 7),
+              Flexible(
+                child: AnimatedSwitcher(
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 220),
+                  layoutBuilder: (child, previous) => Stack(
+                    alignment: Alignment.centerLeft,
+                    children: <Widget>[...previous, ?child],
+                  ),
+                  child: Text(
+                    _phrases[_phraseIndex],
+                    key: ValueKey<int>(_phraseIndex),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      height: 1.4,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Semantics(
       liveRegion: true,
       label: widget.label,
       child: ExcludeSemantics(
         child: Padding(
-          padding: EdgeInsets.only(bottom: widget.showAvatar ? 14 : 0),
+          padding: const EdgeInsets.only(bottom: 14),
           child: Row(
             children: <Widget>[
-              if (widget.showAvatar) ...<Widget>[
-                const _AvatarIcon(isUser: false),
-                const SizedBox(width: 8),
-              ],
+              const _AvatarIcon(isUser: false),
+              const SizedBox(width: 8),
               Flexible(
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -4346,7 +4391,7 @@ class _SessionsSheetState extends ConsumerState<_SessionsSheet> {
                             ),
                             direction: DismissDirection.endToStart,
                             dismissThresholds: const {
-                              DismissDirection.endToStart: 0.55,
+                              DismissDirection.endToStart: 0.25,
                             },
                             confirmDismiss: (_) => _deleteSession(session),
                             onDismissed: (_) {
