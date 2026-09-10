@@ -6,6 +6,7 @@ import 'package:yudha_mobile/app/router/app_tab_shell.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_controller.dart';
 import 'package:yudha_mobile/features/economy/application/game_economy_providers.dart';
+import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_controller.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/gamification/data/models/player_progress_snapshot.dart';
@@ -13,9 +14,45 @@ import 'package:yudha_mobile/features/gamification/data/repositories/player_prog
 import 'package:yudha_mobile/features/learning/application/learning_providers.dart';
 import 'package:yudha_mobile/features/learning/data/repositories/learning_repository.dart';
 import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
+import 'package:yudha_mobile/features/lobby/domain/beta_welcome_reward.dart';
+import 'package:yudha_mobile/features/lobby/presentation/beta_welcome_dialog.dart';
 import 'package:yudha_mobile/features/lobby/presentation/pages/lobby_page.dart';
 
 void main() {
+  testWidgets('beta popup waits for server balances and stays acknowledged', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 740));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = _BetaSummaryRepository();
+    final progress = PlayerProgressController(repository: repository);
+    final economy = _BetaEconomyController();
+    await progress.hydrateFromRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          playerProgressProvider.overrideWith((ref) => progress),
+          playerProgressRepositoryProvider.overrideWithValue(repository),
+          gameEconomyProvider.overrideWith((ref) => economy),
+        ],
+        child: const MaterialApp(home: LobbyPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(BetaWelcomeDialog), findsNothing);
+    economy.markReady();
+    await tester.pumpAndSettle();
+    expect(find.byType(BetaWelcomeDialog), findsOneWidget);
+    expect(economy.state.energy, 1010);
+    await tester.tap(find.text('Mulai Bermain'));
+    await tester.pumpAndSettle();
+    expect(repository.acknowledged, isTrue);
+    await progress.hydrateFromRepository();
+    economy.markReady();
+    await tester.pumpAndSettle();
+    expect(find.byType(BetaWelcomeDialog), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('renders the full-blue Lobby and quest roadmap responsively', (
     WidgetTester tester,
   ) async {
@@ -47,10 +84,7 @@ void main() {
     expect(find.text('Streak belajar'), findsOneWidget);
     expect(find.text('CPNS'), findsOneWidget);
     expect(find.text('42%'), findsOneWidget);
-    expect(
-      find.text('8 dari 19 skill memiliki bukti cukup'),
-      findsOneWidget,
-    );
+    expect(find.text('8 dari 19 skill memiliki bukti cukup'), findsOneWidget);
     expect(find.text('MISI HARI INI'), findsOneWidget);
     expect(find.text('START BATTLE'), findsOneWidget);
     expect(find.text('XP to next rank'), findsNothing);
@@ -517,6 +551,42 @@ class _LobbySummaryRepository extends PlayerProgressRepository {
         requiredSkillCount: 19,
         confidence: 'medium',
       ),
+    );
+  }
+}
+
+class _BetaSummaryRepository extends PlayerProgressRepository {
+  bool acknowledged = false;
+  @override
+  Future<void> acknowledgeBetaWelcome() async {
+    acknowledged = true;
+  }
+
+  @override
+  Future<PlayerProgressSnapshot> fetchCurrentProgress() async =>
+      PlayerProgressSnapshot(
+        playerId: 'beta-user',
+        displayName: 'Beta User',
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        betaWelcomeReward: BetaWelcomeReward(
+          id: 'reward-1',
+          coinAmount: 1000,
+          energyAmount: 1000,
+          acknowledgedAt: acknowledged ? '2026-09-11T00:00:00Z' : null,
+        ),
+      );
+}
+
+class _BetaEconomyController extends GameEconomyController {
+  void markReady() {
+    state = state.copyWith(
+      energy: 1010,
+      yCoins: 1000,
+      maxEnergy: 10,
+      syncStatus: EconomySyncStatus.synced,
+      dataSource: EconomyDataSource.server,
     );
   }
 }

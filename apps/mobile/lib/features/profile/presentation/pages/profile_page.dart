@@ -271,6 +271,13 @@ class ProfilePage extends ConsumerWidget {
                     title: 'Notifikasi Harian',
                     subtitle: reminderState.isLoading
                         ? 'Memuat pengaturan notifikasi'
+                        : reminderState.registrationStatus ==
+                              ReminderRegistrationStatus.registering
+                        ? 'Menghubungkan perangkat...'
+                        : reminderState.preferences.enabled &&
+                              reminderState.registrationStatus ==
+                                  ReminderRegistrationStatus.failed
+                        ? 'Perangkat belum terhubung. Coba lagi.'
                         : 'Pengingat misi dan streak',
                     value: reminderState.preferences.enabled,
                     onChanged: reminderState.isLoading || reminderState.isSaving
@@ -341,6 +348,20 @@ class ProfilePage extends ConsumerWidget {
                           fontSize: 11,
                           height: 1.35,
                         ),
+                      ),
+                    ),
+                  if (reminderState.errorMessage != null)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed:
+                            reminderState.isSaving ||
+                                reminderState.isLoading ||
+                                reminderState.registrationStatus ==
+                                    ReminderRegistrationStatus.registering
+                            ? null
+                            : reminderController.retryRegistration,
+                        child: const Text('Coba lagi'),
                       ),
                     ),
                   const Padding(
@@ -2099,22 +2120,6 @@ String _learningConfidence(String value) => switch (value) {
 
 String _formatWinRate(double value) =>
     '${(value * 100).round().clamp(0, 100)}%';
-
-String _humanizeIdentifier(String value) {
-  final List<String> words = value
-      .trim()
-      .replaceAll(RegExp(r'[_-]+'), ' ')
-      .split(RegExp(r'\s+'))
-      .where((String word) => word.isNotEmpty)
-      .toList(growable: false);
-  return words
-      .map((String word) {
-        final String upper = word.toUpperCase();
-        if (<String>{'TWK', 'TIU', 'TKP'}.contains(upper)) return upper;
-        return '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}';
-      })
-      .join(' ');
-}
 
 class _SettingsSwitchTile extends StatelessWidget {
   const _SettingsSwitchTile({

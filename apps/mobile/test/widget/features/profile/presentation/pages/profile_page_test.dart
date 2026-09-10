@@ -279,8 +279,6 @@ class _FakeUserProfileRepository implements UserProfileRepository {
       username: 'raka',
       fullName: 'Raka Saputra',
       target: ProfileTarget.cpns,
-      rankPoints: 1178,
-      tier: 'elite',
       rankedStats: ProfileRankedStats(
         wins: 3,
         losses: 1,
@@ -302,8 +300,6 @@ class _FakeUserProfileRepository implements UserProfileRepository {
       username: update.username,
       fullName: update.fullName,
       target: update.target,
-      rankPoints: 1178,
-      tier: 'elite',
       rankedStats: const ProfileRankedStats(
         wins: 3,
         losses: 1,

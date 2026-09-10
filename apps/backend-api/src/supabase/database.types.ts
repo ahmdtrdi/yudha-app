@@ -28,6 +28,15 @@ type DatabaseTable<Row> = {
 export type Database = {
   public: {
     Tables: {
+      beta_welcome_campaigns: DatabaseTable<{
+        id: string; starts_at: string; enabled: boolean;
+        coin_amount: number; energy_amount: number;
+      }>;
+      beta_welcome_rewards: DatabaseTable<{
+        id: string; user_id: string; campaign_id: string;
+        coin_amount: number; energy_amount: number;
+        granted_at: string; acknowledged_at: Nullable<string>;
+      }>;
       profiles: {
         Row: {
           id: string;
@@ -1032,6 +1041,9 @@ export type Database = {
       };
     };
     Functions: {
+      grant_beta_welcome_reward: { Args: { p_user_id: string }; Returns: undefined };
+      get_beta_welcome_reward: { Args: { p_user_id: string }; Returns: Json };
+      acknowledge_beta_welcome_reward: { Args: { p_user_id: string }; Returns: Json };
       enqueue_learning_projection: {
         Args: {
           p_user_id: string;

@@ -970,3 +970,31 @@
 
 **The Tech Debt:**
 - Historical Hired Pass `streak_day_created` events awarded from Practice are not reversed because Pass rewards are a separate progression ledger and require an explicit product-approved reconciliation policy.
+
+## 2026-09-10 - Atomic Beta Welcome Rewards and Lobby Acknowledgment
+
+### The Change
+- Prepared `20260910120000_beta_welcome_rewards.sql` with a server-controlled campaign, activation timestamp, disable flag, and one reward record per auth account/campaign.
+- Added a profile-provisioning trigger that grants an additional 1,000 coins and 1,000 energy in the same transaction as both ledger entries. Account creation time determines eligibility, including accounts awaiting email confirmation; existing accounts are excluded.
+- Serialized grants against profile balance mutations and used a unique reward record to prevent duplicate credits. Reward records survive profile/data resets and are removed when the auth account is deleted.
+- Preserved normal starting balances: the verified cloud defaults are 0 coins and 10 energy, so eligible accounts start at 1,000 coins and 1,010 energy. The grant adds to the existing balance without changing daily refill policy.
+- Extended `GET /lobby/summary` with optional `betaWelcomeReward` data and added authenticated `POST /lobby/beta-welcome/acknowledge`, scoped to the current account with an idempotent acknowledgment timestamp.
+- Updated generated database types, OpenAPI schemas, and null/populated Lobby fixtures. Added service tests, SQL assertion files, read-only postchecks, and a cloud rollout guide.
+
+### The Reasoning
+- Database provisioning owns eligibility and both balance changes so client retries, concurrent requests, and delayed confirmation cannot independently award credits.
+- Acknowledgment is separate from granting, allowing the popup to retry or appear on another device without changing balances.
+- Additive response data supports older clients. The new migration must precede the backend because the summary now calls its reward RPC.
+- Campaign activation occurs when this migration is installed; disabling stops future grants while retaining existing balances and pending acknowledgments.
+
+### Verification
+- All 4 focused Lobby backend tests passed, and production TypeScript no-emit compilation passed.
+- OpenAPI JSON and its local references were checked, and `git diff --check` passed.
+- Read-only cloud inspection verified the signup trigger, balance defaults, and relevant schema prerequisites. No cloud SQL or hosted configuration changes were applied by the agent.
+- SQL tests and two-session concurrency checks were prepared/documented but not executed. The cloud project did not have pgTAP installed, and the owner reserved SQL execution for Cloud SQL Editor.
+- Broader TypeScript checking still reports unrelated existing Learning/Solo test errors; production compilation is clean.
+
+### The Tech Debt
+- The owner must apply only the new migration and its read-only postcheck in Supabase Cloud, then deploy the backend before the app. Avoid blanket `db push`: cloud migration history does not fully represent manually applied changes.
+- Validate eligibility, disabled campaigns, delayed confirmation, rollback, concurrency, persistent acknowledgment, and excess energy surviving daily refill in a suitable cloud test environment before completing rollout.
+- Follow `infra/supabase/beta-auth-notifications-rollout.md` for the manual SQL, recovery redirects, and remaining physical-device checks.

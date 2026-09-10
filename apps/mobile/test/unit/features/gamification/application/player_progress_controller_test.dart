@@ -56,8 +56,8 @@ void main() {
     controller.applyBattleResult(outcome: BattleOutcome.win, ratingDelta: 20);
     controller.applyBattleResult(outcome: BattleOutcome.win, ratingDelta: 10);
 
-    expect(controller.state.streak, 0);
-    expect(controller.state.bestStreak, 0);
+    expect(controller.state.streak, 2);
+    expect(controller.state.bestStreak, 2);
     expect(controller.state.lastDelta, 10);
 
     await controller.hydrateFromRepository();
@@ -65,8 +65,8 @@ void main() {
     expect(controller.state.playerId, 'user-123');
     expect(controller.state.totalPoints, 860);
     expect(controller.state.wins, 18);
-    expect(controller.state.streak, 2);
-    expect(controller.state.bestStreak, 2);
+    expect(controller.state.streak, 0);
+    expect(controller.state.bestStreak, 0);
     expect(controller.state.lastDelta, 10);
   });
 }

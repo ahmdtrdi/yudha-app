@@ -2,6 +2,8 @@ abstract final class AppRoutes {
   static const String returnToQueryParameter = 'returnTo';
   static const String splash = '/splash';
   static const String login = '/login';
+  static const String forgotPassword = '/forgot-password';
+  static const String resetPassword = '/reset-password';
   static const String profileSetup = '/profile-setup';
   static const String confirmEmail = '/confirm-email';
   static const String lobby = '/';
@@ -28,6 +30,8 @@ abstract final class AppRoutes {
   static const Set<String> publicPaths = <String>{
     splash,
     login,
+    forgotPassword,
+    resetPassword,
     profileSetup,
     confirmEmail,
   };

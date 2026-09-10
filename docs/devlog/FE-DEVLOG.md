@@ -3198,3 +3198,30 @@
 
 ### The Tech Debt
 - The broader gamification controller test file still contains stale pre-redesign rank-point method contracts and should be reconciled separately before the full Mobile suite can pass.
+
+## 2026-09-10 - Beta Welcome, Password Recovery, and Daily Notification Registration
+
+### The Change
+- Added an optional beta welcome reward to the Lobby progress models and repository, plus an Indonesian welcome dialog shown after server balances are available. `Mulai Bermain` saves acknowledgment through the authenticated API; failed acknowledgments can retry without granting another reward.
+- Added `Lupa password?` with email prefill, request/reset routes, email and password validation, loading states, neutral email-sent feedback, a 60-second resend cooldown, and Indonesian errors.
+- Connected recovery to Supabase `resetPasswordForEmail` and `updateUser`. Recovery state takes routing precedence, requires a validated recovery event before changing a password, and clears the recovery session after success.
+- Wired warm/cold Android callbacks through `com.yudha.app://reset-callback/` and web callbacks through the configured origin's `/reset-password` path. Ordinary navigation under the web callback path does not start recovery.
+- Separated notification permission from registration status. Enabling now requires a nonempty FCM token and successful backend registration, with three bounded attempts for transient failures, one/two-second delays, Indonesian feedback, and `Coba lagi`.
+- Added an Android Google Play services availability check, sanitized diagnostics, token-refresh/background error handling, disposal/in-flight guards, and account/installation-scoped synchronization that is cleared on logout.
+- Updated focused auth, notification, Lobby, profile, router, and gamification coverage, including stale test fixture expectations encountered during verification.
+
+### The Reasoning
+- Server balances and persisted acknowledgment keep the welcome experience consistent across retries, sign-ins, and devices. Missing reward data remains compatible with older API responses.
+- Explicit recovery state prevents an authenticated recovery callback from redirecting to the Lobby before the password is changed; recognizing a URL alone cannot authorize an update.
+- Permission approval does not establish FCM registration. Saving enabled status only after registration succeeds prevents the UI from promising notifications that cannot be delivered.
+- The callback uses the valid `com.yudha.app` URI scheme; the Android package remains `com.yudha.app.yudha_mobile`.
+
+### Verification
+- The focused Flutter suites passed 49 tests. After adding two web callback regression cases, the recovery suite was rerun and all 9 tests passed.
+- Analysis of the changed Dart files passed, including the final callback helper and recovery tests. The Android debug APK build passed after the final changes.
+- Full-repository analysis still reports unrelated existing test errors; this entry does not claim a clean repository-wide analysis run.
+
+### The Tech Debt
+- The owner will configure the hosted Supabase redirect allowlist and apply the SQL through Cloud SQL Editor. Local `config.toml` does not update cloud settings. See `infra/supabase/beta-auth-notifications-rollout.md`.
+- Real recovery email delivery, warm/cold device callbacks, deployed web recovery, and login with the changed password still need end-to-end verification against the hosted project.
+- No affected physical Android phone was connected. Actual FCM delivery and any remaining Firebase/API restriction or connectivity issue require device logs and a test notification; the underlying phone registration issue is not yet confirmed resolved.

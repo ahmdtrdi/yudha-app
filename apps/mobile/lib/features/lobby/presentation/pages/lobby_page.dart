@@ -11,6 +11,7 @@ import 'package:yudha_mobile/features/economy/presentation/widgets/economy_widge
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/learning/application/learning_providers.dart';
 import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
+import 'package:yudha_mobile/features/lobby/presentation/beta_welcome_dialog.dart';
 
 class LobbyPage extends ConsumerStatefulWidget {
   const LobbyPage({super.key});
@@ -21,6 +22,41 @@ class LobbyPage extends ConsumerStatefulWidget {
 
 class _LobbyPageState extends ConsumerState<LobbyPage> {
   String? _shownRecommendationId;
+  String? _shownBetaRewardId;
+  bool _betaDialogScheduled = false;
+
+  void _scheduleBetaWelcome() {
+    final progress = ref.read(playerProgressProvider);
+    final reward = progress.betaWelcomeReward;
+    if (reward == null ||
+        reward.acknowledgedAt != null ||
+        _shownBetaRewardId == reward.id ||
+        _betaDialogScheduled ||
+        !ref.read(gameEconomyProvider).isAuthoritative) {
+      return;
+    }
+    _betaDialogScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      _betaDialogScheduled = false;
+      if (ModalRoute.of(context)?.isCurrent != true ||
+          ref.read(playerProgressProvider).betaWelcomeReward?.id != reward.id ||
+          !ref.read(gameEconomyProvider).isAuthoritative) {
+        return;
+      }
+      _shownBetaRewardId = reward.id;
+      final repository = ref.read(playerProgressRepositoryProvider);
+      final acknowledged = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) =>
+            BetaWelcomeDialog(acknowledge: repository.acknowledgeBetaWelcome),
+      );
+      if (mounted && acknowledged == true) {
+        await ref.read(playerProgressProvider.notifier).hydrateFromRepository();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +65,7 @@ class _LobbyPageState extends ConsumerState<LobbyPage> {
         progress.learningNextAction;
     _recordShown(learningNextAction);
     final GameEconomyState economy = ref.watch(gameEconomyProvider);
+    _scheduleBetaWelcome();
     final List<Map<String, Object?>> dailyMissions = progress.dailyMissions;
     final Map<String, Object?> practiceMission = dailyMissions.firstWhere(
       (Map<String, Object?> mission) => mission['key'] == 'daily_practice',
@@ -638,9 +675,9 @@ class _CurriculumCoverageCard extends StatelessWidget {
     final double? percent = coverage?.value;
     final bool available = percent != null && coverage!.requiredSkillCount > 0;
     final double progress = available
-        ? (percent! / 100).clamp(0, 1).toDouble()
+        ? (percent / 100).clamp(0, 1).toDouble()
         : 0;
-    final String valueLabel = available ? '${percent!.round()}%' : '—';
+    final String valueLabel = available ? '${percent.round()}%' : '—';
     final String detail = available
         ? '${coverage!.coveredSkillCount} dari ${coverage!.requiredSkillCount} skill memiliki bukti cukup'
         : 'Data cakupan belum tersedia';
@@ -733,15 +770,11 @@ class _CurriculumCoverageCard extends StatelessWidget {
 
 String _formatRankPoints(int points) {
   final String digits = points.toString();
-  return digits.replaceAllMapped(
-    RegExp(r'\B(?=(\d{3})+(?!\d))'),
-    (_) => '.',
-  );
+  return digits.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '.');
 }
 
-String _targetLabel(String target) => target.toLowerCase() == 'bumn'
-    ? 'BUMN'
-    : 'CPNS';
+String _targetLabel(String target) =>
+    target.toLowerCase() == 'bumn' ? 'BUMN' : 'CPNS';
 
 class _HeroAvatar extends StatelessWidget {
   const _HeroAvatar({required this.compact});

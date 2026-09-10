@@ -7,6 +7,7 @@ import 'package:yudha_mobile/features/analytics/presentation/pages/analytics_pag
 import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
 import 'package:yudha_mobile/features/auth/presentation/pages/email_confirmation_pending_page.dart';
 import 'package:yudha_mobile/features/auth/presentation/pages/login_page.dart';
+import 'package:yudha_mobile/features/auth/presentation/pages/password_recovery_page.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/presentation/pages/interview_page.dart';
 import 'package:yudha_mobile/features/interview/presentation/pages/interview_setup_page.dart';
@@ -28,8 +29,15 @@ import 'package:yudha_mobile/features/solo/presentation/pages/solo_setup_page.da
 import 'package:yudha_mobile/features/solo/presentation/pages/solo_topic_selection_page.dart';
 import 'package:yudha_mobile/features/store/presentation/pages/store_page.dart';
 
-String? appRedirect({required bool isAuthenticated, required Uri uri}) {
+String? appRedirect({
+  required bool isAuthenticated,
+  required Uri uri,
+  bool isPasswordRecovery = false,
+}) {
   final String location = uri.path;
+  if (isPasswordRecovery && location != AppRoutes.resetPassword) {
+    return AppRoutes.resetPassword;
+  }
   if (!isAuthenticated && AppRoutes.isPrivate(uri)) {
     return AppRoutes.loginFor(uri);
   }
@@ -45,6 +53,9 @@ String? appRedirect({required bool isAuthenticated, required Uri uri}) {
 }
 
 String appInitialLocation() {
+  if (kIsWeb && Uri.base.path == AppRoutes.resetPassword) {
+    return AppRoutes.resetPassword;
+  }
   if (kIsWeb &&
       Uri.base.queryParameters.containsKey('notificationDeliveryId') &&
       AppRoutes.isPrivate(Uri.base)) {
@@ -68,10 +79,21 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
     redirect: (context, state) {
       return appRedirect(
         isAuthenticated: authRefresh.value.isAuthenticated,
+        isPasswordRecovery: authRefresh.value.isPasswordRecovery,
         uri: state.uri,
       );
     },
     routes: <RouteBase>[
+      GoRoute(
+        path: AppRoutes.forgotPassword,
+        builder: (context, state) => PasswordRecoveryPage(
+          email: state.extra is String ? state.extra as String : null,
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.resetPassword,
+        builder: (context, state) => const PasswordRecoveryPage(reset: true),
+      ),
       GoRoute(
         path: AppRoutes.splash,
         builder: (context, state) => const SplashPage(),

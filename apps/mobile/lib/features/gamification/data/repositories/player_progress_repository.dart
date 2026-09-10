@@ -4,4 +4,8 @@ abstract class PlayerProgressRepository {
   const PlayerProgressRepository();
 
   Future<PlayerProgressSnapshot> fetchCurrentProgress();
+
+  Future<void> acknowledgeBetaWelcome() => Future<void>.error(
+    UnsupportedError('Beta welcome acknowledgment unavailable'),
+  );
 }

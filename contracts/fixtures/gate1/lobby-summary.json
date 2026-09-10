@@ -1,5 +1,6 @@
 {
   "data": {
+    "betaWelcomeReward": null,
     "profile": { "id": "00000000-0000-0000-0000-000000000001", "username": "Yudha", "fullName": null, "target": "cpns", "rankPoints": 450, "tier": "warrior", "rankedStats": { "wins": 3, "losses": 2, "draws": 1, "winRate": 50 }, "yCoins": 120, "energy": { "balance": 10, "refilledOn": "2026-08-17" }, "characterId": "character-basic-squire", "towerId": "tower-garda-biru", "streak": { "current": 2, "best": 5, "lastDate": "2026-08-17" } },
     "tier": "warrior",
     "rankPoints": 450,

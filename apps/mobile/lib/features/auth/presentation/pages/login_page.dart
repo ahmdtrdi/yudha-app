@@ -264,7 +264,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 26),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: authState.isLoading
+                            ? null
+                            : () => context.push(
+                                AppRoutes.forgotPassword,
+                                extra: _emailController.text.trim(),
+                              ),
+                        child: const Text('Lupa password?'),
+                      ),
+                    ),
+                    if (GoRouterState.of(
+                          context,
+                        ).uri.queryParameters['passwordReset'] ==
+                        'success')
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          'Password berhasil diperbarui. Silakan masuk dengan password baru.',
+                        ),
+                      ),
+                    const SizedBox(height: 10),
                     // Tactile Clay Button
                     Container(
                       height: 52,
@@ -365,7 +387,11 @@ class _AuthErrorBanner extends StatelessWidget {
       ),
       child: Row(
         children: <Widget>[
-          const Icon(Icons.info_outline_rounded, color: Color(0xFFD94848), size: 20),
+          const Icon(
+            Icons.info_outline_rounded,
+            color: Color(0xFFD94848),
+            size: 20,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

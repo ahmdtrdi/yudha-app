@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:developer';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yudha_mobile/app/config/app_config.dart';
 import 'package:yudha_mobile/core/errors/user_facing_error.dart';
+import 'package:yudha_mobile/features/auth/application/password_recovery_context.dart';
 import 'package:yudha_mobile/features/auth/data/app_auth_storage.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
@@ -15,12 +17,15 @@ class AppAuthState {
     this.session,
     this.errorMessage,
     this.errorCode,
+    this.isPasswordRecovery = false,
+    this.isRecoveryVerified = false,
   });
 
   factory AppAuthState.initial() {
     return AppAuthState(
       isConfigured: AppConfig.hasSupabaseConfig,
       isLoading: false,
+      isPasswordRecovery: PasswordRecoveryContext.linkReceived,
       session: AppConfig.hasSupabaseConfig
           ? Supabase.instance.client.auth.currentSession
           : null,
@@ -32,6 +37,8 @@ class AppAuthState {
   final Session? session;
   final String? errorMessage;
   final String? errorCode;
+  final bool isPasswordRecovery;
+  final bool isRecoveryVerified;
 
   bool get isAuthenticated => session != null;
 
@@ -44,9 +51,15 @@ class AppAuthState {
     String? errorCode,
     bool clearError = false,
     bool clearSession = false,
+    bool? isPasswordRecovery,
+    bool? isRecoveryVerified,
   }) {
     return AppAuthState(
       isConfigured: isConfigured,
+      isPasswordRecovery: isPasswordRecovery ?? this.isPasswordRecovery,
+      isRecoveryVerified: clearSession
+          ? false
+          : isRecoveryVerified ?? this.isRecoveryVerified,
       isLoading: isLoading ?? this.isLoading,
       session: clearSession ? null : session ?? this.session,
       errorMessage: clearError && errorMessage == null
@@ -60,30 +73,58 @@ class AppAuthState {
 }
 
 class AuthNotifier extends Notifier<AppAuthState> {
-  SupabaseClient? get _client =>
-      AppConfig.hasSupabaseConfig ? Supabase.instance.client : null;
+  SupabaseClient? get _client => ref.read(authClientProvider);
 
   @override
   AppAuthState build() {
-    final AppAuthState initialState = AppAuthState.initial();
     final SupabaseClient? client = _client;
+    final AppAuthState initialState = AppAuthState(
+      isConfigured: client != null,
+      isLoading: false,
+      session: client?.auth.currentSession,
+      isPasswordRecovery: PasswordRecoveryContext.linkReceived,
+    );
     if (client != null) {
-      final subscription = client.auth.onAuthStateChange.listen((
-        AuthState event,
-      ) {
-        state = state.copyWith(
-          isLoading: false,
-          session: event.session,
-          clearSession: event.session == null,
-          clearError: true,
-        );
-      });
+      final subscription = client.auth.onAuthStateChange.listen(
+        (AuthState event) {
+          state = state.copyWith(
+            isRecoveryVerified: event.event == AuthChangeEvent.passwordRecovery
+                ? event.session != null
+                : state.isRecoveryVerified,
+            isPasswordRecovery: event.event == AuthChangeEvent.signedOut
+                ? false
+                : event.event == AuthChangeEvent.passwordRecovery
+                ? true
+                : state.isPasswordRecovery,
+            isLoading: false,
+            session: event.session,
+            clearSession: event.session == null,
+            clearError: true,
+          );
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          state = state.copyWith(
+            isLoading: false,
+            isPasswordRecovery:
+                state.isPasswordRecovery ||
+                PasswordRecoveryContext.linkReceived,
+            errorCode: PasswordRecoveryContext.linkReceived
+                ? 'recovery_link_invalid'
+                : null,
+            isRecoveryVerified: false,
+            errorMessage: PasswordRecoveryContext.linkReceived
+                ? 'Tautan reset tidak valid atau sudah kedaluwarsa. Minta tautan baru.'
+                : 'Sesi akun tidak dapat diperbarui. Silakan coba masuk kembali.',
+          );
+        },
+      );
       ref.onDispose(subscription.cancel);
     }
     return initialState;
   }
 
   Future<bool> login(String email, String password) async {
+    PasswordRecoveryContext.linkReceived = false;
     final SupabaseClient? client = _client;
     if (client == null) {
       state = state.copyWith(
@@ -197,12 +238,92 @@ class AuthNotifier extends Notifier<AppAuthState> {
   }
 
   Future<void> logout() async {
+    PasswordRecoveryContext.linkReceived = false;
     final SupabaseClient? client = _client;
     if (client != null) {
       await client.auth.signOut();
       await _clearPersistedSession();
     }
-    state = state.copyWith(clearSession: true, clearError: true);
+    state = state.copyWith(
+      clearSession: true,
+      clearError: true,
+      isPasswordRecovery: false,
+    );
+  }
+
+  Future<String?> requestPasswordReset(String email) async {
+    final client = _client;
+    if (client == null) {
+      return 'Layanan akun belum dikonfigurasi pada aplikasi ini.';
+    }
+    try {
+      await client.auth.resetPasswordForEmail(
+        email.trim(),
+        redirectTo: kIsWeb
+            ? Uri.base
+                  .replace(path: '/reset-password', query: '', fragment: '')
+                  .toString()
+            : 'com.yudha.app://reset-callback/',
+      );
+      return null;
+    } on AuthException catch (error) {
+      if (error.statusCode == '429' ||
+          error.code == 'over_email_send_rate_limit') {
+        return 'Terlalu banyak permintaan. Tunggu sebentar sebelum mengirim ulang.';
+      }
+      return 'Email reset belum dapat dikirim. Coba lagi beberapa saat.';
+    } catch (_) {
+      return 'Email reset belum dapat dikirim. Periksa koneksi lalu coba lagi.';
+    }
+  }
+
+  Future<bool> updateRecoveredPassword(String password) async {
+    final client = _client;
+    if (client == null ||
+        !state.isPasswordRecovery ||
+        !state.isRecoveryVerified ||
+        state.session == null ||
+        state.errorCode == 'recovery_link_invalid') {
+      return false;
+    }
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      await client.auth.updateUser(UserAttributes(password: password));
+    } on AuthException catch (error) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: _describeAuthException(
+          error,
+          action: 'mengubah password',
+        ),
+      );
+      return false;
+    } catch (_) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage:
+            'Password belum tersimpan. Periksa koneksi lalu coba lagi.',
+      );
+      return false;
+    }
+    await cancelPasswordRecovery();
+    return true;
+  }
+
+  Future<void> cancelPasswordRecovery() async {
+    PasswordRecoveryContext.linkReceived = false;
+    try {
+      await _client?.auth.signOut(scope: SignOutScope.local);
+    } catch (_) {
+      // Clear persisted and visible recovery state even when logout fails.
+    }
+    await _clearPersistedSession();
+    state = state.copyWith(
+      isLoading: false,
+      clearSession: true,
+      isPasswordRecovery: false,
+      clearError: true,
+    );
   }
 
   Future<void> clearDeletedAccountSession() async {
@@ -346,6 +467,10 @@ class AuthNotifier extends Notifier<AppAuthState> {
 
 final NotifierProvider<AuthNotifier, AppAuthState> authProvider =
     NotifierProvider<AuthNotifier, AppAuthState>(() => AuthNotifier());
+
+final Provider<SupabaseClient?> authClientProvider = Provider<SupabaseClient?>(
+  (Ref ref) => AppConfig.hasSupabaseConfig ? Supabase.instance.client : null,
+);
 
 final Provider<bool> isAuthenticatedProvider = Provider<bool>(
   (Ref ref) => ref.watch(authProvider).isAuthenticated,

@@ -1,5 +1,6 @@
 import 'package:yudha_mobile/features/gamification/data/models/player_progress_snapshot.dart';
 import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
+import 'package:yudha_mobile/features/lobby/domain/beta_welcome_reward.dart';
 
 const Object _unchangedLearningRecommendation = Object();
 const Object _unchangedCurriculumCoverage = Object();
@@ -20,6 +21,7 @@ class PlayerProgress {
     required this.dailyMissions,
     this.learningNextAction,
     this.curriculumCoverage,
+    this.betaWelcomeReward,
   });
 
   factory PlayerProgress.initial() {
@@ -53,6 +55,7 @@ class PlayerProgress {
   final List<Map<String, Object?>> dailyMissions;
   final LearningRecommendation? learningNextAction;
   final LearningCoverage? curriculumCoverage;
+  final BetaWelcomeReward? betaWelcomeReward;
 
   int get matchesPlayed => wins + losses + draws;
 
@@ -78,8 +81,13 @@ class PlayerProgress {
     List<Map<String, Object?>>? dailyMissions,
     Object? learningNextAction = _unchangedLearningRecommendation,
     Object? curriculumCoverage = _unchangedCurriculumCoverage,
+    Object? betaWelcomeReward = _unchangedCurriculumCoverage,
   }) {
     return PlayerProgress(
+      betaWelcomeReward:
+          identical(betaWelcomeReward, _unchangedCurriculumCoverage)
+          ? this.betaWelcomeReward
+          : betaWelcomeReward as BetaWelcomeReward?,
       playerId: playerId ?? this.playerId,
       displayName: displayName ?? this.displayName,
       wins: wins ?? this.wins,
@@ -105,6 +113,7 @@ class PlayerProgress {
 
   PlayerProgress mergeSnapshot(PlayerProgressSnapshot snapshot) {
     return copyWith(
+      betaWelcomeReward: snapshot.betaWelcomeReward,
       playerId: snapshot.playerId,
       displayName: snapshot.displayName,
       wins: snapshot.wins,
