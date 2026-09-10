@@ -5,9 +5,17 @@ import 'live_interview_audio_player_io.dart'
     as platform;
 
 abstract interface class LiveInterviewAudioPlayer {
-  Future<void> playUrl(String url, {String? accessToken});
+  Future<void> playUrl(
+    String url, {
+    String? accessToken,
+    void Function()? onStarted,
+  });
 
-  Future<void> playBytes(Uint8List bytes, {required String fileExtension});
+  Future<void> playBytes(
+    Uint8List bytes, {
+    required String fileExtension,
+    void Function()? onStarted,
+  });
 
   Future<void> stop();
 

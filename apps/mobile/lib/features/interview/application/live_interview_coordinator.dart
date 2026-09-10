@@ -113,11 +113,11 @@ class LiveInterviewCoordinator {
         return;
       }
       await _client.connect(sessionId);
-      _onPhase(LiveInterviewPhase.interviewerSpeaking, clearError: true);
       try {
         await _player.playUrl(
           _questionAudioUrl(currentQuestionId),
           accessToken: _accessToken,
+          onStarted: _markInterviewerSpeaking,
         );
       } catch (_) {
         _onPhase(
@@ -439,7 +439,6 @@ class LiveInterviewCoordinator {
     if (_questionAudioChunks.isEmpty) {
       return;
     }
-    _onPhase(LiveInterviewPhase.interviewerSpeaking, clearError: true);
     final BytesBuilder builder = BytesBuilder(copy: false);
     for (final Uint8List chunk in _questionAudioChunks) {
       builder.add(chunk);
@@ -448,6 +447,7 @@ class LiveInterviewCoordinator {
       await _player.playBytes(
         builder.takeBytes(),
         fileExtension: _questionAudioExtension,
+        onStarted: _markInterviewerSpeaking,
       );
     } catch (_) {
       _onPhase(
@@ -455,6 +455,12 @@ class LiveInterviewCoordinator {
         errorMessage:
             'Audio pertanyaan belum dapat diputar. Lanjutkan dari teks yang tampil.',
       );
+    }
+  }
+
+  void _markInterviewerSpeaking() {
+    if (!_disposed && !_stopping) {
+      _onPhase(LiveInterviewPhase.interviewerSpeaking, clearError: true);
     }
   }
 

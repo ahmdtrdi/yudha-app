@@ -99,6 +99,31 @@ class BackendInterviewRepository implements InterviewRepository {
   }
 
   @override
+  Future<void> deleteSession(String sessionId) async {
+    _ensureAuthenticated();
+    try {
+      final response = await _client
+          .delete(
+            Uri.parse(
+              '${_config.baseUrl}/interview/sessions/${Uri.encodeComponent(sessionId)}',
+            ),
+            headers: _headers,
+          )
+          .timeout(_config.requestTimeout);
+      // A retry after a lost response can safely finish removing the local row.
+      if (response.statusCode != 404) _decodeResponse(response);
+    } on TimeoutException {
+      throw const InterviewApiException(
+        'Sesi belum berhasil dihapus. Coba lagi.',
+      );
+    } on http.ClientException {
+      throw const InterviewApiException(
+        'Tidak dapat menghapus sesi. Periksa koneksi lalu coba lagi.',
+      );
+    }
+  }
+
+  @override
   Future<InterviewSessionDetailRecord> getSession(String sessionId) async {
     final Map<String, dynamic> body = await _get(
       '/interview/sessions/$sessionId',

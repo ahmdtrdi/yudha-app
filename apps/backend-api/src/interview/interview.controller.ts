@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { SupabaseAuthGuard } from '../auth/guards/supabase-auth.guard';
@@ -50,6 +59,14 @@ export class InterviewController {
       input,
       res,
     );
+  }
+
+  @Delete(':sessionId')
+  deleteSession(
+    @GetUser() user: AuthenticatedUser,
+    @Param('sessionId') sessionId: string,
+  ) {
+    return this.interviewService.deleteSession(user.id, sessionId);
   }
 
   @Get(':sessionId')

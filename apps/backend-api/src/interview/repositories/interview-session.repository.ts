@@ -101,9 +101,9 @@ export class InterviewSessionRepository {
     yCoins: number;
     replayed: boolean;
   }> {
-    const { data, error } = await this.supabaseService.getClient().rpc(
-      'create_interview_session_with_charge',
-      {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .rpc('create_interview_session_with_charge', {
         p_user_id: input.userId,
         p_idempotency_key: input.idempotencyKey,
         p_company_id: input.companyId,
@@ -113,8 +113,7 @@ export class InterviewSessionRepository {
         p_response_style: input.responseStyle,
         p_context_snapshot: input.contextSnapshot as unknown as Json,
         p_opening_question: input.openingQuestion,
-      },
-    );
+      });
     if (error) {
       if (
         error.message.includes('INSUFFICIENT_Y_COIN') ||
@@ -168,6 +167,19 @@ export class InterviewSessionRepository {
     }
 
     return this.mapSession(data);
+  }
+
+  async deleteOwnedSession(sessionId: string, userId: string): Promise<void> {
+    // Ownership is also enforced on the mutation; turns cascade with the session.
+    const { error } = await this.supabaseService
+      .getClient()
+      .from('interview_sessions')
+      .delete()
+      .eq('id', sessionId)
+      .eq('user_id', userId);
+    if (error) {
+      throw new InternalServerErrorException(error.message);
+    }
   }
 
   async listOwnedSessions(userId: string): Promise<InterviewSession[]> {

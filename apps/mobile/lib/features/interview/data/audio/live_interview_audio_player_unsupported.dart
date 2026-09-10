@@ -7,12 +7,18 @@ LiveInterviewAudioPlayer createLiveInterviewAudioPlayer() =>
 
 class _UnsupportedLiveInterviewAudioPlayer implements LiveInterviewAudioPlayer {
   @override
-  Future<void> playBytes(Uint8List bytes, {required String fileExtension}) =>
-      throw UnsupportedError('Live interview audio is Android-only.');
+  Future<void> playBytes(
+    Uint8List bytes, {
+    required String fileExtension,
+    void Function()? onStarted,
+  }) => throw UnsupportedError('Live interview audio is Android-only.');
 
   @override
-  Future<void> playUrl(String url, {String? accessToken}) =>
-      throw UnsupportedError('Live interview audio is Android-only.');
+  Future<void> playUrl(
+    String url, {
+    String? accessToken,
+    void Function()? onStarted,
+  }) => throw UnsupportedError('Live interview audio is Android-only.');
 
   @override
   Future<void> stop() async {}

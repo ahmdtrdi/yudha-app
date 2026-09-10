@@ -1,12 +1,13 @@
 <p align="center">
-  <img src="apps/mobile/assets/branding/app-icon-new.png" alt="Maskot ksatria YUDHA" width="180" />
+  <img src="apps/mobile/assets/branding/app-icon-new.png" alt="Maskot ksatria YUDHA" width="144" />
 </p>
 
 <h1 align="center">YUDHA</h1>
 
 <p align="center">
   <strong>Your Ultimate Digital Hiring Arena</strong><br />
-  Persiapan CPNS dan BUMN melalui latihan, arena kuis, dan simulasi interview.
+  Belajar terarah. Bertanding dengan pengetahuan. Berlatih menghadapi interview.<br />
+  Persiapan CPNS dan BUMN dalam satu arena digital.
 </p>
 
 <p align="center">
@@ -17,6 +18,7 @@
 </p>
 
 <p align="center">
+  <a href="#lihat-yudha">Screenshot</a> ·
   <a href="#peta-fitur">Peta fitur</a> ·
   <a href="#arsitektur">Arsitektur</a> ·
   <a href="#menjalankan-proyek">Mulai development</a> ·
@@ -28,6 +30,36 @@
 YUDHA menggabungkan persiapan seleksi kerja dengan pengalaman bermain. Pengguna dapat melihat perkembangan belajar, berlatih sesuai rekomendasi atau memilih materi sendiri, menguji pengetahuan dalam pertandingan, serta melatih jawaban interview.
 
 Aplikasi dibangun dengan Flutter untuk Android dan web/PWA. Repository ini mencakup aplikasi pengguna, API utama, layanan pertandingan realtime, kontrak data, dan migrasi database. Ketersediaan fitur AI dan layanan realtime bergantung pada konfigurasi backend.
+
+## Lihat YUDHA
+
+Dari menentukan fokus belajar sampai menyiapkan interview—berikut tampilan halaman YUDHA.
+
+<table>
+  <tr>
+    <th align="center">Learning Center</th>
+    <th align="center">Practice / Solo</th>
+    <th align="center">Interview AI</th>
+  </tr>
+  <tr>
+    <td align="center"><a href="assets/readme/learning.png"><img src="assets/readme/learning.png" alt="Learning Center dengan rekomendasi sesi dan ringkasan kemajuan belajar" width="260" /></a></td>
+    <td align="center"><a href="assets/readme/practice.png"><img src="assets/readme/practice.png" alt="Practice dengan arena, preset rekomendasi TIU Figural, dan tombol Atur Sendiri" width="260" /></a></td>
+    <td align="center"><a href="assets/readme/interview.png"><img src="assets/readme/interview.png" alt="Pengaturan Interview AI dengan perusahaan, posisi, mode latihan, dan pilihan teks atau suara" width="260" /></a></td>
+  </tr>
+  <tr>
+    <td align="center">Tentukan langkah belajar berikutnya.</td>
+    <td align="center">Pakai rekomendasi atau atur sesi sendiri.</td>
+    <td align="center">Siapkan latihan sesuai posisi tujuan.</td>
+  </tr>
+</table>
+
+<sub>Screenshot dirender dari halaman Flutter asli dengan data contoh pengujian widget, bukan data akun pengguna atau bukti hasil production. Klik gambar untuk melihat ukuran penuh.</sub>
+
+### Satu aplikasi, tiga cara berkembang
+
+| Belajar terarah | Uji pemahaman | Latih komunikasi |
+|---|---|---|
+| Learning Center membantu membaca bukti belajar dan memilih fokus latihan. | Practice memberi ruang latihan mandiri; PvP menghadirkan pertandingan kuis realtime. | Interview AI menyediakan simulasi pertanyaan dan evaluasi jawaban sesuai target posisi. |
 
 ## Peta fitur
 
