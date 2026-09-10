@@ -1,130 +1,209 @@
-# YUDHA App
+<p align="center">
+  <img src="apps/mobile/assets/branding/app-icon-new.png" alt="Maskot ksatria YUDHA" width="180" />
+</p>
+
+<h1 align="center">YUDHA</h1>
 
 <p align="center">
-  <img src="apps/mobile/assets/branding/logo-color-landscape.png" alt="YUDHA Logo" width="320" />
+  <strong>Your Ultimate Digital Hiring Arena</strong><br />
+  Persiapan CPNS dan BUMN melalui latihan, arena kuis, dan simulasi interview.
 </p>
 
 <p align="center">
-  <b>Your Ultimate Digital Hiring Arena</b><br/>
-  Gamified learning for CPNS and BUMN preparation.
+  <img src="https://img.shields.io/badge/Flutter-Mobile%20%26%20Web-02569B?logo=flutter&logoColor=white" alt="Flutter Mobile dan Web" />
+  <img src="https://img.shields.io/badge/NestJS-API%20%26%20Realtime-E0234E?logo=nestjs&logoColor=white" alt="NestJS" />
+  <img src="https://img.shields.io/badge/Supabase-Data%20%26%20Auth-3ECF8E?logo=supabase&logoColor=white" alt="Supabase" />
+  <img src="https://img.shields.io/badge/Status-Dalam%20Pengembangan-0A7D58" alt="Dalam pengembangan" />
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Flutter-Mobile-02569B?logo=flutter&logoColor=white" alt="Flutter" />
-  <img src="https://img.shields.io/badge/NestJS-Backend-E0234E?logo=nestjs&logoColor=white" alt="NestJS" />
-  <img src="https://img.shields.io/badge/Socket.IO-Realtime-010101?logo=socketdotio&logoColor=white" alt="Socket.IO" />
-  <img src="https://img.shields.io/badge/Status-Active%20Development-0A7D58" alt="Status" />
+  <a href="#peta-fitur">Peta fitur</a> ·
+  <a href="#arsitektur">Arsitektur</a> ·
+  <a href="#menjalankan-proyek">Mulai development</a> ·
+  <a href="#dokumentasi">Dokumentasi</a>
 </p>
 
-## Overview
+## Tentang YUDHA
 
-YUDHA turns exam prep into a mobile-first arena experience:
+YUDHA menggabungkan persiapan seleksi kerja dengan pengalaman bermain. Pengguna dapat melihat perkembangan belajar, berlatih sesuai rekomendasi atau memilih materi sendiri, menguji pengetahuan dalam pertandingan, serta melatih jawaban interview.
 
-- **PvP battle flow** with quiz-driven attacks.
-- **Practice modules** for CPNS/BUMN tracks.
-- **Interview prep simulation** for communication readiness.
-- **Leaderboard + progression** to maintain momentum.
+Aplikasi dibangun dengan Flutter untuk Android dan web/PWA. Repository ini mencakup aplikasi pengguna, API utama, layanan pertandingan realtime, kontrak data, dan migrasi database. Ketersediaan fitur AI dan layanan realtime bergantung pada konfigurasi backend.
 
-## App Sections
+## Peta fitur
 
-| Icon | Section | Purpose |
+| Area | Kemampuan | Manfaat untuk pengguna |
 |---|---|---|
-| <img src="apps/mobile/assets/icons/navigation/nav_lobby_active.svg" alt="Lobby" width="24" /> | Lobby | Home command center, daily quests, and quick actions |
-| <img src="apps/mobile/assets/icons/navigation/nav_pvp_active.svg" alt="PvP" width="24" /> | PvP | Realtime battle mode and match loop |
-| <img src="apps/mobile/assets/icons/navigation/nav_rank_active.svg" alt="Rank" width="24" /> | Rank | Competitive leaderboard and player standing |
-| <img src="apps/mobile/assets/icons/navigation/nav_practice_active.svg" alt="Practice" width="24" /> | Practice | Topic-based question training and interview entry |
-| <img src="apps/mobile/assets/icons/navigation/nav_profile_active.svg" alt="Profile" width="24" /> | Profile | Target setup and personalization |
+| **Learning Center** | Ringkasan kemajuan, bukti belajar per skill, tren, dan rekomendasi latihan | Menentukan materi yang perlu dilatih berikutnya |
+| **Practice / Solo** | Cara latihan Standard, Focus, dan Speed; pilihan jumlah soal; materi seimbang, rekomendasi, atau topik sendiri | Menyesuaikan sesi dengan kebutuhan belajar |
+| **Arena PvP** | Pertandingan kuis realtime dengan karakter dan mekanik serangan | Menguji pemahaman dalam kompetisi |
+| **Interview AI** | Pilihan perusahaan dan posisi, mode coaching atau realistic, jawaban teks dan suara, evaluasi, serta riwayat sesi | Melatih penyampaian jawaban dan meninjau hasil latihan |
+| **Lobby & progres** | Akses cepat, quest harian, dan progres pemain | Menjaga rutinitas belajar |
+| **Leaderboard** | Peringkat dan posisi pemain | Memantau perkembangan kompetitif |
+| **Profil & personalisasi** | Target persiapan, karakter, dan item kosmetik | Menyesuaikan pengalaman bermain |
 
-## Repository Structure
+### Alur belajar
 
-Mulai dari [`docs/MASTER.md`](docs/MASTER.md) untuk memahami cara kerja repo, menjalankan aplikasi, dan membaca dokumentasi.
+```mermaid
+flowchart LR
+    A[Learning Center] --> B[Mulai Practice]
+    A --> C[Atur Sendiri]
+    B --> D[Halaman Practice]
+    C --> E[Panel pengaturan Practice]
+    D --> E
+    D --> F[Preset rekomendasi]
+    E --> G[Pilih karakter]
+    F --> G
+    G --> H[Kerjakan sesi]
+    H --> I[Hasil dan riwayat]
+    I --> A
+```
+
+Rekomendasi menjadi titik awal yang tetap bisa diubah. Mengganti cara latihan atau jumlah soal dari preset mengalihkan materi ke pilihan topik. Memilih **Rekomendasi** kembali memulihkan preset tersebut.
+
+## Arsitektur
+
+```mermaid
+flowchart TB
+    App[Flutter · Android / Web / PWA]
+    API[NestJS · Backend API]
+    Game[NestJS · Backend Game]
+    DB[Supabase · Auth / PostgreSQL]
+    Redis[Redis · Infrastruktur pertandingan]
+    AI[Penyedia AI · Evaluasi / Transkripsi / Suara]
+
+    App -->|REST dan live interview| API
+    App -->|Socket.IO pertandingan| Game
+    API --> DB
+    API --> AI
+    Game --> DB
+    Game --> Redis
+```
+
+| Komponen | Teknologi dan tanggung jawab |
+|---|---|
+| Aplikasi | Flutter, Riverpod, GoRouter; antarmuka, state, navigasi, dan klien jaringan |
+| Backend API | NestJS dan TypeScript; profil, konten, learning, latihan, interview, dan progres |
+| Backend Game | NestJS dan Socket.IO; koneksi pertandingan dan state permainan |
+| Data dan autentikasi | Supabase |
+| AI interview | Penyedia evaluasi, transkripsi, dan sintesis suara sesuai konfigurasi environment |
+
+### Struktur repository
 
 ```text
-yudha-app/
-|- apps/
-|  |- mobile/         # Flutter app (Android/iOS)
-|  |- backend-api/    # NestJS API (auth/profile/content/leaderboard)
-|  |- backend-game/   # NestJS realtime service (PvP/match state)
-|  |- games/
-|  |  |- data/        # Question data source
-|- contracts/         # Shared API/socket contracts
-|- infra/             # Deployment and infra setup
-|- docs/              # PRD, panduan repo, devlog, agent rules, dan dokumen pendukung
+apps/
+  mobile/          Aplikasi Flutter dan PWA
+  backend-api/     API utama dan layanan interview
+  backend-game/    Layanan pertandingan realtime
+  games/data/      Sumber data soal
+contracts/         Kontrak API, socket, dan schema bersama
+infra/             Infrastruktur dan migrasi Supabase
+docs/              Panduan, spesifikasi produk, desain, dan devlog
 ```
 
-## Tech Stack
+## Menjalankan proyek
 
-- **Mobile:** Flutter, Riverpod, GoRouter, Flutter SVG, Google Fonts
-- **Backend:** NestJS, TypeScript, Socket.IO
-- **Data/Auth:** Supabase
-- **Realtime Infra:** Redis (for game backend workflows)
+### Prasyarat
 
-## Getting Started
+- Node.js 20 atau lebih baru dan npm.
+- Flutter SDK dengan Dart yang sesuai dengan batasan di [pubspec.yaml](apps/mobile/pubspec.yaml).
+- Project Supabase yang sudah disiapkan sesuai [panduan database](infra/supabase/README.md).
+- Redis jika diperlukan oleh konfigurasi backend pertandingan.
 
-### Prerequisites
+### 1. Backend API
 
-- Node.js `>= 20`
-- npm
-- Flutter SDK (project currently targets Dart SDK `^3.11.1`)
-- Optional for game backend: Redis (local or cloud)
+Jalankan dari root repository menggunakan PowerShell:
 
-### 1) Backend API
-
-```bash
-cd apps/backend-api
-cp .env.example .env
-# PowerShell: Copy-Item .env.example .env
-npm install
+```powershell
+Set-Location apps/backend-api
+Copy-Item .env.example .env
+npm ci
 npm run start:dev
 ```
 
-Default env uses `PORT=3000`.
+Isi konfigurasi Supabase pada `.env` sebelum menjalankan service. Port default API adalah `3000`. Lihat [.env.example API](apps/backend-api/.env.example) untuk pilihan penyedia AI dan parameter interview.
 
-### 2) Backend Game (Realtime)
+Untuk suara live, aktifkan `INTERVIEW_LIVE_SPEECH_ENABLED=true` dan lengkapi konfigurasi transkripsi serta sintesis suara. Kunci layanan AI dan service-role Supabase hanya digunakan di backend.
 
-```bash
-cd apps/backend-game
-cp .env.example .env
-# PowerShell: Copy-Item .env.example .env
-npm install
+### 2. Backend pertandingan
+
+Buka terminal baru dari root repository:
+
+```powershell
+Set-Location apps/backend-game
+Copy-Item .env.example .env
+npm ci
 npm run start:dev
 ```
 
-Set `PORT=3001` in `.env` if API is already on `3000`.
+Atur `PORT=3001` agar tidak berbenturan dengan API, lalu lengkapi konfigurasi Supabase dan Redis sesuai [.env.example Game](apps/backend-game/.env.example).
 
-### 3) Mobile App
+### 3. Aplikasi Flutter
 
-```bash
-cd apps/mobile
+Buat `apps/mobile/.env` dengan nilai untuk lingkungan yang digunakan:
+
+```dotenv
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+YUDHA_API_BASE_URL=http://10.0.2.2:3000
+YUDHA_GAME_BASE_URL=http://10.0.2.2:3001
+FIREBASE_WEB_VAPID_KEY=
+```
+
+Alamat `10.0.2.2` digunakan oleh emulator Android untuk mengakses komputer host. Untuk HP fisik, gunakan alamat LAN komputer yang dapat dijangkau HP. Untuk browser lokal, gunakan `localhost`; deployment web menggunakan HTTPS.
+
+```powershell
+Set-Location apps/mobile
 flutter pub get
-flutter run
+flutter run --dart-define-from-file=.env
 ```
 
-## Useful Commands
+Untuk menjalankan versi web:
 
-### Backend (both NestJS services)
+```powershell
+flutter run -d chrome --dart-define-from-file=.env
+```
 
-```bash
+Konfigurasi aplikasi dibaca saat build. Jalankan ulang atau build ulang setelah mengganti nilai environment. Panduan PWA dan deployment tersedia di [README Mobile](apps/mobile/README.md).
+
+## Pemeriksaan kualitas
+
+Jalankan pada direktori service backend yang ingin diperiksa:
+
+```powershell
 npm run build
-npm run test
+npm test
 npm run lint
 ```
 
-### Mobile
+Perintah lint backend juga menerapkan perbaikan otomatis. Untuk aplikasi, jalankan dari `apps/mobile`:
 
-```bash
+```powershell
 flutter analyze
 flutter test
 ```
 
-## Assets
+## Dokumentasi
 
-Branding and navigation assets are in:
+| Panduan | Isi |
+|---|---|
+| [Repository Master Guide](docs/MASTER.md) | Pintu masuk dokumentasi dan alur development |
+| [Spesifikasi produk](docs/PRD.md) | Scope, model data, dan keputusan produk |
+| [Mobile & PWA](apps/mobile/README.md) | Environment aplikasi dan deployment web |
+| [Backend API](apps/backend-api/README.md) | Pengembangan API utama |
+| [Backend Game](apps/backend-game/README.md) | Pengembangan layanan pertandingan |
+| [Kontrak bersama](contracts/README.md) | Acuan integrasi antarservice |
+| [Kontrak Solo](contracts/solo/README.md) | Konfigurasi dan perilaku sesi Solo |
+| [Kontrak Interview AI](contracts/interview-ai/README.md) | Integrasi interview |
+| [Database Supabase](infra/supabase/README.md) | Setup dan operasi database |
 
-- `apps/mobile/assets/branding/`
-- `apps/mobile/assets/icons/navigation/`
-- `apps/mobile/assets/game/`
+## Identitas visual
 
-## License
+Logo README menggunakan aset yang sama dengan ikon aplikasi dan halaman login: [app-icon-new.png](apps/mobile/assets/branding/app-icon-new.png).
 
-This repository is currently **private/internal** and does not yet define a public OSS license.
+- [Branding](apps/mobile/assets/branding/) — ikon aplikasi dan splash.
+- [Navigasi](apps/mobile/assets/icons/navigation/) — ikon menu.
+- [Aset game](apps/mobile/assets/game/) — karakter, arena, kartu, dan elemen pertandingan.
+
+## Lisensi
+
+Repository ini belum menetapkan lisensi open-source publik. Package backend ditandai `UNLICENSED`.
