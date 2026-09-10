@@ -163,6 +163,7 @@ class _InterviewPageState extends ConsumerState<InterviewPage>
   }
 
   void _showHistory(InterviewState state) {
+    ref.invalidate(interviewSessionsProvider);
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -3968,7 +3969,9 @@ class _SessionsSheet extends ConsumerWidget {
                       ],
                     ),
                     Text(
-                      'Sesi aktif baru: ${config.companyName}',
+                      currentSessionId == null
+                          ? 'Riwayat interview kamu'
+                          : 'Sesi saat ini: ${config.companyName}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(

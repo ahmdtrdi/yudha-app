@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import 'package:yudha_mobile/features/interview/application/interview_state.dart';
 import 'package:yudha_mobile/features/interview/application/live_interview_coordinator.dart';
 import 'package:yudha_mobile/features/interview/data/repositories/interview_repository.dart';
@@ -16,6 +17,8 @@ class InterviewController extends StateNotifier<InterviewState> {
        super(InterviewState.initial(config));
 
   final InterviewRepository _repository;
+  // Keep retries tied to the same charged session after an uncertain response.
+  final String _startIdempotencyKey = const Uuid().v4();
   final void Function(String sessionId)? _onSessionChanged;
   LiveInterviewCoordinator? _liveCoordinator;
 
@@ -46,6 +49,7 @@ class InterviewController extends StateNotifier<InterviewState> {
     try {
       final InterviewStartResult result = await _repository.startSession(
         state.config,
+        idempotencyKey: _startIdempotencyKey,
       );
       state = state.copyWith(
         status: InterviewViewStatus.active,
@@ -286,10 +290,7 @@ class InterviewController extends StateNotifier<InterviewState> {
   }
 
   Future<void> switchLiveTextToVoice() async {
-    state = state.copyWith(
-      useTextFallback: false,
-      clearLiveError: true,
-    );
+    state = state.copyWith(useTextFallback: false, clearLiveError: true);
     await _startLiveVoiceIfNeeded();
   }
 
