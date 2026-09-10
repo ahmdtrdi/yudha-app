@@ -20,11 +20,23 @@ export class LearningProjectionWorker {
     this.running = true;
     try {
       const now = new Date();
-      const [due, expired, pvpAttempts] = await Promise.all([
+      const maintenance = await Promise.allSettled([
         this.repository.markDueRetentionAndQueue(now),
         this.repository.expireRecommendationsAndQueue(now),
         this.repository.reconcileRecentPvpEvidence(now),
       ]);
+      const labels = ['retention', 'recommendation expiry', 'PvP ingestion'];
+      const [due, expired, pvpAttempts] = maintenance.map((result, index) => {
+        if (result.status === 'fulfilled') return result.value;
+        this.logger.error(
+          `Learning ${labels[index]} failed: ${
+            result.reason instanceof Error
+              ? result.reason.message
+              : String(result.reason)
+          }`,
+        );
+        return 0;
+      });
       const projected = await this.projections.drain(50, now);
       if (due + expired + pvpAttempts + projected > 0) {
         this.logger.log(

@@ -998,3 +998,26 @@
 - The owner must apply only the new migration and its read-only postcheck in Supabase Cloud, then deploy the backend before the app. Avoid blanket `db push`: cloud migration history does not fully represent manually applied changes.
 - Validate eligibility, disabled campaigns, delayed confirmation, rollback, concurrency, persistent acknowledgment, and excess energy surviving daily refill in a suitable cloud test environment before completing rollout.
 - Follow `infra/supabase/beta-auth-notifications-rollout.md` for the manual SQL, recovery redirects, and remaining physical-device checks.
+
+## 2026-09-10 - Restore Solo Learning Evidence and Projection Processing
+
+### The Change
+- Added `20260910130000_restore_solo_learning_ingestion.sql`, preserving the latest Standard/Focus/Speed answer behavior while restoring atomic canonical attempt creation, evidence classification, and answer linking through one shared ingestion function.
+- Added a separate rerunnable cloud recovery script for missing Solo attempts/classifications/links and a read-only postcheck. Saved question metadata restores skill evidence; pre-alignment answers without it restore activity as `legacy_solo` without guessed skill mappings.
+- Corrected recommendation expiry to enqueue a whole-user job with neither taxonomy nor skill and to queue before marking the recommendation expired. The worker waits for all maintenance tasks to settle and still drains projections if one fails.
+- Added backend regression tests, a standalone local PostgreSQL regression runner, and `infra/supabase/solo-learning-repair.md` with the owner's cloud execution sequence.
+
+### The Reasoning
+- The September 3 Solo function replacement omitted the Learning V2 writes introduced September 2. Rebuilding projections alone cannot restore missing canonical input.
+- Shared ingestion gives new answers, cached replays, and backfill the same evidence rules. Recovery never replays rewards, energy, streaks, or question exposures and never rewrites existing learning attempts/classifications.
+- Whole-user recommendation expiry must obey the database's taxonomy/skill pair constraint. A maintenance failure must not block independent queued evidence updates.
+
+### Verification
+- Focused backend suite: 20 tests passed across Learning repository/worker/service and Solo service. Production TypeScript no-emit compilation passed.
+- Local PGlite/PostgreSQL tests reproduced the old missing-attempt bug and passed migration reruns; Standard/Focus/Speed ingestion; cached and new-key retries; hint, exposure, timing, and timeout exclusions; 20-answer completion and one-time coin rewards; atomic rollback on ingestion failure; recovery of missing attempts/classifications/links; preservation of existing evidence and gameplay state; legacy evidence exclusion; privileges; and zero-issue postchecks.
+- Local SQL uses actual repository Learning/Solo table constraints and functions. Supabase Auth and the SHA-256 wrapper are supplied by the isolated harness; unrelated economy/streak triggers are not booted.
+- No cloud SQL was executed or deployment performed. The owner requested cloud SQL execution remain manual.
+
+### Remaining Rollout
+- Owner: apply the new repair migration, deploy backend-api with Learning V2 enabled, run the recovery transaction, then verify recovery jobs complete and refresh Learning Center.
+- Historical answers without saved revision/skill/exposure metadata can recover activity but cannot honestly recover Peta Skill proficiency. Full deployed-schema and concurrent-request verification remains part of cloud rollout.

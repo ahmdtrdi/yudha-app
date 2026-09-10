@@ -647,24 +647,25 @@ export class LearningRepository {
   async expireRecommendationsAndQueue(now: Date): Promise<number> {
     const expiring = await this.client
       .from('learning_recommendations')
-      .select('id, user_id, target, taxonomy_version_id')
+      .select('id, user_id, target')
       .eq('status', 'active')
       .lte('expires_at', now.toISOString())
       .limit(100);
     if (expiring.error) this.fail(expiring.error.message);
     for (const row of expiring.data ?? []) {
+      // Reconsider all skills. The queue accepts either a complete skill pair
+      // or neither value. Queue first so a failure leaves this row retryable.
+      await this.enqueueProjection({
+        userId: row.user_id,
+        target: row.target,
+        reason: 'recommendation_expired',
+      });
       const updated = await this.client
         .from('learning_recommendations')
         .update({ status: 'expired' })
         .eq('id', row.id)
         .eq('status', 'active');
       if (updated.error) this.fail(updated.error.message);
-      await this.enqueueProjection({
-        userId: row.user_id,
-        target: row.target,
-        taxonomyVersionId: row.taxonomy_version_id,
-        reason: 'recommendation_expired',
-      });
     }
     return (expiring.data ?? []).length;
   }
