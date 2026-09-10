@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/features/auth/application/auth_providers.dart';
 import 'package:yudha_mobile/features/interview/application/interview_providers.dart';
+import 'package:yudha_mobile/features/interview/application/interview_state.dart';
 import 'package:yudha_mobile/features/interview/data/audio/live_interview_audio_capture.dart';
 import 'package:yudha_mobile/features/interview/data/audio/live_interview_audio_player.dart';
 import 'package:yudha_mobile/features/interview/data/repositories/interview_repository.dart';
@@ -18,6 +20,51 @@ import 'package:yudha_mobile/features/interview/domain/entities/interview_sessio
 import 'package:yudha_mobile/features/interview/presentation/pages/interview_page.dart';
 
 void main() {
+  testWidgets('text chat shows progress and recovers a failed answer', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = _PendingInterviewRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          authAccessTokenProvider.overrideWithValue(null),
+          interviewRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(
+          home: InterviewPage(
+            config: InterviewLaunchConfig(
+              companyId: 'adhi-karya',
+              companyName: 'Adhi Karya',
+              targetRole: 'Management Trainee',
+              responseStyle: 'text',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Pertanyaan 1 - Giliran kamu menjawab'), findsOneWidget);
+    final field = find.byKey(const ValueKey<String>('interview-answer-field'));
+    await tester.enterText(field, 'Saya memimpin tim proyek.');
+    await tester.testTextInput.receiveAction(TextInputAction.send);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.text('AI sedang meninjau jawabanmu...'), findsOneWidget);
+    expect(tester.widget<TextField>(field).enabled, isFalse);
+    expect(tester.takeException(), isNull);
+    repository.pending.completeError(Exception('Koneksi terputus'));
+    await tester.pumpAndSettle();
+    expect(find.text('AI sedang meninjau jawabanmu...'), findsNothing);
+    expect(find.text('Coba lagi'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(field).controller!.text,
+      'Saya memimpin tim proyek.',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('renders the active voice room as a full-screen gradient stage', (
     WidgetTester tester,
   ) async {
@@ -304,6 +351,159 @@ void main() {
     },
   );
 
+  testWidgets(
+    'swipe left preserves history on failure and removes it on success',
+    (tester) async {
+      final repository = _DeletableInterviewRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            authAccessTokenProvider.overrideWithValue(null),
+            interviewRepositoryProvider.overrideWithValue(repository),
+          ],
+          child: const MaterialApp(
+            home: InterviewPage(
+              config: InterviewLaunchConfig(
+                companyId: 'adhi-karya',
+                companyName: 'Adhi Karya',
+                targetRole: 'Trainee',
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Riwayat chat'));
+      await tester.pumpAndSettle();
+      final row = find.byKey(
+        const ValueKey<String>('delete-session-session-completed'),
+      );
+      await tester.drag(row, const Offset(-600, 0));
+      await tester.pumpAndSettle();
+      expect(row, findsOneWidget);
+      expect(repository.deleteCalls, 1);
+      repository.failDelete = false;
+      await tester.drag(row, const Offset(-600, 0));
+      await tester.pumpAndSettle();
+      expect(row, findsNothing);
+      expect(repository.deleteCalls, 2);
+      expect(find.text('Belum ada sesi interview tersimpan.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('deleting the open session returns to interview setup', (
+    tester,
+  ) async {
+    final repository = _DeletableInterviewRepository()..failDelete = false;
+    final router = GoRouter(
+      initialLocation: AppRoutes.interviewSession,
+      routes: <RouteBase>[
+        GoRoute(
+          path: AppRoutes.interviewSession,
+          builder: (_, _) => const InterviewPage(config: _completedConfig),
+        ),
+        GoRoute(
+          path: AppRoutes.interview,
+          builder: (_, _) => const Scaffold(body: Text('Setup destination')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          authAccessTokenProvider.overrideWithValue(null),
+          interviewRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Riwayat chat'));
+    await tester.pumpAndSettle();
+    await tester.drag(
+      find.byKey(const ValueKey<String>('delete-session-session-completed')),
+      const Offset(-600, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Setup destination'), findsOneWidget);
+    expect(repository.deleted, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'voice thinking stays visible across question arrival until speech starts',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(360, 640));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            authAccessTokenProvider.overrideWithValue(null),
+            interviewRepositoryProvider.overrideWithValue(
+              _InterviewPageRepository(),
+            ),
+            liveInterviewAudioCaptureFactoryProvider.overrideWithValue(
+              () => _FakeLiveAudioCapture(),
+            ),
+            liveInterviewAudioPlayerFactoryProvider.overrideWithValue(
+              () => _FakeLiveAudioPlayer(),
+            ),
+            liveInterviewSpeechClientFactoryProvider.overrideWithValue(
+              (_) => _FakeLiveSpeechClient(),
+            ),
+          ],
+          child: const MaterialApp(home: InterviewPage(config: _voiceConfig)),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(InterviewPage)),
+      );
+      final controller = container.read(
+        interviewControllerProvider(_voiceConfig).notifier,
+      );
+      controller.applyLiveTranscript('answer-1', 'Saya memimpin tim proyek.');
+      controller.updateLivePhase(LiveInterviewPhase.evaluating);
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('voice-thinking-ring')),
+        findsOneWidget,
+      );
+      expect(find.text('Berpikir...'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(find.text('Menimbang...'), findsOneWidget);
+      for (int index = 0; index < 8; index += 1) {
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pump(const Duration(milliseconds: 250));
+        expect(tester.takeException(), isNull);
+      }
+      controller.applyLiveQuestion('question-2', 'Apa hasil proyek tersebut?');
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('voice-thinking-status')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      controller.updateLivePhase(LiveInterviewPhase.interviewerSpeaking);
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey<String>('voice-thinking-ring')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('voice-thinking-status')),
+        findsNothing,
+      );
+      expect(find.text('Apa hasil proyek tersebut?'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   testWidgets('opens a scrollable session detail and returns to history', (
     WidgetTester tester,
   ) async {
@@ -377,10 +577,19 @@ class _FakeLiveAudioPlayer implements LiveInterviewAudioPlayer {
   Future<void> playBytes(
     Uint8List bytes, {
     required String fileExtension,
-  }) async {}
+    void Function()? onStarted,
+  }) async {
+    onStarted?.call();
+  }
 
   @override
-  Future<void> playUrl(String url, {String? accessToken}) async {}
+  Future<void> playUrl(
+    String url, {
+    String? accessToken,
+    void Function()? onStarted,
+  }) async {
+    onStarted?.call();
+  }
 
   @override
   Future<void> stop() async {}
@@ -458,6 +667,9 @@ class _InterviewPageRepository implements InterviewRepository {
   }
 
   @override
+  Future<void> deleteSession(String sessionId) async {}
+
+  @override
   Future<InterviewSessionDetailRecord> getSession(String sessionId) {
     throw UnimplementedError();
   }
@@ -493,6 +705,9 @@ class _CompletedInterviewRepository implements InterviewRepository {
   Future<List<InterviewCompanyOption>> listCompanies() async {
     return const <InterviewCompanyOption>[];
   }
+
+  @override
+  Future<void> deleteSession(String sessionId) async {}
 
   @override
   Future<InterviewSessionDetailRecord> getSession(String sessionId) async {
@@ -600,5 +815,39 @@ class _CompletedInterviewRepository implements InterviewRepository {
     required String filename,
   }) {
     throw UnimplementedError();
+  }
+}
+
+class _PendingInterviewRepository extends _InterviewPageRepository {
+  final Completer<InterviewTurnResult> pending =
+      Completer<InterviewTurnResult>();
+
+  @override
+  Future<InterviewTurnResult> submitAnswer({
+    required String sessionId,
+    required String answer,
+    required String idempotencyKey,
+  }) => pending.future;
+}
+
+class _DeletableInterviewRepository extends _InterviewPageRepository {
+  bool failDelete = true;
+  bool deleted = false;
+  int deleteCalls = 0;
+
+  @override
+  Future<InterviewSessionDetailRecord> getSession(String sessionId) =>
+      const _CompletedInterviewRepository().getSession(sessionId);
+
+  @override
+  Future<List<InterviewSessionSummaryRecord>> listSessions() async => deleted
+      ? <InterviewSessionSummaryRecord>[]
+      : const _CompletedInterviewRepository().listSessions();
+
+  @override
+  Future<void> deleteSession(String sessionId) async {
+    deleteCalls += 1;
+    if (failDelete) throw Exception('Offline');
+    deleted = true;
   }
 }

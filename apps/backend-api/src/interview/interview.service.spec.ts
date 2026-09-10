@@ -26,6 +26,7 @@ describe('InterviewService', () => {
       createSession: jest.fn(),
       listOwnedSessions: jest.fn(),
       getOwnedSession: jest.fn(),
+      deleteOwnedSession: jest.fn(),
       claimAnswer: jest.fn(),
       listTurns: jest.fn(),
       listRecentTurns: jest.fn(),
@@ -61,6 +62,43 @@ describe('InterviewService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('deleteSession', () => {
+    it('checks ownership before deleting the requested session', async () => {
+      repository.getOwnedSession.mockResolvedValue({ id: 'session-1' } as any);
+      repository.listTurns.mockResolvedValue([]);
+      await expect(
+        service.deleteSession('user-1', 'session-1'),
+      ).resolves.toEqual({ deleted: true });
+      expect(repository.getOwnedSession).toHaveBeenCalledWith(
+        'session-1',
+        'user-1',
+      );
+      expect(repository.deleteOwnedSession).toHaveBeenCalledWith(
+        'session-1',
+        'user-1',
+      );
+    });
+
+    it('does not delete another user session', async () => {
+      repository.getOwnedSession.mockRejectedValue(new Error('Not found'));
+      await expect(
+        service.deleteSession('user-2', 'session-1'),
+      ).rejects.toThrow('Not found');
+      expect(repository.deleteOwnedSession).not.toHaveBeenCalled();
+    });
+
+    it('preserves a session while its answer is being processed', async () => {
+      repository.getOwnedSession.mockResolvedValue({ id: 'session-1' } as any);
+      repository.listTurns.mockResolvedValue([
+        { processingStatus: 'pending' },
+      ] as any);
+      await expect(
+        service.deleteSession('user-1', 'session-1'),
+      ).rejects.toThrow('still processing');
+      expect(repository.deleteOwnedSession).not.toHaveBeenCalled();
+    });
   });
 
   describe('submitAnswerStream', () => {
@@ -190,6 +228,14 @@ describe('InterviewService', () => {
         mockSessionId,
         mockInput,
         mockResponse as any,
+      );
+
+      expect(repository.listRecentTurns).not.toHaveBeenCalled();
+      expect(llmClient.evaluateAnswer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recentTurns: [expect.objectContaining({ id: 'turn-q-0' })],
+          latestAnswer: mockInput.answer.text,
+        }),
       );
 
       expect(mockResponse.setHeader).toHaveBeenCalledWith(

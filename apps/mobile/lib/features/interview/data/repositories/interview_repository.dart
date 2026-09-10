@@ -13,6 +13,8 @@ abstract class InterviewRepository {
 
   Future<List<InterviewSessionSummaryRecord>> listSessions();
 
+  Future<void> deleteSession(String sessionId);
+
   Future<InterviewSessionDetailRecord> getSession(String sessionId);
 
   Future<InterviewTurnResult> submitAnswer({

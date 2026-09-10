@@ -12,7 +12,11 @@ class _AndroidLiveInterviewAudioPlayer implements LiveInterviewAudioPlayer {
   File? _temporaryFile;
 
   @override
-  Future<void> playUrl(String url, {String? accessToken}) async {
+  Future<void> playUrl(
+    String url, {
+    String? accessToken,
+    void Function()? onStarted,
+  }) async {
     await stop();
     await _player.setUrl(
       url,
@@ -20,13 +24,14 @@ class _AndroidLiveInterviewAudioPlayer implements LiveInterviewAudioPlayer {
           ? <String, String>{'authorization': 'Bearer $accessToken'}
           : null,
     );
-    await _playToCompletion();
+    await _playToCompletion(onStarted);
   }
 
   @override
   Future<void> playBytes(
     Uint8List bytes, {
     required String fileExtension,
+    void Function()? onStarted,
   }) async {
     await stop();
     final String safeExtension = fileExtension.replaceAll(
@@ -42,18 +47,31 @@ class _AndroidLiveInterviewAudioPlayer implements LiveInterviewAudioPlayer {
     _temporaryFile = file;
     try {
       await _player.setFilePath(file.path);
-      await _playToCompletion();
+      await _playToCompletion(onStarted);
     } finally {
       await _deleteTemporaryFile();
     }
   }
 
-  Future<void> _playToCompletion() async {
-    await _player.play();
-    if (_player.processingState != ProcessingState.completed) {
-      await _player.processingStateStream.firstWhere(
-        (ProcessingState state) => state == ProcessingState.completed,
-      );
+  Future<void> _playToCompletion(void Function()? onStarted) async {
+    bool notified = false;
+    final subscription = _player.playerStateStream.listen((state) {
+      if (!notified &&
+          state.playing &&
+          state.processingState == ProcessingState.ready) {
+        notified = true;
+        onStarted?.call();
+      }
+    });
+    try {
+      await _player.play();
+      if (_player.processingState != ProcessingState.completed) {
+        await _player.processingStateStream.firstWhere(
+          (ProcessingState state) => state == ProcessingState.completed,
+        );
+      }
+    } finally {
+      await subscription.cancel();
     }
   }
 

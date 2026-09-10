@@ -8,6 +8,33 @@ import 'package:yudha_mobile/features/interview/data/repositories/interview_repo
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 
 void main() {
+  test(
+    'delete uses authenticated DELETE and accepts an already removed session',
+    () async {
+      final repository = BackendInterviewRepository(
+        config: const InterviewApiConfig(accessToken: 'token'),
+        client: MockClient((request) async {
+          expect(request.method, 'DELETE');
+          expect(request.url.path, '/interview/sessions/session-1');
+          expect(request.headers['authorization'], 'Bearer token');
+          return http.Response('', 404);
+        }),
+      );
+      await repository.deleteSession('session-1');
+    },
+  );
+
+  test('delete surfaces server failures', () async {
+    final repository = BackendInterviewRepository(
+      config: const InterviewApiConfig(accessToken: 'token'),
+      client: MockClient((_) async => http.Response('{}', 500)),
+    );
+    await expectLater(
+      repository.deleteSession('session-1'),
+      throwsA(isA<InterviewApiException>()),
+    );
+  });
+
   group('BackendInterviewRepository', () {
     for (final entry in <String, String>{
       'INSUFFICIENT_Y_COIN': 'Y Coin kamu belum cukup',

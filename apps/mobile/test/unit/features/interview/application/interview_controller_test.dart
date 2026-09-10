@@ -206,6 +206,9 @@ class _FakeInterviewRepository implements InterviewRepository {
   }
 
   @override
+  Future<void> deleteSession(String sessionId) async {}
+
+  @override
   Future<InterviewSessionDetailRecord> getSession(String sessionId) async {
     if (resumedDetail != null) {
       return resumedDetail!;

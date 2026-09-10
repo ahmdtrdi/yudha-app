@@ -11,6 +11,25 @@ import 'package:yudha_mobile/features/interview/domain/entities/interview_messag
 
 void main() {
   test(
+    'keeps the waiting phase until audio playback actually starts',
+    () async {
+      final harness = _Harness();
+      harness.player.ready = Completer<void>();
+      harness.player.finished = Completer<void>();
+      final starting = harness.start();
+      await Future<void>.delayed(Duration.zero);
+      expect(harness.phases.last, LiveInterviewPhase.connecting);
+      harness.player.ready!.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(harness.phases.last, LiveInterviewPhase.interviewerSpeaking);
+      harness.player.finished!.complete();
+      await starting;
+      expect(harness.phases.last, LiveInterviewPhase.readyToAnswer);
+      await harness.dispose();
+    },
+  );
+
+  test(
     'initial disconnect does not race startup with automatic reconnect',
     () async {
       final harness = _Harness();
@@ -304,14 +323,29 @@ class _FakeCapture implements LiveInterviewAudioCapture {
 }
 
 class _FakePlayer implements LiveInterviewAudioPlayer {
+  Completer<void>? ready;
+  Completer<void>? finished;
   @override
-  Future<void> playUrl(String url, {String? accessToken}) async {}
+  Future<void> playUrl(
+    String url, {
+    String? accessToken,
+    void Function()? onStarted,
+  }) async {
+    await ready?.future;
+    onStarted?.call();
+    await finished?.future;
+  }
 
   @override
   Future<void> playBytes(
     Uint8List bytes, {
     required String fileExtension,
-  }) async {}
+    void Function()? onStarted,
+  }) async {
+    await ready?.future;
+    onStarted?.call();
+    await finished?.future;
+  }
 
   @override
   Future<void> stop() async {}

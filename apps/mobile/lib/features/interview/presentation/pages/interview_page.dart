@@ -31,6 +31,7 @@ class _InterviewPageState extends ConsumerState<InterviewPage>
   final TextEditingController _answerController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _allowPop = false;
+  final Set<String> _shownMessageIds = <String>{};
 
   @override
   void initState() {
@@ -71,6 +72,7 @@ class _InterviewPageState extends ConsumerState<InterviewPage>
     await ref
         .read(interviewControllerProvider(widget.config).notifier)
         .submitAnswer(answer);
+    if (!mounted) return;
     final InterviewState state = ref.read(
       interviewControllerProvider(widget.config),
     );
@@ -151,12 +153,14 @@ class _InterviewPageState extends ConsumerState<InterviewPage>
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) {
+      if (!mounted || !_scrollController.hasClients) {
         return;
       }
       _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent + 160,
-        duration: const Duration(milliseconds: 260),
+        _scrollController.position.maxScrollExtent,
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 280),
         curve: Curves.easeOut,
       );
     });
@@ -176,6 +180,25 @@ class _InterviewPageState extends ConsumerState<InterviewPage>
         return _SessionsSheet(
           currentSessionId: state.sessionId,
           config: widget.config,
+          canDeleteCurrent:
+              state.status != InterviewViewStatus.submitting &&
+              state.status != InterviewViewStatus.starting &&
+              !state.isRecording &&
+              !state.isTranscribing &&
+              !<LiveInterviewPhase>{
+                LiveInterviewPhase.connecting,
+                LiveInterviewPhase.evaluating,
+                LiveInterviewPhase.interviewerSpeaking,
+                LiveInterviewPhase.reconnecting,
+              }.contains(state.livePhase),
+          onDeleted: (String sessionId) {
+            ref.invalidate(interviewSessionDetailProvider(sessionId));
+            if (sessionId == state.sessionId && mounted) {
+              Navigator.of(context).pop();
+              ref.invalidate(interviewControllerProvider(widget.config));
+              context.go(AppRoutes.interview);
+            }
+          },
           onOpenSession: (InterviewSessionSummaryRecord session) {
             if (session.status == 'active') {
               Navigator.of(context).pop();
@@ -263,7 +286,8 @@ class _InterviewPageState extends ConsumerState<InterviewPage>
       InterviewState? previous,
       InterviewState next,
     ) {
-      if (previous?.messages.length != next.messages.length) {
+      if (previous?.messages.length != next.messages.length ||
+          previous?.status != next.status) {
         _scrollToBottom();
       }
       if (previous?.pendingAnswer != null && next.pendingAnswer == null) {
@@ -402,10 +426,20 @@ class _InterviewPageState extends ConsumerState<InterviewPage>
                     children: <Widget>[
                       if (!isVoiceMode || state.useTextFallback)
                         _InterviewHeader(
-                          status: state.status,
+                          status: state.errorMessage != null
+                              ? InterviewViewStatus.error
+                              : state.status,
                           config: widget.config,
                           currentQuestion: currentQuestion,
                           finalSummary: state.finalSummary,
+                          questionNumber: state.messages
+                              .where(
+                                (message) =>
+                                    message.author ==
+                                    InterviewMessageAuthor.interviewer,
+                              )
+                              .length,
+                          isFinishing: isBusy && state.pendingAnswer == null,
                         ),
                       if (state.errorMessage != null)
                         _ErrorBanner(
@@ -420,7 +454,14 @@ class _InterviewPageState extends ConsumerState<InterviewPage>
                         ),
                       Expanded(
                         child: state.status == InterviewViewStatus.starting
-                            ? const Center(child: CircularProgressIndicator())
+                            ? const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(24),
+                                  child: _TypingBubble(
+                                    label: 'Menyiapkan interview...',
+                                  ),
+                                ),
+                              )
                             : isVoiceMode && !state.useTextFallback
                             ? Builder(
                                 builder: (BuildContext context) {
@@ -492,33 +533,38 @@ class _InterviewPageState extends ConsumerState<InterviewPage>
                                     itemCount:
                                         state.messages.length +
                                         (isBusy ? 1 : 0),
-                                    itemBuilder:
-                                        (BuildContext context, int index) {
-                                          if (index < state.messages.length) {
-                                            final InterviewMessage msg =
-                                                state.messages[index];
-                                            final String? audioUrl =
-                                                (msg.author ==
-                                                        InterviewMessageAuthor
-                                                            .interviewer &&
-                                                    (msg.audioAvailable ||
-                                                        widget
-                                                                .config
-                                                                .responseStyle ==
-                                                            'voice'))
-                                                ? controllerNotifier
-                                                      .getQuestionAudioUrl(
-                                                        msg.id,
-                                                      )
-                                                : null;
-                                            return _ChatBubble(
-                                              message: msg,
-                                              audioUrl: audioUrl,
-                                              accessToken: token,
-                                            );
-                                          }
-                                          return const _TypingBubble();
-                                        },
+                                    itemBuilder: (BuildContext context, int index) {
+                                      if (index < state.messages.length) {
+                                        final InterviewMessage msg =
+                                            state.messages[index];
+                                        final String? audioUrl =
+                                            (msg.author ==
+                                                    InterviewMessageAuthor
+                                                        .interviewer &&
+                                                (msg.audioAvailable ||
+                                                    widget
+                                                            .config
+                                                            .responseStyle ==
+                                                        'voice'))
+                                            ? controllerNotifier
+                                                  .getQuestionAudioUrl(msg.id)
+                                            : null;
+                                        return _MessageEntrance(
+                                          key: ValueKey<String>(msg.id),
+                                          animate: _shownMessageIds.add(msg.id),
+                                          child: _ChatBubble(
+                                            message: msg,
+                                            audioUrl: audioUrl,
+                                            accessToken: token,
+                                          ),
+                                        );
+                                      }
+                                      return _TypingBubble(
+                                        label: state.pendingAnswer == null
+                                            ? 'Menyiapkan hasil interview...'
+                                            : 'AI sedang meninjau jawabanmu...',
+                                      );
+                                    },
                                   );
                                 },
                               ),
@@ -561,12 +607,16 @@ class _InterviewHeader extends StatelessWidget {
     required this.config,
     required this.currentQuestion,
     required this.finalSummary,
+    required this.questionNumber,
+    required this.isFinishing,
   });
 
   final InterviewViewStatus status;
   final InterviewLaunchConfig config;
   final InterviewMessage? currentQuestion;
   final InterviewFinalSummary? finalSummary;
+  final int questionNumber;
+  final bool isFinishing;
 
   @override
   Widget build(BuildContext context) {
@@ -625,13 +675,17 @@ class _InterviewHeader extends StatelessWidget {
               children: <Widget>[
                 Row(
                   children: <Widget>[
-                    Text(
-                      'Pewawancara AI',
-                      style: GoogleFonts.fredoka(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.2,
+                    Flexible(
+                      child: Text(
+                        'Pewawancara AI',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.fredoka(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -648,7 +702,13 @@ class _InterviewHeader extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        'ONLINE',
+                        status == InterviewViewStatus.starting
+                            ? 'MEMULAI'
+                            : status == InterviewViewStatus.submitting
+                            ? 'MEMPROSES'
+                            : status == InterviewViewStatus.error
+                            ? 'TERJEDA'
+                            : 'SIAP',
                         style: GoogleFonts.jetBrainsMono(
                           color: AppColors.growthLime,
                           fontSize: 8.5,
@@ -667,6 +727,31 @@ class _InterviewHeader extends StatelessWidget {
                     color: Colors.white.withAlpha(200),
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                AnimatedSwitcher(
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 180),
+                  child: Text(
+                    status == InterviewViewStatus.starting
+                        ? 'Menyiapkan pertanyaan pertama'
+                        : status == InterviewViewStatus.submitting
+                        ? (isFinishing
+                              ? 'Menyusun hasil sesi'
+                              : 'AI sedang meninjau jawaban')
+                        : status == InterviewViewStatus.error
+                        ? 'Coba lagi untuk melanjutkan'
+                        : 'Pertanyaan $questionNumber - Giliran kamu menjawab',
+                    key: ValueKey<String>(
+                      '$status-$questionNumber-$isFinishing',
+                    ),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -742,6 +827,14 @@ class _VoiceRoomPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final _LiveVoiceCopy copy = _liveVoiceCopy(state.livePhase);
+    final bool isThinking =
+        <LiveInterviewPhase>{
+          LiveInterviewPhase.connecting,
+          LiveInterviewPhase.transcribing,
+          LiveInterviewPhase.evaluating,
+          LiveInterviewPhase.reconnecting,
+        }.contains(state.livePhase) ||
+        state.status == InterviewViewStatus.submitting;
     final bool isActive = switch (state.livePhase) {
       LiveInterviewPhase.connecting ||
       LiveInterviewPhase.interviewerSpeaking ||
@@ -901,10 +994,8 @@ class _VoiceRoomPanel extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         copy.subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.dmSans(
-                          color: Colors.white.withAlpha(200),
+                          color: Colors.white,
                           fontWeight: FontWeight.w500,
                           fontSize: 11,
                         ),
@@ -932,35 +1023,62 @@ class _VoiceRoomPanel extends StatelessWidget {
               ],
             ),
           ),
-          const Spacer(),
-          _VoiceVisualizerOrb(isActive: isActive),
-          const Spacer(),
+          Expanded(
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: _VoiceVisualizerOrb(
+                  isActive: isActive,
+                  isThinking: isThinking,
+                ),
+              ),
+            ),
+          ),
           Container(
             key: const ValueKey<String>('interview-question-surface'),
             width: double.infinity,
-            constraints: const BoxConstraints(minHeight: 85, maxHeight: 130),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white.withAlpha(26),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: Colors.white.withAlpha(60), width: 1.2),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: const Color(0xFF002966).withAlpha(50),
-                  blurRadius: 0,
-                  offset: const Offset(0, 4),
-                ),
-                BoxShadow(
-                  color: Colors.black.withAlpha(15),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+            constraints: BoxConstraints(
+              minHeight: 85,
+              maxHeight: isThinking ? double.infinity : 130,
             ),
-            child: _ScrollableInterviewQuestion(
-              text:
-                  currentQuestion?.text ?? 'Menyiapkan pertanyaan interview...',
-            ),
+            padding: isThinking
+                ? EdgeInsets.zero
+                : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: isThinking
+                ? null
+                : BoxDecoration(
+                    color: Colors.white.withAlpha(26),
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: Colors.white.withAlpha(60),
+                      width: 1.2,
+                    ),
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: const Color(0xFF002966).withAlpha(50),
+                        blurRadius: 0,
+                        offset: const Offset(0, 4),
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withAlpha(15),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+            child: isThinking
+                ? _TypingBubble(
+                    key: const ValueKey<String>('voice-thinking-status'),
+                    showAvatar: false,
+                    label: state.status == InterviewViewStatus.submitting
+                        ? 'Menyiapkan hasil interview...'
+                        : copy.subtitle,
+                  )
+                : _ScrollableInterviewQuestion(
+                    text:
+                        currentQuestion?.text ??
+                        'Menyiapkan pertanyaan interview...',
+                  ),
           ),
           if (latestCandidateAnswer != null) ...<Widget>[
             const SizedBox(height: 8),
@@ -1057,7 +1175,7 @@ _LiveVoiceCopy _liveVoiceCopy(LiveInterviewPhase phase) {
     ),
     LiveInterviewPhase.evaluating => const _LiveVoiceCopy(
       'Menilai jawaban...',
-      'Pewawancara sedang menyiapkan pertanyaan berikutnya.',
+      'AI sedang menyiapkan pertanyaan dan suara. Tunggu sebentar, ya.',
     ),
     LiveInterviewPhase.reconnecting => const _LiveVoiceCopy(
       'Menyambungkan kembali...',
@@ -1542,7 +1660,9 @@ class _ScrollableInterviewQuestionState
 }
 
 class _VoiceVisualizerOrb extends StatefulWidget {
-  const _VoiceVisualizerOrb({required this.isActive});
+  const _VoiceVisualizerOrb({required this.isActive, this.isThinking = false});
+
+  final bool isThinking;
 
   final bool isActive;
 
@@ -1560,7 +1680,17 @@ class _VoiceVisualizerOrbState extends State<_VoiceVisualizerOrb>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1800),
-    )..repeat();
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.stop();
+    } else {
+      _controller.repeat();
+    }
   }
 
   @override
@@ -1574,13 +1704,30 @@ class _VoiceVisualizerOrbState extends State<_VoiceVisualizerOrb>
     return AnimatedBuilder(
       animation: _controller,
       builder: (BuildContext context, Widget? child) {
-        return CustomPaint(
-          key: const ValueKey<String>('interview-voice-orb'),
-          size: const Size.square(230),
-          painter: _VoiceOrbPainter(
-            progress: _controller.value,
-            isActive: widget.isActive,
-          ),
+        return Stack(
+          alignment: Alignment.center,
+          children: <Widget>[
+            CustomPaint(
+              key: const ValueKey<String>('interview-voice-orb'),
+              size: const Size.square(230),
+              painter: _VoiceOrbPainter(
+                progress: _controller.value,
+                isActive: widget.isActive,
+              ),
+            ),
+            if (widget.isThinking)
+              SizedBox(
+                width: 184,
+                height: 184,
+                child: CircularProgressIndicator(
+                  key: const ValueKey<String>('voice-thinking-ring'),
+                  value: MediaQuery.disableAnimationsOf(context) ? 0.7 : null,
+                  strokeWidth: 2.5,
+                  color: Colors.white.withAlpha(230),
+                  backgroundColor: Colors.white.withAlpha(30),
+                ),
+              ),
+          ],
         );
       },
     );
@@ -2075,54 +2222,193 @@ class _AudioPlayButtonState extends State<_AudioPlayButton> {
   }
 }
 
-class _TypingBubble extends StatelessWidget {
-  const _TypingBubble();
+// Animate only newly inserted messages, never old messages rebuilt while scrolling.
+class _MessageEntrance extends StatelessWidget {
+  const _MessageEntrance({
+    required this.animate,
+    required this.child,
+    super.key,
+  });
+  final bool animate;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.only(bottom: 14),
-      child: Row(
-        children: <Widget>[
-          _AvatarIcon(isUser: false),
-          SizedBox(width: 8),
-          _DotsBubble(),
-        ],
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: animate ? 0 : 1, end: 1),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      child: child,
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset(0, 10 * (1 - value)),
+          child: child,
+        ),
       ),
     );
   }
 }
 
-class _DotsBubble extends StatelessWidget {
-  const _DotsBubble();
+class _TypingBubble extends StatefulWidget {
+  const _TypingBubble({required this.label, this.showAvatar = true, super.key});
+  final bool showAvatar;
+  final String label;
+
+  @override
+  State<_TypingBubble> createState() => _TypingBubbleState();
+}
+
+class _TypingBubbleState extends State<_TypingBubble>
+    with SingleTickerProviderStateMixin {
+  static const List<String> _phrases = <String>[
+    'Berpikir...',
+    'Menimbang...',
+    'Mencerna...',
+    'Menelaah...',
+    'Mempertimbangkan...',
+    'Merangkai respons...',
+    'Menyusun tanggapan...',
+    'Mengolah konteks...',
+    'Menyiapkan respons...',
+    'Merampungkan respons...',
+  ];
+  int _phraseIndex = 0;
+  Timer? _phraseTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _phraseTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) {
+        setState(() => _phraseIndex = (_phraseIndex + 1) % _phrases.length);
+      }
+    });
+  }
+
+  late final AnimationController _animation = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _animation.stop();
+      _animation.value = 0;
+    } else {
+      _animation.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _phraseTimer?.cancel();
+    _animation.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withAlpha(210), width: 1.5),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: const Color(0xFF002966).withAlpha(45),
-            offset: const Offset(0, 4),
+    return Semantics(
+      liveRegion: true,
+      label: widget.label,
+      child: ExcludeSemantics(
+        child: Padding(
+          padding: EdgeInsets.only(bottom: widget.showAvatar ? 14 : 0),
+          child: Row(
+            children: <Widget>[
+              if (widget.showAvatar) ...<Widget>[
+                const _AvatarIcon(isUser: false),
+                const SizedBox(width: 8),
+              ],
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      RepaintBoundary(
+                        child: AnimatedBuilder(
+                          animation: _animation,
+                          builder: (context, child) => Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: List<Widget>.generate(3, (index) {
+                              final double pulse =
+                                  (math.sin(
+                                        _animation.value * 2 * math.pi -
+                                            index * 0.8,
+                                      ) +
+                                      1) /
+                                  2;
+                              return Transform.translate(
+                                offset: Offset(0, -3 * pulse),
+                                child: Container(
+                                  width: 5,
+                                  height: 5,
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: AppColors.levelUpTeal.withAlpha(
+                                      (100 + 155 * pulse).round(),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Flexible(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            AnimatedSwitcher(
+                              duration: MediaQuery.disableAnimationsOf(context)
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 220),
+                              child: Text(
+                                _phrases[_phraseIndex],
+                                key: ValueKey<int>(_phraseIndex),
+                                style: const TextStyle(
+                                  color: AppColors.warriorNavy,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.label,
+                              style: const TextStyle(
+                                color: AppColors.textStrong,
+                                fontSize: 12,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-          BoxShadow(
-            color: Colors.black.withAlpha(18),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Text(
-        '...',
-        style: GoogleFonts.fredoka(
-          color: AppColors.levelUpTeal,
-          fontSize: 24,
-          height: 0.6,
-          letterSpacing: 2,
         ),
       ),
     );
@@ -3902,19 +4188,61 @@ class _InterviewSheetHandle extends StatelessWidget {
   }
 }
 
-class _SessionsSheet extends ConsumerWidget {
+class _SessionsSheet extends ConsumerStatefulWidget {
   const _SessionsSheet({
     required this.currentSessionId,
     required this.config,
     required this.onOpenSession,
+    required this.onDeleted,
+    required this.canDeleteCurrent,
   });
 
   final String? currentSessionId;
   final InterviewLaunchConfig config;
   final ValueChanged<InterviewSessionSummaryRecord> onOpenSession;
+  final ValueChanged<String> onDeleted;
+  final bool canDeleteCurrent;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SessionsSheet> createState() => _SessionsSheetState();
+}
+
+class _SessionsSheetState extends ConsumerState<_SessionsSheet> {
+  final Set<String> _deleted = <String>{};
+
+  Future<bool> _deleteSession(InterviewSessionSummaryRecord session) async {
+    if (session.sessionId == widget.currentSessionId &&
+        !widget.canDeleteCurrent) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Tunggu proses interview selesai sebelum menghapus sesi ini.',
+          ),
+        ),
+      );
+      return false;
+    }
+    try {
+      await ref
+          .read(interviewRepositoryProvider)
+          .deleteSession(session.sessionId);
+      return mounted;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Sesi belum terhapus. Coba geser lagi setelah proses selesai atau koneksi pulih.',
+            ),
+          ),
+        );
+      }
+      return false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final AsyncValue<List<InterviewSessionSummaryRecord>> sessionsAsync = ref
         .watch(interviewSessionsProvider);
 
@@ -3930,7 +4258,10 @@ class _SessionsSheet extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
             child: sessionsAsync.when(
-              data: (List<InterviewSessionSummaryRecord> sessions) {
+              data: (List<InterviewSessionSummaryRecord> records) {
+                final sessions = records
+                    .where((session) => !_deleted.contains(session.sessionId))
+                    .toList();
                 if (sessions.isEmpty) {
                   return const Center(
                     child: Text(
@@ -3969,15 +4300,23 @@ class _SessionsSheet extends ConsumerWidget {
                       ],
                     ),
                     Text(
-                      currentSessionId == null
+                      widget.currentSessionId == null
                           ? 'Riwayat interview kamu'
-                          : 'Sesi saat ini: ${config.companyName}',
+                          : 'Sesi saat ini: ${widget.config.companyName}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: AppColors.textMuted,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Geser sesi ke kiri untuk menghapus',
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 12,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -3992,7 +4331,7 @@ class _SessionsSheet extends ConsumerWidget {
                           final InterviewSessionSummaryRecord session =
                               sessions[index];
                           final bool isCurrent =
-                              session.sessionId == currentSessionId;
+                              session.sessionId == widget.currentSessionId;
                           final String title = _humanizeCompanyId(
                             session.companyId,
                           );
@@ -4001,132 +4340,177 @@ class _SessionsSheet extends ConsumerWidget {
                               ? 'Belum diselesaikan'
                               : 'Skor ${session.finalSummary!.overallScore.toStringAsFixed(1)}';
 
-                          return Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              key: ValueKey<String>(
-                                'interview-session-${session.sessionId}',
+                          return Dismissible(
+                            key: ValueKey<String>(
+                              'delete-session-${session.sessionId}',
+                            ),
+                            direction: DismissDirection.endToStart,
+                            dismissThresholds: const {
+                              DismissDirection.endToStart: 0.55,
+                            },
+                            confirmDismiss: (_) => _deleteSession(session),
+                            onDismissed: (_) {
+                              setState(() => _deleted.add(session.sessionId));
+                              ref.invalidate(interviewSessionsProvider);
+                              widget.onDeleted(session.sessionId);
+                            },
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
                               ),
-                              borderRadius: BorderRadius.circular(18),
-                              onTap: () => onOpenSession(session),
-                              child: Ink(
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  color: isCurrent
-                                      ? const Color(0xFFE4F7F5)
-                                      : Colors.white,
-                                  borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(
-                                    color: isCurrent
-                                        ? AppColors.levelUpTeal
-                                        : AppColors.warriorNavy.withAlpha(24),
-                                    width: isCurrent ? 1.6 : 1,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFB83D36),
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: <Widget>[
+                                  Icon(
+                                    Icons.delete_outline_rounded,
+                                    color: Colors.white,
                                   ),
-                                  boxShadow: const <BoxShadow>[
-                                    BoxShadow(
-                                      color: Color(0xFFD9DEE7),
-                                      blurRadius: 0,
-                                      offset: Offset(0, 5),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Hapus sesi',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
                                     ),
-                                  ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                key: ValueKey<String>(
+                                  'interview-session-${session.sessionId}',
                                 ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: <Widget>[
-                                    Container(
-                                      width: 42,
-                                      height: 42,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.warriorNavy.withAlpha(
-                                          12,
-                                        ),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        session.status == 'completed'
-                                            ? Icons.task_alt_rounded
-                                            : Icons.history_rounded,
-                                        color: session.status == 'completed'
-                                            ? AppColors.levelUpTeal
-                                            : AppColors.warriorNavy,
-                                      ),
+                                borderRadius: BorderRadius.circular(18),
+                                onTap: () => widget.onOpenSession(session),
+                                child: Ink(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: isCurrent
+                                        ? const Color(0xFFE4F7F5)
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(
+                                      color: isCurrent
+                                          ? AppColors.levelUpTeal
+                                          : AppColors.warriorNavy.withAlpha(24),
+                                      width: isCurrent ? 1.6 : 1,
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: <Widget>[
-                                          Row(
-                                            children: <Widget>[
-                                              Expanded(
-                                                child: Text(
-                                                  title,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: const TextStyle(
-                                                    color: AppColors.textStrong,
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w800,
-                                                  ),
-                                                ),
-                                              ),
-                                              if (isCurrent)
-                                                Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 4,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: AppColors.levelUpTeal
-                                                        .withAlpha(18),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          999,
-                                                        ),
-                                                  ),
-                                                  child: const Text(
-                                                    'Aktif',
-                                                    style: TextStyle(
+                                    boxShadow: const <BoxShadow>[
+                                      BoxShadow(
+                                        color: Color(0xFFD9DEE7),
+                                        blurRadius: 0,
+                                        offset: Offset(0, 5),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      Container(
+                                        width: 42,
+                                        height: 42,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.warriorNavy
+                                              .withAlpha(12),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          session.status == 'completed'
+                                              ? Icons.task_alt_rounded
+                                              : Icons.history_rounded,
+                                          color: session.status == 'completed'
+                                              ? AppColors.levelUpTeal
+                                              : AppColors.warriorNavy,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: <Widget>[
+                                            Row(
+                                              children: <Widget>[
+                                                Expanded(
+                                                  child: Text(
+                                                    title,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: const TextStyle(
                                                       color:
-                                                          AppColors.levelUpTeal,
-                                                      fontSize: 10,
+                                                          AppColors.textStrong,
+                                                      fontSize: 14,
                                                       fontWeight:
                                                           FontWeight.w800,
                                                     ),
                                                   ),
                                                 ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            '${session.targetRole} • ${_humanizeInterviewMode(session.mode)}',
-                                            style: const TextStyle(
-                                              color: AppColors.textMuted,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
+                                                if (isCurrent)
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 4,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: AppColors
+                                                          .levelUpTeal
+                                                          .withAlpha(18),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            999,
+                                                          ),
+                                                    ),
+                                                    child: const Text(
+                                                      'Aktif',
+                                                      style: TextStyle(
+                                                        color: AppColors
+                                                            .levelUpTeal,
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight.w800,
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
                                             ),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            '$summaryText  •  ${_sessionTimestamp(session.updatedAt)}',
-                                            style: const TextStyle(
-                                              color: AppColors.textStrong,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              '${session.targetRole} • ${_humanizeInterviewMode(session.mode)}',
+                                              style: const TextStyle(
+                                                color: AppColors.textMuted,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              '$summaryText  •  ${_sessionTimestamp(session.updatedAt)}',
+                                              style: const TextStyle(
+                                                color: AppColors.textStrong,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Icon(
-                                      Icons.chevron_right_rounded,
-                                      color: AppColors.textMuted,
-                                    ),
-                                  ],
+                                      const SizedBox(width: 8),
+                                      const Icon(
+                                        Icons.chevron_right_rounded,
+                                        color: AppColors.textMuted,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),

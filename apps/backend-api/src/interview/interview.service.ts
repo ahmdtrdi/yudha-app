@@ -47,10 +47,7 @@ export class InterviewService {
       'id',
     );
     this.wordStreamingDelayMs = Number(
-      configService.get<string>(
-        'INTERVIEW_WORD_STREAMING_DELAY_MS',
-        process.env.NODE_ENV === 'test' ? '0' : '30',
-      ),
+      configService.get<string>('INTERVIEW_WORD_STREAMING_DELAY_MS', '0'),
     );
   }
 
@@ -90,6 +87,16 @@ export class InterviewService {
         session.responseStyle,
       ),
     };
+  }
+
+  async deleteSession(userId: string, sessionId: string) {
+    await this.repository.getOwnedSession(sessionId, userId);
+    const turns = await this.repository.listTurns(sessionId);
+    if (turns.some((turn) => turn.processingStatus === 'pending')) {
+      throw new ConflictException('An answer is still processing.');
+    }
+    await this.repository.deleteOwnedSession(sessionId, userId);
+    return { deleted: true };
   }
 
   async listSessions(userId: string) {
@@ -143,7 +150,11 @@ export class InterviewService {
         turns,
         answerTurn.id,
       );
-      const recentTurns = await this.repository.listRecentTurns(session.id);
+      // Reuse the chronological transcript unless it reached the query limit.
+      const recentTurns =
+        turns.length < 100
+          ? turns.slice(-6)
+          : await this.repository.listRecentTurns(session.id);
       const evaluation = await this.llmClient.evaluateAnswer({
         companyContext: session.contextSnapshot,
         targetRole: session.targetRole,
@@ -263,7 +274,11 @@ export class InterviewService {
         turns,
         answerTurn.id,
       );
-      const recentTurns = await this.repository.listRecentTurns(session.id);
+      // Reuse the chronological transcript unless it reached the query limit.
+      const recentTurns =
+        turns.length < 100
+          ? turns.slice(-6)
+          : await this.repository.listRecentTurns(session.id);
       const evaluation = await this.llmClient.evaluateAnswer({
         companyContext: session.contextSnapshot,
         targetRole: session.targetRole,
