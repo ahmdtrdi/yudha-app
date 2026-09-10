@@ -1,8 +1,8 @@
 # YUDHA — Product Requirements and Architecture Contract
 
 > **Status:** Approved product contract; Learning V2 Gate 5 remains blocked by explicit decision debt
-> **Version:** 2.0
-> **Last updated:** 2026-09-01
+> **Version:** 2.1
+> **Last updated:** 2026-09-05
 > **Product timezone:** `Asia/Jakarta` (WIB, UTC+7)
 > **User-facing language:** Indonesian
 > **Audience:** Product, Mobile, Web, App Backend, Game Backend, Data, AI, Security, DevOps, Content, and QA
@@ -24,11 +24,11 @@ This file is the single source of truth for YUDHA product behavior, business rul
 
 ### 0.1 One-liner
 
-**YUDHA (Your Ultimate Digital Hiring Arena)** is a gamified learning platform that builds CPNS and BUMN selection readiness through Solo learning, real-time card battles, explainable analytics, future Assessment evidence, and AI mock interviews with text and voice interaction.
+**YUDHA (Your Ultimate Digital Hiring Arena)** is a gamified recruitment-preparation platform for early-career candidates, initially serving CPNS and BUMN selection through Solo learning, real-time card battles, explainable analytics, future Assessment evidence, and AI mock interviews with text and voice interaction.
 
 ### 0.2 Target user and product promise
 
-The MVP serves Indonesian CPNS and BUMN candidates who want repeatable practice, visible learning progress, and realistic interview rehearsal. YUDHA is a learning product. It does not guarantee employment, predict an official examination result, or issue an official certification.
+The MVP serves Indonesian CPNS and BUMN candidates who want repeatable practice, visible learning progress, and realistic interview rehearsal. Future expansion may serve other recruitment processes with general aptitude tests and interviews after their content and assessment requirements are validated. This direction does not add target identifiers or expand the current MVP. YUDHA is a learning product. It does not guarantee employment, predict an official examination result, or issue an official certification.
 
 ### 0.3 Product principles
 
@@ -57,12 +57,56 @@ The MVP serves Indonesian CPNS and BUMN candidates who want repeatable practice,
 | **Private match** | A human match created with a room code. It is unranked and has no progression. |
 | **Normal completion** | A server-finalized activity that is not abandoned or invalidated and, for a match, is not ended by either player's surrender or disconnect. A future Solo session qualifies only with completion reason `policy_completed`. |
 | **Rank points** | Persistent, non-seasonal competitive/engagement progression used for leaderboard ordering and tier. Daily Lobby missions and Ranked results both change this balance; it can increase or decrease but is never reset and is floored at zero. |
-| **Energy** | Unit-based resource required for mode entry (2 Energy for Solo, Bot, Casual, Ranked, and Private). Free balance starts at and lazily refills to 10 on the first read or mutation of each WIB business day. Completed eligible sessions refund 1 Energy. Unlimited for active YUDHA Pro subscribers. Cap = 100. |
-| **Y-Coin** | Persistent, non-transferable virtual currency used for cosmetics, energy packs, Solo/Practice hints (5 Y-Coin), and AI Interview sessions (100 Y-Coin). Earned through Casual completions (+3), Ranked wins/losses/draws (+10/+3/+5), and verified rewarded ads (+10). It never expires. |
-| **YUDHA Pro** | Monthly subscription entitlement granting unlimited Energy, 500 Y-Coin per entitlement period, one exclusive skin selection, and ad suppression. |
+| **Energy** | Unit-based resource required for mode entry (2 Energy for Solo, Bot, Casual, Ranked, and Private). Free balance starts at and lazily refills to 10 on the first read or mutation of each WIB business day (one daily buffer without interday carryover; balances >10 from packs/ads retained). Completed eligible sessions refund 1 Energy. Rewarded ads support Energy claims. Unlimited for active YUDHA Pro subscribers. |
+| **Y-Coin** | Persistent, non-transferable virtual currency used for cosmetics, energy packs, Solo/Practice hints, and AI Interview sessions. Earned through Solo completions (subject to daily cap), Casual completions, Ranked, and verified rewarded ads. Planned commercial top-up, It never expires. |
+| **YUDHA Pro** | Monthly subscription entitlement granting unlimited Energy, an elevated daily coin earning ceiling on eligible play, one exclusive skin selection on activation, and ad suppression. |
 | **Business day** | A calendar date in `Asia/Jakarta`. Servers store timestamps in UTC and convert them for day/week/season rules. |
 
 ---
+
+### 0.5 Market and customer lifecycle
+
+- The market includes incoming graduates and ongoing employer recruitment, with additional peaks around major selection events. Joint BUMN recruitment and individual employer hiring are distinct demand sources; neither establishes constant monthly demand by itself.
+- Market sizing counts unique relevant candidates rather than summing applications across employers. Candidate volume is not assumed to equal paying demand.
+- The expected lifecycle is free exploration, active preparation, possible paid preparation, cancellation or inactivity, and possible return for another recruitment opportunity. This is a hypothesis to validate, not a mandatory sequence.
+- New and retained free users may both upgrade. Subscription cancellation, product inactivity, and returning to paid service are different events. Conversion and retention are measured by acquisition cohort and, when voluntarily provided, proximity to a relevant test.
+- Broader aptitude-test coverage follows evidence from the initial segments. Each expansion needs validated skill overlap, original or appropriately licensed content, SME review, delivery capacity, acquisition evidence, and an explicit cost plan. Employer names alone do not establish test coverage or affiliation.
+
+### 0.6 Commercial economy and Pro policy
+
+The commercial economy model aligns subscription pricing, coin policies, top-up packaging, and platform assumptions with the financial model:
+
+- **YUDHA Pro Subscription Policy**: Monthly Pro provides a 30-day entitlement period. Under Policy 1, active subscribers receive an elevated daily coin earning ceiling across eligible play. An elevated earning cap is an earning ceiling through gameplay, not an automatic daily coin grant.
+- **Core Pro Benefits**: Unlimited Energy across Solo, Bot, and all PvP modes (no reservations required), ad suppression (all interstitial and result-exit stubs suppressed; rewarded ads issue coins), one exclusive character skin selection on activation, and the Policy 1 elevated daily coin earning ceiling.
+- **Purchased Y-Coin Top-Up**: Planned real-money coin purchases are disabled stubs (`FEATURE_DISABLED`) during the pilot and are scheduled for commercial rollout alongside payments.
+- **Commercial Billing Assumptions**: Subscriptions and top-up billings assume standard platform/billing fees of `15.0%` (Google Play), a `0.0%` subscription refund allowance, a `2.0%` coin purchase refund allowance, and a `1-month` settlement collection lag.
+- **Engineering and Release Boundary**: Beta entitlements and pilot catalog stubs continue to follow server-authoritative policy versions until payment integrations and commercial gates pass. Structured paid preparation programs, separately priced interview packages, and paid Assessment benefits remain future proposals outside the active contract.
+
+### 0.7 Business measurement and validation
+
+Commercial launch requires an approved event schema and reporting definitions with stable user, session, acquisition-cohort, and policy identifiers. Sensitive interview content and raw audio are not business-analytics payloads. Events must be deduplicated and distinguish actual purchases from beta entitlements.
+
+| Metric or event | Definition / required evidence |
+|---|---|
+| Registration and activation | Registration is separate from activation. Before a pilot cohort is evaluated, Product must version the qualifying first-value activity and denominator; an install or login alone is not evidence of learning activation. |
+| Acquisition source | Record available channel/campaign attribution and spend, preserve unknown attribution, and distinguish paid acquisition from organic and referral activity. |
+| First-time paid conversion | First successful real paid entitlement, separated into newly activated and retained-free cohorts with explicit observation windows; never count the same person twice as a first-time payer. |
+| Renewal and cancellation | Record successful subsequent paid periods, cancellation request, and actual entitlement expiry separately. A cancellation request does not immediately imply inactivity. |
+| Reactivation | Record return to qualifying product activity after a versioned inactivity window; distinguish this from a former subscriber purchasing again. |
+| Activity and retention | Report qualifying learning/interview activity, cohort denominators, observation windows, and sample sizes. Report free and paid activity separately. |
+| Preparation context | Recruitment target and optional expected test timing may support analysis. Collect only necessary context, permit unknown values, and do not infer a scheduled exam from general company interest. |
+| Payment and value feedback | Measure genuine purchase behavior at the offered price, voluntary upgrade/cancellation reasons, refunds, and renewal across preparation periods. |
+| Learning improvement | Compare unseen, comparable questions before and after preparation, with exposure controls, sample sizes, elapsed time, and attrition. Repeated-question accuracy or battle wins alone do not establish improvement. |
+| Interview delivery cost | Correlate provider usage and billed cost with text or live-voice sessions, including retries, failures, fallback, transcription input duration, generated speech, and reasoning usage. Report typical and heavy usage without retaining raw candidate audio for analytics. |
+
+Forecast conversion, lifetime value, seasonality, and unit costs remain assumptions until supported by these observations. No universal conversion or retention threshold is asserted by this PRD; experiment success criteria must be declared before evaluation.
+
+### 0.8 Operating capacity
+
+- Product/Support owns support workload and response targets; staffing plans use ticket volume, handling time, and available staff hours.
+- Content/SME owns content rights, skill coverage, unseen-question inventory, review throughput, revision/error workload, and expansion readiness. Minimum release question counts are not a long-term inventory plan.
+- Backend/DevOps owns measured concurrent-session capacity, traffic, storage, reliability, and infrastructure expansion triggers. AI owns speech/reasoning usage and delivery-cost observations.
+- Finance records fixed budgets, usage-based costs, planned hires with start dates and responsibilities, and capacity-based increases in the financial model. Costs may stay flat within demonstrated capacity; an arbitrary forecast boundary does not justify delaying a known capacity need.
 
 ## 1. Product boundaries
 
@@ -84,7 +128,7 @@ The MVP serves Indonesian CPNS and BUMN candidates who want repeatable practice,
 | 12 | Ad-placement stubs | Free-user result-exit trigger and Pro suppression without a production ad SDK |
 | 13 | Multi-instance readiness | Redis-coordinated matchmaking, health/readiness, observability, graceful shutdown, integration tests, and load tests |
 
-### 1.2 Explicitly excluded from MVP
+### 1.2 Explicitly excluded from pilot MVP
 
 - community discussions, guilds, tournaments, spectators, and battle replays;
 - content marketplace, official certification, and institutional/B2B dashboards;
@@ -95,8 +139,9 @@ The MVP serves Indonesian CPNS and BUMN candidates who want repeatable practice,
 - production ads SDK integration (rewarded ad verification adapter is server-stubbed until configured);
 - auto-renewing subscription billing systems;
 - a permanently designated canonical LLM provider;
-- pgvector question search; and
-- more than two human players in a match.
+- pgvector question search;
+- more than two human players in a match; and
+- additional recruitment targets beyond CPNS/BUMN until separately approved.
 
 ### 1.3 MVP acceptance definition
 
@@ -112,6 +157,19 @@ The MVP is pilot-ready only when:
 - Product, Mobile, Backend, Game Backend, AI, DevOps, Content, and QA accept their criteria in this document.
 
 ---
+
+### 1.4 Commercial readiness after the pilot
+
+Pilot acceptance in Section 1.3 is not authorization to collect real-money payments or report beta activations as revenue. Commercial release additionally requires:
+
+- an approved commercial economy and Pro offer resolving Section 0.6, with consistent in-app benefits, prices, terms, and financial assumptions;
+- real payment processing for each enabled paid product, verified server-side settlement/entitlement events, idempotent activation, expiry, refunds/revocation, purchase restoration where applicable, and payment failure/reconciliation handling;
+- an explicit renewal policy: if auto-renewal is offered, cancellation and renewal billing must be implemented and tested; otherwise the product must clearly describe manual repurchase and expiry;
+- production ad integration and verified rewarded claims before advertising revenue is assumed for an enabled surface; an ad-free commercial launch may defer this revenue stream;
+- the business measurement definitions and instrumentation in Section 0.7, plus operational owners and capacity plans in Section 0.8;
+- demonstrated end-to-end purchase, entitlement, refund, and enabled ad flows in the applicable test environment, followed by launch approval from Product, Backend, Mobile, Finance, and QA.
+
+The financial plan separates pilot/build spending from commercial operation and starts subscription, top-up, and advertising revenue only when the corresponding capability is available. Detailed payment contracts and implementations remain follow-up delivery work; these readiness requirements do not imply they are already implemented.
 
 ## 2. User journeys and access model
 
@@ -147,16 +205,20 @@ The learning loop is: **Solo/PvP/Assessment evidence → immutable attempts → 
 
 ### 2.3 Access and monetization
 
+The following table describes the commercial access and monetization structure aligned with the financial model:
+
 | Capability | Free user | Active YUDHA Pro |
 |---|---|---|
-| Mode Entry (Solo, Bot, Casual, Ranked, Private) | Costs 2 Energy (free refill to 10 daily) | Unlimited Energy |
+| Mode Entry (Solo, Bot, Casual, Ranked, Private) | Costs 2 Energy (free refill up to 10 daily) | Unlimited Energy |
 | Energy Completion Refund | +1 Energy on normal completion | Preserved / unaffected |
-| Energy Store Packs | 5 Energy for 50 Y-Coin, 12 Energy for 100 Y-Coin | Available (unlimited active) |
-| YUDHA Pro Monthly Grant | None | 500 Y-Coin per entitlement period |
+| Energy Store Packs | Energy packs exchangeable for Y-Coin | Available (unlimited active) |
+| Daily Coin Earning Ceiling | Standard daily cap (applies to Solo rewards) | Elevated daily cap across eligible play (Policy 1; no passive grant) |
 | Pro Exclusive Cosmetic | Preview only | Choice of 1 exclusive skin on activation |
-| AI Interview | `100 Y-Coin` per new session | Same `100 Y-Coin` cost |
+| AI Interview | Session charge in Y-Coin (text or live voice) | Same session charge |
 | Character/tower Store | Buy with Y-Coin | Buy with Y-Coin |
+| Rewarded Ads | Can claim Energy or Y-Coin (subject to daily cap) | Rewarded ads award Y-Coin (daily cap) |
 | Result-exit ad stub | Triggered at defined safe breaks | Suppressed while Pro is active |
+| Paid Y-Coin Top-Up | Catalog top-up packages (proposal; FEATURE_DISABLED during pilot) | Same catalog |
 
 YUDHA Pro never changes learning content, evidence classification, recommendation priority, battle mechanics, matching, ranking, or Interview quality.
 
@@ -211,7 +273,7 @@ Daily Lobby missions are a separate system. The two fixed MVP missions are:
 | Daily PvP | Normally complete one public Casual or Ranked match, regardless of outcome | `+80 rank_points` |
 
 - Each mission can reward a user once per `Asia/Jakarta` business date.
-- Solo never mutates competitive rank points. Its initial direct result reward is server-authoritative Y-Coin: `+10` when every question is correct and the tower is destroyed, `+3` when all questions are resolved but the tower remains, and `0` when the learner stops early. Direct Solo rewards are capped at `30` Y-Coin per WIB business date.
+- Solo never mutates competitive rank points. Its direct result reward is server-authoritative Y-Coin: awarded when every question is correct and the tower is destroyed, or when all questions are resolved but the tower remains, while stopping early awards no Y-Coin. Direct Solo rewards are capped by the daily Solo coin cap per WIB business date.
 - A mission date runs from `00:00:00` inclusive to the next `00:00:00` exclusive in `Asia/Jakarta`; an activity belongs to the date containing its server completion timestamp.
 - Rewards apply automatically from idempotent server completion events; there is no manual claim button.
 - For a Ranked match, the result delta applies first and is floored at zero, then the first-of-day `+80` mission reward applies.
@@ -610,7 +672,7 @@ POST   /store/purchases
 
 # Economy
 GET    /economy
-       → { policyVersion, energy: { balance, cap, unlimited, dailyFreeRefillTarget, nextRefillAt }, yCoins, pro: { active, expiresAt, unlimitedEnergy, selectedSkinId } }
+       → { policyVersion, energy: { balance, cap, unlimited, dailyFreeRefillTarget, nextRefillAt }, yCoins, pro: { active, expiresAt, unlimitedEnergy, selectedSkinId, dailyCoinCap } }
 GET    /economy/catalog
        → { policyVersion, balancingStatus, energy, paidYCoinPackages, paidPurchasesEnabled: false, disabledCode: "FEATURE_DISABLED" }
 POST   /economy/energy-purchases
@@ -622,10 +684,10 @@ POST   /economy/ad-rewards/claims
 
 # YUDHA Pro
 GET    /pro
-       → { plan: { id, durationDays, checkoutEnabled: false, disabledCode: "FEATURE_DISABLED", benefits }, entitlement, exclusiveSkins, betaActivationEnabled }
+       → { plan: { id, priceLabel, durationDays: 30, checkoutEnabled: false, disabledCode: "FEATURE_DISABLED", benefits }, entitlement, exclusiveSkins, betaActivationEnabled }
 POST   /pro/beta-activate
        { idempotencyKey, planId, skinId? }
-       → { activated, replayed, planId, expiresAt, coinsGranted, skinGranted, pro }
+       → { activated, replayed, planId, expiresAt, coinsGranted: 0, skinGranted, pro }
 
 # AI Interview
 POST   /interview/sessions
@@ -824,7 +886,7 @@ Rank points are floored at zero. The Ranked delta commits before a first-of-day 
 - **Balances & Daily Refills**:
   - Every user starts with `10` Energy.
   - At `00:00:00 Asia/Jakarta` (WIB), free energy lazily refills up to `10` on the user's first economy read or mutation of the business day.
-  - Balances above 10 (from energy pack purchases or ad claims) are never reduced by the daily refill.
+  - One usable daily buffer is modeled without interday carryover of unspent refill; balances above 10 (from energy pack purchases or ad claims) are preserved and never reduced by the daily refill.
   - Energy cannot exceed the global cap of `100` (excluding unlimited Pro).
 - **Mode Entry Costs & Refunds**:
   - Mode entry costs `2 Energy` across Solo learning, Bot battles, Casual PvP, Ranked PvP, and Private rooms.
@@ -845,16 +907,18 @@ Rank points are floored at zero. The Ranked delta commits before a first-of-day 
 
 - Every Y-Coin change writes an immutable entry into `coin_transactions` with `delta`, `balance_after`, `reason`, and `idempotency_key`.
 - **Earning Sources**:
-  - Casual PvP match completion: `+3 Y-Coin`.
-  - Ranked PvP win: `+10 Y-Coin`.
-  - Ranked PvP loss: `+3 Y-Coin`.
-  - Ranked PvP draw: `+5 Y-Coin`.
-  - Verified rewarded ad claim: `+10 Y-Coin` (subject to daily claim caps).
-  - YUDHA Pro monthly entitlement grant: `+500 Y-Coin` per active 30-day period.
+  - Solo normal completion: awards Y-Coin (with bonus for perfect completion), subject to the daily free earning cap. Early stop awards no Y-Coin.
+  - Casual PvP match completion: awards Y-Coin.
+  - Ranked PvP match completion: awards Y-Coin (scaled by win, draw, or loss outcome).
+  - Verified rewarded ad claims: awards Y-Coin (subject to the daily ad claim cap).
+  - YUDHA Pro elevated daily cap (Policy 1): Active Pro subscribers receive an elevated daily coin earning ceiling across eligible play (replacing passive monthly grants).
+- **Paid Top-Up Packages (Commercial Plan)**:
+  - Top-up packages are governed by catalog configuration; platform fee, refund allowance, and collection lag are modeled in the financial plan.
+  - Stubs in pilot: `paidYCoinPackages` remain disabled catalog stubs (`FEATURE_DISABLED`) with Indonesian copy until payment gateway release.
 - **Spending Sinks**:
-  - Solo / Practice question hint: `5 Y-Coin` (authoritative deduction).
-  - AI Mock Interview session creation: `100 Y-Coin` (atomic charge with idempotency).
-  - Energy pack purchases: `50 Y-Coin` or `100 Y-Coin`.
+  - Solo / Practice question hints (authoritative deduction).
+  - AI Mock Interview session creation (atomic charge with idempotency, same for text and live voice).
+  - Energy pack purchases.
   - Character & tower cosmetic skin purchases.
 
 ### 6.4 YUDHA Pro monthly subscription
@@ -862,9 +926,11 @@ Rank points are floored at zero. The Ranked delta commits before a first-of-day 
 - YUDHA Pro is a premium monthly subscription product (`pro-monthly`, duration 30 days).
 - **Core Benefits**:
   - **Unlimited Energy**: Free entry into all Solo, Bot, and PvP modes without energy consumption or reservations.
-  - **Monthly Y-Coin Allowance**: 500 Y-Coin deposited per entitlement period.
+  - **Elevated Daily Coin Earning Ceiling (Policy 1)**: Daily coin earning ceiling across eligible play is elevated compared to free play. There is no automatic daily coin grant; users earn toward the ceiling through active play.
   - **Exclusive Skin Choice**: Select one exclusive Pro character skin upon activation.
   - **Ad Suppression**: Automatically suppresses all post-match and result-exit ad-placement stubs.
+- **Commercial Billing Assumptions**:
+  - Billed monthly (Google Play platform fee, refund allowance, and collection lag modeled in the financial plan).
 - **Beta Activation**:
   - Available through `POST /pro/beta-activate` with required `planId` and `idempotencyKey` when `ENABLE_BETA_PRO_ACTIVATION=true`.
   - Activations enforce one active period per user; duplicate active periods reject with `PRO_ALREADY_ACTIVE`.
@@ -874,8 +940,9 @@ Rank points are floored at zero. The Ranked delta commits before a first-of-day 
 ### 6.5 Rewarded ads server verification
 
 - Users may earn additional resources via `POST /economy/ad-rewards/claims`:
-  - Energy claim: `+1 Energy` (max 3 claims per WIB business day).
-  - Y-Coin claim: `+10 Y-Coin` (max 2 claims per WIB business day).
+  - **Supported Reward Types**: Free users can choose between `energy` or `y_coin` reward types upon completing a verified rewarded ad, subject to a daily claim cap.
+  - **Pro Users**: Rewarded ads award Y-Coin (interstitial and result-exit ads are suppressed).
+  - **Policy-Governed Values**: Exact amounts per claim and the daily claim cap are governed authoritatively by the active versioned economy policy (`economy_policy_versions`) rather than hardcoded client logic.
 - All claims require proof-token verification via the server `AdRewardVerifier` adapter.
 - In production without an active ad verification backend, claims fail closed with `AD_VERIFICATION_FAILED`.
 
@@ -894,7 +961,7 @@ Rank points are floored at zero. The Ranked delta commits before a first-of-day 
 
 ### 7.1 Session access and lifecycle
 
-- Every new session costs exactly `100 Y-Coin` for free and Hired Pass users.
+- Every new session costs exactly `100 Y-Coin` for free and YUDHA Pro users.
 - Session creation requires an idempotency key, sufficient balance, active company context, target role, mode, language `id`, and response style.
 - In one transaction, the server debits `100`, records the coin ledger/charge, creates the session/context snapshot, and persists a deterministic opening question. Any failure before all four commit rolls back the debit and session.
 - The opening question is the Indonesian template `Ceritakan tentang diri Anda dan mengapa Anda tertarik pada posisi {targetRole} di {companyName}?`, populated from the validated request and context snapshot without an LLM call.
@@ -932,6 +999,8 @@ The final summary contains overall/dimension scores, evidence-based strengths, i
 - Prompts, candidate text, evaluations, and provider errors use request/session correlation while excluding secrets from logs.
 
 ### 7.4 Text and voice behavior
+
+The current primary interview modes for product and financial planning are text and live push-to-talk voice. Live voice uses a chained speech-to-text, text reasoning/evaluation, and text-to-speech pipeline: audio chunks travel during capture, but transcription and answer evaluation follow answer completion. It is turn-based and does not imply a native continuous speech-to-speech provider. Recorded upload is a fallback transport within the voice experience, not a separately priced third mode. Voice cost assumptions must include fallback/retry usage and actual input/output speech duration; native speech-to-speech is not the current baseline.
 
 - Text answers support ordinary REST and SSE streaming. Both paths use the same idempotency claim and persist the same final turn.
 - Recorded voice remains a failure fallback that uploads audio, receives a transcript, lets the user review/edit it, and submits the reviewed text as the answer.
@@ -1679,7 +1748,7 @@ Only completion reason **policy_completed** qualifies for:
 
 For the initial fixed-count policy, both `tower_destroyed` and `questions_completed` map to completion reason `policy_completed`, with the visible result stored as `policyStopTrigger`. `user_stopped`, inventory-exhausted, and abandoned outcomes do not qualify. Early-stop attempts remain valid learning evidence, but early stop grants no direct Y-Coin, mission, streak, or Hired Pass progression.
 
-The direct Solo result reward is idempotent and never changes competitive rank: `tower_destroyed` grants `10` Y-Coin, `questions_completed` grants `3`, and `user_stopped` grants `0`, subject to a `30` Y-Coin Solo cap per WIB business date.
+The direct Solo result reward is idempotent and never changes competitive rank: normal completion (`tower_destroyed` or `questions_completed`) awards Y-Coin (with a bonus for perfect completion), while `user_stopped` grants no Y-Coin, subject to the daily Solo coin cap per WIB business date for free users (elevated for active YUDHA Pro subscribers under Policy 1).
 
 **Current compatibility:** The current five-question Practice flow continues to use the approved PRD completion and reward behavior until V2 delivery is approved and migrated.
 
