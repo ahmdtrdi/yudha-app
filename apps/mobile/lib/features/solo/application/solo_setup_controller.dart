@@ -6,22 +6,21 @@ import 'package:yudha_mobile/features/solo/domain/solo_contract.dart';
 
 class SoloSetupController extends StateNotifier<SoloSetupState> {
   SoloSetupController()
-      : super(
-          const SoloSetupState(
-            mode: SoloSetupMode.auto,
-            mechanicMode: SoloMechanicMode.standard,
-            questionCount: SoloQuestionCount.twenty,
-          ),
-        );
+    : super(
+        const SoloSetupState(
+          mode: SoloSetupMode.auto,
+          mechanicMode: SoloMechanicMode.standard,
+          questionCount: SoloQuestionCount.twenty,
+        ),
+      );
 
   void applyRecommendedPreset([LearningRecommendation? recommendation]) {
     if (recommendation != null) {
-      final String topicLabel =
-          recommendation.skillLabel.isNotEmpty
-              ? recommendation.skillLabel
-              : (recommendation.subcategory ??
-                  recommendation.category ??
-                  'Rekomendasi');
+      final String topicLabel = recommendation.skillLabel.isNotEmpty
+          ? recommendation.skillLabel
+          : (recommendation.subcategory ??
+                recommendation.category ??
+                'Rekomendasi');
       state = SoloSetupState(
         mode: SoloSetupMode.recommended,
         mechanicMode: SoloMechanicMode.parse(recommendation.mechanicMode),
@@ -51,7 +50,8 @@ class SoloSetupController extends StateNotifier<SoloSetupState> {
     state = state.copyWith(
       mode: mode,
       clearRecommendation: mode != SoloSetupMode.recommended,
-      clearLegacyTopic: mode != SoloSetupMode.custom && mode != SoloSetupMode.recommended,
+      clearLegacyTopic:
+          mode != SoloSetupMode.custom && mode != SoloSetupMode.recommended,
       mechanicMode: mode == SoloSetupMode.auto
           ? SoloMechanicMode.standard
           : state.mechanicMode ?? SoloMechanicMode.standard,
@@ -62,22 +62,7 @@ class SoloSetupController extends StateNotifier<SoloSetupState> {
   }
 
   void selectRecommendation(LearningRecommendation recommendation) {
-    final String topicLabel =
-        recommendation.subcategory ??
-        recommendation.category ??
-        recommendation.skillLabel;
-    state = state.copyWith(
-      mode: SoloSetupMode.recommended,
-      recommendationId: recommendation.id,
-      legacyTopic: SoloLegacyTopicSelection(
-        id: recommendation.skillId,
-        category: recommendation.category ?? '',
-        subcategory: recommendation.subcategory,
-        name: '$topicLabel (Rekomendasi)',
-      ),
-      clearRecommendation: false,
-      clearLegacyTopic: false,
-    );
+    applyRecommendedPreset(recommendation);
   }
 
   void selectLegacyTopic(PracticeTopic topic) {
@@ -94,18 +79,32 @@ class SoloSetupController extends StateNotifier<SoloSetupState> {
   }
 
   void selectMechanic(SoloMechanicMode mechanicMode) {
+    if (state.mechanicMode == mechanicMode) return;
     state = state.copyWith(
       mechanicMode: mechanicMode,
+      mode: state.mode == SoloSetupMode.recommended
+          ? SoloSetupMode.custom
+          : state.mode,
+      clearLegacyTopic: state.mode == SoloSetupMode.recommended,
       clearMode: state.mode == SoloSetupMode.auto,
-      clearRecommendation: state.mode == SoloSetupMode.auto,
+      clearRecommendation:
+          state.mode == SoloSetupMode.auto ||
+          state.mode == SoloSetupMode.recommended,
     );
   }
 
   void selectQuestionCount(SoloQuestionCount questionCount) {
+    if (state.questionCount == questionCount) return;
     state = state.copyWith(
       questionCount: questionCount,
+      mode: state.mode == SoloSetupMode.recommended
+          ? SoloSetupMode.custom
+          : state.mode,
+      clearLegacyTopic: state.mode == SoloSetupMode.recommended,
       clearMode: state.mode == SoloSetupMode.auto,
-      clearRecommendation: state.mode == SoloSetupMode.auto,
+      clearRecommendation:
+          state.mode == SoloSetupMode.auto ||
+          state.mode == SoloSetupMode.recommended,
     );
   }
 

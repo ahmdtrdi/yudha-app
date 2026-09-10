@@ -8,6 +8,9 @@ import 'package:yudha_mobile/features/learning/data/repositories/learning_reposi
 import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
 import 'package:yudha_mobile/features/solo/presentation/pages/solo_loadout_page.dart';
 import 'package:yudha_mobile/features/solo/presentation/pages/solo_setup_page.dart';
+import 'package:yudha_mobile/features/solo/application/solo_setup_providers.dart';
+import 'package:yudha_mobile/features/solo/application/solo_setup_state.dart';
+import 'package:yudha_mobile/features/solo/domain/solo_contract.dart';
 
 class _TestRecommendationRepository implements LearningRepository {
   @override
@@ -87,6 +90,36 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets('manual mode overrides recommendation and survives refresh', (
+    WidgetTester tester,
+  ) async {
+    await pumpSolo(tester, overrides: <Override>[
+      learningRepositoryProvider.overrideWithValue(_TestRecommendationRepository()),
+    ]);
+    final container = ProviderScope.containerOf(tester.element(find.byType(SoloSetupPage)));
+    expect(container.read(soloSetupControllerProvider).mode, SoloSetupMode.recommended);
+
+    await tester.tap(find.byKey(const ValueKey<String>('solo-open-manual')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('solo-mode-balanced')));
+    await tester.pumpAndSettle();
+    expect(container.read(soloSetupControllerProvider).mode, SoloSetupMode.balanced);
+    expect(container.read(soloSetupControllerProvider).recommendationId, isNull);
+
+    await container.read(learningControllerProvider.notifier).load();
+    await tester.pumpAndSettle();
+    expect(container.read(soloSetupControllerProvider).mode, SoloSetupMode.balanced);
+
+    await tester.tap(find.byKey(const ValueKey<String>('solo-mode-recommended')));
+    await tester.pumpAndSettle();
+    expect(container.read(soloSetupControllerProvider).recommendationId, 'rec-12345');
+    await tester.tap(find.byKey(const ValueKey<String>('solo-mode-balanced')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('solo-setup-continue')));
+    await tester.pumpAndSettle();
+    expect(find.text('Standard · Seimbang · 20 soal'), findsWidgets);
+  });
 
   testWidgets('shows the playable Solo preset and continues to loadout', (
     WidgetTester tester,
@@ -267,5 +300,35 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('TIU Figural (Rekomendasi)'), findsWidgets);
+  });
+  testWidgets('editing recommendation switches to custom and reselecting restores preset', (tester) async {
+    await pumpSolo(tester, overrides: [learningRepositoryProvider.overrideWithValue(_TestRecommendationRepository())]);
+    final container = ProviderScope.containerOf(tester.element(find.byType(SoloSetupPage)));
+    await tester.tap(find.byKey(const ValueKey<String>('solo-open-manual')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('solo-mechanic-speed')));
+    await tester.pumpAndSettle();
+    var state = container.read(soloSetupControllerProvider);
+    expect(state.mode, SoloSetupMode.custom);
+    expect(state.legacyTopic, isNull);
+    expect(state.recommendationId, isNull);
+    expect(state.mechanicMode, SoloMechanicMode.speed);
+    await tester.tap(find.byKey(const ValueKey<String>('solo-mode-recommended')));
+    await tester.pumpAndSettle();
+    state = container.read(soloSetupControllerProvider);
+    expect(state.mode, SoloSetupMode.recommended);
+    expect(state.mechanicMode, SoloMechanicMode.standard);
+    expect(state.questionCount, SoloQuestionCount.twenty);
+    expect(state.recommendationId, 'rec-12345');
+    await tester.tap(find.byKey(const ValueKey<String>('solo-question-count-35')));
+    await tester.pumpAndSettle();
+    expect(container.read(soloSetupControllerProvider).mode, SoloSetupMode.custom);
+    expect(container.read(soloSetupControllerProvider).legacyTopic, isNull);
+  });
+
+  testWidgets('manual entry opens the setup sheet immediately', (tester) async {
+    await tester.pumpWidget(const ProviderScope(child: MaterialApp(home: SoloSetupPage(openManual: true))));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('solo-manual-sheet')), findsOneWidget);
   });
 }
