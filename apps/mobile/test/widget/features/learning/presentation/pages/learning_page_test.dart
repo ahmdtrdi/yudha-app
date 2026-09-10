@@ -9,7 +9,6 @@ import 'package:yudha_mobile/features/learning/data/repositories/backend_learnin
 import 'package:yudha_mobile/features/learning/data/repositories/learning_repository.dart';
 import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
 import 'package:yudha_mobile/features/learning/presentation/pages/learning_page.dart';
-import 'package:yudha_mobile/features/practice/domain/entities/practice_launch_request.dart';
 
 void main() {
   testWidgets('shows a skeleton on first load', (WidgetTester tester) async {
@@ -155,7 +154,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('records recommendation once and hands topic/id to Practice', (
+  testWidgets('opens Practice without starting a recommended session', (
     WidgetTester tester,
   ) async {
     final _RecommendationRepository repository = _RecommendationRepository();
@@ -164,14 +163,12 @@ void main() {
       routes: <RouteBase>[
         GoRoute(path: '/learning', builder: (_, _) => const LearningPage()),
         GoRoute(
-          path: '/solo/topics',
-          builder: (_, GoRouterState state) {
-            final PracticeLaunchRequest request =
-                state.extra! as PracticeLaunchRequest;
-            return Scaffold(
-              body: Text('${request.focus}|${request.recommendationId}'),
-            );
-          },
+          path: '/solo',
+          builder: (_, GoRouterState state) => Scaffold(
+            body: Text(
+              'Practice:' + (state.uri.queryParameters['setup'] ?? 'default'),
+            ),
+          ),
         ),
       ],
     );
@@ -191,14 +188,19 @@ void main() {
       repository.events.where((String value) => value == 'shown'),
       hasLength(1),
     );
-    await tester.tap(find.text('Mulai Practice 5 soal'));
+    await tester.tap(find.text('Mulai Practice'));
     await tester.pumpAndSettle();
 
     expect(
       repository.events.where((String value) => value == 'accepted'),
-      hasLength(1),
+      isEmpty,
     );
-    expect(find.text('numerik|recommendation-1'), findsOneWidget);
+    expect(find.text('Practice:default'), findsOneWidget);
+    router.go('/learning');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Atur sendiri'));
+    await tester.pumpAndSettle();
+    expect(find.text('Practice:manual'), findsOneWidget);
   });
 
   testWidgets('explains an unavailable recommendation without navigation', (
@@ -221,9 +223,9 @@ void main() {
 
     expect(find.text('Persediaan soal belum mencukupi.'), findsOneWidget);
     final FilledButton button = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Belum dapat dijalankan'),
+      find.widgetWithText(FilledButton, 'Mulai Practice'),
     );
-    expect(button.onPressed, isNull);
+    expect(button.onPressed, isNotNull);
   });
 
   testWidgets('shows a rollout-safe unavailable state', (
