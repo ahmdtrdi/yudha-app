@@ -15,23 +15,80 @@ import 'package:yudha_mobile/features/solo/application/solo_setup_state.dart';
 import 'package:yudha_mobile/features/solo/domain/solo_contract.dart';
 
 class SoloSetupPage extends ConsumerStatefulWidget {
-  const SoloSetupPage({super.key});
+  const SoloSetupPage({this.openManual = false, super.key});
+
+  final bool openManual;
 
   @override
   ConsumerState<SoloSetupPage> createState() => _SoloSetupPageState();
 }
 
 class _SoloSetupPageState extends ConsumerState<SoloSetupPage> {
+  bool _initialPresetResolved = false;
+
+  void _applyInitialRecommendation(LearningRecommendation? recommendation) {
+    if (!mounted || _initialPresetResolved || recommendation == null) return;
+    _initialPresetResolved = true;
+    ref
+        .read(soloSetupControllerProvider.notifier)
+        .applyRecommendedPreset(recommendation);
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       ref.read(learningControllerProvider.notifier).load();
-      final nextAction = ref.read(learningControllerProvider).dashboard?.nextAction;
-      if (nextAction != null) {
-        ref.read(soloSetupControllerProvider.notifier).applyRecommendedPreset(nextAction);
-      }
+      final nextAction = ref
+          .read(learningControllerProvider)
+          .dashboard
+          ?.nextAction;
+      _applyInitialRecommendation(nextAction);
+      if (widget.openManual) openManualSetup();
     });
+  }
+
+  Future<void> continueManualSetup(SoloSetupState draft) async {
+    final SoloSetupMode? mode = draft.mode;
+    if (mode == null) return;
+    if (mode == SoloSetupMode.custom && draft.legacyTopic == null) {
+      Navigator.of(context, rootNavigator: true).pop();
+      await context.push(AppRoutes.soloTopics);
+      return;
+    }
+    if (!draft.canOpenLoadout) return;
+    Navigator.of(context, rootNavigator: true).pop();
+    await context.push(AppRoutes.soloLoadout);
+  }
+
+  Future<void> openManualSetup() async {
+    final state = ref.read(soloSetupControllerProvider);
+    final controller = ref.read(soloSetupControllerProvider.notifier);
+    final nextAction = ref
+        .read(learningControllerProvider)
+        .dashboard
+        ?.nextAction;
+    // Once manual setup is opened, late recommendations must not replace it.
+    _initialPresetResolved = true;
+    final bool hasDraft =
+        state.mode != null && state.mode != SoloSetupMode.auto;
+    if (!hasDraft) {
+      if (nextAction != null) {
+        controller.applyRecommendedPreset(nextAction);
+      } else {
+        controller.beginManualSetup();
+      }
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      enableDrag: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext sheetContext) =>
+          _ManualSetupSheet(onContinue: continueManualSetup),
+    );
   }
 
   @override
@@ -43,51 +100,8 @@ class _SoloSetupPageState extends ConsumerState<SoloSetupPage> {
     final nextAction = learningState.dashboard?.nextAction;
 
     ref.listen<LearningState>(learningControllerProvider, (previous, next) {
-      final rec = next.dashboard?.nextAction;
-      if (rec != null && ref.read(soloSetupControllerProvider).recommendationId == null) {
-        ref.read(soloSetupControllerProvider.notifier).applyRecommendedPreset(rec);
-      }
+      _applyInitialRecommendation(next.dashboard?.nextAction);
     });
-
-    if (nextAction != null && state.recommendationId == null && (state.mode == null || state.mode == SoloSetupMode.auto || state.mode == SoloSetupMode.balanced)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        controller.applyRecommendedPreset(nextAction);
-      });
-    }
-
-    Future<void> continueManualSetup(SoloSetupState draft) async {
-      final SoloSetupMode? mode = draft.mode;
-      if (mode == null) return;
-      if (mode == SoloSetupMode.custom && draft.legacyTopic == null) {
-        Navigator.of(context, rootNavigator: true).pop();
-        await context.push(AppRoutes.soloTopics);
-        return;
-      }
-      if (!draft.canOpenLoadout) return;
-      Navigator.of(context, rootNavigator: true).pop();
-      await context.push(AppRoutes.soloLoadout);
-    }
-
-    Future<void> openManualSetup() async {
-      final bool hasDraft =
-          state.mode != null && state.mode != SoloSetupMode.auto;
-      if (!hasDraft) {
-        if (nextAction != null) {
-          controller.applyRecommendedPreset(nextAction);
-        } else {
-          controller.beginManualSetup();
-        }
-      }
-      await showModalBottomSheet<void>(
-        context: context,
-        useRootNavigator: true,
-        isScrollControlled: true,
-        enableDrag: true,
-        backgroundColor: Colors.transparent,
-        builder: (BuildContext sheetContext) =>
-            _ManualSetupSheet(onContinue: continueManualSetup),
-      );
-    }
 
     return Scaffold(
       backgroundColor: AppColors.scholarCream,
@@ -200,12 +214,15 @@ class _SoloSetupPageState extends ConsumerState<SoloSetupPage> {
                       height: 290,
                       child: _RecommendedSessionCard(
                         recommendation: nextAction,
-                        isLoading: learningState.status == LearningViewStatus.loading,
+                        isLoading:
+                            learningState.status == LearningViewStatus.loading,
                       ),
                     ),
                     const SizedBox(height: 16),
                     _SoloSetupButton(
-                      label: nextAction != null ? 'MAIN SESI REKOMENDASI' : 'LANJUT PILIH KARAKTER',
+                      label: nextAction != null
+                          ? 'MAIN SESI REKOMENDASI'
+                          : 'LANJUT PILIH KARAKTER',
                       enabled: true,
                       unavailable: false,
                       compact: false,
@@ -245,7 +262,8 @@ class _ManualSetupSheet extends ConsumerWidget {
     final nextAction = learningState.dashboard?.nextAction;
     final String actionLabel = switch (state.mode) {
       SoloSetupMode.custom when state.legacyTopic == null => 'PILIH TOPIK',
-      SoloSetupMode.recommended when state.recommendationId == null && nextAction == null =>
+      SoloSetupMode.recommended
+          when state.recommendationId == null && nextAction == null =>
         'REKOMENDASI BELUM TERSEDIA',
       SoloSetupMode.balanced when !state.canOpenLoadout => 'LENGKAPI SETUP',
       _ => 'LANJUT PILIH KARAKTER',
@@ -329,13 +347,23 @@ class _ManualSetupSheet extends ConsumerWidget {
                       ) ...<Widget>[
                         Expanded(
                           child: _SoloModeCard(
-                            spec: _customModeSpecs[index].mode == SoloSetupMode.recommended && state.legacyTopic != null
-                                ? _customModeSpecs[index].copyWithDescription(state.legacyTopic!.name)
-                                : (_customModeSpecs[index].mode == SoloSetupMode.recommended && nextAction != null
-                                    ? _customModeSpecs[index].copyWithDescription(
-                                        nextAction.subcategory ?? nextAction.category ?? nextAction.skillLabel,
-                                      )
-                                    : _customModeSpecs[index]),
+                            spec:
+                                _customModeSpecs[index].mode ==
+                                        SoloSetupMode.recommended &&
+                                    state.legacyTopic != null
+                                ? _customModeSpecs[index].copyWithDescription(
+                                    state.legacyTopic!.name,
+                                  )
+                                : (_customModeSpecs[index].mode ==
+                                              SoloSetupMode.recommended &&
+                                          nextAction != null
+                                      ? _customModeSpecs[index]
+                                            .copyWithDescription(
+                                              nextAction.subcategory ??
+                                                  nextAction.category ??
+                                                  nextAction.skillLabel,
+                                            )
+                                      : _customModeSpecs[index]),
                             selected:
                                 state.mode == _customModeSpecs[index].mode,
                             onTap: () {
@@ -344,7 +372,9 @@ class _ManualSetupSheet extends ConsumerWidget {
                                 if (nextAction != null) {
                                   controller.selectRecommendation(nextAction);
                                 } else {
-                                  controller.selectMode(SoloSetupMode.recommended);
+                                  controller.selectMode(
+                                    SoloSetupMode.recommended,
+                                  );
                                 }
                               } else {
                                 controller.selectMode(specMode);
@@ -472,10 +502,7 @@ class _ControlLabel extends StatelessWidget {
 }
 
 class _RecommendedSessionCard extends StatelessWidget {
-  const _RecommendedSessionCard({
-    this.recommendation,
-    this.isLoading = false,
-  });
+  const _RecommendedSessionCard({this.recommendation, this.isLoading = false});
 
   final LearningRecommendation? recommendation;
   final bool isLoading;
@@ -503,19 +530,23 @@ class _RecommendedSessionCard extends StatelessWidget {
       mechanicColor = const Color(0xFF2878F0);
     }
 
-    final String topicLabel = recommendation != null && recommendation!.skillLabel.isNotEmpty
+    final String topicLabel =
+        recommendation != null && recommendation!.skillLabel.isNotEmpty
         ? recommendation!.skillLabel
         : 'Seimbang';
 
-    final String title = recommendation != null && recommendation!.skillLabel.isNotEmpty
+    final String title =
+        recommendation != null && recommendation!.skillLabel.isNotEmpty
         ? recommendation!.skillLabel
         : 'Rimba Yudha';
 
-    final String subtitle = recommendation != null && recommendation!.reasonHeadline.isNotEmpty
+    final String subtitle =
+        recommendation != null && recommendation!.reasonHeadline.isNotEmpty
         ? recommendation!.reasonHeadline
-        : (recommendation != null && recommendation!.reasonDescription.isNotEmpty
-            ? recommendation!.reasonDescription
-            : 'Hancurkan satu tower dengan tiga kartu pilihan.');
+        : (recommendation != null &&
+                  recommendation!.reasonDescription.isNotEmpty
+              ? recommendation!.reasonDescription
+              : 'Hancurkan satu tower dengan tiga kartu pilihan.');
 
     return SizedBox(
       width: double.infinity,

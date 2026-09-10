@@ -156,7 +156,9 @@ final Provider<GoRouter> appRouterProvider = Provider<GoRouter>((Ref ref) {
           ),
           GoRoute(
             path: AppRoutes.solo,
-            builder: (context, state) => const SoloSetupPage(),
+            builder: (context, state) => SoloSetupPage(
+              openManual: state.uri.queryParameters['setup'] == 'manual',
+            ),
           ),
           GoRoute(
             path: AppRoutes.soloTopics,

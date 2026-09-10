@@ -106,10 +106,9 @@ class _LearningPageState extends ConsumerState<LearningPage> {
                         data.skillStates,
                         data.nextAction?.skillId,
                       )?.accuracy.attemptCount,
-                      onStart: data.nextAction?.runnable == true
-                          ? () => _startRecommendation(data.nextAction!)
-                          : null,
-                      onCustomize: () => context.go(AppRoutes.solo),
+                      onStart: () => context.go(AppRoutes.solo),
+                      onCustomize: () =>
+                          context.go('${AppRoutes.solo}?setup=manual'),
                       narrow: narrow,
                     ),
                     Padding(
@@ -184,33 +183,6 @@ class _LearningPageState extends ConsumerState<LearningPage> {
       if (!mounted) return;
       ref.read(learningControllerProvider.notifier).recordShown(recommendation);
     });
-  }
-
-  Future<void> _startRecommendation(
-    LearningRecommendation recommendation,
-  ) async {
-    final bool accepted = await ref
-        .read(learningControllerProvider.notifier)
-        .accept(recommendation);
-    if (!mounted) return;
-    if (!accepted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Rekomendasi belum dapat dimulai.')),
-      );
-      return;
-    }
-    final PracticeLaunchRequest request = PracticeLaunchRequest(
-      focus:
-          recommendation.subcategory ??
-          recommendation.category ??
-          recommendation.skillLabel,
-      recommendationId: recommendation.id,
-    );
-    if (recommendation.compatibilityAdapter == 'practice_fixed_five') {
-      context.go(AppRoutes.soloTopics, extra: request);
-      return;
-    }
-    context.go(AppRoutes.solo);
   }
 
   void _startSkill(LearningSkillState skill) {
@@ -495,7 +467,7 @@ class _NextActionCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   OutlinedButton(
-                    onPressed: onCustomize,
+                    onPressed: onStart,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
                       side: const BorderSide(color: Color(0x66B0D1FF)),
@@ -503,7 +475,7 @@ class _NextActionCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    child: const Text('Atur sesi Solo'),
+                    child: const Text('Mulai Practice'),
                   ),
                 ],
               ),
@@ -654,11 +626,7 @@ class _NextActionCard extends StatelessWidget {
                     ),
                     icon: const Icon(Icons.play_arrow_rounded, size: 22),
                     label: Text(
-                      value.runnable
-                          ? value.compatibilityAdapter == 'practice_fixed_five'
-                                ? 'Mulai Practice 5 soal'
-                                : 'Mulai sesi Solo'
-                          : 'Belum dapat dijalankan',
+                      'Mulai Practice',
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 14,
