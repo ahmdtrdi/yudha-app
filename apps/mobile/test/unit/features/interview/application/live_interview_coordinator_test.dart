@@ -10,6 +10,19 @@ import 'package:yudha_mobile/features/interview/data/repositories/live_interview
 import 'package:yudha_mobile/features/interview/domain/entities/interview_message.dart';
 
 void main() {
+  test(
+    'initial disconnect does not race startup with automatic reconnect',
+    () async {
+      final harness = _Harness();
+      harness.client.failConnect = true;
+      await harness.start();
+      await Future<void>.delayed(Duration.zero);
+      expect(harness.client.connectCount, 1);
+      expect(harness.phases.last, LiveInterviewPhase.degraded);
+      expect(harness.errors.last, contains('belum diaktifkan'));
+      await harness.dispose();
+    },
+  );
   test('keeps the microphone off until push and finishes on release', () async {
     final _Harness harness = _Harness();
     await harness.start();
@@ -209,6 +222,7 @@ class _FakeSpeechClient extends LiveInterviewSpeechClient {
   final List<String?> cancelledAnswerIds = <String?>[];
   bool connected = false;
   int connectCount = 0;
+  bool failConnect = false;
 
   @override
   Stream<LiveSpeechEvent> get events => controller.stream;
@@ -219,6 +233,10 @@ class _FakeSpeechClient extends LiveInterviewSpeechClient {
   @override
   Future<void> connect(String sessionId) async {
     connectCount += 1;
+    if (failConnect) {
+      emit(const LiveSpeechEvent(LiveSpeechEventType.disconnected, {}));
+      throw StateError('FEATURE_DISABLED');
+    }
     connected = true;
   }
 

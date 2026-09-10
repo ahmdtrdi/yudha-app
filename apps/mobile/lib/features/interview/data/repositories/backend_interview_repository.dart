@@ -87,7 +87,9 @@ class BackendInterviewRepository implements InterviewRepository {
     final Map<String, dynamic> body = await _get('/interview/sessions');
     final Object? sessionsJson = body['sessions'];
     if (sessionsJson is! List) {
-      return const <InterviewSessionSummaryRecord>[];
+      throw const InterviewApiException(
+        'Riwayat interview belum dapat dibaca. Silakan coba lagi.',
+      );
     }
 
     return sessionsJson
@@ -127,10 +129,12 @@ class BackendInterviewRepository implements InterviewRepository {
 
   @override
   Future<InterviewStartResult> startSession(
-    InterviewLaunchConfig config,
-  ) async {
+    InterviewLaunchConfig config, {
+    required String idempotencyKey,
+  }) async {
     final Map<String, dynamic> body =
         await _post('/interview/sessions', <String, dynamic>{
+          'idempotencyKey': idempotencyKey,
           'mode': config.mode,
           'targetRole': config.targetRole,
           'companyId': config.companyId,
@@ -333,11 +337,22 @@ class BackendInterviewRepository implements InterviewRepository {
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final String backendMessage = decoded is Map<String, dynamic>
-          ? decoded['message']?.toString() ?? response.reasonPhrase ?? 'Error'
-          : response.reasonPhrase ?? 'Error';
+      final Object? error = decoded is Map<String, dynamic>
+          ? decoded['error']
+          : null;
+      final Map<String, dynamic>? errorBody = error is Map<String, dynamic>
+          ? error
+          : decoded is Map<String, dynamic>
+          ? decoded
+          : null;
+      final String errorCode = errorBody?['code']?.toString() ?? '';
+      final String backendMessage =
+          errorBody?['message']?.toString() ?? response.reasonPhrase ?? 'Error';
       throw InterviewApiException(
-        _friendlyErrorMessage(response.statusCode, backendMessage),
+        _friendlyErrorMessage(
+          response.statusCode,
+          '$errorCode $backendMessage',
+        ),
         requiresNewIdempotencyKey: backendMessage.toLowerCase().contains(
           'submit a new request',
         ),
@@ -355,6 +370,12 @@ class BackendInterviewRepository implements InterviewRepository {
 
   String _friendlyErrorMessage(int statusCode, String backendMessage) {
     final String normalized = backendMessage.toLowerCase();
+    if (normalized.contains('insufficient_y_coin')) {
+      return 'Y Coin kamu belum cukup untuk memulai interview. Isi saldo lalu coba lagi.';
+    }
+    if (normalized.contains('idempotency_key_reused')) {
+      return 'Permintaan ini sudah digunakan untuk sesi lain. Kembali ke pengaturan dan mulai interview baru.';
+    }
     if (statusCode == 401 || statusCode == 403) {
       return 'Sesi loginmu sudah berakhir. Silakan masuk kembali.';
     }
@@ -373,8 +394,11 @@ class BackendInterviewRepository implements InterviewRepository {
     if (normalized.contains('submit a new request')) {
       return 'Jawaban sebelumnya belum berhasil dinilai. Kirim ulang jawabanmu.';
     }
-    if (statusCode == 409 || normalized.contains('not active')) {
+    if (normalized.contains('not active')) {
       return 'Sesi interview ini sudah selesai.';
+    }
+    if (statusCode == 409) {
+      return 'Permintaan interview belum dapat diproses. Muat ulang riwayat lalu coba lagi.';
     }
     if (statusCode == 413) {
       return 'Rekaman terlalu besar. Coba rekam jawaban yang lebih singkat.';

@@ -62,6 +62,7 @@ export class InterviewSpeechGateway
   private readonly liveSpeechEnabled: boolean;
   private readonly devTokensEnabled: boolean;
   private readonly isProduction: boolean;
+  private readonly authentication = new Map<string, Promise<void>>();
 
   @WebSocketServer()
   server!: Server;
@@ -91,7 +92,13 @@ export class InterviewSpeechGateway
       'production';
   }
 
-  async handleConnection(client: AuthenticatedSocket) {
+  handleConnection(client: AuthenticatedSocket) {
+    const pending = this.authenticate(client);
+    this.authentication.set(client.id, pending);
+    return pending;
+  }
+
+  private async authenticate(client: AuthenticatedSocket) {
     try {
       if (!this.liveSpeechEnabled) {
         this.sendError(
@@ -138,6 +145,7 @@ export class InterviewSpeechGateway
   }
 
   handleDisconnect(client: AuthenticatedSocket) {
+    this.authentication.delete(client.id);
     this.speechStreamService.clearClient(client.id);
   }
 
@@ -147,6 +155,8 @@ export class InterviewSpeechGateway
     @MessageBody() payload: { commandId: string; sessionId: string },
   ) {
     try {
+      // Socket.IO can deliver commands while handleConnection awaits Supabase.
+      await this.authentication.get(client.id);
       const userId = this.assertUserId(client);
       const session = await this.repository.getOwnedSession(
         payload.sessionId,

@@ -69,6 +69,7 @@ class LiveInterviewSpeechClient {
           .setTransports(<String>['websocket'])
           .disableAutoConnect()
           .disableReconnection()
+          .enableForceNew()
           .setAuth(<String, String>{'token': token})
           .build(),
     );
@@ -110,7 +111,18 @@ class LiveInterviewSpeechClient {
     _listen(socket, 'question_audio_end', LiveSpeechEventType.questionAudioEnd);
     _listen(socket, 'turn_completed', LiveSpeechEventType.turnCompleted);
     _listen(socket, 'session_completed', LiveSpeechEventType.sessionCompleted);
-    _listen(socket, 'error', LiveSpeechEventType.error);
+    socket.on('error', (dynamic payload) {
+      if (!ready.isCompleted) {
+        final Map<String, dynamic> error = _asMap(_asMap(payload)['error']);
+        ready.completeError(
+          StateError(
+            '${error['code'] ?? 'UNKNOWN'}: ${error['message'] ?? 'Live interview gagal tersambung.'}',
+          ),
+        );
+        return;
+      }
+      _emit(LiveSpeechEventType.error, payload);
+    });
     socket.onConnectError((dynamic error) {
       if (!ready.isCompleted) {
         ready.completeError(
@@ -129,6 +141,12 @@ class LiveInterviewSpeechClient {
     });
     socket.onDisconnect((dynamic reason) {
       _failPendingAcks('Koneksi terputus sebelum audio diterima.');
+      if (!ready.isCompleted) {
+        ready.completeError(
+          StateError('Koneksi live interview ditutup sebelum sesi siap.'),
+        );
+        return;
+      }
       if (!_disposed &&
           !_suppressDisconnectEvent &&
           identical(_socket, socket)) {
@@ -141,12 +159,19 @@ class LiveInterviewSpeechClient {
     });
 
     socket.connect();
-    await ready.future.timeout(
-      connectionTimeout,
-      onTimeout: () => throw StateError(
-        'Koneksi live interview membutuhkan waktu terlalu lama.',
-      ),
-    );
+    try {
+      await ready.future.timeout(
+        connectionTimeout,
+        onTimeout: () => throw StateError(
+          'Koneksi live interview membutuhkan waktu terlalu lama.',
+        ),
+      );
+    } catch (_) {
+      if (identical(_socket, socket)) {
+        await disconnect();
+      }
+      rethrow;
+    }
   }
 
   Future<void> sendChunk({

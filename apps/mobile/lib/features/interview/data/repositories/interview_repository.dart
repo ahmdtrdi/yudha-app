@@ -6,7 +6,10 @@ import 'package:yudha_mobile/features/interview/domain/entities/interview_sessio
 abstract class InterviewRepository {
   Future<List<InterviewCompanyOption>> listCompanies();
 
-  Future<InterviewStartResult> startSession(InterviewLaunchConfig config);
+  Future<InterviewStartResult> startSession(
+    InterviewLaunchConfig config, {
+    required String idempotencyKey,
+  });
 
   Future<List<InterviewSessionSummaryRecord>> listSessions();
 

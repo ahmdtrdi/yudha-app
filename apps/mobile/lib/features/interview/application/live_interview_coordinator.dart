@@ -79,6 +79,7 @@ class LiveInterviewCoordinator {
   bool _stopping = false;
   bool _disposed = false;
   bool _reconnecting = false;
+  bool _connecting = false;
   Future<void>? _captureStartOperation;
   DateTime? _recordingStartedAt;
   Timer? _durationTimer;
@@ -101,6 +102,7 @@ class LiveInterviewCoordinator {
     _sessionId = sessionId;
     _eventSubscription ??= _client.events.listen(_handleEvent);
     _onPhase(LiveInterviewPhase.connecting, clearError: true);
+    _connecting = true;
     try {
       if (!await _capture.hasPermission()) {
         _onPhase(
@@ -130,6 +132,8 @@ class LiveInterviewCoordinator {
         LiveInterviewPhase.degraded,
         errorMessage: _friendlyError(error),
       );
+    } finally {
+      _connecting = false;
     }
   }
 
@@ -403,7 +407,7 @@ class LiveInterviewCoordinator {
         _handleServerError(event.data);
         break;
       case LiveSpeechEventType.disconnected:
-        if (!_stopping && !_disposed) {
+        if (!_stopping && !_disposed && !_connecting) {
           unawaited(_handleUnexpectedDisconnect());
         }
         break;
@@ -598,6 +602,12 @@ class LiveInterviewCoordinator {
 
   String _friendlyError(Object? error) {
     final String value = error?.toString() ?? '';
+    if (value.contains('FEATURE_DISABLED')) {
+      return 'Layanan suara live belum diaktifkan. Lanjutkan sesi ini lewat teks.';
+    }
+    if (value.contains('UNAUTHORIZED') || value.contains('AUTH_REQUIRED')) {
+      return 'Sesi login suara tidak valid. Silakan masuk ulang.';
+    }
     if (value.contains('login')) {
       return 'Sesi login sudah berakhir. Silakan masuk ulang.';
     }

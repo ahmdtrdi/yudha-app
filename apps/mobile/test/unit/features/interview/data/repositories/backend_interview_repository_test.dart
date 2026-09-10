@@ -9,6 +9,83 @@ import 'package:yudha_mobile/features/interview/domain/entities/interview_launch
 
 void main() {
   group('BackendInterviewRepository', () {
+    for (final entry in <String, String>{
+      'INSUFFICIENT_Y_COIN': 'Y Coin kamu belum cukup',
+      'IDEMPOTENCY_KEY_REUSED': 'sesi lain',
+      'CONFLICT': 'belum dapat diproses',
+    }.entries) {
+      test(
+        'start handles enveloped ${entry.key} without claiming completion',
+        () async {
+          final repository = BackendInterviewRepository(
+            config: const InterviewApiConfig(accessToken: 'token'),
+            client: MockClient(
+              (_) async => http.Response(
+                jsonEncode({
+                  'error': {'code': entry.key, 'message': 'Request rejected'},
+                }),
+                409,
+              ),
+            ),
+          );
+          await expectLater(
+            repository.startSession(
+              InterviewLaunchConfig.bumnDefault(),
+              idempotencyKey: 'start-key',
+            ),
+            throwsA(
+              isA<InterviewApiException>().having(
+                (e) => e.message,
+                'message',
+                contains(entry.value),
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    test('enveloped inactive session still reports completion', () async {
+      final repository = BackendInterviewRepository(
+        config: const InterviewApiConfig(accessToken: 'token'),
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'error': {
+                'code': 'CONFLICT',
+                'message': 'Interview session is not active.',
+              },
+            }),
+            409,
+          ),
+        ),
+      );
+      await expectLater(
+        repository.completeSession('session-1'),
+        throwsA(
+          isA<InterviewApiException>().having(
+            (e) => e.message,
+            'message',
+            contains('sudah selesai'),
+          ),
+        ),
+      );
+    });
+
+    test(
+      'malformed history is an error rather than an empty history',
+      () async {
+        final repository = BackendInterviewRepository(
+          config: const InterviewApiConfig(accessToken: 'token'),
+          client: MockClient((_) async => http.Response('{}', 200)),
+        );
+        await expectLater(
+          repository.listSessions(),
+          throwsA(isA<InterviewApiException>()),
+        );
+      },
+    );
+
     test(
       'maps the authenticated company catalog with nullable roles',
       () async {
@@ -134,6 +211,7 @@ void main() {
           expect(request.headers['authorization'], 'Bearer token-123');
           if (request.url.path == '/interview/sessions') {
             expect(jsonDecode(request.body), <String, Object?>{
+              'idempotencyKey': 'start-key-1',
               'mode': 'coaching',
               'targetRole': 'Officer Development Program',
               'companyId': 'bank-mandiri',
@@ -198,6 +276,7 @@ void main() {
 
       final start = await repository.startSession(
         InterviewLaunchConfig.bumnDefault(),
+        idempotencyKey: 'start-key-1',
       );
       final turn = await repository.submitAnswer(
         sessionId: start.sessionId,

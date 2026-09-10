@@ -8,6 +8,35 @@ import 'package:yudha_mobile/features/interview/domain/entities/interview_messag
 import 'package:yudha_mobile/features/interview/domain/entities/interview_session_record.dart';
 
 void main() {
+  test(
+    'start retry reuses its key and a new interview gets a fresh key',
+    () async {
+      final repository = _FakeInterviewRepository();
+      repository.startFailures.add(Exception('Response lost'));
+      final controller = InterviewController(
+        repository: repository,
+        config: InterviewLaunchConfig.bumnDefault(),
+      );
+      addTearDown(controller.dispose);
+
+      await controller.start();
+      expect(controller.state.status, InterviewViewStatus.error);
+      await controller.retry();
+      expect(controller.state.status, InterviewViewStatus.active);
+      expect(repository.startedKeys, hasLength(2));
+      expect(repository.startedKeys.first, isNotEmpty);
+      expect(repository.startedKeys.last, repository.startedKeys.first);
+
+      final nextController = InterviewController(
+        repository: repository,
+        config: InterviewLaunchConfig.bumnDefault(),
+      );
+      addTearDown(nextController.dispose);
+      await nextController.start();
+      expect(repository.startedKeys.last, isNot(repository.startedKeys.first));
+    },
+  );
+
   test('starts session and submits answer', () async {
     final _FakeInterviewRepository repository = _FakeInterviewRepository();
     final InterviewController controller = InterviewController(
@@ -168,6 +197,8 @@ class _FakeInterviewRepository implements InterviewRepository {
   final InterviewSessionDetailRecord? resumedDetail;
   final List<Object> submissionFailures;
   final List<String> submittedKeys = <String>[];
+  final List<String> startedKeys = <String>[];
+  final List<Object> startFailures = <Object>[];
 
   @override
   Future<List<InterviewCompanyOption>> listCompanies() async {
@@ -217,8 +248,13 @@ class _FakeInterviewRepository implements InterviewRepository {
 
   @override
   Future<InterviewStartResult> startSession(
-    InterviewLaunchConfig config,
-  ) async {
+    InterviewLaunchConfig config, {
+    required String idempotencyKey,
+  }) async {
+    startedKeys.add(idempotencyKey);
+    if (startFailures.isNotEmpty) {
+      throw startFailures.removeAt(0);
+    }
     return InterviewStartResult(
       sessionId: 'session-1',
       status: 'active',

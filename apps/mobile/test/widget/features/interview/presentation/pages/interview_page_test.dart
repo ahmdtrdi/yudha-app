@@ -429,8 +429,9 @@ class _InterviewPageRepository implements InterviewRepository {
 
   @override
   Future<InterviewStartResult> startSession(
-    InterviewLaunchConfig config,
-  ) async {
+    InterviewLaunchConfig config, {
+    required String idempotencyKey,
+  }) async {
     return InterviewStartResult(
       sessionId: 'session-1',
       status: 'active',
@@ -563,7 +564,10 @@ class _CompletedInterviewRepository implements InterviewRepository {
   }
 
   @override
-  Future<InterviewStartResult> startSession(InterviewLaunchConfig config) {
+  Future<InterviewStartResult> startSession(
+    InterviewLaunchConfig config, {
+    required String idempotencyKey,
+  }) {
     throw UnimplementedError();
   }
 

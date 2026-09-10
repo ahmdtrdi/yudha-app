@@ -68,6 +68,23 @@ describe('InterviewSpeechGateway', () => {
     expect(client.disconnect).not.toHaveBeenCalled();
   });
 
+  it('waits for token verification when start_session arrives immediately', async () => {
+    const client = socket({ token: 'valid-token' });
+    let verify!: (value: unknown) => void;
+    supabaseService.getClient().auth.getUser.mockReturnValue(
+      new Promise((resolve) => { verify = resolve; }),
+    );
+    const connection = gateway.handleConnection(client);
+    const start = gateway.handleStartSession(client, {
+      commandId: 'start-1', sessionId: 'session-123',
+    });
+    expect(repository.getOwnedSession).not.toHaveBeenCalled();
+    verify({ data: { user: { id: 'user-123' } }, error: null });
+    await Promise.all([connection, start]);
+    expect(repository.getOwnedSession).toHaveBeenCalledWith('session-123', 'user-123');
+    expect(client.emit).toHaveBeenCalledWith('session_ready', expect.any(Object));
+  });
+
   it('does not trust an unverified JWT payload', async () => {
     const unsignedPayload = Buffer.from(
       JSON.stringify({ sub: 'attacker-user' }),
