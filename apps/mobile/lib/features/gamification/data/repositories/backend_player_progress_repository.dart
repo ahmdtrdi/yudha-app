@@ -5,6 +5,7 @@ import 'package:yudha_mobile/app/config/app_config.dart';
 import 'package:yudha_mobile/features/gamification/data/models/player_progress_snapshot.dart';
 import 'package:yudha_mobile/features/gamification/data/repositories/player_progress_repository.dart';
 import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
+import 'package:yudha_mobile/features/lobby/domain/beta_welcome_reward.dart';
 
 class PlayerProgressApiConfig {
   const PlayerProgressApiConfig({
@@ -27,6 +28,25 @@ class BackendPlayerProgressRepository implements PlayerProgressRepository {
 
   final PlayerProgressApiConfig _config;
   final http.Client _client;
+
+  @override
+  Future<void> acknowledgeBetaWelcome() async {
+    final token = _config.accessToken;
+    if (token == null || token.isEmpty) {
+      throw const PlayerProgressApiException('Sesi login sudah berakhir.');
+    }
+    final response = await _client
+        .post(
+          Uri.parse('${_config.baseUrl}/lobby/beta-welcome/acknowledge'),
+          headers: <String, String>{'authorization': 'Bearer $token'},
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw const PlayerProgressApiException(
+        'Gagal menyimpan konfirmasi bonus.',
+      );
+    }
+  }
 
   @override
   Future<PlayerProgressSnapshot> fetchCurrentProgress() async {
@@ -111,6 +131,11 @@ class BackendPlayerProgressRepository implements PlayerProgressRepository {
     );
 
     return PlayerProgressSnapshot(
+      betaWelcomeReward: payload['betaWelcomeReward'] is Map<String, dynamic>
+          ? BetaWelcomeReward.fromJson(
+              payload['betaWelcomeReward'] as Map<String, dynamic>,
+            )
+          : null,
       playerId: (profile['id'] ?? payload['id'])?.toString() ?? 'you',
       displayName: displayName.isEmpty ? 'Kamu' : displayName,
       wins: wins,

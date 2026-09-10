@@ -1,4 +1,5 @@
 import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
+import 'package:yudha_mobile/features/lobby/domain/beta_welcome_reward.dart';
 
 class PlayerProgressSnapshot {
   const PlayerProgressSnapshot({
@@ -15,6 +16,7 @@ class PlayerProgressSnapshot {
     this.dailyMissions = const <Map<String, Object?>>[],
     this.learningNextAction,
     this.curriculumCoverage,
+    this.betaWelcomeReward,
   });
 
   final String playerId;
@@ -30,4 +32,5 @@ class PlayerProgressSnapshot {
   final List<Map<String, Object?>> dailyMissions;
   final LearningRecommendation? learningNextAction;
   final LearningCoverage? curriculumCoverage;
+  final BetaWelcomeReward? betaWelcomeReward;
 }

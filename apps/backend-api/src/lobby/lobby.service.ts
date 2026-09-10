@@ -33,22 +33,34 @@ export class LobbyService {
 
   async getSummary(userId: string, requestedAt = new Date()) {
     const businessDate = wibBusinessDate(requestedAt);
-    const [profile, analytics, economy, missionResult, learningSummary] =
-      await Promise.all([
-        this.profileService.getProfileData(userId),
-        this.analyticsService.getAnalyticsData(userId, requestedAt),
-        this.economyService.getState(userId),
-        this.supabaseService
-          .getClient()
-          .from('daily_mission_progress')
-          .select('mission_key, completed_at, reward_ycoins')
-          .eq('user_id', userId)
-          .eq('business_date', businessDate),
-        this.learningService.getLobbySummary(userId),
-      ]);
+    const [
+      profile,
+      analytics,
+      economy,
+      missionResult,
+      learningSummary,
+      betaReward,
+    ] = await Promise.all([
+      this.profileService.getProfileData(userId),
+      this.analyticsService.getAnalyticsData(userId, requestedAt),
+      this.economyService.getState(userId),
+      this.supabaseService
+        .getClient()
+        .from('daily_mission_progress')
+        .select('mission_key, completed_at, reward_ycoins')
+        .eq('user_id', userId)
+        .eq('business_date', businessDate),
+      this.learningService.getLobbySummary(userId),
+      this.supabaseService
+        .getClient()
+        .rpc('get_beta_welcome_reward', { p_user_id: userId }),
+    ]);
 
     if (missionResult.error) {
       throw new InternalServerErrorException(missionResult.error.message);
+    }
+    if (betaReward.error) {
+      throw new InternalServerErrorException(betaReward.error.message);
     }
     const progress = new Map(
       ((missionResult.data ?? []) as any[]).map((row) => [
@@ -58,6 +70,7 @@ export class LobbyService {
     );
     return {
       data: {
+        betaWelcomeReward: betaReward.data ?? null,
         profile,
         tier: profile.tier,
         rankPoints: profile.rankPoints,
@@ -82,5 +95,13 @@ export class LobbyService {
         },
       },
     };
+  }
+
+  async acknowledgeBetaWelcome(userId: string) {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .rpc('acknowledge_beta_welcome_reward', { p_user_id: userId });
+    if (error) throw new InternalServerErrorException(error.message);
+    return { data: data ?? null };
   }
 }

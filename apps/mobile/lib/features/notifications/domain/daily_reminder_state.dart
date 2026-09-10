@@ -1,5 +1,7 @@
 enum ReminderPermissionStatus { unavailable, notDetermined, denied, authorized }
 
+enum ReminderRegistrationStatus { idle, registering, registered, failed }
+
 class DailyReminderPreferences {
   const DailyReminderPreferences({
     required this.enabled,
@@ -75,6 +77,7 @@ class DailyReminderState {
     this.isSaving = false,
     this.errorMessage,
     this.pendingTap,
+    this.registrationStatus = ReminderRegistrationStatus.idle,
   });
 
   factory DailyReminderState.initial() => DailyReminderState(
@@ -89,6 +92,7 @@ class DailyReminderState {
   final bool isSaving;
   final String? errorMessage;
   final ReminderNotificationTap? pendingTap;
+  final ReminderRegistrationStatus registrationStatus;
 
   DailyReminderState copyWith({
     DailyReminderPreferences? preferences,
@@ -99,8 +103,10 @@ class DailyReminderState {
     bool clearError = false,
     ReminderNotificationTap? pendingTap,
     bool clearPendingTap = false,
+    ReminderRegistrationStatus? registrationStatus,
   }) {
     return DailyReminderState(
+      registrationStatus: registrationStatus ?? this.registrationStatus,
       preferences: preferences ?? this.preferences,
       permissionStatus: permissionStatus ?? this.permissionStatus,
       isLoading: isLoading ?? this.isLoading,

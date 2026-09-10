@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yudha_mobile/app/config/app_config.dart';
+import 'package:yudha_mobile/features/auth/application/password_recovery_context.dart';
 import 'package:yudha_mobile/features/auth/data/app_auth_storage.dart';
 import 'package:yudha_mobile/firebase_options.dart';
 
@@ -38,6 +39,8 @@ abstract final class AppBootstrap {
             publishableKey: AppConfig.supabasePublishableKey,
             authOptions: FlutterAuthClientOptions(
               autoRefreshToken: true,
+              detectSessionInUriPredicate:
+                  PasswordRecoveryContext.detectAuthCallback,
               localStorage: AppAuthStorage.instance,
             ),
           );

@@ -45,3 +45,8 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Required by the native notification availability check in MainActivity.
+    implementation("com.google.android.gms:play-services-base:18.9.0")
+}

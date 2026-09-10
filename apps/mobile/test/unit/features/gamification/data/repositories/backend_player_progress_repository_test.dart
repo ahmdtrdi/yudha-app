@@ -15,7 +15,10 @@ void main() {
           ),
           client: MockClient((http.Request request) async {
             expect(request.method, 'GET');
-            expect(request.url.toString(), 'https://api.example.com/lobby/summary');
+            expect(
+              request.url.toString(),
+              'https://api.example.com/lobby/summary',
+            );
             expect(request.headers['authorization'], 'Bearer token-123');
 
             return http.Response(
@@ -33,6 +36,12 @@ void main() {
                   },
                   'rankPoints': 860,
                   'streak': 5,
+                  'betaWelcomeReward': <String, Object?>{
+                    'id': 'reward-1',
+                    'coinAmount': 1000,
+                    'energyAmount': 1000,
+                    'acknowledgedAt': null,
+                  },
                   'learningSummary': <String, Object?>{
                     'curriculumCoverage': <String, Object?>{
                       'value': 42,
@@ -73,6 +82,10 @@ void main() {
     final snapshot = await repository.fetchCurrentProgress();
 
     expect(snapshot.playerId, 'user-123');
+    expect(snapshot.betaWelcomeReward?.id, 'reward-1');
+    expect(snapshot.betaWelcomeReward?.coinAmount, 1000);
+    expect(snapshot.betaWelcomeReward?.energyAmount, 1000);
+    expect(snapshot.betaWelcomeReward?.acknowledgedAt, isNull);
     expect(snapshot.displayName, 'Raka Saputra');
     expect(snapshot.totalPoints, 860);
     expect(snapshot.tier, 'elite');

@@ -27,6 +27,7 @@ dailyReminderProvider =
       (Ref ref) => DailyReminderController(
         repository: ref.watch(dailyReminderRepositoryProvider),
         isAuthenticated: ref.watch(isAuthenticatedProvider),
+        userId: ref.watch(authProvider).session?.user.id,
         messaging: ref.watch(firebaseMessagingProvider),
         onForegroundMessage: () =>
             ref.read(playerProgressProvider.notifier).hydrateFromRepository(),

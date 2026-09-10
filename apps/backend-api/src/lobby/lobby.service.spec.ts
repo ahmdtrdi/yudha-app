@@ -48,6 +48,7 @@ describe('LobbyService Gate 1 summary', () => {
     const firstEq = jest.fn().mockReturnValue({ eq: secondEq });
     const supabaseService = {
       getClient: () => ({
+        rpc: jest.fn().mockResolvedValue({ data: null, error: null }),
         from: () => ({ select: () => ({ eq: firstEq }) }),
       }),
     };
@@ -88,6 +89,7 @@ describe('LobbyService Gate 1 summary', () => {
     });
     expect(result.data.recommendation).toBe(recommendation);
     expect(result.data.learningNextAction).toBeNull();
+    expect(result.data.betaWelcomeReward).toBeNull();
     expect(result.data.rankPoints).toBe(450);
     expect(result.data.tier).toBe('warrior');
     expect(result.data.learningSummary.curriculumCoverage).toEqual({
