@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +21,139 @@ import 'package:yudha_mobile/features/lobby/presentation/beta_welcome_dialog.dar
 import 'package:yudha_mobile/features/lobby/presentation/pages/lobby_page.dart';
 
 void main() {
+  testWidgets('QA-023 shows a skeleton until initial hydration completes', (
+    tester,
+  ) async {
+    final repository = _ControlledSummaryRepository();
+    final progress = PlayerProgressController(
+      repository: repository,
+      shouldHydrate: true,
+    );
+    final economy = _LobbyEconomyController();
+    await _pumpLobby(tester, progress, economy);
+    expect(find.byKey(const ValueKey('lobby-loading')), findsOneWidget);
+    expect(find.byKey(const ValueKey('lobby-profile-header')), findsNothing);
+    expect(find.text('Daily Question'), findsNothing);
+    expect(find.text('Daily PvP'), findsNothing);
+    expect(find.byKey(const ValueKey('lobby-quest-roadmap')), findsNothing);
+    repository.requests.single.complete(
+      await const _LobbySummaryRepository().fetchCurrentProgress(),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('lobby-loading')), findsNothing);
+    expect(find.text('Selesaikan Practice'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('QA-023 shows an error and retries progress and economy', (
+    tester,
+  ) async {
+    final repository = _ControlledSummaryRepository();
+    final progress = PlayerProgressController(
+      repository: repository,
+      shouldHydrate: true,
+    );
+    final economy = _LobbyEconomyController();
+    await _pumpLobby(tester, progress, economy);
+    repository.requests.single.completeError(StateError('offline'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('lobby-error')), findsOneWidget);
+    expect(find.text('Coba lagi'), findsOneWidget);
+    expect(find.byKey(const ValueKey('lobby-quest-roadmap')), findsNothing);
+    expect(find.byKey(const ValueKey('lobby-missions-empty')), findsNothing);
+    economy.pending = Completer<void>();
+    await tester.tap(find.text('Coba lagi'));
+    await tester.pump();
+    expect(repository.requests, hasLength(2));
+    expect(economy.refreshCalls, 1);
+    expect(find.byKey(const ValueKey('lobby-loading')), findsOneWidget);
+    repository.requests.last.complete(
+      await const _LobbySummaryRepository().fetchCurrentProgress(),
+    );
+    await tester.pump();
+    expect(find.byKey(const ValueKey('lobby-loading')), findsOneWidget);
+    economy.pending!.complete();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('lobby-error')), findsNothing);
+    expect(find.text('Selesaikan Practice'), findsOneWidget);
+  });
+
+  testWidgets(
+    'QA-023 reports an economy hydration failure even when progress succeeds',
+    (tester) async {
+      final progress = PlayerProgressController(
+        repository: const _LobbySummaryRepository(),
+      );
+      await progress.hydrateFromRepository();
+      final economy = _LobbyEconomyController()..fail();
+      await _pumpLobby(tester, progress, economy);
+      expect(find.byKey(const ValueKey('lobby-error')), findsOneWidget);
+      expect(find.text('Coba lagi'), findsOneWidget);
+      expect(find.byKey(const ValueKey('lobby-profile-header')), findsNothing);
+      await tester.tap(find.text('Coba lagi'));
+      await tester.pumpAndSettle();
+      expect(economy.refreshCalls, 1);
+      expect(find.byKey(const ValueKey('lobby-error')), findsNothing);
+    },
+  );
+
+  testWidgets('QA-023 shows honest empty missions and recommendations', (
+    tester,
+  ) async {
+    final repository = _ControlledSummaryRepository();
+    final progress = PlayerProgressController(
+      repository: repository,
+      shouldHydrate: true,
+    );
+    await _pumpLobby(tester, progress, _LobbyEconomyController());
+    repository.requests.single.complete(_emptySummary);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('lobby-missions-empty')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('lobby-recommendation-empty')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('lobby-error')), findsNothing);
+    expect(find.text('Daily Question'), findsNothing);
+    expect(find.text('Daily PvP'), findsNothing);
+    expect(find.textContaining('YCoin'), findsNothing);
+    expect(find.byKey(const ValueKey('lobby-quest-roadmap')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('QA-023 does not fabricate a missing mission or its reward', (
+    tester,
+  ) async {
+    final repository = _ControlledSummaryRepository();
+    final progress = PlayerProgressController(
+      repository: repository,
+      shouldHydrate: true,
+    );
+    await _pumpLobby(tester, progress, _LobbyEconomyController());
+    repository.requests.single.complete(
+      const PlayerProgressSnapshot(
+        playerId: 'user-1',
+        displayName: 'Yudha',
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        dailyMissions: [
+          {
+            'key': 'daily_practice',
+            'title': 'Practice dari server',
+            'completed': true,
+          },
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Practice dari server'), findsOneWidget);
+    expect(find.text('1 / 1'), findsOneWidget);
+    expect(find.byKey(const ValueKey('lobby-roadmap-step-pvp')), findsNothing);
+    expect(find.byKey(const ValueKey('lobby-roadmap-connector')), findsNothing);
+    expect(find.textContaining('+'), findsNothing);
+  });
+
   testWidgets('beta popup waits for server balances and stays acknowledged', (
     tester,
   ) async {
@@ -69,7 +204,7 @@ void main() {
         overrides: <Override>[
           playerProgressProvider.overrideWith((Ref ref) => progress),
           gameEconomyProvider.overrideWith(
-            (Ref ref) => GameEconomyController(),
+            (Ref ref) => _LobbyEconomyController(),
           ),
         ],
         child: const MaterialApp(home: LobbyPage()),
@@ -294,9 +429,15 @@ void main() {
     );
     expect(
       tester
-          .getCenter(find.byKey(const ValueKey<String>('lobby-floating-board')))
+          .getBottomLeft(
+            find.byKey(const ValueKey('lobby-recommendation-empty')),
+          )
           .dy,
-      closeTo(missionBackgroundRect.center.dy, 0.1),
+      lessThan(
+        tester
+            .getTopLeft(find.byKey(const ValueKey('lobby-floating-board')))
+            .dy,
+      ),
     );
     expect(
       tester
@@ -311,6 +452,10 @@ void main() {
               .dy,
       closeTo(28, 0.1),
     );
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('lobby-start-battle')),
+    );
+    await tester.pumpAndSettle();
     expect(
       tester
           .getBottomLeft(
@@ -373,17 +518,18 @@ void main() {
               .dy,
       closeTo(22, 0.1),
     );
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('lobby-start-battle')),
+    );
+    await tester.pumpAndSettle();
     expect(
-      tester
-          .getCenter(find.byKey(const ValueKey<String>('lobby-floating-board')))
-          .dy,
-      closeTo(
+      tester.getBottomLeft(find.byKey(const ValueKey('lobby-start-battle'))).dy,
+      lessThanOrEqualTo(
         tester
-            .getCenter(
-              find.byKey(const ValueKey<String>('lobby-mission-background')),
+            .getBottomLeft(
+              find.byKey(const ValueKey('lobby-mission-background')),
             )
             .dy,
-        0.1,
       ),
     );
     expect(
@@ -435,7 +581,7 @@ void main() {
         overrides: <Override>[
           playerProgressProvider.overrideWith((Ref ref) => progress),
           gameEconomyProvider.overrideWith(
-            (Ref ref) => GameEconomyController(),
+            (Ref ref) => _LobbyEconomyController(),
           ),
           learningRepositoryProvider.overrideWithValue(
             const _LobbyLearningRepository(),
@@ -467,12 +613,16 @@ void main() {
         overrides: <Override>[
           playerProgressProvider.overrideWith((Ref ref) {
             final PlayerProgressController controller =
-                PlayerProgressController();
-            controller.setDisplayName('Yudha');
+                PlayerProgressController(
+                  repository: const _LobbySummaryRepository(
+                    withCoverage: false,
+                  ),
+                  shouldHydrate: true,
+                );
             return controller;
           }),
           gameEconomyProvider.overrideWith(
-            (Ref ref) => GameEconomyController(),
+            (Ref ref) => _LobbyEconomyController(),
           ),
         ],
         child: const MaterialApp(
@@ -491,6 +641,69 @@ void main() {
     expect(find.text('START BATTLE'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+}
+
+const _emptySummary = PlayerProgressSnapshot(
+  playerId: 'user-1',
+  displayName: 'Yudha',
+  wins: 0,
+  losses: 0,
+  draws: 0,
+);
+
+Future<void> _pumpLobby(
+  WidgetTester tester,
+  PlayerProgressController progress,
+  GameEconomyController economy,
+) async {
+  await tester.binding.setSurfaceSize(const Size(390, 844));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        playerProgressProvider.overrideWith((ref) => progress),
+        gameEconomyProvider.overrideWith((ref) => economy),
+      ],
+      child: const MaterialApp(home: LobbyPage()),
+    ),
+  );
+  await tester.pump();
+}
+
+class _ControlledSummaryRepository extends PlayerProgressRepository {
+  final requests = <Completer<PlayerProgressSnapshot>>[];
+  @override
+  Future<PlayerProgressSnapshot> fetchCurrentProgress() {
+    final request = Completer<PlayerProgressSnapshot>();
+    requests.add(request);
+    return request.future;
+  }
+}
+
+class _LobbyEconomyController extends GameEconomyController {
+  _LobbyEconomyController() {
+    markReady();
+  }
+  int refreshCalls = 0;
+  Completer<void>? pending;
+  void markReady() {
+    state = state.copyWith(
+      syncStatus: EconomySyncStatus.synced,
+      dataSource: EconomyDataSource.server,
+    );
+  }
+
+  void fail() {
+    state = state.copyWith(syncStatus: EconomySyncStatus.syncUnavailable);
+  }
+
+  @override
+  Future<void> refresh() async {
+    refreshCalls++;
+    state = state.copyWith(syncStatus: EconomySyncStatus.loading);
+    await pending?.future;
+    markReady();
+  }
 }
 
 class _LearningProgressRepository extends PlayerProgressRepository {
@@ -531,11 +744,12 @@ class _LearningProgressRepository extends PlayerProgressRepository {
 }
 
 class _LobbySummaryRepository extends PlayerProgressRepository {
-  const _LobbySummaryRepository();
+  const _LobbySummaryRepository({this.withCoverage = true});
+  final bool withCoverage;
 
   @override
   Future<PlayerProgressSnapshot> fetchCurrentProgress() async {
-    return const PlayerProgressSnapshot(
+    return PlayerProgressSnapshot(
       playerId: 'user-1',
       displayName: 'Yudha',
       totalPoints: 1050,
@@ -545,12 +759,28 @@ class _LobbySummaryRepository extends PlayerProgressRepository {
       losses: 4,
       draws: 1,
       streak: 7,
-      curriculumCoverage: LearningCoverage(
-        value: 42,
-        coveredSkillCount: 8,
-        requiredSkillCount: 19,
-        confidence: 'medium',
-      ),
+      dailyMissions: const [
+        {
+          'key': 'daily_practice',
+          'title': 'Selesaikan Practice',
+          'completed': false,
+          'rewardYCoins': 0,
+        },
+        {
+          'key': 'daily_pvp',
+          'title': 'Selesaikan PvP publik',
+          'completed': false,
+          'rewardYCoins': 0,
+        },
+      ],
+      curriculumCoverage: withCoverage
+          ? const LearningCoverage(
+              value: 42,
+              coveredSkillCount: 8,
+              requiredSkillCount: 19,
+              confidence: 'medium',
+            )
+          : null,
     );
   }
 }

@@ -9,6 +9,7 @@ import 'package:yudha_mobile/features/economy/application/game_economy_providers
 import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
 import 'package:yudha_mobile/features/economy/presentation/widgets/economy_widgets.dart';
 import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
+import 'package:yudha_mobile/features/gamification/domain/entities/player_progress.dart';
 import 'package:yudha_mobile/features/learning/application/learning_providers.dart';
 import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
 import 'package:yudha_mobile/features/lobby/presentation/beta_welcome_dialog.dart';
@@ -63,28 +64,27 @@ class _LobbyPageState extends ConsumerState<LobbyPage> {
     final progress = ref.watch(playerProgressProvider);
     final LearningRecommendation? learningNextAction =
         progress.learningNextAction;
-    _recordShown(learningNextAction);
     final GameEconomyState economy = ref.watch(gameEconomyProvider);
-    _scheduleBetaWelcome();
-    final List<Map<String, Object?>> dailyMissions = progress.dailyMissions;
-    final Map<String, Object?> practiceMission = dailyMissions.firstWhere(
-      (Map<String, Object?> mission) => mission['key'] == 'daily_practice',
-      orElse: () => const <String, Object?>{
-        'key': 'daily_practice',
-        'title': 'Daily Question',
-        'rewardYCoins': 2,
-        'completed': false,
-      },
-    );
-    final Map<String, Object?> pvpMission = dailyMissions.firstWhere(
-      (Map<String, Object?> mission) => mission['key'] == 'daily_pvp',
-      orElse: () => const <String, Object?>{
-        'key': 'daily_pvp',
-        'title': 'Daily PvP',
-        'rewardYCoins': 1,
-        'completed': false,
-      },
-    );
+    final loading =
+        progress.status == PlayerProgressStatus.initial ||
+        progress.status == PlayerProgressStatus.loading ||
+        economy.syncStatus == EconomySyncStatus.loading;
+    final hasError =
+        progress.status == PlayerProgressStatus.error ||
+        economy.syncStatus == EconomySyncStatus.syncUnavailable;
+    if (!loading && !hasError) {
+      _recordShown(learningNextAction);
+      _scheduleBetaWelcome();
+    }
+    Map<String, Object?>? mission(String key) {
+      for (final item in progress.dailyMissions) {
+        if (item['key'] == key) return item;
+      }
+      return null;
+    }
+
+    final practiceMission = mission('daily_practice');
+    final pvpMission = mission('daily_pvp');
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D49B5),
@@ -137,127 +137,178 @@ class _LobbyPageState extends ConsumerState<LobbyPage> {
         ],
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (BuildContext context, BoxConstraints constraints) {
-            final bool compact = constraints.maxHeight < 720;
-            final double profileHeight = constraints.maxHeight * 0.4;
+        child: loading
+            ? const _LobbySkeleton()
+            : hasError
+            ? _LobbyError(
+                message:
+                    progress.errorMessage ??
+                    'Saldo dan energi belum dapat dimuat. Periksa koneksi dan coba lagi.',
+                onRetry: _retry,
+              )
+            : LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints constraints) {
+                  final bool compact = constraints.maxHeight < 720;
+                  final double profileHeight = constraints.maxHeight * 0.4;
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                SizedBox(
-                  height: profileHeight,
-                  child: ColoredBox(
-                    color: AppColors.scholarCream,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: <Widget>[
-                        DecoratedBox(
-                          key: const ValueKey<String>(
-                            'lobby-profile-clay-base',
-                          ),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF06378F),
-                            borderRadius: BorderRadius.vertical(
-                              bottom: Radius.circular(26),
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: ClipRRect(
-                            key: const ValueKey<String>('lobby-profile-clip'),
-                            borderRadius: const BorderRadius.vertical(
-                              bottom: Radius.circular(26),
-                            ),
-                            child: ColoredBox(
-                              key: const ValueKey<String>(
-                                'lobby-profile-background',
-                              ),
-                              color: const Color(0xFF0D49B5),
-                              child: _LobbyProfileHeader(
-                                compact: compact,
-                                displayName: progress.displayName,
-                                target: progress.target,
-                                rankPoints: progress.totalPoints,
-                                streak: progress.streak,
-                                coverage: progress.curriculumCoverage,
-                                onCoverageTap: () =>
-                                    context.go(AppRoutes.learning),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: ColoredBox(
-                    key: const ValueKey<String>('lobby-mission-background'),
-                    color: AppColors.scholarCream,
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: compact ? 20 : 24,
-                        vertical: compact ? 12 : 18,
-                      ),
-                      child: LayoutBuilder(
-                        builder:
-                            (BuildContext context, BoxConstraints constraints) {
-                              return SingleChildScrollView(
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      SizedBox(
+                        height: profileHeight,
+                        child: ColoredBox(
+                          color: AppColors.scholarCream,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: <Widget>[
+                              DecoratedBox(
                                 key: const ValueKey<String>(
-                                  'lobby-mission-scroll-view',
+                                  'lobby-profile-clay-base',
                                 ),
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    minHeight: constraints.maxHeight,
-                                  ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: <Widget>[
-                                      if (learningNextAction !=
-                                          null) ...<Widget>[
-                                        _LobbyLearningCard(
-                                          recommendation: learningNextAction,
-                                          compact: compact,
-                                          onDashboard: () =>
-                                              context.go(AppRoutes.learning),
-                                          onStart: learningNextAction.runnable
-                                              ? () => _startRecommendation(
-                                                  learningNextAction,
-                                                )
-                                              : null,
-                                        ),
-                                        SizedBox(height: compact ? 12 : 16),
-                                      ],
-                                      _QuestRoadmapSheet(
-                                        compact: compact,
-                                        practiceMission: practiceMission,
-                                        pvpMission: pvpMission,
-                                        onPracticeTap: () =>
-                                            context.go(AppRoutes.solo),
-                                        onPvpTap: () =>
-                                            context.go(AppRoutes.pvp),
-                                        onBattleTap: () =>
-                                            context.go(AppRoutes.pvp),
-                                      ),
-                                    ],
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF06378F),
+                                  borderRadius: BorderRadius.vertical(
+                                    bottom: Radius.circular(26),
                                   ),
                                 ),
-                              );
-                            },
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: ClipRRect(
+                                  key: const ValueKey<String>(
+                                    'lobby-profile-clip',
+                                  ),
+                                  borderRadius: const BorderRadius.vertical(
+                                    bottom: Radius.circular(26),
+                                  ),
+                                  child: ColoredBox(
+                                    key: const ValueKey<String>(
+                                      'lobby-profile-background',
+                                    ),
+                                    color: const Color(0xFF0D49B5),
+                                    child: _LobbyProfileHeader(
+                                      compact: compact,
+                                      displayName: progress.displayName,
+                                      target: progress.target,
+                                      rankPoints: progress.totalPoints,
+                                      streak: progress.streak,
+                                      coverage: progress.curriculumCoverage,
+                                      onCoverageTap: () =>
+                                          context.go(AppRoutes.learning),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+                      Expanded(
+                        child: ColoredBox(
+                          key: const ValueKey<String>(
+                            'lobby-mission-background',
+                          ),
+                          color: AppColors.scholarCream,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: compact ? 20 : 24,
+                              vertical: compact ? 12 : 18,
+                            ),
+                            child: LayoutBuilder(
+                              builder:
+                                  (
+                                    BuildContext context,
+                                    BoxConstraints constraints,
+                                  ) {
+                                    return SingleChildScrollView(
+                                      key: const ValueKey<String>(
+                                        'lobby-mission-scroll-view',
+                                      ),
+                                      child: ConstrainedBox(
+                                        constraints: BoxConstraints(
+                                          minHeight: constraints.maxHeight,
+                                        ),
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: <Widget>[
+                                            if (learningNextAction !=
+                                                null) ...<Widget>[
+                                              _LobbyLearningCard(
+                                                recommendation:
+                                                    learningNextAction,
+                                                compact: compact,
+                                                onDashboard: () => context.go(
+                                                  AppRoutes.learning,
+                                                ),
+                                                onStart:
+                                                    learningNextAction.runnable
+                                                    ? () =>
+                                                          _startRecommendation(
+                                                            learningNextAction,
+                                                          )
+                                                    : null,
+                                              ),
+                                              SizedBox(
+                                                height: compact ? 12 : 16,
+                                              ),
+                                            ],
+                                            if (learningNextAction == null) ...[
+                                              const _LobbyEmptyCard(
+                                                stateKey:
+                                                    'lobby-recommendation-empty',
+                                                message:
+                                                    'Belum ada rekomendasi belajar.',
+                                              ),
+                                              SizedBox(
+                                                height: compact ? 12 : 16,
+                                              ),
+                                            ],
+                                            if (practiceMission == null &&
+                                                pvpMission == null)
+                                              const _LobbyEmptyCard(
+                                                stateKey:
+                                                    'lobby-missions-empty',
+                                                message:
+                                                    'Belum ada misi harian yang tersedia.',
+                                              )
+                                            else
+                                              _QuestRoadmapSheet(
+                                                compact: compact,
+                                                practiceMission:
+                                                    practiceMission,
+                                                pvpMission: pvpMission,
+                                                onPracticeTap: () =>
+                                                    context.go(AppRoutes.solo),
+                                                onPvpTap: () =>
+                                                    context.go(AppRoutes.pvp),
+                                                onBattleTap: () =>
+                                                    context.go(AppRoutes.pvp),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
       ),
     );
+  }
+
+  Future<void> _retry() async {
+    await Future.wait([
+      ref.read(playerProgressProvider.notifier).hydrateFromRepository(),
+      ref.read(gameEconomyProvider.notifier).refresh(),
+    ]);
   }
 
   void _recordShown(LearningRecommendation? recommendation) {
@@ -291,6 +342,87 @@ class _LobbyPageState extends ConsumerState<LobbyPage> {
     // starts the recommended topic directly instead of landing on generic
     // setup.
   }
+}
+
+class _LobbySkeleton extends StatelessWidget {
+  const _LobbySkeleton();
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: 'Memuat lobby',
+    child: SingleChildScrollView(
+      key: const ValueKey<String>('lobby-loading'),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final height in [48.0, 120.0, 72.0, 100.0, 100.0])
+            Container(
+              height: height,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(40),
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _LobbyError extends StatelessWidget {
+  const _LobbyError({required this.message, required this.onRetry});
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Card(
+        key: const ValueKey<String>('lobby-error'),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off_rounded, size: 36),
+              const SizedBox(height: 12),
+              Text(message, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                key: const ValueKey<String>('lobby-retry'),
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Coba lagi'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _LobbyEmptyCard extends StatelessWidget {
+  const _LobbyEmptyCard({required this.stateKey, required this.message});
+  final String stateKey;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    key: ValueKey<String>(stateKey),
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Text(message, textAlign: TextAlign.center),
+    ),
+  );
+}
+
+String? _missionReward(Map<String, Object?>? mission) {
+  final reward = mission?['rewardYCoins'];
+  return reward is num && reward > 0 ? '+${reward.toInt()} YCoin' : null;
 }
 
 class _LobbyLearningCard extends StatelessWidget {
@@ -918,34 +1050,34 @@ class _QuestRoadmapSheet extends StatelessWidget {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  _RoadmapQuestStep(
-                    stepKey: 'practice',
-                    compact: compact,
-                    icon: Icons.menu_book_rounded,
-                    title: (practiceMission?['title'] ?? 'Daily Question')
-                        .toString(),
-                    subtitle: practiceMission?['completed'] == true
-                        ? 'Selesai hari ini'
-                        : 'Selesaikan satu sesi practice',
-                    xpReward:
-                        '+${((practiceMission?['rewardYCoins'] as num?) ?? 2).toInt()} YCoin',
-                    completed: practiceMission?['completed'] == true,
-                    onTap: onPracticeTap,
-                  ),
-                  _RoadmapConnector(compact: compact),
-                  _RoadmapQuestStep(
-                    stepKey: 'pvp',
-                    compact: compact,
-                    icon: Icons.sports_kabaddi_rounded,
-                    title: (pvpMission?['title'] ?? 'Daily PvP').toString(),
-                    subtitle: pvpMission?['completed'] == true
-                        ? 'Selesai hari ini'
-                        : 'Menangkan satu pertarungan',
-                    xpReward:
-                        '+${((pvpMission?['rewardYCoins'] as num?) ?? 1).toInt()} YCoin',
-                    completed: pvpMission?['completed'] == true,
-                    onTap: onPvpTap,
-                  ),
+                  if (practiceMission != null)
+                    _RoadmapQuestStep(
+                      stepKey: 'practice',
+                      compact: compact,
+                      icon: Icons.menu_book_rounded,
+                      title: (practiceMission?['title'] ?? '').toString(),
+                      subtitle: practiceMission?['completed'] == true
+                          ? 'Selesai hari ini'
+                          : 'Selesaikan satu sesi practice',
+                      xpReward: _missionReward(practiceMission),
+                      completed: practiceMission?['completed'] == true,
+                      onTap: onPracticeTap,
+                    ),
+                  if (practiceMission != null && pvpMission != null)
+                    _RoadmapConnector(compact: compact),
+                  if (pvpMission != null)
+                    _RoadmapQuestStep(
+                      stepKey: 'pvp',
+                      compact: compact,
+                      icon: Icons.sports_kabaddi_rounded,
+                      title: (pvpMission?['title'] ?? '').toString(),
+                      subtitle: pvpMission?['completed'] == true
+                          ? 'Selesai hari ini'
+                          : 'Selesaikan satu PvP publik',
+                      xpReward: _missionReward(pvpMission),
+                      completed: pvpMission?['completed'] == true,
+                      onTap: onPvpTap,
+                    ),
                 ],
               ),
               SizedBox(height: compact ? 22 : 28),
@@ -975,7 +1107,7 @@ class _RoadmapQuestStep extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
-  final String xpReward;
+  final String? xpReward;
   final bool completed;
   final VoidCallback onTap;
 
@@ -1093,33 +1225,15 @@ class _RoadmapQuestStep extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: <Widget>[
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: <Widget>[
-                                    const Icon(
-                                      Icons.bolt_rounded,
-                                      color: Color(0xFFFF9800),
-                                      size: 13,
+                                if (xpReward != null)
+                                  Text(
+                                    xpReward!,
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: const Color(0xFFE9822D),
+                                      fontSize: compact ? 11 : 12,
+                                      fontWeight: FontWeight.w800,
                                     ),
-                                    Text(
-                                      '2',
-                                      style: GoogleFonts.fredoka(
-                                        color: const Color(0xFFFF9800),
-                                        fontSize: compact ? 11 : 12,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  xpReward,
-                                  style: GoogleFonts.jetBrainsMono(
-                                    color: const Color(0xFFE9822D),
-                                    fontSize: compact ? 11 : 12,
-                                    fontWeight: FontWeight.w800,
                                   ),
-                                ),
                               ],
                             ),
                           ],
