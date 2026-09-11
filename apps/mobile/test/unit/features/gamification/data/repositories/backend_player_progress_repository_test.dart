@@ -6,6 +6,20 @@ import 'package:http/testing.dart';
 import 'package:yudha_mobile/features/gamification/data/repositories/backend_player_progress_repository.dart';
 
 void main() {
+  test(
+    'rejects a missing profile instead of creating fallback player data',
+    () async {
+      final repository = BackendPlayerProgressRepository(
+        config: const PlayerProgressApiConfig(accessToken: 'token'),
+        client: MockClient((_) async => http.Response('{"data":{}}', 200)),
+      );
+      await expectLater(
+        repository.fetchCurrentProgress(),
+        throwsA(isA<PlayerProgressApiException>()),
+      );
+    },
+  );
+
   test('loads lobby summary from the dedicated backend endpoint', () async {
     final BackendPlayerProgressRepository repository =
         BackendPlayerProgressRepository(

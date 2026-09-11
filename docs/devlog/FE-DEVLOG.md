@@ -3225,3 +3225,26 @@
 - The owner will configure the hosted Supabase redirect allowlist and apply the SQL through Cloud SQL Editor. Local `config.toml` does not update cloud settings. See `infra/supabase/beta-auth-notifications-rollout.md`.
 - Real recovery email delivery, warm/cold device callbacks, deployed web recovery, and login with the changed password still need end-to-end verification against the hosted project.
 - No affected physical Android phone was connected. Actual FCM delivery and any remaining Firebase/API restriction or connectivity issue require device logs and a test notification; the underlying phone registration issue is not yet confirmed resolved.
+
+
+## 2026-09-11 - QA-023: honest Lobby hydration states
+
+### The Change
+- Added explicit progress hydration status, visible failure messages, request ordering guards, and a request timeout. Invalid responses without a profile now fail instead of creating fallback player data.
+- Lobby now renders a skeleton while loading, an error card with `Coba lagi` when progress or economy hydration fails, and explicit empty mission/recommendation notices after successful empty responses.
+- Retry refreshes progress and economy together. Removed fabricated mission entries, reward defaults, and the fixed energy badge from mission rows; partial mission lists render only supplied entries.
+- Updated Lobby fixtures to supply authoritative missions and economy state, added QA-023 widget/unit coverage, and retained scroll-safe responsive checks.
+- Recorded QA-023 as Success with reproducible local evidence in `docs/qa/QA-023.md`.
+
+### The Reasoning
+- An empty list cannot identify whether a request is pending, failed, or successfully empty. Explicit hydration state keeps those cases separate without presenting invented data.
+- Request ordering and mounted checks prevent old requests from replacing a newer result or publishing after disposal.
+
+### Validation
+- 18 focused Lobby/progress/repository tests passed.
+- 12 Solo/PvP widget regression tests passed.
+- Static analysis of all seven changed Dart files: no issues found. `git diff --check` passed.
+
+### Tech Debt / Follow-up
+- The central QA tracker location was not provided; its aggregate status has not been edited. The local evidence file documents the conditional 149/165 (90.30%) total from the user's stated baseline.
+- This task verifies local code and automated tests; no deployment or production smoke test was performed.

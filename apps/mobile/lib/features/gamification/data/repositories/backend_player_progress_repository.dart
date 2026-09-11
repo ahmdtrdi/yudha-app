@@ -57,13 +57,15 @@ class BackendPlayerProgressRepository implements PlayerProgressRepository {
     }
 
     final Uri uri = Uri.parse('${_config.baseUrl}/lobby/summary');
-    final http.Response response = await _client.get(
-      uri,
-      headers: <String, String>{
-        'authorization': 'Bearer ${_config.accessToken}',
-        'content-type': 'application/json',
-      },
-    );
+    final http.Response response = await _client
+        .get(
+          uri,
+          headers: <String, String>{
+            'authorization': 'Bearer ${_config.accessToken}',
+            'content-type': 'application/json',
+          },
+        )
+        .timeout(const Duration(seconds: 20));
 
     final Object? decoded = response.body.isEmpty
         ? const <String, dynamic>{}
@@ -84,6 +86,12 @@ class BackendPlayerProgressRepository implements PlayerProgressRepository {
 
     final Map<String, dynamic> payload = _asMap(decoded['data']) ?? decoded;
     final Map<String, dynamic> profile = _asMap(payload['profile']) ?? payload;
+    if ((profile['id'] ?? payload['id'])?.toString().trim().isNotEmpty !=
+        true) {
+      throw const PlayerProgressApiException(
+        'Lobby summary API returned no profile.',
+      );
+    }
     final Map<String, dynamic> rankedStats =
         _asMap(profile['rankedStats']) ?? <String, dynamic>{};
     final Map<String, dynamic> streakMap =

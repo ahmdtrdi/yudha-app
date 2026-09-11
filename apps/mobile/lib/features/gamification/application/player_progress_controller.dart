@@ -21,6 +21,7 @@ class PlayerProgressController extends StateNotifier<PlayerProgress> {
 
   final PlayerProgressRepository? _repository;
   final void Function(String displayName)? _onDisplayNameHydrated;
+  int _hydrationRequest = 0;
 
   void setDisplayName(String displayName) {
     final String trimmed = displayName.trim();
@@ -64,17 +65,31 @@ class PlayerProgressController extends StateNotifier<PlayerProgress> {
   }
 
   Future<void> hydrateFromRepository() async {
+    final request = ++_hydrationRequest;
     if (_repository == null) {
+      state = state.copyWith(
+        status: PlayerProgressStatus.error,
+        errorMessage: 'Sesi belum tersedia. Silakan masuk kembali.',
+      );
       return;
     }
-
+    state = state.copyWith(
+      status: PlayerProgressStatus.loading,
+      clearError: true,
+    );
     try {
       final PlayerProgressSnapshot snapshot = await _repository
           .fetchCurrentProgress();
+      if (!mounted || request != _hydrationRequest) return;
       state = state.mergeSnapshot(snapshot);
       _onDisplayNameHydrated?.call(snapshot.displayName);
     } catch (_) {
-      // Keep local fallback state when the profile API is temporarily unavailable.
+      if (!mounted || request != _hydrationRequest) return;
+      state = state.copyWith(
+        status: PlayerProgressStatus.error,
+        errorMessage:
+            'Lobby belum dapat dimuat. Periksa koneksi dan coba lagi.',
+      );
     }
   }
 }
