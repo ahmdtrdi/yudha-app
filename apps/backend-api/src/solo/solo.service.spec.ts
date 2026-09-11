@@ -4,7 +4,7 @@ import { SoloService } from './solo.service';
 
 describe('SoloService Learning V2 alignment', () => {
   let repository: jest.Mocked<SoloRepository>;
-  let learningProjections: { rebuildAndDrainUser: jest.Mock };
+  let learningProjections: { scheduleUserRebuild: jest.Mock };
   let service: SoloService;
   const previousFlag = process.env.LEARNING_V2_ENABLED;
 
@@ -21,7 +21,7 @@ describe('SoloService Learning V2 alignment', () => {
         energy: { balance: 8, cap: 10, unlimited: false },
       }),
     } as unknown as jest.Mocked<SoloRepository>;
-    learningProjections = { rebuildAndDrainUser: jest.fn() };
+    learningProjections = { scheduleUserRebuild: jest.fn() };
     service = new SoloService(repository, learningProjections as any);
   });
 
@@ -154,7 +154,7 @@ describe('SoloService Learning V2 alignment', () => {
     );
   });
 
-  it('projects canonical evidence immediately when Solo completes', async () => {
+  it('schedules canonical projection when Solo completes', async () => {
     process.env.LEARNING_V2_ENABLED = 'true';
     repository.submitAnswer.mockResolvedValue({
       status: 'completed',
@@ -168,7 +168,7 @@ describe('SoloService Learning V2 alignment', () => {
       selectedOptionIndex: 1,
     });
 
-    expect(learningProjections.rebuildAndDrainUser).toHaveBeenCalledWith(
+    expect(learningProjections.scheduleUserRebuild).toHaveBeenCalledWith(
       'user-1',
       'cpns',
     );
@@ -188,10 +188,10 @@ describe('SoloService Learning V2 alignment', () => {
       selectedOptionIndex: 1,
     });
 
-    expect(learningProjections.rebuildAndDrainUser).not.toHaveBeenCalled();
+    expect(learningProjections.scheduleUserRebuild).not.toHaveBeenCalled();
   });
 
-  it('projects partial canonical evidence when Solo is stopped', async () => {
+  it('schedules partial canonical projection when Solo is stopped', async () => {
     process.env.LEARNING_V2_ENABLED = 'true';
     repository.finishSession.mockResolvedValue({
       status: 'stopped',
@@ -202,7 +202,7 @@ describe('SoloService Learning V2 alignment', () => {
       idempotencyKey: 'finish-1',
     });
 
-    expect(learningProjections.rebuildAndDrainUser).toHaveBeenCalledWith(
+    expect(learningProjections.scheduleUserRebuild).toHaveBeenCalledWith(
       'user-1',
       'bumn',
     );

@@ -9,7 +9,11 @@ import {
   LEARNING_CALCULATION_VERSION,
   learningV2Enabled,
 } from './learning.constants';
-import { emptyState, stateFromRow } from './learning.projection.service';
+import {
+  emptyState,
+  stateFromRow,
+  LearningProjectionService,
+} from './learning.projection.service';
 import { LearningRepository } from './learning.repository';
 import type { RecommendationEventDto } from './dto/recommendation-event.dto';
 import type {
@@ -30,7 +34,10 @@ const DISMISSAL_REASONS = new Set([
 
 @Injectable()
 export class LearningService {
-  constructor(private readonly repository: LearningRepository) {}
+  constructor(
+    private readonly repository: LearningRepository,
+    private readonly projections?: LearningProjectionService,
+  ) {}
 
   isEnabled(): boolean {
     return learningV2Enabled();
@@ -44,6 +51,8 @@ export class LearningService {
     const asOf = new Date();
     const startsAt = wibWindowStart(asOf, 30);
     const target = await this.repository.getUserTarget(userId);
+    // Wait only when the player opens analytics, not while answering a card.
+    await this.projections?.waitForUserRebuild(userId, target);
     const taxonomy = await this.repository.getLatestTaxonomyVersion();
     if (!taxonomy) {
       return {

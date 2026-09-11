@@ -9,6 +9,8 @@ import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
 import 'package:yudha_mobile/features/economy/data/repositories/game_economy_repository.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
+import 'package:yudha_mobile/features/gamification/application/player_progress_controller.dart';
+import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_storage.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_settings.dart';
@@ -20,6 +22,18 @@ import 'package:yudha_mobile/features/pvp/domain/entities/battle_question.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/battle_session_seed.dart';
 import 'package:yudha_mobile/features/pvp/domain/entities/online_battle_update.dart';
 import 'package:yudha_mobile/features/pvp/presentation/pages/pvp_page.dart';
+
+class _MissionProgressController extends PlayerProgressController {
+  int refreshCalls = 0;
+
+  @override
+  Future<void> hydrateFromRepository() async {
+    refreshCalls++;
+    state = state.copyWith(dailyMissions: const [
+      {'key': 'daily_pvp', 'completed': true, 'progress': 1},
+    ]);
+  }
+}
 
 class _LiveOnlineBattleRepository extends OnlineBattleRepository {
   final StreamController<OnlineBattleUpdate> _updates =
@@ -77,6 +91,45 @@ String? _assetName(ImageProvider<Object> provider) {
 }
 
 void main() {
+  testWidgets('refreshes daily missions as soon as a public PvP result is persisted', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(411, 914));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final online = _LiveOnlineBattleRepository();
+    final progress = _MissionProgressController();
+    final container = ProviderContainer(overrides: <Override>[
+      onlineBattleRepositoryProvider.overrideWithValue(online),
+      playerProgressProvider.overrideWith((Ref ref) => progress),
+    ]);
+    addTearDown(container.dispose);
+    final controller = container.read(battleControllerProvider.notifier);
+    controller.enterArena();
+    controller.setMode(BattleMode.online);
+    controller.setOnlineMatchmakingMode(OnlineMatchmakingMode.casual);
+    await controller.startBattle();
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: const MaterialApp(home: PvpPage()),
+    ));
+    await tester.pump();
+    online.emit(const MatchResultUpdate(
+      outcome: BattleOutcome.win,
+      reason: 'opponent_hp_zero',
+      ratingDelta: 0,
+      coinsDelta: 0,
+      progressionPersisted: true,
+      matchmakingMode: OnlineMatchmakingMode.casual,
+    ));
+    await tester.pump();
+    expect(progress.refreshCalls, 1);
+    expect(progress.state.dailyMissions.single['completed'], isTrue);
+    expect(controller.state.rewardClaimed, isFalse);
+    await tester.pump();
+    expect(progress.refreshCalls, 1);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('allows every arena regardless of the profile target', (
     WidgetTester tester,
   ) async {
@@ -1507,6 +1560,10 @@ class _PvpEconomyRepository extends GameEconomyRepository {
 
   AuthoritativeEconomySnapshot get snapshot => AuthoritativeEconomySnapshot(
     coins: 3000,
+    energy: 10,
+    maxEnergy: 10,
+    dailyRefillTarget: 10,
+    isPro: false,
     ownedItemIds: const <String>{
       GameEconomyCatalog.defaultCharacterId,
       GameEconomyCatalog.defaultTowerId,
@@ -1521,6 +1578,9 @@ class _PvpEconomyRepository extends GameEconomyRepository {
 
   @override
   Future<AuthoritativeEconomySnapshot> fetch() async => snapshot;
+
+  @override
+  Future<AuthoritativeEconomySnapshot> purchaseEnergyPack(String packageId) async => snapshot;
 
   @override
   Future<AuthoritativeEconomySnapshot> grantBetaCredit({

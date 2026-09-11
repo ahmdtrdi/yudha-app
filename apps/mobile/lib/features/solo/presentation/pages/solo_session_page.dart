@@ -8,8 +8,10 @@ import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/core/theme/app_colors.dart';
 import 'package:yudha_mobile/features/battle/presentation/audio/arena_audio_controller.dart';
 import 'package:yudha_mobile/features/battle/presentation/widgets/battle_arena_widgets.dart';
+import 'package:yudha_mobile/features/economy/application/game_economy_providers.dart';
 import 'package:yudha_mobile/features/economy/data/game_economy_catalog.dart';
 import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart';
+import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/learning/application/learning_providers.dart';
 import 'package:yudha_mobile/features/profile/application/profile_settings_providers.dart';
 import 'package:yudha_mobile/features/profile/domain/entities/profile_settings.dart';
@@ -108,6 +110,10 @@ class _SoloSessionPageState extends ConsumerState<SoloSessionPage>
         nextSession != null &&
         !nextSession.isActive) {
       ref.invalidate(learningControllerProvider);
+      unawaited(
+        ref.read(playerProgressProvider.notifier).hydrateFromRepository(),
+      );
+      unawaited(ref.read(gameEconomyProvider.notifier).refresh());
       if (nextSession.towerHp == 0) {
         _arenaAudio.playVictoryStinger();
         _effectTimers.add(
@@ -613,7 +619,7 @@ class _CardTray extends StatelessWidget {
         Row(
           children: <Widget>[
             Text(
-              'Pilih kartu',
+              loading ? 'Memproses kartu...' : 'Pilih kartu',
               style: GoogleFonts.fredoka(
                 fontWeight: FontWeight.w600,
                 color: BattleClayPalette.ink,
@@ -621,6 +627,12 @@ class _CardTray extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
+            if (loading)
+              const SizedBox.square(
+                key: ValueKey<String>('solo-card-loading'),
+                dimension: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
             Expanded(
               child: Text(
                 activeQuestionId == null
@@ -983,20 +995,32 @@ class _DeadlineTimerState extends State<_DeadlineTimer> {
   @override
   void initState() {
     super.initState();
-    _tick();
-    timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+    remaining = _remainingSeconds();
+    // A reopened card may already be expired. Notify after the first build
+    // so the controller can safely update its state.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _tick();
+    });
   }
 
+  int _remainingSeconds() =>
+      (widget.deadline.difference(DateTime.now()).inMicroseconds /
+              Duration.microsecondsPerSecond)
+          .ceil()
+          .clamp(0, 999);
+
   void _tick() {
-    final value = widget.deadline
-        .difference(DateTime.now())
-        .inSeconds
-        .clamp(0, 999);
-    if (mounted) setState(() => remaining = value);
-    if (value == 0 && !fired) {
+    if (!mounted || fired) return;
+    final left = widget.deadline.difference(DateTime.now());
+    setState(() => remaining = _remainingSeconds());
+    if (left <= Duration.zero) {
       fired = true;
-      timer?.cancel();
       widget.onTimeout();
+    } else {
+      timer = Timer(
+        left < const Duration(seconds: 1) ? left : const Duration(seconds: 1),
+        _tick,
+      );
     }
   }
 

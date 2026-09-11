@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yudha_mobile/features/solo/data/solo_repository.dart';
@@ -74,6 +75,7 @@ class SoloSessionState {
 class SoloSessionController extends StateNotifier<SoloSessionState> {
   SoloSessionController(this.repository) : super(const SoloSessionState());
   final SoloRepository repository;
+  final Map<String, SoloQuestion> _openedQuestions = <String, SoloQuestion>{};
   final Map<String, String> _questionHints = <String, String>{};
   final Map<String, int> _selectedOptions = <String, int>{};
   final Map<String, Stopwatch> _activeTimers = <String, Stopwatch>{};
@@ -90,6 +92,7 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
         const SoloBalancedQuestionSelection(),
     String? recommendationId,
   }) async {
+    _clearSessionCache();
     state = const SoloSessionState(loading: true);
     try {
       state = SoloSessionState(
@@ -109,6 +112,7 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
   }
 
   Future<bool> resume(String sessionId) async {
+    _clearSessionCache();
     state = const SoloSessionState(loading: true);
     try {
       state = SoloSessionState(session: await repository.get(sessionId));
@@ -128,21 +132,13 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
     }
     state = state.copyWith(submitting: true, clearError: true);
     try {
-      SoloQuestion question = await repository.open(
-        state.session!.id,
-        card.sessionQuestionId,
-      );
+      SoloQuestion question =
+          _openedQuestions[card.sessionQuestionId] ??
+          await repository.open(state.session!.id, card.sessionQuestionId);
       if (state.session?.mechanicMode == SoloMechanicMode.focus) {
         question = question.copyWith(clearDeadline: true, timeLimitSeconds: 0);
-      } else if (state.session?.mechanicMode == SoloMechanicMode.speed &&
-          question.openedAt != null &&
-          question.deadlineAt != null) {
-        final int halfSec = (question.timeLimitSeconds / 2).ceil().clamp(1, 9999);
-        question = question.copyWith(
-          timeLimitSeconds: halfSec,
-          deadlineAt: question.openedAt!.add(Duration(seconds: halfSec)),
-        );
       }
+      _openedQuestions[card.sessionQuestionId] = question;
       final String? knownHint = _questionHints[card.sessionQuestionId];
       final Stopwatch activeTimer = _activeTimers.putIfAbsent(
         card.sessionQuestionId,
@@ -305,9 +301,22 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
         _discardCommittedQuestion(response);
         return;
       }
+      // The server records timeout as incorrect. Choose a wrong option only
+      // for feedback, once the authoritative correct answer is available.
+      int? timeoutOption;
+      if (response.feedback.timedOut) {
+        final wrongOptions = <int>[
+          for (int i = 0; i < question.options.length; i++)
+            if (i != response.feedback.correctOptionIndex) i,
+        ];
+        if (wrongOptions.isNotEmpty) {
+          timeoutOption = wrongOptions[Random().nextInt(wrongOptions.length)];
+        }
+      }
       state = state.copyWith(
         session: response.session,
         feedback: response.feedback,
+        selectedOption: timeoutOption,
         submitting: false,
         questionVisible: true,
         reaction: SoloReaction.idle,
@@ -320,6 +329,7 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
 
   void _discardCommittedQuestion(SoloAnswerResponse response) {
     final String questionId = response.feedback.sessionQuestionId;
+    _openedQuestions.remove(questionId);
     _questionHints.remove(questionId);
     _selectedOptions.remove(questionId);
     _activeTimers.remove(questionId);
@@ -352,6 +362,7 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
     if (feedback == null || state.submitting) return;
     final questionId = state.openedQuestion?.sessionQuestionId;
     if (questionId != null) {
+      _openedQuestions.remove(questionId);
       _questionHints.remove(questionId);
       _selectedOptions.remove(questionId);
       _activeTimers.remove(questionId);
@@ -392,7 +403,20 @@ class SoloSessionController extends StateNotifier<SoloSessionState> {
 
   @override
   void dispose() {
-    _reactionTimer?.cancel();
+    _clearSessionCache();
     super.dispose();
+  }
+
+  void _clearSessionCache() {
+    _reactionTimer?.cancel();
+    for (final timer in _activeTimers.values) {
+      timer.stop();
+    }
+    _openedQuestions.clear();
+    _questionHints.clear();
+    _selectedOptions.clear();
+    _activeTimers.clear();
+    _backgroundDurations.clear();
+    _backgroundStartedAt.clear();
   }
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yudha_mobile/features/gamification/application/player_progress_controller.dart';
+import 'package:yudha_mobile/features/gamification/application/player_progress_providers.dart';
 import 'package:yudha_mobile/features/solo/application/solo_session_controller.dart';
 import 'package:yudha_mobile/features/solo/application/solo_session_providers.dart';
 import 'package:yudha_mobile/features/solo/data/solo_repository.dart';
@@ -9,6 +11,73 @@ import 'package:yudha_mobile/features/solo/domain/solo_session.dart';
 import 'package:yudha_mobile/features/solo/presentation/pages/solo_session_page.dart';
 
 void main() {
+  testWidgets('finishing Solo refreshes daily missions without leaving the result', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final controller = SoloSessionController(_ArenaSoloRepository(completed: true));
+    final progress = _MissionProgressController();
+    await controller.start(
+      count: SoloQuestionCount.twenty,
+      characterId: 'character-basic-squire',
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          soloSessionControllerProvider.overrideWith((Ref ref) => controller),
+          playerProgressProvider.overrideWith((Ref ref) => progress),
+        ],
+        child: const MaterialApp(home: SoloSessionPage()),
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey<String>('question-card-sq-1')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey<String>('solo-option-2')));
+    await tester.pump();
+    expect(controller.state.session!.isActive, isFalse);
+    expect(progress.refreshCalls, 1);
+    expect(progress.state.dailyMissions.single['completed'], isTrue);
+    await tester.pump();
+    expect(progress.refreshCalls, 1);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('an expired card automatically shows wrong-answer feedback', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final repository = _ArenaSoloRepository(expired: true);
+    final controller = SoloSessionController(repository);
+    await controller.start(
+      count: SoloQuestionCount.twenty,
+      characterId: 'character-basic-squire',
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          soloSessionControllerProvider.overrideWith((Ref ref) => controller),
+        ],
+        child: const MaterialApp(home: SoloSessionPage()),
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey<String>('question-card-sq-1')));
+    await tester.pump();
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(repository.answerCalls, 1);
+    expect(controller.state.feedback?.timedOut, isTrue);
+    expect(controller.state.selectedOption, isIn([0, 1, 3]));
+    await tester.pump(const Duration(seconds: 2));
+    expect(repository.answerCalls, 1);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('renders the PvP-style tower-only Solo arena', (
     WidgetTester tester,
   ) async {
@@ -124,8 +193,25 @@ void main() {
   });
 }
 
+class _MissionProgressController extends PlayerProgressController {
+  int refreshCalls = 0;
+
+  @override
+  Future<void> hydrateFromRepository() async {
+    refreshCalls++;
+    state = state.copyWith(dailyMissions: const [
+      {'key': 'daily_practice', 'completed': true, 'progress': 1},
+    ]);
+  }
+}
+
 class _ArenaSoloRepository extends SoloRepository {
-  _ArenaSoloRepository() : super(accessToken: 'token');
+  _ArenaSoloRepository({this.expired = false, this.completed = false})
+    : super(accessToken: 'token');
+
+  final bool expired;
+  final bool completed;
+  int answerCalls = 0;
 
   @override
   Future<SoloSession> create({
@@ -149,7 +235,7 @@ class _ArenaSoloRepository extends SoloRepository {
       timeLimitSeconds: 30,
       hint: 'Petunjuk.',
       openedAt: now,
-      deadlineAt: now.add(const Duration(seconds: 30)),
+      deadlineAt: now.add(Duration(seconds: expired ? -1 : 30)),
     );
   }
 
@@ -161,12 +247,13 @@ class _ArenaSoloRepository extends SoloRepository {
     int? clientActiveResponseTimeMs,
     int? backgroundDurationMs,
   }) async {
+    answerCalls += 1;
     return SoloAnswerResponse(
-      session: _session(answeredCount: 1, correctCount: 1, towerHp: 95),
-      feedback: const SoloAnswerFeedback(
+      session: _session(answeredCount: 1, correctCount: 1, towerHp: 95, completed: completed),
+      feedback: SoloAnswerFeedback(
         sessionQuestionId: 'sq-1',
-        isCorrect: true,
-        timedOut: false,
+        isCorrect: selectedOptionIndex != null,
+        timedOut: selectedOptionIndex == null,
         correctOptionIndex: 2,
         explanation: 'Pembahasan.',
       ),
@@ -184,13 +271,14 @@ SoloSession _session({
   int correctCount = 0,
   int towerHp = 100,
   SoloMechanicMode mechanicMode = SoloMechanicMode.standard,
+  bool completed = false,
 }) {
   return SoloSession(
     id: 'solo-1',
     target: 'cpns',
     questionCount: 20,
     characterId: 'character-basic-squire',
-    status: 'active',
+    status: completed ? 'completed' : 'active',
     answeredCount: answeredCount,
     correctCount: correctCount,
     towerHp: towerHp,

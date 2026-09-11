@@ -170,6 +170,9 @@ class _PvpPageState extends ConsumerState<PvpPage> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           unawaited(ref.read(gameEconomyProvider.notifier).refresh());
+          unawaited(
+            ref.read(playerProgressProvider.notifier).hydrateFromRepository(),
+          );
         }
       });
     }
