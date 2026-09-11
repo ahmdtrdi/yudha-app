@@ -5,7 +5,7 @@ import { PracticeService } from './practice.service';
 describe('PracticeService Gate 1 contract', () => {
   let repository: jest.Mocked<PracticeRepository>;
   let service: PracticeService;
-  let learningProjections: { rebuildAndDrainUser: jest.Mock };
+  let learningProjections: { scheduleUserRebuild: jest.Mock };
   const previousFlag = process.env.LEARNING_V2_ENABLED;
 
   beforeEach(() => {
@@ -23,7 +23,7 @@ describe('PracticeService Gate 1 contract', () => {
       submitLearningV2Answer: jest.fn(),
       finishLearningV2Session: jest.fn(),
     } as unknown as jest.Mocked<PracticeRepository>;
-    learningProjections = { rebuildAndDrainUser: jest.fn() };
+    learningProjections = { scheduleUserRebuild: jest.fn() };
     service = new PracticeService(repository, learningProjections as any);
   });
 
@@ -178,7 +178,7 @@ describe('PracticeService Gate 1 contract', () => {
       selectedOptionIndex: 2,
       responseTimeMs: 1200,
     });
-    expect(learningProjections.rebuildAndDrainUser).toHaveBeenCalledWith(
+    expect(learningProjections.scheduleUserRebuild).toHaveBeenCalledWith(
       'user-1',
       'cpns',
     );

@@ -195,7 +195,7 @@ export class PracticeService {
           usedHint: input.usedHint!,
         });
     if (useLearningV2 && data.progress?.isFinished === true) {
-      await this.learningProjections.rebuildAndDrainUser(
+      this.learningProjections.scheduleUserRebuild(
         userId,
         session.target as LearningTarget,
       );
@@ -229,7 +229,7 @@ export class PracticeService {
           idempotencyKey,
         );
     if (useLearningV2) {
-      await this.learningProjections.rebuildAndDrainUser(
+      this.learningProjections.scheduleUserRebuild(
         userId,
         session.target as LearningTarget,
       );

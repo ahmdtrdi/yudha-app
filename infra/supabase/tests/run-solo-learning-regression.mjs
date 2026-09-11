@@ -57,6 +57,7 @@ try {
   const remote = await read('migrations/20260817024104_remote_schema.sql');
   await db.exec(remote.match(/CREATE TABLE IF NOT EXISTS "public"\."coin_transactions" \([\s\S]*?\n\);/)[0]);
   await db.exec(`alter table public.coin_transactions drop constraint coin_transactions_reason_check;
+    alter table public.coin_transactions add primary key (id);
     create unique index coin_test_idempotency on public.coin_transactions(user_id,idempotency_key);
     alter table public.solo_answers add column used_hint boolean not null default false;`);
   await db.exec(alignment.slice(alignment.indexOf('alter table public.solo_sessions'), alignment.indexOf('create or replace function public.solo_session_payload')));
@@ -188,6 +189,33 @@ try {
   await submit(completed, 19);
   assert.equal((await row('select coins from public.profiles where id=$1',[user])).coins, coinsBefore + 10);
   console.log('PASS: completing 20 answers writes 20 attempts and awards coins once');
+
+  // Use the production mission table with the later nullable reward ledger
+  // columns. The rank ledger is irrelevant to these zero-reward missions.
+  await db.exec(table(gate, 'daily_mission_progress')
+    .replace(' references public.rank_point_transactions(id)', ''));
+  const elo = await read('migrations/20260902160000_pvp_analytics_elo.sql');
+  const missionDdl = elo.indexOf('alter table public.daily_mission_progress');
+  await db.exec(elo.slice(missionDdl, elo.indexOf('create or replace function public.apply_daily_mission', missionDdl)));
+  const missions = await read('migrations/20260911100000_solo_daily_mission_completion.sql');
+  const missionCoins = (await row('select coins from public.profiles where id=$1', [user])).coins;
+  await db.exec(missions);
+  await db.exec(missions);
+  assert.equal(await count('daily_mission_progress'), 1);
+  assert.equal((await row('select source_id from public.daily_mission_progress')).source_id, completed.id);
+  assert.equal((await row('select coins from public.profiles where id=$1', [user])).coins, missionCoins);
+  const secondCompleted = await session('focus');
+  for (let i = 0; i < 20; i++) await submit(secondCompleted, i);
+  assert.equal(await count('daily_mission_progress'), 1);
+  const tomorrow = await session('speed');
+  for (let i = 0; i < 20; i++) await submit(tomorrow, i, { time: '2026-09-11T18:00:00Z', selected: null });
+  assert.equal(await count('daily_mission_progress'), 2);
+  assert.equal((await row(`select business_date::text as day from public.daily_mission_progress where source_id=$1`, [tomorrow.id])).day, '2026-09-12');
+  const stopped = await session('standard');
+  await db.query(`update public.solo_sessions set status='stopped', completion_reason='user_stopped', finished_at='2026-09-13T00:00:00Z' where id=$1`, [stopped.id]);
+  assert.equal(await count('daily_mission_progress'), 2);
+  assert.equal((await row('select sum(reward_rank_points + reward_ycoins) as n from public.daily_mission_progress')).n, 0);
+  console.log('PASS: Solo missions backfill once, complete atomically for all modes, respect WIB days, and exclude stopped sessions');
 
   const atomic = await session('standard');
   const answersBeforeFailure = await count('solo_answers');

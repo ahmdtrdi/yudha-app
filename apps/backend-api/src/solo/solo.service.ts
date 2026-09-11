@@ -137,7 +137,7 @@ export class SoloService {
       backgroundDurationMs: backgroundMs,
     });
     if (data.status === 'completed') {
-      await this.rebuildLearning(userId, data.target);
+      this.rebuildLearning(userId, data.target);
     }
     return { data };
   }
@@ -152,15 +152,15 @@ export class SoloService {
       this.text(sessionId, 'sessionId'),
       this.text(input.idempotencyKey, 'idempotencyKey'),
     );
-    await this.rebuildLearning(userId, data.target);
+    this.rebuildLearning(userId, data.target);
     return { data };
   }
 
-  private async rebuildLearning(userId: string, target: unknown) {
+  private rebuildLearning(userId: string, target: unknown) {
     if (!learningV2Enabled() || (target !== 'cpns' && target !== 'bumn')) {
       return;
     }
-    await this.learningProjections.rebuildAndDrainUser(
+    this.learningProjections.scheduleUserRebuild(
       userId,
       target as LearningTarget,
     );

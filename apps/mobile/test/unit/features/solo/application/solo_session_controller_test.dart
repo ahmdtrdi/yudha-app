@@ -70,6 +70,7 @@ void main() {
     );
     final card = controller.state.session!.hand.first;
     await controller.openCard(card);
+    final originalDeadline = controller.state.openedQuestion!.deadlineAt;
     await controller.showHint();
     controller.select(1);
     controller.closeQuestion();
@@ -79,6 +80,21 @@ void main() {
 
     expect(controller.state.hintVisible, isTrue);
     expect(controller.state.selectedOption, 1);
+    expect(repository.openCalls, 2);
+    expect(controller.state.openedQuestion!.deadlineAt, originalDeadline);
+  });
+
+  test('resuming clears cached questions and reloads server deadlines', () async {
+    final repository = _FakeSoloRepository();
+    final controller = SoloSessionController(repository);
+    addTearDown(controller.dispose);
+    await controller.resume('solo-1');
+    await controller.openCard(controller.state.session!.hand.first);
+    controller.select(1);
+    await controller.resume('solo-1');
+    await controller.openCard(controller.state.session!.hand.first);
+    expect(repository.openCalls, 2);
+    expect(controller.state.selectedOption, isNull);
   });
 
   test('Focus mode removes question timer and ignores timeouts', () async {
@@ -104,7 +120,7 @@ void main() {
     expect(repository.lastOption, isNull);
   });
 
-  test('Speed mode halves the question time limit and deadline', () async {
+  test('Speed mode preserves the effective deadline from the server', () async {
     final repository = _FakeSoloRepository();
     final controller = SoloSessionController(repository);
     addTearDown(controller.dispose);
@@ -118,14 +134,38 @@ void main() {
     expect(controller.state.session!.mechanicMode, SoloMechanicMode.speed);
     await controller.openCard(controller.state.session!.hand.first);
 
-    // Base mock question has 30s. Speed mode halves it to 15s.
-    expect(controller.state.openedQuestion!.timeLimitSeconds, 15);
+    expect(controller.state.openedQuestion!.timeLimitSeconds, 30);
     expect(controller.state.openedQuestion!.deadlineAt, isNotNull);
     final diff = controller.state.openedQuestion!.deadlineAt!.difference(
       controller.state.openedQuestion!.openedAt!,
     );
-    expect(diff.inSeconds, 15);
+    expect(diff.inSeconds, 30);
   });
+
+  for (final mode in [SoloMechanicMode.standard, SoloMechanicMode.speed]) {
+    test('$mode timeout records a miss and selects a wrong option', () async {
+      final repository = _FakeSoloRepository(isCorrect: false, expired: true);
+      final controller = SoloSessionController(repository);
+      addTearDown(controller.dispose);
+      await controller.start(
+        count: SoloQuestionCount.twenty,
+        characterId: 'character-basic-squire',
+        mechanicMode: mode,
+      );
+      await controller.openCard(controller.state.session!.hand.first);
+      controller.select(2);
+      await controller.timeout();
+      await controller.timeout();
+
+      expect(repository.answerCalls, 1);
+      expect(repository.lastOption, isNull);
+      expect(controller.state.feedback!.timedOut, isTrue);
+      expect(controller.state.feedback!.isCorrect, isFalse);
+      expect(controller.state.selectedOption, isIn([0, 1, 3]));
+      controller.next();
+      expect(controller.state.reaction, SoloReaction.hit);
+    });
+  }
 
   test('passes recommendation question selection and recommendationId', () async {
     final repository = _FakeSoloRepository();
@@ -236,13 +276,16 @@ class _FakeSoloRepository extends SoloRepository {
     this.isCorrect = true,
     this.pendingHint,
     this.pendingAnswer,
+    this.expired = false,
   }) : super(accessToken: 'token');
 
   final bool isCorrect;
+  final bool expired;
   final Completer<SoloHint>? pendingHint;
   final Completer<SoloAnswerResponse>? pendingAnswer;
 
   int openCalls = 0;
+  int answerCalls = 0;
   String? lastOpened;
   String? lastResumed;
   int? lastOption;
@@ -271,7 +314,12 @@ class _FakeSoloRepository extends SoloRepository {
     openCalls += 1;
     lastOpened = questionId;
     final order = int.parse(questionId.split('-').last);
-    return _question(order);
+    final question = _question(order);
+    return expired
+        ? question.copyWith(
+            deadlineAt: DateTime.now().subtract(const Duration(seconds: 1)),
+          )
+        : question;
   }
 
   @override
@@ -296,6 +344,7 @@ class _FakeSoloRepository extends SoloRepository {
     int? backgroundDurationMs,
   }) async {
     lastOption = optionIndex;
+    answerCalls += 1;
     if (pendingAnswer != null) return pendingAnswer!.future;
     return answerResponse();
   }
@@ -309,7 +358,7 @@ class _FakeSoloRepository extends SoloRepository {
     feedback: SoloAnswerFeedback(
       sessionQuestionId: 'sq-1',
       isCorrect: isCorrect,
-      timedOut: false,
+      timedOut: expired,
       correctOptionIndex: 2,
       explanation: 'Pembahasan.',
     ),

@@ -24,8 +24,42 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 @Injectable()
 export class LearningProjectionService {
   private readonly logger = new Logger(LearningProjectionService.name);
+  private readonly pendingRefreshes = new Map<string, LearningTarget>();
+  private readonly runningRefreshes = new Map<string, Promise<void>>();
 
   constructor(private readonly repository: LearningRepository) {}
+
+  scheduleUserRebuild(userId: string, target: LearningTarget): void {
+    const key = `${userId}:${target}`;
+    this.pendingRefreshes.set(key, target);
+    if (this.runningRefreshes.has(key)) return;
+    this.runningRefreshes.set(key, this.refreshInBackground(key, userId));
+  }
+
+  async waitForUserRebuild(userId: string, target: LearningTarget): Promise<void> {
+    await this.runningRefreshes.get(`${userId}:${target}`);
+  }
+
+  private async refreshInBackground(key: string, userId: string): Promise<void> {
+    try {
+      while (this.pendingRefreshes.has(key)) {
+        const target = this.pendingRefreshes.get(key)!;
+        this.pendingRefreshes.delete(key);
+        // Leave queue ownership to the worker: new answers can arrive while
+        // this refresh is running and must not lose their durable job.
+        await this.rebuildUserTarget(userId, target);
+      }
+    } catch (error) {
+      // Canonical attempts and projection jobs are already committed by the
+      // answer RPC. The durable worker retries if this fast refresh fails.
+      this.logger.warn(
+        `Background learning refresh failed for ${key}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      this.pendingRefreshes.delete(key);
+      this.runningRefreshes.delete(key);
+    }
+  }
 
   async rebuildUserTarget(
     userId: string,
