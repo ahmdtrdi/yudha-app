@@ -4,8 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/features/interview/application/interview_providers.dart';
+import 'package:yudha_mobile/features/interview/data/repositories/backend_interview_repository.dart';
+import 'package:yudha_mobile/features/interview/data/repositories/interview_repository.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_company_option.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_launch_config.dart';
 import 'package:yudha_mobile/features/interview/domain/entities/interview_session_record.dart';
@@ -16,6 +20,75 @@ import 'package:yudha_mobile/features/profile/domain/entities/profile_settings.d
 import 'package:yudha_mobile/features/profile/domain/entities/profile_target.dart';
 
 void main() {
+  testWidgets(
+    'short left swipe deletes a setup session and preserves it on failure',
+    (tester) async {
+      int deleteCalls = 0;
+      bool launched = false;
+      final pendingDelete = Completer<http.Response>();
+      final repository = BackendInterviewRepository(
+        config: const InterviewApiConfig(accessToken: 'token'),
+        client: MockClient((request) async {
+          expect(request.method, 'DELETE');
+          expect(request.url.path, '/interview/sessions/session-0');
+          deleteCalls += 1;
+          return deleteCalls == 1
+              ? http.Response('{}', 500)
+              : pendingDelete.future;
+        }),
+      );
+      await _pumpSetup(
+        tester,
+        repository: repository,
+        sessions: List.generate(
+          4,
+          (index) => InterviewSessionSummaryRecord(
+            sessionId: 'session-$index',
+            status: 'active',
+            companyId: 'bank-indonesia',
+            targetRole: 'Asisten Manajer',
+            mode: 'coaching',
+            language: 'id',
+            responseStyle: 'text',
+            createdAt: DateTime(2026),
+            updatedAt: DateTime(2026),
+          ),
+        ),
+        onLaunch: (_) => launched = true,
+      );
+      final row = find.byKey(const ValueKey<String>('delete-resume-session-0'));
+      await tester.ensureVisible(row);
+      await tester.timedDrag(
+        row,
+        const Offset(-120, 0),
+        const Duration(milliseconds: 500),
+      );
+      await tester.pumpAndSettle();
+      expect(deleteCalls, 1);
+      expect(row, findsOneWidget);
+      expect(find.textContaining('Sesi belum terhapus.'), findsOneWidget);
+      await tester.timedDrag(
+        row,
+        const Offset(-120, 0),
+        const Duration(milliseconds: 500),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(deleteCalls, 2);
+      expect(row, findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      pendingDelete.complete(http.Response('{"deleted":true}', 200));
+      await tester.pumpAndSettle();
+      expect(row, findsNothing);
+      expect(
+        find.byKey(const Key('resume-interview-session-3')),
+        findsOneWidget,
+      );
+      expect(launched, isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('renders redesigned setup and preserves launch configuration', (
     WidgetTester tester,
   ) async {
@@ -239,6 +312,7 @@ Future<void> _pumpSetup(
       const <InterviewSessionSummaryRecord>[],
   List<InterviewCompanyOption> companies = kTestCompanies,
   Future<List<InterviewCompanyOption>> Function()? loadCompanies,
+  InterviewRepository? repository,
   ProfileTarget target = ProfileTarget.bumn,
   bool settle = true,
   required ValueChanged<InterviewLaunchConfig> onLaunch,
@@ -276,6 +350,8 @@ Future<void> _pumpSetup(
           (_) => loadCompanies?.call() ?? Future.value(companies),
         ),
         interviewSessionsProvider.overrideWith((_) async => sessions),
+        if (repository != null)
+          interviewRepositoryProvider.overrideWithValue(repository),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),

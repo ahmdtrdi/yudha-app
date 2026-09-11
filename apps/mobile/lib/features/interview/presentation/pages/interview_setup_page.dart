@@ -25,6 +25,8 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
   String? _roleError;
   String _mode = 'coaching';
   String _responseStyle = 'text';
+  final Set<String> _deletedSessions = <String>{};
+  final Set<String> _deletingSessions = <String>{};
 
   @override
   void initState() {
@@ -36,6 +38,36 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
   void dispose() {
     _roleController.dispose();
     super.dispose();
+  }
+
+  Future<bool> _deleteSession(InterviewSessionSummaryRecord session) async {
+    if (!_deletingSessions.add(session.sessionId)) return false;
+    setState(() {});
+    try {
+      await ref
+          .read(interviewRepositoryProvider)
+          .deleteSession(session.sessionId);
+      return mounted;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Sesi belum terhapus. Periksa koneksi atau tunggu proses interview selesai.',
+            ),
+          ),
+        );
+      }
+      return false;
+    } finally {
+      if (mounted) setState(() => _deletingSessions.remove(session.sessionId));
+    }
+  }
+
+  void _onSessionDeleted(InterviewSessionSummaryRecord session) {
+    setState(() => _deletedSessions.add(session.sessionId));
+    ref.invalidate(interviewSessionsProvider);
+    ref.invalidate(interviewSessionDetailProvider(session.sessionId));
   }
 
   void _onCompanyChanged(InterviewCompanyOption newCompany) {
@@ -126,7 +158,8 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
             ?.value
             .where(
               (InterviewSessionSummaryRecord session) =>
-                  session.status == 'active',
+                  session.status == 'active' &&
+                  !_deletedSessions.contains(session.sessionId),
             )
             .take(3)
             .toList(growable: false) ??
@@ -176,6 +209,9 @@ class _InterviewSetupPageState extends ConsumerState<InterviewSetupPage> {
                     if (activeSessions.isNotEmpty) ...<Widget>[
                       _ActiveSessionsPanel(
                         sessions: activeSessions,
+                        deletingSessions: _deletingSessions,
+                        onDelete: _deleteSession,
+                        onDeleted: _onSessionDeleted,
                         companyNameFor: (String companyId) =>
                             _companyNameFor(companyId, availableCompanies),
                         onResume: (InterviewSessionSummaryRecord session) =>
@@ -480,9 +516,15 @@ class _ActiveSessionsPanel extends StatelessWidget {
     required this.sessions,
     required this.companyNameFor,
     required this.onResume,
+    required this.onDelete,
+    required this.onDeleted,
+    required this.deletingSessions,
   });
 
   final List<InterviewSessionSummaryRecord> sessions;
+  final Set<String> deletingSessions;
+  final Future<bool> Function(InterviewSessionSummaryRecord) onDelete;
+  final ValueChanged<InterviewSessionSummaryRecord> onDeleted;
   final String Function(String companyId) companyNameFor;
   final ValueChanged<InterviewSessionSummaryRecord> onResume;
 
@@ -506,6 +548,11 @@ class _ActiveSessionsPanel extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 5),
+        const Text(
+          'Geser ke kiri untuk menghapus sesi',
+          style: TextStyle(color: AppColors.textMuted, fontSize: 11),
+        ),
         const SizedBox(height: 9),
         Container(
           decoration: BoxDecoration(
@@ -523,62 +570,112 @@ class _ActiveSessionsPanel extends StatelessWidget {
           child: Column(
             children: <Widget>[
               for (int index = 0; index < sessions.length; index++) ...<Widget>[
-                InkWell(
-                  key: Key('resume-interview-${sessions[index].sessionId}'),
-                  onTap: () => onResume(sessions[index]),
-                  borderRadius: BorderRadius.circular(19),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
-                    child: Row(
+                Dismissible(
+                  key: ValueKey<String>(
+                    'delete-resume-${sessions[index].sessionId}',
+                  ),
+                  direction: DismissDirection.endToStart,
+                  dismissThresholds: const {DismissDirection.endToStart: 0.25},
+                  confirmDismiss: (_) => onDelete(sessions[index]),
+                  onDismissed: (_) => onDeleted(sessions[index]),
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFB83D36),
+                      borderRadius: BorderRadius.circular(19),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: <Widget>[
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFE2F7F6),
-                            shape: BoxShape.circle,
+                        Icon(Icons.delete_outline_rounded, color: Colors.white),
+                        SizedBox(width: 6),
+                        Text(
+                          'Hapus',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
                           ),
-                          child: const Icon(
-                            Icons.play_arrow_rounded,
-                            color: AppColors.levelUpTeal,
-                            size: 23,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text(
-                                companyNameFor(sessions[index].companyId),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: AppColors.textStrong,
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${sessions[index].targetRole} • ${_humanizeMode(sessions[index].mode)}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: AppColors.textMuted,
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(
-                          Icons.chevron_right_rounded,
-                          color: AppColors.warriorNavy,
-                          size: 21,
                         ),
                       ],
+                    ),
+                  ),
+                  child: Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(19),
+                    child: InkWell(
+                      key: Key('resume-interview-${sessions[index].sessionId}'),
+                      onTap:
+                          deletingSessions.contains(sessions[index].sessionId)
+                          ? null
+                          : () => onResume(sessions[index]),
+                      borderRadius: BorderRadius.circular(19),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
+                        child: Row(
+                          children: <Widget>[
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFE2F7F6),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.play_arrow_rounded,
+                                color: AppColors.levelUpTeal,
+                                size: 23,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    companyNameFor(sessions[index].companyId),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: AppColors.textStrong,
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${sessions[index].targetRole} • ${_humanizeMode(sessions[index].mode)}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: AppColors.textMuted,
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (deletingSessions.contains(
+                              sessions[index].sessionId,
+                            ))
+                              const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  semanticsLabel: 'Menghapus sesi',
+                                ),
+                              )
+                            else
+                              const Icon(
+                                Icons.chevron_right_rounded,
+                                color: AppColors.warriorNavy,
+                                size: 21,
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
