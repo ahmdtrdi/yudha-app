@@ -278,6 +278,31 @@ try {
   assert.equal((await row(`select has_function_privilege('service_role',
     'public.ingest_solo_answer_learning_evidence(uuid)', 'EXECUTE') as allowed`)).allowed, true);
   console.log('PASS: recovery is idempotent, legacy metadata stays unknown, gameplay balances stay unchanged, postchecks pass');
+  const fixedTimers = await read('migrations/20260911120000_solo_counts_and_fixed_timers.sql');
+  await db.exec(fixedTimers);
+  await db.exec(fixedTimers);
+  for (const [mode, seconds] of [['focus', 0], ['standard', 40], ['speed', 20]]) {
+    const s = await session(mode);
+    await db.query('update public.solo_session_questions set opened_at=null, deadline_at=null where id=$1', [s.sqs[0]]);
+    const open = async (key) => (await row(
+      'select public.open_solo_question($1,$2,$3,$4) as result',
+      [user, s.id, s.sqs[0], key])).result;
+    const opened = await open(`timer-${s.id}`);
+    assert.equal(opened.timeLimitSeconds, seconds);
+    assert.equal(opened.deadlineAt === null, mode === 'focus');
+    if (seconds) assert.equal(Date.parse(opened.deadlineAt) - Date.parse(opened.openedAt), seconds * 1000);
+    assert.deepEqual(await open(`timer-${s.id}`), opened);
+    assert.equal((await open(`resume-${s.id}`)).deadlineAt, opened.deadlineAt);
+    for (const count of [10, 20, 30, 35, 50]) {
+      await db.query('update public.solo_sessions set question_count=$1 where id=$2', [count, s.id]);
+    }
+  }
+  for (const count of [5, 35, 50]) {
+    await assert.rejects(db.query(
+      "select public.create_solo_session($1,$2,'standard','balanced',$3,'test-character',null)",
+      [user, `invalid-count-${count}`, count]), /VALIDATION_FAILED: questionCount/);
+  }
+  console.log('PASS: fixed 40/20-second timers, untimed Focus, stable resume, new counts and historical sessions');
 } catch (error) {
   console.error('FAIL:', error.message, error.detail ?? '', error.where ?? '', error.query ?? '');
   process.exitCode = 1;

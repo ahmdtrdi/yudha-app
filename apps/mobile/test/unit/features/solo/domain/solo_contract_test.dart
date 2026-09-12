@@ -16,7 +16,7 @@ void main() {
           'idempotencyKey': 'solo-recommended-1',
           'characterId': 'character-basic-squire',
           'mechanicMode': 'standard',
-          'questionCount': 35,
+          'questionCount': 10,
           'questionSelection': <String, dynamic>{'type': 'recommended'},
           'recommendationId': 'rec-1',
         },
@@ -24,7 +24,7 @@ void main() {
           'idempotencyKey': 'solo-custom-1',
           'characterId': 'character-basic-squire',
           'mechanicMode': 'speed',
-          'questionCount': 50,
+          'questionCount': 30,
           'questionSelection': <String, dynamic>{
             'type': 'custom',
             'skillIds': <String>['cpns.tiu.numerik.percentage-increase'],

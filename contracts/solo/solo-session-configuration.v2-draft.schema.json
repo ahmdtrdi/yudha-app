@@ -47,7 +47,7 @@
   "properties": {
     "idempotencyKey": { "type": "string", "minLength": 1, "maxLength": 160 },
     "mechanicMode": { "$ref": "#/$defs/mechanicMode" },
-    "questionCount": { "enum": [20, 35, 50] },
+    "questionCount": { "enum": [10, 20, 30] },
     "characterId": { "type": "string", "minLength": 1, "maxLength": 160 },
     "questionSelection": { "$ref": "#/$defs/questionSelection" },
     "recommendationId": { "type": "string", "minLength": 1, "maxLength": 160 }

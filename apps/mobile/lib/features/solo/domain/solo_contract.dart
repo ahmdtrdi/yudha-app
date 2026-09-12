@@ -39,9 +39,9 @@ enum SoloQuestionSelectionType {
 }
 
 enum SoloQuestionCount {
+  ten(10),
   twenty(20),
-  thirtyFive(35),
-  fifty(50);
+  thirty(30);
 
   const SoloQuestionCount(this.value);
 

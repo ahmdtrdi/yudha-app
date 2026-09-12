@@ -93,7 +93,7 @@ class _SoloSetupPageState extends ConsumerState<SoloSetupPage> {
 
   @override
   Widget build(BuildContext context) {
-    final SoloSetupState state = ref.watch(soloSetupControllerProvider);
+    ref.watch(soloSetupControllerProvider);
     final controller = ref.read(soloSetupControllerProvider.notifier);
     final activeSession = ref.watch(activeSoloSessionProvider).asData?.value;
     final learningState = ref.watch(learningControllerProvider);
@@ -521,11 +521,11 @@ class _RecommendedSessionCard extends StatelessWidget {
       mechanicIcon = Icons.self_improvement_rounded;
       mechanicColor = const Color(0xFF2E7D32);
     } else if (recommendation?.mechanicMode == 'speed') {
-      mechanicLabel = 'Speed';
+      mechanicLabel = 'Cepat';
       mechanicIcon = Icons.bolt_rounded;
       mechanicColor = const Color(0xFFD97706);
     } else {
-      mechanicLabel = 'Standard';
+      mechanicLabel = 'Seimbang';
       mechanicIcon = Icons.timer_outlined;
       mechanicColor = const Color(0xFF2878F0);
     }
@@ -808,8 +808,8 @@ class _MechanicChoice extends StatelessWidget {
   Widget build(BuildContext context) {
     final String label = switch (mode) {
       SoloMechanicMode.focus => 'Focus',
-      SoloMechanicMode.standard => 'Standard',
-      SoloMechanicMode.speed => 'Speed',
+      SoloMechanicMode.standard => 'Seimbang',
+      SoloMechanicMode.speed => 'Cepat',
     };
     final IconData icon = switch (mode) {
       SoloMechanicMode.focus => Icons.self_improvement_rounded,
@@ -818,8 +818,8 @@ class _MechanicChoice extends StatelessWidget {
     };
     final String description = switch (mode) {
       SoloMechanicMode.focus => 'Tanpa waktu',
-      SoloMechanicMode.standard => 'Tempo normal',
-      SoloMechanicMode.speed => 'Lebih cepat',
+      SoloMechanicMode.standard => '40 detik / soal',
+      SoloMechanicMode.speed => '20 detik / soal',
     };
 
     return _SoloSetupOptionCard(
@@ -862,9 +862,9 @@ class _QuestionCountSelector extends StatelessWidget {
                 icon: Icons.style_rounded,
                 label: '${count.value} soal',
                 description: switch (count) {
-                  SoloQuestionCount.twenty => 'Sesi ringkas',
-                  SoloQuestionCount.thirtyFive => 'Sesi sedang',
-                  SoloQuestionCount.fifty => 'Sesi penuh',
+                  SoloQuestionCount.ten => 'Sesi ringkas',
+                  SoloQuestionCount.twenty => 'Sesi sedang',
+                  SoloQuestionCount.thirty => 'Sesi penuh',
                 },
                 enabled: true,
                 selected: selected == count,

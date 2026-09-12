@@ -6,11 +6,12 @@ import 'package:yudha_mobile/app/router/app_routes.dart';
 import 'package:yudha_mobile/features/learning/application/learning_providers.dart';
 import 'package:yudha_mobile/features/learning/data/repositories/learning_repository.dart';
 import 'package:yudha_mobile/features/learning/domain/entities/learning_dashboard.dart';
-import 'package:yudha_mobile/features/solo/presentation/pages/solo_loadout_page.dart';
-import 'package:yudha_mobile/features/solo/presentation/pages/solo_setup_page.dart';
 import 'package:yudha_mobile/features/solo/application/solo_setup_providers.dart';
 import 'package:yudha_mobile/features/solo/application/solo_setup_state.dart';
 import 'package:yudha_mobile/features/solo/domain/solo_contract.dart';
+import 'package:yudha_mobile/features/solo/presentation/pages/solo_loadout_page.dart';
+import 'package:yudha_mobile/features/solo/presentation/pages/solo_setup_page.dart';
+
 
 class _TestRecommendationRepository implements LearningRepository {
   @override
@@ -118,7 +119,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey<String>('solo-setup-continue')));
     await tester.pumpAndSettle();
-    expect(find.text('Standard · Seimbang · 20 soal'), findsWidgets);
+    expect(find.text('Seimbang · Seimbang · 20 soal'), findsWidgets);
   });
 
   testWidgets('shows the playable Solo preset and continues to loadout', (
@@ -128,8 +129,7 @@ void main() {
 
     expect(find.text('SESI UNTUKMU'), findsOneWidget);
     expect(find.text('Rimba Yudha'), findsOneWidget);
-    expect(find.text('Standard'), findsOneWidget);
-    expect(find.text('Seimbang'), findsOneWidget);
+    expect(find.text('Seimbang'), findsNWidgets(2));
     expect(find.text('20 soal'), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('solo-recommended-arena-preview')),
@@ -147,7 +147,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('PILIH KARAKTER'), findsWidgets);
-    expect(find.text('Standard · Seimbang · 20 soal'), findsWidgets);
+    expect(find.text('Seimbang · Seimbang · 20 soal'), findsWidgets);
     expect(
       find.byKey(const ValueKey<String>('solo-mode-arena-auto')),
       findsOneWidget,
@@ -204,14 +204,14 @@ void main() {
       find.byKey(const ValueKey<String>('solo-mechanic-standard')),
     );
     await tester.tap(
-      find.byKey(const ValueKey<String>('solo-question-count-35')),
+      find.byKey(const ValueKey<String>('solo-question-count-30')),
     );
     await tester.tap(find.byKey(const ValueKey<String>('solo-mode-balanced')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey<String>('solo-setup-continue')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Standard · Seimbang · 35 soal'), findsWidgets);
+    expect(find.text('Seimbang · Seimbang · 30 soal'), findsWidgets);
     expect(
       find.byKey(const ValueKey<String>('solo-mode-arena-balanced')),
       findsOneWidget,
@@ -293,7 +293,7 @@ void main() {
     );
 
     expect(find.text('TIU Figural'), findsWidgets);
-    expect(find.text('Standard'), findsWidgets);
+    expect(find.text('Seimbang'), findsWidgets);
     expect(find.text('MAIN SESI REKOMENDASI'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey<String>('solo-recommended-continue')));
@@ -320,7 +320,7 @@ void main() {
     expect(state.mechanicMode, SoloMechanicMode.standard);
     expect(state.questionCount, SoloQuestionCount.twenty);
     expect(state.recommendationId, 'rec-12345');
-    await tester.tap(find.byKey(const ValueKey<String>('solo-question-count-35')));
+    await tester.tap(find.byKey(const ValueKey<String>('solo-question-count-30')));
     await tester.pumpAndSettle();
     expect(container.read(soloSetupControllerProvider).mode, SoloSetupMode.custom);
     expect(container.read(soloSetupControllerProvider).legacyTopic, isNull);

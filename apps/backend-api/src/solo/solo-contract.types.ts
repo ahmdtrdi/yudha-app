@@ -11,7 +11,7 @@ export const SOLO_QUESTION_SELECTION_TYPES = [
 export type SoloQuestionSelectionType =
   (typeof SOLO_QUESTION_SELECTION_TYPES)[number];
 
-export const SOLO_QUESTION_COUNTS = [20, 35, 50] as const;
+export const SOLO_QUESTION_COUNTS = [10, 20, 30] as const;
 
 export type SoloQuestionCount = (typeof SOLO_QUESTION_COUNTS)[number];
 
