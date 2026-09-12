@@ -3248,3 +3248,20 @@
 ### Tech Debt / Follow-up
 - The central QA tracker location was not provided; its aggregate status has not been edited. The local evidence file documents the conditional 149/165 (90.30%) total from the user's stated baseline.
 - This task verifies local code and automated tests; no deployment or production smoke test was performed.
+
+## 2026-09-11 - Solo question counts and timing labels
+
+### Change
+- Updated Solo question-count contract and setup options to 10, 20, and 30; the existing 20-question preset remains the default.
+- Setup and loadout now label Standard as Seimbang and Speed as Cepat. Setup explains 40 seconds per question, 20 seconds per question, and untimed Focus.
+- Updated contract and setup widget coverage.
+
+### Reasoning
+- Keep wire mechanic identifiers stable while making visible options match the requested practice settings. Deadlines remain server-owned.
+
+### Validation
+- Solo unit/session widget tests passed; all eight setup widget tests passed after updating label expectations.
+
+### Tech Debt
+- Release together with the API contract and database migration; online deployment is outside this local change.
+- Cleaned an unused local binding (preserving the provider subscription) and sorted test imports found by Dart analysis.

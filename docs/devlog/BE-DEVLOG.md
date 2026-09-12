@@ -1021,3 +1021,37 @@
 ### Remaining Rollout
 - Owner: apply the new repair migration, deploy backend-api with Learning V2 enabled, run the recovery transaction, then verify recovery jobs complete and refresh Learning Center.
 - Historical answers without saved revision/skill/exposure metadata can recover activity but cannot honestly recover Peta Skill proficiency. Full deployed-schema and concurrent-request verification remains part of cloud rollout.
+
+## 2026-09-11 - Solo fixed counts and per-question timers
+
+### Change
+- Updated API and JSON contracts to accept 10, 20, or 30 questions, allocation tests, and PRD.
+- Added 20260911120000_solo_counts_and_fixed_timers.sql: validates new counts and sets Standard to 40 seconds, Speed to 20 seconds, and Focus to no deadline.
+- Extended the in-memory PostgreSQL Solo regression runner for migration reruns, timer durations, idempotent opens, stable resume, new counts, and legacy counts.
+
+### Reasoning
+- Retain 35/50 in the storage constraint for historical sessions while rejecting them for new requests. Preserve previously opened deadlines on resume.
+- Fixed timing is independent of question metadata; existing learning-ingestion functions remain intact.
+
+### Validation
+- All four Solo API suites passed (29 tests); updated contract suite passed with two additional legacy-count rejection cases.
+- PGlite regression passed, including applying the new migration twice and exercising all three mechanics.
+
+### Tech Debt
+- Migration has not been applied to an online database. Historical personal-baseline PRD proposal is marked superseded for current Solo delivery.
+
+## 2026-09-12 - Apply Solo counts and fixed timers to cloud
+
+### Change
+- Applied only `20260911120000_solo_counts_and_fixed_timers.sql` to the configured YUDHA Supabase project `uuvbywuuvoaqrmdgbpxg` through authenticated CLI database query, as requested by the user.
+- Added the read-only companion postcheck SQL and executed it against the cloud database.
+
+### Reasoning
+- Compared the deployed create/open function bodies with the expected previous migration before replacement; both matched exactly.
+- Used the targeted transaction instead of replaying unrelated migrations because cloud migration history includes manually applied changes.
+
+### Validation
+- Migration completed successfully. All five postchecks returned true: new counts, fixed timers/untimed Focus, historical count support, valid stored counts, and preserved RPC permissions.
+
+### Tech Debt
+- This applies database changes only; deployment of the modified API and mobile application is a separate release step.

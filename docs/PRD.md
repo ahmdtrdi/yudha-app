@@ -45,9 +45,9 @@ The MVP serves Indonesian CPNS and BUMN candidates who want repeatable practice,
 |---|---|
 | **Target** | The user's exam track: `cpns` or `bumn`. It selects content, matchmaking queues, the fixed battle arena, and interview context. |
 | **Solo** | The canonical learner-controlled question-practice lane. Legacy logical and public names containing `practice` are compatibility surfaces only. |
-| **Mechanic** | The timing behavior of a Solo session: `focus`, `standard`, or `speed`. |
+| **Mechanic** | The timing behavior of a Solo session: `focus` (untimed), `standard` (Seimbang, 40 seconds per question), or `speed` (Cepat, 20 seconds per question). |
 | **Question selection** | The independent content-selection strategy: `balanced`, `recommended`, or `custom`. |
-| **Delivery policy** | The versioned server policy that decides how a Solo session stops. The initial Solo slice uses a learner-selected fixed count of 20, 35, or 50 questions. |
+| **Delivery policy** | The versioned server policy that decides how a Solo session stops. The initial Solo slice uses a learner-selected fixed count of 10, 20, or 30 questions. |
 | **Skill** | A versioned SME-approved learning-taxonomy node used to classify questions and aggregate evidence. The actual CPNS/BUMN catalog is a separate approved artifact. |
 | **Attempt** | One immutable, server-authoritative answer outcome in the canonical learning ledger. |
 | **Assessment** | A future web-based validation lane. Mobile displays imported results only; Assessment never becomes the primary next action. |
@@ -253,7 +253,7 @@ The canonical target taxonomy is:
 - New contracts use `solo`; physical `practice_*` records and `/practice/*` endpoints are temporary compatibility surfaces.
 - Focus, Standard, and Speed are timing mechanics independent of Balanced, Recommended, and Custom question selection.
 - Hints are server-tracked in every mechanic. A hinted attempt is assisted evidence and is excluded from independent mastery and pace decisions.
-- Focus has no deadline. Standard uses the authoritative question limit. Speed targets `90%` of the learner's recent comparable median and requires at least five valid pace attempts; otherwise it behaves as Standard with a warning and does not produce true Speed evidence.
+- Focus has no deadline. Standard (Seimbang) uses 40 seconds per question; Speed (Cepat) uses 20 seconds per question, independent of question metadata or personal baseline.
 - Manual Speed is permitted below `85%` smoothed independent accuracy with a warning, but the server never recommends it below that threshold.
 - Standard and Speed timeouts are server-authoritative, race-safe, and idempotent. Answer and reconciliation retries cannot create duplicate attempts.
 - The initial Solo slice has an approved learner-selected fixed count, target-specific Balanced allocation, no within-session duplicates, deterministic inventory fallback, explicit early stop, and resumable session behavior. Difficulty progression, adaptive delivery, final taxonomy weights, and intentional cross-session repetition remain deferred. Five questions is not a V2 invariant.
@@ -1265,7 +1265,7 @@ V2 must not:
 | Session choice | Category and subcategory | Independent mechanic and question-selection choices |
 | Mechanics | One untimed Practice flow | Focus, Standard, and Speed |
 | Question selection | Server-selected category pool | Balanced, Recommended, and Custom |
-| Session length | Exactly five questions | Learner selects 20, 35, or 50 questions; no option is preselected in manual setup |
+| Session length | Exactly five questions | Learner selects 10, 20, or 30 questions; no option is preselected in manual setup |
 | Hints | Hint content is delivered with the question and client reports use | Hint content is returned only by a server-tracked hint endpoint |
 | Timer | No automatic Solo timeout | Focus has no deadline; Standard and effective Speed use server-authoritative deadlines |
 | Response time | Client response time is accepted | Server elapsed time is authoritative for timed modes; validated client active time supports Focus |
@@ -1616,7 +1616,7 @@ Indonesian example:
 - A hinted attempt is assisted evidence and is excluded from independent proficiency and fluency-baseline calculation.
 - The recommendation engine may recommend Speed only when smoothed unseen independent accuracy is at least 85%, at least five valid comparable pace attempts exist, and the skill pace ratio is above 1.20.
 
-**Proposed learning-v1 personal baseline:**
+**Historical learning-v1 personal baseline proposal (superseded for Solo delivery on 2026-09-11 by fixed 40-second Standard / 20-second Speed timers):**
 
 1. Select the latest ten valid, answered, no-hint, first-attempt Solo observations for the same skill and difficulty.
 2. Require at least five observations.
@@ -1654,8 +1654,8 @@ Example warning:
 - Prevents learners from selecting only familiar skills.
 - Supports broad evidence collection and coverage maintenance.
 - Must use stable curriculum weights, not equal random category selection.
-- The initial CPNS content policy is temporarily two-category because the checked-in bank has no TKP inventory: TWK : TIU uses `6 : 7`. For 20, 35, and 50 questions, deterministic largest-remainder allocation produces `9 : 11`, `16 : 19`, and `23 : 27` respectively.
-- The initial BUMN content policy uses TKD : AKHLAK = `3 : 1`. For 20, 35, and 50 questions, allocation produces `15 : 5`, `26 : 9`, and `38 : 12` respectively.
+- The initial CPNS content policy is temporarily two-category because the checked-in bank has no TKP inventory: TWK : TIU uses `6 : 7`. For 10, 20, and 30 questions, deterministic largest-remainder allocation produces `5 : 5`, `9 : 11`, and `14 : 16` respectively.
+- The initial BUMN content policy uses TKD : AKHLAK = `3 : 1`. For 10, 20, and 30 questions, allocation produces `8 : 2`, `15 : 5`, and `23 : 7` respectively.
 - These weights are versioned delivery content policy, not a replacement for the final SME-approved taxonomy. CPNS must add TKP through a later policy version once active TKP inventory exists and is approved.
 - A session contains no duplicate question. If one category cannot satisfy its quota, the server deterministically redistributes the deficit across eligible categories. If total unique active inventory still cannot satisfy the selected count, session creation fails with an insufficient-inventory response and suggests a smaller supported count.
 
@@ -1726,7 +1726,7 @@ Focus never produces an automatic timeout.
 
 #### 7.10 Session completion and product rewards
 
-The initial Solo delivery policy uses the learner-selected fixed count of `20`, `35`, or `50` questions. Manual setup has no default count. A session normally completes after all selected questions resolve; the learner may stop early through an explicit confirmation.
+The initial Solo delivery policy uses the learner-selected fixed count of `10`, `20`, or `30` questions. Manual setup has no default count. A session normally completes after all selected questions resolve; the learner may stop early through an explicit confirmation.
 
 The tower has a normalized maximum of `100` HP. Tower HP is derived from committed results rather than accumulated rounded damage:
 
@@ -1770,7 +1770,7 @@ V2 represents initial Solo delivery through a policy object:
       "resolvedDurationMinutes": null
     }
 
-`resolvedQuestionCount` is the learner's explicit choice from `20`, `35`, or `50`; there is no manual default.
+`resolvedQuestionCount` is the learner's explicit choice from `10`, `20`, or `30`; there is no manual default.
 
 Every session must snapshot:
 
@@ -2976,12 +2976,12 @@ Validation:
 
 - custom requires at least one stable skill ID;
 - characterId must identify an owned, active character; character choice is visual and never changes grading or damage;
-- questionCount must be exactly `20`, `35`, or `50`;
+- questionCount must be exactly `10`, `20`, or `30`;
 - all skills must be enabled and match the learner's target;
 - recommendationId is required when accepting a recommendation;
 - the server determines resolved skills, inventory, mechanic, timing, and delivery;
 - clients submit the learner's explicit question-count choice; manual setup has no implicit default;
-- requested Speed may resolve to Standard baseline collection; and
+- requested Speed uses a fixed 20-second question deadline; and
 - a runnable V2 session requires an approved delivery policy.
 
 Response shape:
@@ -3389,7 +3389,7 @@ These are acceptance gates, not calendar estimates.
 #### Gate 5 — New Solo mechanics after delivery debt closes
 
 - An approved delivery policy replaces placeholders.
-- Focus, Standard, and personalized Speed timing pass.
+- Focus, fixed 40-second Standard, and fixed 20-second Speed timing pass.
 - Hint events, question opening, timeout races, and session completion are authoritative and idempotent.
 - Mission, streak, Hired Pass, and ad-safe-break behavior uses policy completion.
 - Mobile migrates from Practice to Solo with compatibility and rollback evidence.
@@ -3447,9 +3447,8 @@ These are acceptance gates, not calendar estimates.
 #### 21.5 Mechanic, hint, and timer behavior
 
 - Focus has no deadline but records validated active time.
-- Standard uses the question revision's authoritative limit.
-- Speed uses 90% of a median with at least five comparable baseline attempts.
-- No Speed baseline resolves to Standard and returns a warning.
+- Standard (Seimbang) uses a fixed 40-second deadline per question.
+- Speed (Cepat) uses a fixed 20-second deadline per question, without a baseline prerequisite.
 - Manual low-accuracy Speed returns a warning and is not a recommendation.
 - Hint is available in every mechanic and timed-mode countdown continues.
 - Hinted attempts do not enter independent or fluency-baseline metrics.

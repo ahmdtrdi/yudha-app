@@ -866,8 +866,8 @@ Color _accentForMode(SoloSetupMode mode) => switch (mode) {
 
 String _mechanicLabel(SoloMechanicMode mode) => switch (mode) {
   SoloMechanicMode.focus => 'Focus',
-  SoloMechanicMode.standard => 'Standard',
-  SoloMechanicMode.speed => 'Speed',
+  SoloMechanicMode.standard => 'Seimbang',
+  SoloMechanicMode.speed => 'Cepat',
 };
 
 IconData _mechanicIcon(SoloMechanicMode mode) => switch (mode) {

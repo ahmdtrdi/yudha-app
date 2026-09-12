@@ -3,8 +3,8 @@ import { allocateBalancedQuestions } from './solo-delivery-policy';
 describe('Solo delivery policy', () => {
   it.each([
     [20, [9, 11]],
-    [35, [16, 19]],
-    [50, [23, 27]],
+    [10, [5, 5]],
+    [30, [14, 16]],
   ] as const)(
     'allocates %i CPNS questions across TWK and TIU using 6:7',
     (questionCount, expectedCounts) => {
@@ -17,8 +17,8 @@ describe('Solo delivery policy', () => {
 
   it.each([
     [20, [15, 5]],
-    [35, [26, 9]],
-    [50, [38, 12]],
+    [10, [8, 2]],
+    [30, [23, 7]],
   ] as const)(
     'allocates %i BUMN questions across TKD and AKHLAK using 3:1',
     (questionCount, expectedCounts) => {
