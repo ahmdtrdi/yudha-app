@@ -7,6 +7,21 @@ import 'package:yudha_mobile/features/economy/domain/entities/cosmetic_item.dart
 import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state.dart';
 
 void main() {
+  test('Pro skins cannot be purchased with coins', () async {
+    final repository = _FakeRepository();
+    final controller = GameEconomyController(repository: repository);
+    addTearDown(controller.dispose);
+    await pumpEventQueue();
+    for (final item in GameEconomyCatalog.characters.where(
+      (item) => item.proExclusive,
+    )) {
+      final result = await controller.purchaseAuthoritative(item);
+      expect(result.success, isFalse);
+      expect(result.message, 'Skin eksklusif YUDHA Pro.');
+    }
+    expect(repository.purchaseCalls, 0);
+  });
+
   test('missing repository never permits a local economy mutation', () async {
     final _MemoryStorage storage = _MemoryStorage(
       GameEconomyState.initial().copyWith(yCoins: 900),
@@ -106,10 +121,15 @@ class _FakeRepository extends GameEconomyRepository {
 
   final bool failFetch;
   int betaCreditCalls = 0;
+  int purchaseCalls = 0;
 
   AuthoritativeEconomySnapshot _snapshot(int coins) {
     return AuthoritativeEconomySnapshot(
       coins: coins,
+      energy: 10,
+      maxEnergy: 100,
+      dailyRefillTarget: 10,
+      isPro: false,
       ownedItemIds: const <String>{
         GameEconomyCatalog.defaultCharacterId,
         GameEconomyCatalog.defaultTowerId,
@@ -138,7 +158,15 @@ class _FakeRepository extends GameEconomyRepository {
   @override
   Future<AuthoritativeEconomySnapshot> purchaseAndEquip(
     CosmeticItem item,
-  ) async => _snapshot(100);
+  ) async {
+    purchaseCalls += 1;
+    return _snapshot(100);
+  }
+
+  @override
+  Future<AuthoritativeEconomySnapshot> purchaseEnergyPack(
+    String packageId,
+  ) async => _snapshot(500);
 
   @override
   Future<AuthoritativeEconomySnapshot> setLoadout({

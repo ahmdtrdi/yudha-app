@@ -94,6 +94,7 @@ class BackendGameEconomyRepository extends GameEconomyRepository {
       destroyedAssetPath: visual?.destroyedAssetPath,
       characterVisuals: visual?.characterVisuals,
       passExclusive: data['passExclusive'] == true,
+      proExclusive: data['proExclusive'] == true,
     );
   }
 

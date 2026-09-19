@@ -12,6 +12,110 @@ import 'package:yudha_mobile/features/economy/domain/entities/game_economy_state
 import 'package:yudha_mobile/features/store/presentation/pages/store_page.dart';
 
 void main() {
+  for (final String id in <String>[
+    'character-legend-drakor',
+    'character-rare-brock',
+  ]) {
+    testWidgets('$id shows Pro label without price or purchase action', (
+      WidgetTester tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(411, 914));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repository = _ImmediateEconomyRepository();
+      final container = ProviderContainer(
+        overrides: <Override>[
+          gameEconomyStorageProvider.overrideWithValue(_MemoryEconomyStorage()),
+          gameEconomyRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: StorePage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final card = find.byKey(ValueKey<String>('store-item-$id'));
+      await tester.scrollUntilVisible(
+        card,
+        200,
+        scrollable: find.descendant(
+          of: find.byType(GridView).first,
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await Scrollable.ensureVisible(tester.element(card), alignment: 0.5);
+      await tester.pumpAndSettle();
+      expect(tester.widget<InkWell>(card).onTap, isNull);
+      expect(
+        find.descendant(
+          of: card,
+          matching: find.text('Skin eksklusif YUDHA Pro'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: card,
+          matching: find.text(
+            id == 'character-legend-drakor' ? '2.200' : '1.100',
+          ),
+        ),
+        findsNothing,
+      );
+      await tester.tap(card);
+      await tester.pumpAndSettle();
+      expect(find.text('Beli & pakai'), findsNothing);
+      expect(repository.purchaseCalls, 0);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('existing Drakor owner can equip without Pro or repurchasing', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(411, 914));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repository = _ImmediateEconomyRepository(ownsDrakor: true);
+    final container = ProviderContainer(
+      overrides: <Override>[
+        gameEconomyStorageProvider.overrideWithValue(_MemoryEconomyStorage()),
+        gameEconomyRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: StorePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final card = find.byKey(
+      const ValueKey<String>('store-item-character-legend-drakor'),
+    );
+    await tester.scrollUntilVisible(
+      card,
+      200,
+      scrollable: find.descendant(
+        of: find.byType(GridView).first,
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await Scrollable.ensureVisible(tester.element(card), alignment: 0.5);
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: card, matching: find.text('Pakai')),
+      findsOneWidget,
+    );
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+    expect(repository.equippedCharacterId, 'character-legend-drakor');
+    expect(repository.purchaseCalls, 0);
+    expect(container.read(gameEconomyProvider).isPro, isFalse);
+  });
+
   testWidgets('beta +100 top-up increases the Y-Coin balance', (
     WidgetTester tester,
   ) async {
@@ -150,14 +254,24 @@ class _MemoryEconomyStorage implements GameEconomyStorage {
 }
 
 class _DelayedEconomyRepository extends GameEconomyRepository {
+  _DelayedEconomyRepository({this.ownsDrakor = false});
+
+  final bool ownsDrakor;
+  int purchaseCalls = 0;
+  String? equippedCharacterId;
   final Completer<AuthoritativeEconomySnapshot> _purchaseCompleter =
       Completer<AuthoritativeEconomySnapshot>();
 
   AuthoritativeEconomySnapshot get _initial => AuthoritativeEconomySnapshot(
     coins: 3000,
+    energy: 10,
+    maxEnergy: 100,
+    dailyRefillTarget: 10,
+    isPro: false,
     ownedItemIds: <String>{
       GameEconomyCatalog.defaultCharacterId,
       GameEconomyCatalog.defaultTowerId,
+      if (ownsDrakor) 'character-legend-drakor',
     },
     characterId: GameEconomyCatalog.defaultCharacterId,
     towerId: GameEconomyCatalog.defaultTowerId,
@@ -175,6 +289,7 @@ class _DelayedEconomyRepository extends GameEconomyRepository {
 
   @override
   Future<AuthoritativeEconomySnapshot> purchaseAndEquip(CosmeticItem item) {
+    purchaseCalls += 1;
     return _purchaseCompleter.future;
   }
 
@@ -184,6 +299,7 @@ class _DelayedEconomyRepository extends GameEconomyRepository {
     String? towerId,
     String? arenaId,
   }) async {
+    equippedCharacterId = characterId;
     return _initial;
   }
 
@@ -191,6 +307,10 @@ class _DelayedEconomyRepository extends GameEconomyRepository {
     _purchaseCompleter.complete(
       AuthoritativeEconomySnapshot(
         coins: 2500,
+        energy: 10,
+        maxEnergy: 100,
+        dailyRefillTarget: 10,
+        isPro: false,
         ownedItemIds: <String>{
           GameEconomyCatalog.defaultCharacterId,
           GameEconomyCatalog.defaultTowerId,
@@ -207,6 +327,10 @@ class _DelayedEconomyRepository extends GameEconomyRepository {
   AuthoritativeEconomySnapshot _snapshot({required int coins}) {
     return AuthoritativeEconomySnapshot(
       coins: coins,
+      energy: 10,
+      maxEnergy: 100,
+      dailyRefillTarget: 10,
+      isPro: false,
       ownedItemIds: _initial.ownedItemIds,
       characterId: _initial.characterId,
       towerId: _initial.towerId,
@@ -214,16 +338,28 @@ class _DelayedEconomyRepository extends GameEconomyRepository {
       items: GameEconomyCatalog.cosmetics,
     );
   }
+
+  @override
+  Future<AuthoritativeEconomySnapshot> purchaseEnergyPack(
+    String packageId,
+  ) async => _initial;
 }
 
 class _ImmediateEconomyRepository extends _DelayedEconomyRepository {
+  _ImmediateEconomyRepository({super.ownsDrakor});
+
   @override
   Future<AuthoritativeEconomySnapshot> purchaseAndEquip(CosmeticItem item) {
+    purchaseCalls += 1;
     return Future<AuthoritativeEconomySnapshot>.value(_initial);
   }
 }
 
 class _FailingEconomyRepository extends GameEconomyRepository {
+  @override
+  Future<AuthoritativeEconomySnapshot> purchaseEnergyPack(String packageId) =>
+      fetch();
+
   @override
   Future<AuthoritativeEconomySnapshot> fetch() {
     return Future<AuthoritativeEconomySnapshot>.error(StateError('offline'));

@@ -94,6 +94,12 @@ class GameEconomyController extends StateNotifier<GameEconomyState> {
       );
     }
     if (state.owns(item.id)) return equipAuthoritative(item);
+    if (item.proExclusive) {
+      return const EconomyActionResult(
+        success: false,
+        message: 'Skin eksklusif YUDHA Pro.',
+      );
+    }
     if (item.passExclusive) {
       return const EconomyActionResult(
         success: false,

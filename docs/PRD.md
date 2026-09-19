@@ -949,6 +949,8 @@ Rank points are floored at zero. The Ranked delta commits before a first-of-day 
 ### 6.6 Cosmetic Store and loadout
 
 - The server catalog is authoritative for character and tower items, rarity, Y-Coin price, availability, and Pro exclusivity.
+- Drakor and Brock are YUDHA Pro-exclusive skins. Opy is available for 500 Y-Coin. Existing owners retain their skins and can equip them without an active Pro subscription.
+- Pro-exclusive skins show a "Skin eksklusif YUDHA Pro" label instead of a coin price; unowned exclusive skins have no direct purchase action.
 - Purchases are permanent and atomic: verifies active item, rejects Pro-exclusive direct purchase, rejects duplicate ownership, locks balance, debits once, and grants inventory.
 - A user can equip only an owned active character or tower. Loadout changes never affect battle mechanics or question dealing.
 - Mobile consumes catalog results and displays server failures without static catalog fallbacks.

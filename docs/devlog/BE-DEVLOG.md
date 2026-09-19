@@ -1055,3 +1055,19 @@
 
 ### Tech Debt
 - This applies database changes only; deployment of the modified API and mobile application is a separate release step.
+
+## 2026-09-19 - Move Pro exclusivity from Opy to Drakor
+
+### Change
+- Updated the canonical Store catalog and Pro skin policy: Drakor replaces Opy; Brock remains exclusive.
+- Added migration `20260919120000_pro_exclusive_drakor.sql`, read-only postchecks, and an in-memory PostgreSQL regression runner. Updated content sync to write `is_pro_exclusive`.
+
+### Reasoning
+- Change only acquisition metadata and the policy selection list. Preserve existing inventory, purchases, Pro history, and equipped loadouts.
+
+### Validation
+- Five catalog/content-sync tests passed. PostgreSQL regression passed migration replay, unchanged inventory/loadouts, Opy purchase, exclusive purchase rejection, and existing-owner equip.
+
+### Tech Debt
+- Migration is prepared locally and has not been applied to the live database. Release with the mobile exclusivity handling.
+- The broader legacy content validator still contains Hired Pass exclusivity assumptions; this task tests catalog syncing directly and does not run a cloud content sync.

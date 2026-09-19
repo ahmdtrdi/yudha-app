@@ -188,6 +188,9 @@ class _StorePageState extends ConsumerState<StorePage> {
     if (_isTransactionPending) {
       return;
     }
+    if (item.proExclusive && !economy.owns(item.id)) {
+      return;
+    }
     if (!economy.isAuthoritative) {
       _showResult(
         context,
@@ -513,7 +516,7 @@ class _CosmeticCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         key: ValueKey<String>('store-item-${item.id}'),
-        onTap: onTap,
+        onTap: item.proExclusive && !owned ? null : onTap,
         borderRadius: BorderRadius.circular(20),
         child: Container(
           decoration: BoxDecoration(
@@ -587,12 +590,22 @@ class _CosmeticCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    _StoreItemAction(
-                      item: item,
-                      owned: owned,
-                      equipped: equipped,
-                      authoritative: authoritative,
-                    ),
+                    if (item.proExclusive)
+                      Text(
+                        'Skin eksklusif YUDHA Pro',
+                        style: GoogleFonts.dmSans(
+                          color: const Color(0xFF8B6FE8),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    if (!item.proExclusive || owned)
+                      _StoreItemAction(
+                        item: item,
+                        owned: owned,
+                        equipped: equipped,
+                        authoritative: authoritative,
+                      ),
                   ],
                 ),
               ),

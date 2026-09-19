@@ -3265,3 +3265,19 @@
 ### Tech Debt
 - Release together with the API contract and database migration; online deployment is outside this local change.
 - Cleaned an unused local binding (preserving the provider subscription) and sorted test imports found by Dart analysis.
+
+## 2026-09-19 - Display YUDHA Pro-exclusive Store skins correctly
+
+### Change
+- Parse the API `proExclusive` field, mark Drakor/Brock in the bundled catalog, and display `Skin eksklusif YUDHA Pro` without coin pricing or a purchase action for unowned exclusive skins.
+- Preserve the equip action for existing owners, including users without Pro. Guard exclusive purchases in the economy controller.
+- Updated the PRD and refreshed economy test fixtures for the current API/snapshot fields.
+
+### Reasoning
+- The API returned Pro exclusivity while the mobile client read only the obsolete Pass flag. Opy and Brock consequently displayed prices for rejected purchases.
+
+### Validation
+- All 13 focused economy unit and Store widget tests passed, including Opy purchasing, Drakor/Brock labels, and existing Drakor owner equip without Pro. All six Store widget tests passed again after correcting scroll positioning, with no missed-tap warnings. Targeted Dart analysis found no issues.
+
+### Tech Debt
+- Requires the paired database migration and mobile release; no live deployment performed.

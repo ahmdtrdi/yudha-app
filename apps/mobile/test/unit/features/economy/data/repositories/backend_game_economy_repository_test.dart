@@ -14,6 +14,9 @@ void main() {
           baseUrl: 'https://api.example.test',
           client: MockClient((http.Request request) async {
             expect(request.method, 'GET');
+            if (request.url.path == '/economy') {
+              return http.Response('{"data":{"yCoins":420}}', 200);
+            }
             expect(request.url.path, '/store/items');
             expect(request.headers['authorization'], 'Bearer token');
             return http.Response(
@@ -33,7 +36,7 @@ void main() {
                       'description': 'Authoritative description',
                       'rarity': 'rare',
                       'coinPrice': 777,
-                      'passExclusive': true,
+                      'proExclusive': true,
                     },
                   ],
                   'equipped': <String, Object?>{
@@ -57,7 +60,8 @@ void main() {
     expect(snapshot.ownedItemIds, contains('character-basic-pip'));
     expect(snapshot.items.single.name, 'Opy');
     expect(snapshot.items.single.price, 777);
-    expect(snapshot.items.single.passExclusive, isTrue);
+    expect(snapshot.items.single.proExclusive, isTrue);
+    expect(snapshot.items.single.passExclusive, isFalse);
     expect(snapshot.items.single.assetPath, isNotNull);
   });
 
@@ -112,6 +116,7 @@ void main() {
     expect(requests, <String>[
       'POST /store/purchases',
       'PATCH /store/loadout',
+      'GET /economy',
       'GET /store/items',
     ]);
     expect(snapshot.characterId, 'character-basic-pip');

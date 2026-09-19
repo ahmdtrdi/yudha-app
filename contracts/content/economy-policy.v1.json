@@ -32,6 +32,6 @@
     "planId": "pro-monthly",
     "durationDays": 30,
     "checkoutEnabled": false,
-    "exclusiveSkinIds": ["character-basic-pip", "character-rare-brock"]
+    "exclusiveSkinIds": ["character-legend-drakor", "character-rare-brock"]
   }
 }

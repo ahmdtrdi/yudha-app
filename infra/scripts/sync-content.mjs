@@ -45,7 +45,7 @@ export async function syncHiredPass(environment = process.env) {
   process.stdout.write(`${JSON.stringify({ catalogItems: catalog.items.length, season: seasonManifest.season.id, missions: seasonManifest.missions.length, rewards: seasonManifest.rewards.length })}\n`);
 }
 
-async function syncCatalog(client, catalog) {
+export async function syncCatalog(client, catalog) {
   const rows = catalog.items.map((item) => ({
     id: item.id,
     type: item.type === 'character' ? 'character_skin' : item.type,
@@ -54,7 +54,7 @@ async function syncCatalog(client, catalog) {
     rarity: item.rarity,
     coin_price: item.coinPrice,
     is_active: item.active,
-    is_pass_exclusive: item.passExclusive,
+    is_pro_exclusive: item.proExclusive,
   }));
   await client.upsert('store_items', rows, 'id');
 }

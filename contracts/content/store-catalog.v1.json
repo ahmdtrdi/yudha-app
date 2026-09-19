@@ -13,10 +13,10 @@
   ],
   "items": [
     { "id": "character-basic-squire", "type": "character", "name": "Ody", "description": "Ksatria muda yang tangguh dan selalu siap berlatih.", "rarity": "common", "coinPrice": 0, "active": true, "proExclusive": false },
-    { "id": "character-basic-pip", "type": "character", "name": "Opy", "description": "Pemanah lincah dengan serangan alam yang presisi.", "rarity": "common", "coinPrice": 500, "active": true, "proExclusive": true },
+    { "id": "character-basic-pip", "type": "character", "name": "Opy", "description": "Pemanah lincah dengan serangan alam yang presisi.", "rarity": "common", "coinPrice": 500, "active": true, "proExclusive": false },
     { "id": "character-rare-ignis", "type": "character", "name": "Ignis", "description": "Penyihir api gesit dengan rentetan bara yang membara.", "rarity": "rare", "coinPrice": 900, "active": true, "proExclusive": false },
     { "id": "character-rare-brock", "type": "character", "name": "Brock", "description": "Golem batu perkasa yang menghantam dengan tenaga magma.", "rarity": "rare", "coinPrice": 1100, "active": true, "proExclusive": true },
-    { "id": "character-legend-drakor", "type": "character", "name": "Drakor", "description": "Ksatria naga legendaris dengan kobaran api merah.", "rarity": "legendary", "coinPrice": 2200, "active": true, "proExclusive": false },
+    { "id": "character-legend-drakor", "type": "character", "name": "Drakor", "description": "Ksatria naga legendaris dengan kobaran api merah.", "rarity": "legendary", "coinPrice": 2200, "active": true, "proExclusive": true },
     { "id": "character-legend-luna", "type": "character", "name": "Luna", "description": "Penyihir bintang legendaris dengan kekuatan galaksi.", "rarity": "legendary", "coinPrice": 2500, "active": true, "proExclusive": false },
     { "id": "tower-garda-biru", "type": "tower", "name": "Garda Biru", "description": "Benteng batu klasik dengan panji biru.", "rarity": "common", "coinPrice": 0, "active": true, "proExclusive": false },
     { "id": "tower-benteng-bara", "type": "tower", "name": "Benteng Bara", "description": "Menara batu hitam yang diperkuat aliran magma.", "rarity": "rare", "coinPrice": 650, "active": true, "proExclusive": false },

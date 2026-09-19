@@ -43,6 +43,7 @@ class CosmeticItem {
     this.destroyedAssetPath,
     this.characterVisuals,
     this.passExclusive = false,
+    this.proExclusive = false,
   });
 
   final String id;
@@ -56,4 +57,5 @@ class CosmeticItem {
   final String? destroyedAssetPath;
   final CharacterVisualAssets? characterVisuals;
   final bool passExclusive;
+  final bool proExclusive;
 }

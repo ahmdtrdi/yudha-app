@@ -111,6 +111,7 @@ abstract final class GameEconomyCatalog {
       type: CosmeticType.character,
       rarity: CosmeticRarity.rare,
       price: 1100,
+      proExclusive: true,
       assetPath: 'assets/game/rare_brock_idle.png',
       characterVisuals: CharacterVisualAssets(
         idle: 'assets/game/rare_brock_idle.png',
@@ -131,6 +132,7 @@ abstract final class GameEconomyCatalog {
       type: CosmeticType.character,
       rarity: CosmeticRarity.legendary,
       price: 2200,
+      proExclusive: true,
       assetPath: 'assets/game/legend_drakor_idle.png',
       characterVisuals: CharacterVisualAssets(
         idle: 'assets/game/legend_drakor_idle.png',
