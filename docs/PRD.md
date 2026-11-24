@@ -1,8 +1,8 @@
 # YUDHA — Product Requirements and Architecture Contract
 
 > **Status:** Approved product contract; Learning V2 Gate 5 remains blocked by explicit decision debt
-> **Version:** 2.1
-> **Last updated:** 2026-09-05
+> **Version:** 2.2
+> **Last updated:** 2026-09-21
 > **Product timezone:** `Asia/Jakarta` (WIB, UTC+7)
 > **User-facing language:** Indonesian
 > **Audience:** Product, Mobile, Web, App Backend, Game Backend, Data, AI, Security, DevOps, Content, and QA
@@ -58,8 +58,10 @@ The MVP serves Indonesian CPNS and BUMN candidates who want repeatable practice,
 | **Normal completion** | A server-finalized activity that is not abandoned or invalidated and, for a match, is not ended by either player's surrender or disconnect. A future Solo session qualifies only with completion reason `policy_completed`. |
 | **Rank points** | Persistent, non-seasonal competitive/engagement progression used for leaderboard ordering and tier. Daily Lobby missions and Ranked results both change this balance; it can increase or decrease but is never reset and is floored at zero. |
 | **Energy** | Unit-based resource required for mode entry (2 Energy for Solo, Bot, Casual, Ranked, and Private). Free balance starts at and lazily refills to 10 on the first read or mutation of each WIB business day (one daily buffer without interday carryover; balances >10 from packs/ads retained). Completed eligible sessions refund 1 Energy. Rewarded ads support Energy claims. Unlimited for active YUDHA Pro subscribers. |
-| **Y-Coin** | Persistent, non-transferable virtual currency used for cosmetics, energy packs, Solo/Practice hints, and AI Interview sessions. Earned through Solo completions (subject to daily cap), Casual completions, Ranked, and verified rewarded ads. Planned commercial top-up, It never expires. |
+| **Y-Coin** | Persistent, non-transferable virtual currency used for cosmetics, energy packs, and Solo/Practice hints. Earned through Solo completions (subject to daily cap), Casual completions, Ranked, and verified rewarded ads. Planned commercial top-up; it never expires. Coin-funded Interview access is pilot compatibility only and must be disabled at commercial cutover. |
 | **YUDHA Pro** | Monthly subscription entitlement granting unlimited Energy, an elevated daily coin earning ceiling on eligible play, one exclusive skin selection on activation, and ad suppression. |
+| **YUDHA Max** | Rp69,000 per 30-day period; all Pro benefits plus three included voice Interview sessions per period, with no rollover. |
+| **Interview ticket** | Rp15,000 for one standalone voice Interview session, available to Free, Pro, and Max users. Separate from Y-Coin and included Max allowances. |
 | **Business day** | A calendar date in `Asia/Jakarta`. Servers store timestamps in UTC and convert them for day/week/season rules. |
 
 ---
@@ -76,11 +78,32 @@ The MVP serves Indonesian CPNS and BUMN candidates who want repeatable practice,
 
 The commercial economy model aligns subscription pricing, coin policies, top-up packaging, and platform assumptions with the financial model:
 
-- **YUDHA Pro Subscription Policy**: Monthly Pro provides a 30-day entitlement period. Under Policy 1, active subscribers receive an elevated daily coin earning ceiling across eligible play. An elevated earning cap is an earning ceiling through gameplay, not an automatic daily coin grant.
+- **YUDHA Pro Subscription Policy**: Pro costs `Rp39,000` for a 30-day entitlement period. Under Policy 1, active subscribers receive an elevated daily coin earning ceiling across eligible play. An elevated earning cap is an earning ceiling through gameplay, not an automatic daily coin grant.
 - **Core Pro Benefits**: Unlimited Energy across Solo, Bot, and all PvP modes (no reservations required), ad suppression (all interstitial and result-exit stubs suppressed; rewarded ads issue coins), one exclusive character skin selection on activation, and the Policy 1 elevated daily coin earning ceiling.
+- **YUDHA Max**: `Rp69,000` per 30-day period for all Pro benefits and `3` included voice Interview sessions. Included sessions reset each paid period, do not roll over, and are budgeted at 100% utilization. Unused allowance expires with the entitlement; a started session remains resumable under Section 7.
+- **Standalone Interview Ticket**: `Rp15,000` buys one voice Interview session without requiring a subscription. A Pro user buying three tickets pays `Rp84,000`, compared with `Rp69,000` for Max. Y-Coins do not grant commercial Interview access. Tickets and Max allowances have separate server-owned ledgers; use the expiring Max allowance first, then a purchased ticket, without double charging. Purchased tickets have no modeled expiry or breakage; refunded unused tickets are revoked.
+- **Automatic Ads**: Free users receive one automatic interstitial opportunity after every `10` eligible Solo/public Arena games, using the persistent per-user counter in Section 3.8. The interval is an approved product choice, not a claim that ads cover all infrastructure costs. Rewarded ads remain voluntary and separately modeled.
 - **Purchased Y-Coin Top-Up**: Planned real-money coin purchases are disabled stubs (`FEATURE_DISABLED`) during the pilot and are scheduled for commercial rollout alongside payments.
-- **Commercial Billing Assumptions**: Subscriptions and top-up billings assume standard platform/billing fees of `15.0%` (Google Play), a `0.0%` subscription refund allowance, a `2.0%` coin purchase refund allowance, and a `1-month` settlement collection lag.
-- **Engineering and Release Boundary**: Beta entitlements and pilot catalog stubs continue to follow server-authoritative policy versions until payment integrations and commercial gates pass. Structured paid preparation programs, separately priced interview packages, and paid Assessment benefits remain future proposals outside the active contract.
+- **Commercial Billing Assumptions**: The financial plan uses `15.0%` billing fees, `3.0%` refund allowances for subscriptions and Interview tickets, `2.0%` for coin purchases, and a `1-month` settlement collection lag. The ticket fee is an assumption subject to the actual consumable payment route and fee-tier eligibility. Refund allowances are financial estimates, not customer refund terms.
+- **Engineering and Release Boundary**: These prices, Max allowances, tickets, and the ten-game ad cadence are approved commercial requirements. Existing beta entitlements, coin-funded Interview APIs, and ad-placement stubs remain explicitly labeled pilot compatibility until payment, entitlement, migration, and advertising gates pass. Updating this document does not implement or enable production billing or ads. Structured paid preparation programs and paid Assessment benefits remain future proposals.
+
+#### 0.6.1 Pricing and HPP evidence
+
+The financial model's `Pitch Appendix` sheet presents approved prices separately from estimated HPP (delivery cost), with editable drivers and provenance. Its illustrative infrastructure allocation does not replace the operating forecast's existing hosting budget or add a second hosting expense.
+
+| Item | Planning value | Derivation and limitation |
+|---|---:|---|
+| Buffered voice Interview HPP | Approximately Rp5,243/session | v7 supplied reasoning + STT + TTS assumptions total Rp2,621.35, multiplied by a 2x uncertainty buffer once. Not a measured provider invoice; shared hosting, support, acquisition, and tax are separate. |
+| Ticket net revenue | Rp12,367.50/session | Rp15,000 x (1 - 3% refunds) x (1 - 15% billing fee). |
+| Ticket contribution before other expenses | Approximately Rp7,125/session | Ticket net revenue minus buffered voice HPP; not company net profit. |
+| Max upgrade contribution | Approximately Rp9,007/period | (Rp69,000 - Rp39,000) x 97% x 85%, less three buffered voice sessions. |
+| Illustrative Solo infrastructure HPP | Rp4.05/player-session | Railway USD20 + Supabase USD25 per month, at Rp18,000/USD, divided by 200,000 monthly player-sessions. |
+| Illustrative Arena infrastructure HPP | Rp5.85/player-session; Rp11.70/two-human match | Same Rp4.05 shared allocation plus Upstash Fixed USD10/month divided by 100,000 Arena player-sessions. |
+| Automatic ad yield at x = 10 | Rp1.35/eligible player-game | Rp15,000 publisher eCPM / 1,000 x 90% served/viewed / 10. eCPM and serving are unverified estimates, not guarantees. |
+
+The infrastructure example assumes 100,000 Solo sessions and 50,000 two-human Arena matches per month; Railway USD20, Supabase USD25, and Upstash Fixed USD10 cover the workload without additional compute, storage, bandwidth, tax, or other charges. It is a conditional equal-per-player allocation, not measured consumption or a demonstrated capacity result. The actual Upstash plan is not established by this example. Under these assumptions, ten-game ads do not fully fund gameplay infrastructure; subscriptions subsidize the difference. Replace the allocation with matched-period vendor bills, resource measurements, and mode-specific session counts before claiming actual HPP or ad break-even.
+
+Vendor pricing references checked 2026-09-21: [Railway](https://railway.com/pricing), [Supabase](https://supabase.com/pricing), and [Upstash Redis](https://upstash.com/pricing/redis). Railway Pro includes USD20 of usage in its USD20 minimum; Supabase Pro includes credits for one Micro instance in its USD25 base; Upstash's USD10 Fixed plan has capacity limits. Do not add included credits a second time. AI component prices and FX remain the supplied financial-model assumptions, distinct from the rounded infrastructure FX example.
 
 ### 0.7 Business measurement and validation
 
@@ -98,6 +121,8 @@ Commercial launch requires an approved event schema and reporting definitions wi
 | Payment and value feedback | Measure genuine purchase behavior at the offered price, voluntary upgrade/cancellation reasons, refunds, and renewal across preparation periods. |
 | Learning improvement | Compare unseen, comparable questions before and after preparation, with exposure controls, sample sizes, elapsed time, and attrition. Repeated-question accuracy or battle wins alone do not establish improvement. |
 | Interview delivery cost | Correlate provider usage and billed cost with text or live-voice sessions, including retries, failures, fallback, transcription input duration, generated speech, and reasoning usage. Report typical and heavy usage without retaining raw candidate audio for analytics. |
+| Interview tickets and quota | Separate tickets purchased, refunded/revoked, redeemed, outstanding, and Max allowance consumption. Recognize ticket revenue and AI cost on redemption/delivery; track cash settlement separately. Unvalidated ticket demand defaults to zero in the forecast. |
+| Automatic ads and gameplay HPP | Record deduplicated eligible results, persistent counter, due opportunities, served impressions, no-fill/errors, and publisher earnings separately from voluntary rewarded ads. Match Railway/Supabase/Upstash usage and bills to Solo sessions and Arena player-sessions; two humans in one match count as two player-sessions. |
 
 Forecast conversion, lifetime value, seasonality, and unit costs remain assumptions until supported by these observations. No universal conversion or retention threshold is asserted by this PRD; experiment success criteria must be declared before evaluation.
 
@@ -189,7 +214,8 @@ Register or Log In
     → Learning Dashboard/Profile: skill state, evidence, trends, pace, retention, activity
     → Competition: separate PvP analytics, rank, leaderboard, and history
     → Assessment Results: display future imported validation evidence
-    → AI Interview: spend 100 Y-Coin → text/voice session → evaluation/summary
+    → AI Interview: consume Max allowance or Rp15,000 ticket → voice session → evaluation/summary
+       ↳ pilot compatibility only: 100 Y-Coin → text/voice session; disabled at commercial cutover
 ```
 
 The learning loop is: **Solo/PvP/Assessment evidence → immutable attempts → versioned learner state → primary Solo recommendation → dashboards → new evidence**.
@@ -207,17 +233,17 @@ The learning loop is: **Solo/PvP/Assessment evidence → immutable attempts → 
 
 The following table describes the commercial access and monetization structure aligned with the financial model:
 
-| Capability | Free user | Active YUDHA Pro |
+| Capability | Free user | Active YUDHA Pro / Max |
 |---|---|---|
 | Mode Entry (Solo, Bot, Casual, Ranked, Private) | Costs 2 Energy (free refill up to 10 daily) | Unlimited Energy |
 | Energy Completion Refund | +1 Energy on normal completion | Preserved / unaffected |
 | Energy Store Packs | Energy packs exchangeable for Y-Coin | Available (unlimited active) |
 | Daily Coin Earning Ceiling | Standard daily cap (applies to Solo rewards) | Elevated daily cap across eligible play (Policy 1; no passive grant) |
 | Pro Exclusive Cosmetic | Preview only | Choice of 1 exclusive skin on activation |
-| AI Interview | Session charge in Y-Coin (text or live voice) | Same session charge |
+| AI Interview | Rp15,000 standalone ticket per voice session | Pro: same ticket price; Max: 3 included voice sessions/period, then same ticket price |
 | Character/tower Store | Buy with Y-Coin | Buy with Y-Coin |
 | Rewarded Ads | Can claim Energy or Y-Coin (subject to daily cap) | Rewarded ads award Y-Coin (daily cap) |
-| Result-exit ad stub | Triggered at defined safe breaks | Suppressed while Pro is active |
+| Automatic result-exit ad | One opportunity every 10 eligible Solo/public Arena results; production SDK required | Suppressed while Pro or Max is active |
 | Paid Y-Coin Top-Up | Catalog top-up packages (proposal; FEATURE_DISABLED during pilot) | Same catalog |
 
 YUDHA Pro never changes learning content, evidence classification, recommendation priority, battle mechanics, matching, ranking, or Interview quality.
@@ -315,12 +341,17 @@ For eligible unseen-independent evidence, `smoothedAccuracy = (correct + 2) / (a
 - It exposes paginated entries and an authenticated “my rank” result.
 - Daily mission and Ranked result mutations appear only after their authoritative transaction commits.
 
-### 3.8 Ad-placement stubs
+### 3.8 Automatic ads after ten eligible games
 
-- A free user triggers an ad-placement stub only when leaving an eligible Solo Results screen or any server-finalized public Casual/Ranked Results screen, including a surrender or disconnect result. During compatibility, an eligible Solo result is a fully completed five-question Practice result; after Gate 5, it requires `policy_completed`.
-- An active Hired Pass suppresses the stub entirely.
-- No ad/stub is triggered during a question, battle, Private match, Store purchase, Hired Pass claim, or paid Interview.
-- The stub returns immediately and never blocks navigation. Production ad SDK integration is post-MVP.
+- Maintain one server-authoritative counter per free user across eligible Solo and public Arena (Casual/Ranked) results. Every tenth eligible result creates one automatic interstitial opportunity. This is a game counter, not a question counter or a counter per mode/device.
+- Count a completed Solo session once (`policy_completed` after Gate 5; a fully completed five-question Practice session during compatibility), or a server-finalized public Casual/Ranked match once per participating user, including a surrender/disconnect result. Deduplicate by source session/match and user. Failed matchmaking, replayed results, Bot, and Private rooms do not increment this counter.
+- Persist the remainder across app restarts, logouts, devices, WIB day boundaries, and visits. Do not reset it daily: the standard free refill alone supports nine normally completed games, so a daily ten-game reset would let those users avoid automatic ads indefinitely.
+- Present the due ad only at the safe transition when leaving the associated Results screen for another in-app screen. Never interrupt a question, live battle, result review, paid Interview, or app exit. Each due opportunity may be attempted at most once; no-fill/errors or an unavailable safe transition skip that opportunity without blocking navigation or building a backlog of catch-up ads. Retain the modulo-ten remainder for later games.
+- Active Pro, Max, and the existing active Hired Pass ad-suppression entitlement suppress automatic opportunities. Games played while suppressed do not accrue ad debt; preserve only any pre-existing free-user remainder.
+- Automatic means an interstitial can appear without a reward opt-in. It does not require a click or a forced full-video completion; preserve the network's close/skip controls. Never stack an interstitial immediately after another full-screen ad; skip a conflicting opportunity.
+- Rewarded ads remain an explicit voluntary exchange for Energy/Y-Coin under Section 6.5. They have their own claims, impressions, caps, and revenue; do not count one impression in both formats or derive reward demand from automatic-ad frequency.
+- The pilot stub returns immediately and never blocks navigation. Production SDK, server counter, entitlement suppression, verification, and instrumentation are implementation/release work, not functionality delivered by this PRD update.
+- Acceptance: 9 eligible games create no opportunity; the tenth creates one; replaying that result creates none; 6 Solo + 4 public Arena results create one; day/restart boundaries do not erase progress; paid/suppressed, Bot, and Private play do not increment; no-fill permits navigation; and opportunities never appear mid-game.
 
 ---
 
@@ -518,7 +549,7 @@ These are behaviorally required models, not a replacement for executable migrati
 | `hired_pass_entitlements` | At most one entitlement per user/season; authoritative premium activation and expiry |
 | `user_hired_pass_progress` | Per-user season Pass Points, mission progress, and awarded periods |
 | `hired_pass_reward_claims` | Idempotent free/premium milestone claims and awarded Y-Coin/item snapshot |
-| `interview_session_charges` | One successful `100 Y-Coin` debit per session and idempotency key |
+| `interview_session_charges` | Pilot: one successful `100 Y-Coin` debit per session/idempotency key. Commercial target: one linked Max allowance or purchased-ticket redemption, never both; migration required. |
 | `skill_taxonomy_versions` / `skills` | Immutable versioned SME-approved taxonomy metadata and stable skill identities |
 | `question_skill_mappings` | Versioned question-to-skill mappings with effective versions and audit provenance |
 | `solo_sessions` / `solo_session_questions` | Target Solo mechanics, selection, delivery-policy snapshot, authoritative question-open/timer state, and completion reason |
@@ -689,7 +720,7 @@ POST   /pro/beta-activate
        { idempotencyKey, planId, skinId? }
        → { activated, replayed, planId, expiresAt, coinsGranted: 0, skinGranted, pro }
 
-# AI Interview
+# AI Interview — pilot compatibility response; commercial ticket/quota schema requires migration
 POST   /interview/sessions
        { idempotencyKey, companyId, targetRole, mode,
          language: "id", responseStyle }
@@ -917,13 +948,14 @@ Rank points are floored at zero. The Ranked delta commits before a first-of-day 
   - Stubs in pilot: `paidYCoinPackages` remain disabled catalog stubs (`FEATURE_DISABLED`) with Indonesian copy until payment gateway release.
 - **Spending Sinks**:
   - Solo / Practice question hints (authoritative deduction).
-  - AI Mock Interview session creation (atomic charge with idempotency, same for text and live voice).
+  - AI Mock Interview session creation only in the legacy pilot (atomic coin charge); commercial sessions consume Max allowance or a purchased ticket, not Y-Coin.
   - Energy pack purchases.
   - Character & tower cosmetic skin purchases.
 
-### 6.4 YUDHA Pro monthly subscription
+### 6.4 YUDHA Pro and Max monthly subscriptions
 
 - YUDHA Pro is a premium monthly subscription product (`pro-monthly`, duration 30 days).
+- Commercial pricing is Rp39,000 for Pro and Rp69,000 for Max per 30-day period. Max inherits all benefits below and includes three voice Interview sessions under Sections 0.6 and 7.1; additional sessions require Rp15,000 tickets. The existing beta activation contract does not yet implement Max or ticket purchases.
 - **Core Benefits**:
   - **Unlimited Energy**: Free entry into all Solo, Bot, and PvP modes without energy consumption or reservations.
   - **Elevated Daily Coin Earning Ceiling (Policy 1)**: Daily coin earning ceiling across eligible play is elevated compared to free play. There is no automatic daily coin grant; users earn toward the ceiling through active play.
@@ -961,9 +993,10 @@ Rank points are floored at zero. The Ranked delta commits before a first-of-day 
 
 ### 7.1 Session access and lifecycle
 
-- Every new session costs exactly `100 Y-Coin` for free and YUDHA Pro users.
-- Session creation requires an idempotency key, sufficient balance, active company context, target role, mode, language `id`, and response style.
-- In one transaction, the server debits `100`, records the coin ledger/charge, creates the session/context snapshot, and persists a deterministic opening question. Any failure before all four commit rolls back the debit and session.
+- Commercial voice sessions consume one available Max-period allowance or one standalone `Rp15,000` Interview ticket. Pro includes no Interview allowance; Max includes three per 30-day period. Use available expiring allowance before a purchased ticket. Ticket and subscription customers receive the same session length and evaluation quality.
+- Session creation requires an idempotency key, sufficient applicable allowance/ticket balance, active company context, target role, mode, language `id`, and response style.
+- In one transaction, the server consumes exactly one allowance/ticket, records its source and charge, creates the session/context snapshot, and persists a deterministic opening question. Failure before commit rolls back the consumption and session. Reconnection/retry resumes the existing session without another redemption. Failed creation never consumes a ticket.
+- Legacy pilot compatibility still debits exactly `100 Y-Coin` and returns `chargedYCoins: 100` through the existing API. This is not the commercial access policy. The new entitlement/charge contract and migration must land before ticket/Max launch; free earned coins must not unlock commercial Interviews.
 - The opening question is the Indonesian template `Ceritakan tentang diri Anda dan mengapa Anda tertarik pada posisi {targetRole} di {companyName}?`, populated from the validated request and context snapshot without an LLM call.
 - Retrying the same creation key returns the existing session and charge. A session is never charged twice.
 - A successfully created/resumable session is not automatically refunded for a later provider or speech failure.
@@ -1000,7 +1033,7 @@ The final summary contains overall/dimension scores, evidence-based strengths, i
 
 ### 7.4 Text and voice behavior
 
-The current primary interview modes for product and financial planning are text and live push-to-talk voice. Live voice uses a chained speech-to-text, text reasoning/evaluation, and text-to-speech pipeline: audio chunks travel during capture, but transcription and answer evaluation follow answer completion. It is turn-based and does not imply a native continuous speech-to-speech provider. Recorded upload is a fallback transport within the voice experience, not a separately priced third mode. Voice cost assumptions must include fallback/retry usage and actual input/output speech duration; native speech-to-speech is not the current baseline.
+The commercial offer and financial model price live push-to-talk voice Interviews. Text remains a supported pilot transport and an in-session fallback, not a separately priced commercial product. Live voice uses a chained speech-to-text, text reasoning/evaluation, and text-to-speech pipeline: audio chunks travel during capture, but transcription and answer evaluation follow answer completion. It is turn-based and does not imply a native continuous speech-to-speech provider. Recorded upload is a fallback transport within the voice experience, not a separately priced third mode. Voice cost assumptions must include fallback/retry usage and actual input/output speech duration; native speech-to-speech is not the current baseline.
 
 - Text answers support ordinary REST and SSE streaming. Both paths use the same idempotency claim and persist the same final turn.
 - Recorded voice remains a failure fallback that uploads audio, receives a transcript, lets the user review/edit it, and submits the reviewed text as the answer.
